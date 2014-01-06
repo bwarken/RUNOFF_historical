@@ -1,0 +1,1633 @@
+.!PS 64,72
+.!SPR 0,2,5
+.AP
+.FLAGS UNDERLINE
+.NO NUMBER
+.LIT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Trevor Moore                                           Chris Bond
+  John Morris                                           Jacky Quinn
+
+  ICI Petrochemicals Division           Large Systems Skills Centre
+  Wilton                                                  DEC Leeds
+  Cleveland                                               Yorkshire
+  ENGLAND                                                   ENGLAND
+
+
+
+
+
+
+
+
+
+
+
+.EL
+.PG
+.LIT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                               
+                               ABSTRACT
+
+       +--------------------------------------------------------+
+       !                                                        !
+       !   This paper  describes  the  conversion of a  large   !
+       !   production data base  and program from a  DEC 2060   !
+       !   to a VAX 780.  The data base is a DBMS20 data base   !
+       !   and the program is written in  COBOL using TRAFFIC   !
+       !   for its screen handling.     The converted product   !
+       !   uses DBMS32, COBOL and TDMS.                         !
+       !                                                        !
+       !   The paper concludes that in this instance the con-   !
+       !   version was achieved with relative ease.  The pen-   !
+       !   ultimate section makes some suggestions about  how   !
+       !   future integration requirements might be met while   !
+       !   the final section draws some general conclusions.    !
+       !                                                        !
+       +--------------------------------------------------------+
+
+
+
+.EL
+.PG
+.NUMBER 1
+.BL 12
+.HL 1 INTRODUCTION
+
+This PAPER describes the process of taking a large program suite
+written to run under TOPS20 on a DEC2060 and converting it to run
+under VMS on a VAX780.  Because
+the program uses DBMS20 this conversion also involved the transfer of the whole
+database structure and most of the data for the DEC20 to the VAX.  Because it
+describes the conversion of one specific program to do a specific job this note
+should not necessarily
+be taken as describing the process by which other conversion
+exercises are tackled; rather it is a case study and as such will provide the
+reader with guidelines should he wish to tackle a similar exercise.  The main
+body of the note describes the conversion in general terms; specific and more
+technical examples refered to in the main body of the text
+are included as appendices.
+
+The reader is assumed to have a working knowledge of TOPS20,
+COBOL-20, DBMS20 and TRAFFIC20 but is not assumed to have more
+than a passing acquaintance with the VAX equivalents.
+
+.HL 1 OBJECTIVES OF EXERCISE
+
+
+The objective of the exercise was to do a straight conversion from the one
+system to the other.  This means that no redesign was to be done (in fact some
+was done for reasons which will be explained) and that existing bugs on the 20
+version would not be deliberately fixed (indeed in porting the software we
+did actually port the bugs as well!).  One corollary of this is that no attempt
+has been made to tune the converted product; the database design for example
+more or less reflects 
+the strucure on the DEC20.  
+
+.HL 1 BACKGROUND
+
+
+ICI is one of the largest chemical companies in the world.  Petrochemicals and
+Plastics Division is one of its divisions; the Division employs 15000 people.
+The Division's major manufacturing base is at
+Wilton in Cleveland, England and comprises a number of very capital intensive
+continuous process chemical plants.  Chemical plants cost a lot to run and in
+order to improve efficiency, productivity, energy consumption etc
+operating parameters are
+continually monitored.  Critical parameters are measured
+in real time by a wide variety of machines (mainly DEC) including 2 VAX780s.
+The Production Management System (PMS) is designed to store and allow the rapid
+retrieval of data associated with the operation of the chemical plants.  The
+system runs on a 2060 and collects its data from the real time machines, from
+manual input and from regular calculations.  Data can be retrieved either
+directly from the data base or can be transferred - using Robins (VT180s) and a
+COBOL-callable KERMIT - to floppy disks and examined using CP/M software.
+
+The program suite 
+which was converted is called PLNTIN and is the major input 
+facility
+in PMS.  It is also the one which has absorbed the most effort both
+in design and performance terms.  Appendix A describes in outline the function
+of the program and the design of the data base.  Appendix B describes the
+structure of the program suite and its component modules
+and describes the
+functions of the major modules.
+
+
+.HL 1 ORIGINS OF EXERCISE
+
+
+In mid-1983 ICI 
+began to evaluate its options for a continuing computing strategy.  
+ICI recognised that there 
+were three distinct types of production
+system:
+
+.LM +5
+.RM -5
+.LIST
+.LE;Established systems
+.BREAK
+.BL
+ICI has many systems which are in
+maintenance mode running on 2060's.  
+These systems can satisfactorily remain where they are
+since hardware and software support for the KL is to continue.
+.LE;New systems
+.BREAK
+.BL
+ICI felt that new systems with a long life expectancy
+could not reasonably be put on a machine whose
+future was obviously finite.  They would be designed and implemented on
+other hardware - possibly the VAX.
+.LE;Developing systems
+.BREAK
+.BL
+These systems were the problem.  Clearly there was little
+point in continuing to develop long term a system which was 40 man years
+into a 100 man year development cycle.
+.END LIST
+.RM +5
+.LM -5
+
+It was in addressing the developing systems that the conversion feasibility
+study emerged.  One of the problems that ICI was worried about was the amount
+of retraining which might be necessary both for programmers and analysts
+and also - most importantly - for users.  ICI wanted ideally to have a system
+on the VAX which was identical to the system on the 20 in every respect.
+In fact the conversion
+came very close to achieving that ideal and without too much difficulty.
+
+
+.HL 1 EARLY CONSIDERATIONS
+
+
+Early on in the process - before Digital was involved - ICI identified 6 areas
+of concern
+
+.LM +5
+.RM -5
+.LIST
+.LE;Languages
+.BREAK
+.BL
+PLNTIN is written in COBOL Version 12b. Since ANSI standards for COBOL are
+fairly rigidly enforced few if any compatibility problems were envisaged in
+this area. (COBOL Version 13 will provide the programming constructs - such
+as in-line PERFORMS, END-IF etc - that are missing from Version 12b but
+present in VAX COBOL.)
+.LE;Databases and Files
+.BREAK
+.BL
+ICI quickly discovered that although DBMS32 was a
+CODASYL database it was different from DBMS20.  At the programmer level
+some retraining would be necessary.  
+It was not felt that sequential and relative files would
+present a problem.  PMS does not use ISAM files.
+.LE;Screens
+.BREAK
+.BL
+This was rapidly identified as being the potential trouble spot.
+Screen handling uses TRAFFIC Version 4.0. This is different and more
+powerful in some important respects (notably data input validation) than
+TDMS (and, in fact, than TRAFFIC version 2.0).
+The decision was made to use TDMS as this follows Digital's 
+mainstream screen product development direction.
+It might have been easier to
+use FMS but in fact TDMS can be made to emulate TRAFFIC and FMS.
+.LE;IPCF - Interprocess Communication Facility (IP20)
+.BREAK
+.BL
+Much communication between processes is done by sharing memory and due
+to virtual address space restrictions on the 2060 (we only use section 0
+of course) considerable use is made of IPRUNI (ie CFORK%, SFRKV% 
+and WFORK%).
+It was quickly demonstrated that VMS mailboxes handle this aspect nicely and
+that subprocesses can be spawned on the VAX.
+.LE
+Assembler
+.BREAK
+.BL
+ICI has many assembler routines written in MACRO36 but
+fortunately these are all small. In general these routines just
+implement a couple of JSYSes or
+activate the interrupt system.  As it happened all these could be handled
+by VMS system services called directly from COBOL.  In fact since the
+conversion ICI has worked on converting its only large MACRO36 program to
+MACRO32 and 'C' in parallel.  While the conversion to 'C' is relatively
+straightforward (although actually a rewrite) the conversion to MACRO32 is
+not difficult; for instance JSYS calls 
+can be replaced by subroutines, SETZM by CLRL and so on.
+.LE;Operating System
+.BREAK
+.BL
+ICI felt there are some mainly operational and 
+administrative
+shortcomings within VMS compared with TOPS20.
+For example queuing of mount requests, archiving and
+retrieval are things which one might expect to find in a large 
+time-sharing operating system. However, consideration is being
+given to the inclusion of these and other facilities in future versions
+of VMS.
+.END LIST
+.LM -5
+.RM +5
+
+These considerations - together with the formation of Digital's UK Large
+Systems Skills Centre at Leeds (70 miles away from ICI Wilton) - led rapidly to
+a team being set up to do the conversion.
+
+.HL 1 METHOD OF APPROACH
+
+The method of approach was to tackle the conversion in two separate but
+overlapping stages.
+
+.BL
+.LIT
+Stage I  - To convert and implement the data-base structure on the VAX
+           and to transfer data out of the 20 data base and into the 
+           VAX data base.
+
+Stage II - To convert, compile and test the programs on the VAX.
+.EL
+
+.HL 1CONVERSION OF THE DATA BASE
+
+As it turned out conversion of the data base was
+accomplished with relative ease. There are several
+conceptual differences between DBMS32 and DBMS20. Specific examples include the
+different implementation of CALC records. On the VAX every CALC record must be
+the member of a set whose owner is the SYSTEM record. The VAX maintains a
+system record on every page of the physical data base. In this sense the SYSTEM
+record behaves like a CALC CHAIN HEADER in DBMS20.
+Another example is that there is no
+concept of a REALM in DBMS20. In designing the data base for the 2060 ICI had
+taken full advantage of the physical record placement clauses allowable in the
+DDL description. These cannot be completely mirrored in DBMS32 although
+shadow clustering allows some physical design flexibility. These
+differences (and this is not an exhaustive list) had to be learnt by the ICI
+people.
+
+The next stage was to redesign the data base in DBMS32 terms. This was done
+with DEC Valbonne confirming the ICI suggestions. The result was a converted data
+base schema description which at this stage was in source form on the 2060. (It
+is worth saying that in the early stages of the exercise all source was written
+on the 2060 and compiled on the VAX!!) The schema was moved to the VAX by tape
+transfer. Initially CHANGE was used but this resulted in difficulties. We
+actually ended up using the method recommended in the TOPS20 manuals (see
+Tape Processing Manual ref AA-H180A-TM, Chapter 6).
+Appendices
+C and D describe this method in more detail than the manual.
+
+The standard PMS unload program was modified to allow data to be unloaded in
+ASCII form eg COMP fields were unloaded as DISPLAY and a VAX reload program was
+written to load the data into the VAX. Again data was transfered by tape. As it
+happened the loading of the data base on the VAX worked first time! The only
+difficulty we did have was that the VAX is more stringent in its data
+conversion, typing and checking than the 2060. For example it would get upset by embedded
+nulls in packed decimal fields.
+
+Writing the unload programs brought out the differences in DML between DBMS20
+and DBMS32. These are few; the main ones are the different 
+way in which a transaction
+is delimited and the
+way in which currency is handled. Record currency was the main
+area of difficulty in converting PLNTIN itself. The action of KEEPLISTs in
+DBMS32 does not mirror exactly the action and effect of the
+MOVE STATUS DML command in DBMS20.
+The VAX COBOL 
+COMMIT statement releases currency under version 2. (Under version 3 COMMIT
+RETAINING [currency]
+is implemented but this may affect lock status.) Appendix E lists
+one or two of these examples in a comparitive way.
+
+At this stage the importance of DBQ became apparent. Although we had no
+programs we could still
+look at - and modify - the data in the data base. There is no
+supported utility equivalent to DBQ
+on the 2060. There is a utility called XDML which
+does what DBQ does which ought to be released as DBQ20. This, of course,
+supports recognition - including recognition on data names!! This would
+have been
+useful in this exercise as one record name - OPERATIONAL-BDY-RECORD - is unique
+in the first two characters!! We now understand that XDML is to be bundled with
+version 6.1 of DBMS20.
+
+The exercise to this stage was
+very much a learning exercise. It was also one off; once the data base
+conversion is done and the lessons learned there is no need to go
+through it again.
+
+.HL 1CONVERSION OF THE PROGRAMS
+
+We split the various modules which comprise PLNTIN up into 3 categories as
+follows:
+.LIST
+.LE;modules which do not use DBMS and do no screen i/o
+.LE;modules which do use DBMS but do no screen i/o
+.LE;modules which do use DBMS and do screen i/o
+.END LIST
+
+The first step we took to convert COBOL code was to run a raw COBOL20 program
+of category 1 above (ie no DML or screen calls)
+through the VAX COBOL compiler. This pointed up basic syntactic differences
+such as VAX COBOL's dislike of ID for IDENTIFICATION. In addition to the
+information we got from this we had gathered much information from the data
+base conversion. At about this time a Digital integration
+document was issued which listed differences between the two COBOLs.
+A selection of the differences we found is contained in Appendix F.
+
+For the next stage we set as a target the achievement of a
+clean compilation of everything. This we achieved by the rote replacement of
+syntactic differences the one for the other. This is probably not the way one
+would do a conversion in practice - more thought is advisable. Calls to
+assembler routines - like TRAFFIC calls - were commented out. We very quickly
+ended up with a set of cleanly compilable programs most of which were
+non-functional because we had done nothing about screen i-o.
+
+One point worth making here is that we had been a little worried about the
+effect of the different word size on the two machines. In this particular
+exercise we had two reasons for concern (neither of which were justified as it
+happened). First much use had been made of the fact that PIC 9(10) COMP fits
+into 36 bits. So on the 2060 many numeric codes were based on, say, the
+concatenation of two 5 digit numbers. We had to convert to DISPLAY to get
+round this (you can only get PIC 9(9) COMP into a 32-bit word!) which uses more
+space on disk (and insignificantly in memory) but which doesn't cause any
+technical difficulty. Since data type conversion is all microcoded on the VAX
+there may not be any significant performance penalty.
+The second area of concern was that PLNTIN actually set
+the bits in a word and used the bits as flags. To set bit 0 the program would
+add 1 to a variable to set bit 4 it would add 16 and so on. In fact this rather
+primitive idea converted as it stood to the VAX.
+
+On reflection,a number of lessons were learned from this process.
+The quality of the 
+code being converted was variable and we found that well structured code was
+easier to convert than poorly structured code.
+Poorly written and poorly structured code is more difficult 
+to convert than good code. This is particularly true
+in the screen conversion area where some restructuring may be 
+necessary.
+
+The act of conversion does, however,
+present an opportunity to look at program structure and content.
+When converting it is important to examine the code.
+This is partly to gain some insight into the way 
+the original programmer worked and thought but also to assess any 
+potential difficulty. Code with neither screen or data base calls 
+presents little or no difficulty. Code with only DML - and no 
+screen calls - becomes straightforward once a standard error 
+handling procedure is decided.
+
+It is possible to break the screen conversion procedure down. When 
+examining the nature of the screens it is important to consider:
+.LM +5
+.LIST
+.LE;how much input and output of fields is required
+.LE;whether the forms access more than one record
+.LE;what use is made of special function keys
+.LE;how much and what sort of help is presently given at run-time
+.END LIST
+.LM -5
+
+.HL 1 SCREEN CONVERSION
+
+As remarked above we had anticpated that the screens would cause us the most
+trouble. They did; but not as much as we had feared.
+
+PLNTIN uses TRAFFIC20 (the new version 4.0).
+Unfortunately it does no TRAFFIC
+section reads but gets all its data by reading a field at a time. On the face
+of it replacing a section read in TRAFFIC by a request in TDMS would have
+worked. But the way PLNTIN is written it gets information
+a field at a time. So for
+example consider this screen:
+
+.BL
+.TEST PAGE 15
+.LIT
+
+                +---------------------------------------+
+                !                                       !
+                !             SAMPLE SCREEN             !
+                !                                       !
+                !            Enter name: ______         !
+                !             Enter age: ___            !
+                !  Enter marital status: _              !
+                !                                       !
+                !                    OK? _              !
+                !                                       !
+                +---------------------------------------+
+
+.EL
+.BL
+
+TRAFFIC would enable you to set this up as a section and read it in one fell
+swoop (go). TDMS works like that and such a use of TRAFFIC might have made the
+conversion easier. Unfortunately PLNTIN would read the screen like this:
+
+.BL
+.TEST PAGE 20
+.LIT
+
+                          Paint screen
+
+        +->  not  +-----> Read name
+        !    OK   +-----  Validate name   ---------+
+        !                                          !
+        !    not  +-----> Read age                 !
+   try  !    OK   +-----  Validate age    ---------+
+        !                                          !     allow panic
+  again !    not  +-----> Read status              !---->exit on
+        !    OK   +-----  Validate status ---------+     <UPARROW>
+        !                                          !
+        !    not  +-----> Read OK                  !
+        !    OK   +-----  Validate OK     ---------+
+        !
+        +---------------  Act on OK
+                              !
+                              !
+                              V
+                          continue
+
+.EL
+.BL
+
+where the read statements were not contiguous in the soure file. TDMS would
+want to say:
+
+.TEST PAGE 6
+.LIT
+
+              not  +----->  Do request
+              OK   +-----   Validate data
+
+.EL
+
+There are a number of problems here. TRAFFIC version 4 allows the inclusion of
+field validation (vet) routines. 
+These are like the User Action Routines available in FMS
+and allow validation of the input to a field at the time it is input.
+So, for example, as soon as the name is read the data base can be checked for
+existence and the field reread as necessary. 
+ICI feel that TDMS would be a much stronger product
+if it had the ability to perform user-defined field-level validation
+checks.
+Since TRAFFIC validates field by field, the user gets feedback (when
+necessary) immediately he has completed a field.
+With a TDMS request he must type in the whole screen
+(request). This can mean that he types a lot of data in that he would not have
+typed in had he had a response earlier.
+
+This would not have
+met our criterion of having the converted product look and feel
+like the original. The obvious way round this is to generate a request for each
+field read. Since requests are stored in a run-time library we thought that
+there would be a significant performance penalty in doing this. As it happens
+TDMS has the facility of acting on data items that it calls 'control fields'.
+These enable a single request to do different things according to how the
+control field is set at the outset. We mapped the TRAFFIC section numbers onto
+a control field which caused the TDMS request to mimic the action of TRAFFIC.
+Appendix H describes in detail how this is done and gives coding examples.
+
+This method, although an elegant solution to the problem of a rapid
+conversion, is still
+not as runtime efficient as using TDMS as it was designed to be used.
+This solution was applied to
+the INPUTR module which is where the data is actually input. The PLNTIN module
+was tackled by using TDMS as it was designed to be used. This actually resulted
+in some fairly difficult restructuring but the result was screens which
+painted more smoothly. Appendix G describes the different approaches in more
+detail.
+
+.HL 1TESTING THE PROGRAMS
+
+Testing the programs fell into two stages: testing the screen flow and testing
+the data updates.
+
+Screen flow testing (ie testing the superficial program flow logic)
+was done as the screens and requests were developed. This
+proved to be relatively time consuming if not particularly difficult. The major
+difficulty was in understanding the original code rather than in implementing
+it. An example of the sort of problem at this stage was 
+where a field was not rewritten in
+reverse video when it had failed validation. 
+
+We had to give some thought to the use of function keys. TRAFFIC allows the
+programmer to pick up, for example, the arrow keys. TDMS does not recognise
+arrow keys but uses the GOLD (PF1) key followed by another key.
+This is the only significant difference
+between the converted program and the original product .
+As an example, GOLD-X on the VAX replaces UP-ARROW on the 2060 as the
+program abort key. Appendix I describes the use of special 
+function keys in more detail.
+
+Testing that data base updates have been properly processed
+is most important. By and large because this involved no restructuring
+of code the conversion worked first time. It turned out that the one or two
+bugs we found here were present on the 2060 version. But here again DBQ proved
+an invaluable aid.
+
+.HL 1 ASSEMBLER ROUTINES
+
+All assembler routines were replaced by VMS System Services which means that
+the VAX version uses no assembly level code. In particular a MACRO20 routine to
+submit a job to the batch queue is replaced by a call to LIB$SPAWN to
+execute a DCL command which submits the job. Appendix J
+gives one or two examples.
+
+.HL 1REFLECTIONS
+
+At the end of the conversion exercise ICI were relieved to discover that it
+had been less painful than they had anticipated. But there are a
+number of comments one might make both in terms of establishing forward 
+compatibility standards and in terms of tools
+and utilities which might help the movement of data and programs
+between the 20 and the VAX.
+
+.LIST
+.LE;VMS help is very good but it involves more keystrokes than
+the 20. The in-line help facility ('?')was sorely missed.
+.LE;TDMS would be stronger if user-defined, field-level could be set up. 
+Form definition and modification
+within TDMS is easier than within TRAFFIC.
+.LE;VMS needs some convenient - and supported - way of handling standard
+administrative and operating tasks such as tape and disk mounts, archiving,
+retrieval etc.
+.LE;XDML should be finished and released as DBQ20 as soon as
+practicable.
+.LE;In the light of the recent release of the DBMS32 load/unload facility, 
+a useful tool would be an unload program on the 20 which 
+would unload a DBMS20 data base into a format suitable for the 
+VAX load program.
+.LE;The ability to set breakpoints in the VAX COBOL source
+debugger at lines is a significant aid to debugging. The same
+feature in the 20 COBOL (and other) debuggers should be
+incorporated.
+.END LIST
+
+.HL 1 CONCLUSIONS 
+
+.LIST
+.LE;The conversion used no assembler. This was important to ICI who
+have no systems programmers as such.
+.LE;It is possible to mimic TRAFFIC with TDMS.
+.LE;The COBOL and DBMS software is sufficiently similar to make conversion
+fairly straightforward.
+.LE;An exercise like this gives an opportunity to 
+ask anew questions about program
+structure, design and content.
+.LE;At the outset ICI thought they would not miss recognition - they did!
+.LE;Quality of code is important. 
+.LE;The second method of screen conversion was quicker
+and more simple to implement. (See Appendix G.)
+.LE;VMS is a good operating system to work with; it is just
+different from TOPS20.
+.LE;But the bottom line is that the conversion worked and it worked well.
+.END LIST
+.PG
+
+.APP FUNCTION OF PMS DATA BASE AND PLNTIN PROGRAM
+
+PMS is the Production Management System. It is used to monitor the performance
+and operation of large chemical plants.
+PLNTIN is possibly the most important of all the PMS programs. It is by using
+this (or one of a number of flavours of the same thing) that PMS collects most
+of its data. The other method of data collection is via a link to two PDP-11's
+which get information from the data loggers and real-time VAX780's
+on the plants.
+
+At its heart the data structures of PMS are straightforward. It is only the
+detail which clouds the issue. A chemical manufacturing complex (called a
+WORKS) can be considered as a hierarchy of smaller components. These components
+are known as OPERATIONAL BOUNDARIES (more usually OB's). The hierarchy of OB's
+is refered to as the BOOB (Bill Of Operational Boundaries). An OB may be a
+whole plant or it may be a single pump. But in general an OB is composed of a
+number of smaller OB's. For example the NYLON OB has component OB's called
+SOLVENTS and ACIDS (among others). At the bottom of the heap are some 'element'
+OB's which have no components. These have no special significance.
+
+The most important attribute an OB may possess is that it may have associated
+with it a number (possibly zero) of MEASUREMENTS. A measurement is something
+that can have associated with it a time series of VALUES or READINGS. The terms
+'VALUE' and 'READING' are used interchangeably.
+
+So for example the SOLVENTS OB has some measurements called, say, YIELD and
+MAKE. Each of these measurements has a value for a series of times - there is a
+January YIELD a February YIELD and so on.
+
+Values can be of one of two types - CALCULATED or RAW. Raw data is read by
+PLNTIN (or one of its flavours) or read 
+from a data logger. Calculated values are
+calculated by CALCNS.
+
+The reading of certain raw data is the objective of PLNTIN. PLNTIN needs to
+know for which measurements it needs to get values. There are LISTS of
+measurements. Everyone who uses PMS is registered within the data base and some
+users may have INPUT LISTS. An INPUT LIST is a set of measurements which is to
+be read. An input list may be SCHEDULED - in which case there is a specific
+time at which it must be read - or UNSCHEDULED - in which case there isn't.
+
+In CODASYL network data base terms because one LIST can have many MEASUREMENTS
+and one MEASUREMENT could be on many LISTS we need a link record. This record
+is called a MEASUREMENT LIST ENTRY (MLE or more affectionately Emily) and
+is central to the PMS data base. There are also OUTPUT LISTs but these are used
+by other reporting programs. Figure 1 below describes a much simplified view of
+the data base structure.
+
+.TEST PAGE 30
+.LIT
+
+
+
+       +---------+        +---------+                   +---------+
+       | OB      |------->| BOOB    |                   | USER    |
+       |         |------->| LINK    |                   |         |
+       +----+----+        +---------+                   +----+----+
+            !                                                !
+            !                                                !
+       +----V----+                                      +----V----+
+       | MEAS    |                                      | LIST    |
+       |         |                                      |         |
+       +--+---+--+                                      +----+----+
+          !   !                                              !
+          !   !                                              !
+          !   !                                              !
+          !   !                   +---------+                !
+          !   +------------------>|  MLE    |<---------------+
+          !                       |         |
+          !                       +---------+
+     +---------+
+     | READING |
+     |         |
+     +---------+
+
+
+                          Figure 1
+
+
+.EL
+
+
+Every reading (raw or calculated) must be validated before it is stored on the
+data base. The results of the validation tests are stored in a coded fashion in
+the READING-RECORD for the reading concerned. The tests which are to be carried
+out on a reading are attributes of the measurement. So for each
+measurement there is 
+a collection of validation tests. These are stored as a set of records
+owned by the measurement record. They are duplicated for reasons of
+performance in the MLE record. Validation can be straightforward - such as 
+maximum
+and minimum
+checks - or more complex - such as trend checking. The validation
+program - VALTWO - is a fairly large and complex program which reflects the
+nature of the validation that is carried out at data input time.
+
+There is also a set of COMMENT-RECORDs (possibly empty) owned by a reading
+record.
+
+Finally there are a couple of records designed to keep track of amendments to
+values. PLNTIN can be used to change values which have been entered (subject to
+certain restrictions). If this is done the old value and any comments are
+moved to two other records. 
+
+.APP COMPONENTS OF PLNTIN
+
+
+
+.HL 1 Outline of structure of PLNTIN
+
+PLNTIN is composed of a number of modules as follows:
+.BL
+.LIT
+
+          +---------+                                Response to TTY of
+          |PLNTIN   |                                requestor (TERTLK)
+          |         |                                        ^
+          +----+----+   (call to SUBMIT)                     !
+               !---------------------------------+           !
+               !                                 !           !
+          +----+----+                    +-------+--------+  !
+          |INPUTR   |                    |Batch .CTL file |  !
+          |         |                    |----------------|  !
+          +----+----+                    | MMDATR         |  !
+      _________!_________                |  (*.RCD,*.DAT) |  !
+     !                   !               | EXPTER         |  !
+     !                   !               |  (IPRUNI'd from|  !
++----+----+         +----+----+          |     MMDATR)    |  !
+|ICOMNT   |         |PLTSHF   |          |                |  !
+|         |         |         |          |                |  !
++---------+         +---------+          |        !       |--+
+                                         |        !       |
+                                         +--------!-------+
+                                                  !
+                                                  !
+                                                  V
+                                       SUBMIT to PRINT/DELETE
+                                       *.HLD of errors to LPT
+
+
+
+
+
+
+
+.EL
+Each of the modules on the left side of this figure are composed of further
+submodules. The conversion exercise did not tackle the ICOMNT and PLTSHF
+modules. PLTSHF is essentially a callable version of another PMS program.
+ICOMNT is used to put comments into the data base.
+.HL 1 Outline of functions of major modules
+.LM +5
+.HL 2 PLNTIN
+.LM +5
+.LIST
+.LE;determines which is the next list to be input. It may be passed
+this by a top level menu program through the TOPS20 process
+argument block. If the user has not specified the list at the
+higher level then PLNTIN checks to see if the user has scheduled lists. If he
+does then PLNTIN works out which is the next list that should be
+input. The user may select a list whose values have already been
+entered in which case PLNTIN goes into amend mode.
+.LE;gets the information about the measurements associated with this
+list and puts them in a big array. If the values are already
+entered they are put in the array as well.
+.LE;PLNTIN calls INPUTR passing the big array
+.LE;when INPUTR is finished PLNTIN sets off the batch job to run
+MMDATR and immediately returns control to the higher level
+.END LIST
+.LM -5
+.HL 2 INPUTR
+.LM +5
+.LIST
+.LE;displays the data received in the big array on the screen
+.LE;reads data from each field validating input using VALTWO as
+it is input. Also allows the user to get more validation
+information and to run PLTSHF (qv)
+.LE;allows the user to input comments associated with any number
+of readings (call to ICOMNT (qv))
+.LE;reading values are written to a *.DAT file which is read by
+MMDATR (qv) to update the data base
+.LE;returns control to PLNTIN when user wishes to process data
+.END LIST
+.LM -5
+.HL 2 ICOMNT
+.LM +5
+.LIST
+.LE;accepts the user comment via EDITPM and allows this comment to
+be copied to apply to other entries
+.LE;comments are written to a *.RCD file. This is used by MMDATR
+(qv) to update the data base
+.LE;returns control to INPUTR
+.END LIST
+.LM -5
+.HL 2 PLTSHF
+.LM +5
+.LIST
+.LE;lets the user view up to the previous 50 values of a given
+measurement
+.LE;returns control to INPUTR
+.LIT
+
+   Note: MMDATR is run as a batch job so that the user may
+         continue  using PMS while the data  base is being
+         updated. MMDATR may take several minutes to run.
+
+.EL
+.END LIST
+.LM -5
+.HL 2 MMDATR
+.LM +5
+.BREAK
+.LIST
+.LE;actually updates the data base using
+.BREAK
+#####(a) *.DAT which holds the data for the while transaction
+.BREAK
+#####(b) *.RCD which holds comments for the readings
+.BREAK
+The value of * is determined by the time at which the files are
+created so these files are unique. They are deleted at the end
+of the run.
+.LE;IPRUNI's EXPTER which updates the history data base. EXPTER
+only runs if there is exception information from the user's
+input. If there is then EXPTER runs RUNPRT to print out any
+processing error information. Otherwise RUNPRT is run by
+MMDATR.
+.LE;sends a message to the TTY which requested the job (via TERTLK)
+saying that the run has completed ok or not
+.LE;sends a message to WAYTER reporting its completion. (WAYTER
+collects information from different runs of PLNTIN during a
+shift and then runs the calculation program CALCNS when all
+the information is in.)
+.LE;tidies up and exits
+.END LIST
+.LM -10
+
+.APP TRANSFER OF FILES FROM DEC20 TO VAX 
+
+.HL 1 TRANSFER OF FILES FROM DEC20 TO TAPE
+
+.LIT
+
+@ENABLE (CAPABILITIES)
+$
+$;  Run OPR and initialise a tape with ANSI labels.....
+$
+$OPR
+OPR>SET TAPE-DRIVE MTA1: INITIALISE /LABEL-TYPE:ANSI-
+/VOLUME-ID:TREVOR
+OPR>
+14:11:12 	  -- MTA1: Volume TREVOR Initialised --
+		Label type: ANSI        Density: 1600
+
+14:11:13 	  -- INITIALISE Completed --
+		MTA1: available for user tape requests
+OPR>EX
+$
+$;   Now mount the tape.....
+$
+$MOUNT TAPE (NAME) TREVOR: /WRITE-ENABLED
+[Mount request TREVOR queued, request #1452]
+
+[Tape set TREVOR, volume TREVOR mounted]
+[TREVOR: defined as MT1:]
+$
+$;   Now we can copy all the files onto the tape....
+$
+$COP *.* TREVOR:,
+$$ASCII NOPARITY
+$$; Noparity is the default
+$$
+ PMSPLN.TXT.1 => MT1:PMSPLN.TXT.131071 [OK]
+ VAX.MEM.1 => MT1:VAX.MEM.131071 [OK]
+ VAXPLN.MEM.1 => MT1:VAXPLN.MEM.131071 [OK]
+ VAXPMS.TXT.1 => MT1:VAXPMS.TXT.131071 [OK]
+ VAXPOS.TXT.1 => MT1:VAXPOS.TXT.131071 [OK]
+$
+$;    and dismount the tape....
+$
+$DISMOUNT TAPE (NAME) TREVOR:
+[Tape dismounted, logical name TREVOR: deleted]
+$
+
+.EL
+.PG
+
+.HL 1 TRANSFER FROM TAPE TO VAX
+
+.LIT
+
+$
+$ !    get where we want to be....(like TOPS20 CONNECT)
+$
+$ SET DEFAULT  [MOORE.US]
+$
+$ !    now mount the tape.....
+$
+$ MOUNT MSA0: TREVOR
+volume is write locked
+TREVOR mounted on _MSA0:
+$
+$ !    receive cheery VMS message.
+$ !    we check that it is all there with the DIRECTORY command
+$
+$ DIR MSA0:
+
+Directory MSA0:[]
+
+PMSPLN.TXT;32767  VAX.MEM;32767   VAXPLN.MEM;32767  VAXPMS.TXT;1
+VAXPOS.TXT;32767
+
+Total of 5 files.
+$
+$ !    VMS rewinds for you so we can
+$ !    now copy the files
+$
+$ COPY MSA0:*.*;* [MOORE.US]*.*;*
+$
+$ !    VMS' default is not to tell you unless it fails
+$ !    so we check....
+$
+$ DIR
+
+Directory US1:[MOORE.US]
+
+MYNOTE.MEM;1      MYNOTE.RNO;3      PMSPLN.TXT;32767  VAX.MEM;1
+VAXPLN.MEM;32767  VAXPMS.TXT;32767  VAXPOS.TXT;32767
+
+Total of 7 files.
+$
+$ !    now change these silly generation numbers....
+$
+$ REN *.*;32767 *.*;1
+$
+$ !    RENAME is like TOPS20 but agin default is no confirmation.
+$
+.EL
+
+.APP STAGES OF PROGRAM CONVERSION
+
+.HL 1 SUMMARY
+
+This appendix deals with the stages in converting the program 
+code
+as distinct from the data base conversion which
+is discussed in Section 8 and Appendix E.
+There were three distinct stages to the conversion which are 
+discussed below.  These were firstly the straight conversion 
+of COBOL code, secondly the conversion
+of the screen handling and finally testing and bug fixing.
+
+.HL 1 STRAIGHT COBOL CONVERSION
+
+This involved the removal of all Macro calls and the conversion of all 
+DML statements to achieve a clean compile.
+All the database error handling that
+used declaratives was amended and tests for success status
+after each database access were inserted.
+
+Transactions (OPEN/CLOSE) which exist in DBMS20 were replaced 
+by READY and COMMIT/ROLLBACK on the VAX. (See Appendix E.)
+
+.HL 1 SCREEN CONVERSION. 
+
+There were three general problem areas that required 
+consideration. These were
+.LM +5
+.LIST
+.LE;retaining special functions keys,
+.LE;providing user help and
+.LE;limiting the size of the TDMS libraries.
+.END LIST
+.LM -5
+
+.HL 2 Special Function Keys
+
+The functionality of these keys had to remain, although 
+the actual keys were replaced with meaningful Gold keys.
+
+.LIT
+
+The following function keys were used:
+
+     KEY	    FUNCTION		   REPLACING 	    RETURN 
+                                                           INDICATOR 
+                                                             VALUE
+     ---------------------------------------------------------------
+     GOLD U-p       step up a field 	   Line Feed	       3
+     GOLD D-own     step down a field      CR/normal input     5 
+     GOLD X-exit    abort/exit	           Down Arrow	       6
+     GOLD B-ack     step back a page/form  Up Arrow	       7 
+     GOLD F-orward  step forward 	   Not applicable      8
+
+NB: A return indicator of 5 is always returned from a request
+    unless one of the functions keys is used
+
+.EL
+
+.HL 2 Providing user help
+
+As one of the modules required full screen help on a per
+field basis which was implemented directly within the program 
+code,
+we retained this
+help text including VT100 cursor control sequences,
+since this  caused no 
+problem to TDMS. TRAFFIC users will recall that this is a 
+problem when using version 2.0 of TRAFFIC. 
+It is, however, unfortunate that there is no way of forcing a CONTROL-W 
+(re-paint screen) from within the code, so it was necessary
+to redisplay after each help request, which of course takes time.
+
+
+.HL 2 TDMS library size
+
+The two main screen i/o modules (PLNTIN and INPUTR)
+were converted using a different 
+method for each. Initially it was thought that it would be necessary 
+to replace each individual TRAFFIC call 
+by one TDMS request. The problem with this would have been a 
+request library which contained a large number of requests. Since 
+the request library is searched sequentially at run-time there 
+were some unattractive performance implications with this.
+As competence with TDMS increased it was possible to 
+avoid the large libraries which it was feared would result from
+taking this approach. (See Appendix G.)
+
+
+.HL 1 TESTING AND BUG FIXING
+
+Testing and bug fixing constituted a fairly
+large part of the program conversion effort.
+This was mainly because of the lack of functional and in-program
+documentation, and the relatively poor
+quality of the code itself. The conversion brought to light some 
+existing bugs in the original program suite (which were of course also 
+converted because the exercise was to achieve an identical, 
+or nearly identical, copy!!).
+
+The small Cobol only or Cobol with DML modules required simple 
+testing and the very few bugs that came to light were to do 
+with either the difference in data structure or the difference 
+between initialising variables on the 20 and Vax.
+
+The major screen modules required the most time and effort 
+to test and debug.
+
+.HL 2 PLNTIN
+
+This module probably took the longest to obtain a satisfactory 
+working copy for the following reasons:
+.LM +5
+.LIST "o"
+.LE;it was the first screen module to be converted 
+so inevitable mistakes using TDMS were made.
+.LE;the degree of re-structuring made it necessary 
+to understand in detail the function of the module.
+.LE;testing of the function/logic of the module 
+as well as conversion changes was 
+required.
+.END LIST
+.LM -5
+.HL 2 INPUTR
+
+The second method of screen conversion
+was applied to this module. As this method requires no change to the 
+fundamental program logic and structure, testing and debugging
+was simpler than with PLNTIN (see above).
+Some time was wasted due to
+errors with the database conversion - when unloading and reloading the 
+data base some data was lost. Time was also lost chasing 
+after bugs which also existed in the original 20 version.
+
+
+.APP EXAMPLES OF DBMS DIFFERENCES
+
+.HL 1 Definition of schema and storage schema
+
+.HL 1 Selected DML examples
+
+.LIT
+
+SCHEMA SECTION.
+	INVOKE SUB-SCHEMA plntss OF SCHEMA pms.		        20
+
+SUB-SCHEMA SECTION.
+	DB nysub WITHIN pms.				        VAX
+
+OPEN TRANSACTION modify-list.					20
+READY list-area CONCURRENT UPDATE.				VAX
+
+
+FIND NEXT RECORD OF list-mle-set SET.				20
+FETCH NEXT WITHIN list-mle-set.					VAX
+
+
+FIND list-record VIA CURRENT OF list-set USING list-key.	20
+FETCH FIRST list-record WITHIN list-set USING list-key.		VAX
+
+
+FIND NEXT input-list-record RECORD OF list-set SET.		20
+FETCH NEXT list-record WITHIN list-set.				VAX
+
+
+CLOSE TRANSACTION modify-list.					20
+COMMIT.								VAX
+
+.EL
+
+.HL 2 DBMS Error Handling
+
+.LIT
+
+*************
+DECLARATIVES.
+*************
+
+FIND-END SECTION.
+*****************
+	USE FOR DB-EXCEPTION ON dbm$_end.
+
+FE-01.
+	SET no-record TO true.
+
+FE-END.
+	EXIT.
+
+
+OWNER-ERROR SECTION.
+********************
+	USE FOR DB-EXCEPTION ON dbm$_cstyp_null.
+
+OE-01.
+	SET no-owner TO true.
+
+OE-END.
+	EXIT.
+
+.EL
+
+.APP EXAMPLES OF COBOL DIFFERENCES
+
+.HL 1 Selected COBOL examples
+
+.LIT
+
+Example 1.
+
+WORKING-STORAGE SECTION.
+************************
+01	ACTION-FLAG		PIC S9(10)	COMP.
+	88	GET-OUT-NOW		VALUE 1.
+	88	WILL-EXIT		VALUE 2.
+	88	PREVIOUS-MENU		VALUE 3.
+	88	CONTINUE-PROCESS	VALUE 4.
+
+PROCESSING-SECTION.
+*******************
+	SET action-flag TO 1.			20
+
+	MOVE 1 TO action-flag.			VAX
+	SET get-out-now TO true.		VAX
+
+Example 2.
+
+ID DIVISION.                                    20
+
+IDENTIFICATION DIVISION.                        VAX
+
+Example 3.
+
+FILE-CONTROL.
+
+	SELECT updater-file ASSIGN TO dsk1
+		RECORDING MODE ASCII
+		file-status IS fs-1,fs-2,fs-3.		20
+
+
+
+	SELECT updater-file ASSIGN TO dsk1
+		file status IS fs-1.			VAX
+
+
+
+.EL
+
+
+.APP SCREEN CONVERSION OPTIONS
+
+Two methods of screen conversion were used.
+.HL 1 METHOD 1
+
+This method made use of TDMS in 
+more like the way the designers had 
+probably intended it to be used.
+This required a limited 
+amount of restructuring and used multi-function TDMS requests. 
+A multi-function request is one which can itself clear the 
+screen, display a form, read fields and make decisions from within a 
+single request. This 
+method, although providing a cosmetically pleasing finished module, 
+proved to be more difficult to achieve than anticipated.
+
+.HL 1 METHOD 2
+
+This method 
+replaces TRAFFIC call for call
+by TDMS requests. It defines a TDMS control field in a single 
+program-wide request which is then mapped one to one with TRAFFIC 
+section or field numbers.
+
+
+.APP SCREEN HANDLING COMPARISONS
+
+.HL 1 REPLACING TFRERR
+
+.LIT
+
+*	ENTER MACRO tfrerr USING "Incorrect use of function key." 
+				  error-status error-code.
+
+	CALL "tss$write_msg_line" USING BY REFERENCE channel,
+					BY DESCRIPTOR "Incorrect use of function key." 
+
+.EL
+
+.HL 1 EXAMPLE OF MULTI-FUNCTION REQUEST
+
+.HL 2 COBOL CODE
+
+.LIT
+
+*	********************************************************
+*	* move formatted lines to the screen display variables *
+*	********************************************************
+	PERFORM VARYING wk_count FROM 1 BY 1 UNTIL wk_count > 20
+		MOVE list_line(wk_count) TO plntin_list_line(wk_count)
+	END-PERFORM.
+
+	SET unfinished TO true.
+	MOVE spaces TO plntin_list_choice.
+	MOVE "1" TO plntin_list_page_no.
+	MOVE total_lists TO list_val.
+	
+FULL-04.
+	SET unfinished TO true.
+
+	PERFORM UNTIL finished
+
+		IF plntin_list_page_no = "1"
+		THEN	MOVE "F forward page" TO list_page
+		ELSE	MOVE "B back page" TO list_page
+		END-IF
+
+		MOVE list_message TO plntin_list_message
+
+*		**********************************
+*		* display page and accept choice *
+*		**********************************
+		CALL "TSS$REQUEST" USING BY REFERENCE channel,
+					 BY REFERENCE library-id,
+					 BY DESCRIPTOR request-list(2),
+					 BY REFERENCE plntin_work
+				   GIVING status-result
+
+		PERFORM CHECK
+
+		PERFORM read-list-choice
+
+	END-PERFORM.
+
+	IF get-out-now OR will-exit OR previous-menu
+		GO TO full-exit.
+
+.EL
+
+.HL 2 TDMS REQUEST
+
+.LIT
+
+FORM IS PLNTIN_LIST_SCREEN;
+RECORD IS PLNTIN_WORK;
+
+RETURN "5" TO PLNTIN_END_IND;
+
+PROGRAM KEY IS GOLD "X"
+	NO CHECK;
+	RETURN "6" TO PLNTIN_END_IND;
+END PROGRAM KEY;
+
+PROGRAM KEY IS GOLD "B"
+	NO CHECK;
+	RETURN "7" TO PLNTIN_END_IND;
+END PROGRAM KEY;
+
+	USE FORM PLNTIN_LIST_SCREEN;
+
+	CONTROL FIELD IS PLNTIN_LIST_PAGE_NO
+		"1":
+		OUTPUT PLNTIN_LIST_LINE[1 TO 10] TO PLNTIN_LIST_DETAIL[1 TO 10];
+
+		"2":
+		OUTPUT PLNTIN_LIST_LINE[11 TO 20] TO PLNTIN_LIST_DETAIL[1 TO 10];
+	END CONTROL FIELD;
+
+	OUTPUT "  " TO PLNTIN_LIST_CHOICE;
+	OUTPUT PLNTIN_LIST_MESSAGE TO PLNTIN_LIST_MESSAGE;
+	INPUT PLNTIN_LIST_CHOICE TO PLNTIN_LIST_CHOICE;
+
+	RETURN "L" TO PLNTIN_SCREEN;
+
+END DEFINITION;
+
+.EL
+
+.HL 1 REPLACING TFRRD
+
+.HL 2 COBOL CODE
+
+.LIT
+
+STANDARD-READER SECTION.
+************************
+SR-1.
+
+*	ENTER MACRO tfrrd USING fieldz end-ind error-code.
+
+	MOVE spaces TO inputr_reading.
+	MOVE fieldz TO inputr_field_no.
+
+	CALL "tss$request"
+		USING BY REFERENCE channel,
+		BY REFERENCE library-id,
+		BY DESCRIPTOR request-list(1),
+		BY REFERENCE inputr_work,
+		GIVING status-result.
+	PERFORM check.
+
+*	*************************************************
+*	* move data read to the 'old' traffic variables *
+*	*************************************************
+	EVALUATE fieldz
+
+	WHEN 25 thru 38
+		MOVE inputr_reading TO value-array(fieldz - 24)
+
+	WHEN 81
+		MOVE inputr_choice TO inp-choice
+
+	WHEN 122
+		MOVE inputr_page_choice TO pag_choice
+
+	WHEN 90
+		MOVE inputr_reading TO inp-inf-value
+
+	WHEN 132
+		MOVE inputr_choice TO inp-inf-choice
+
+	END-EVALUATE.
+
+	MOVE inputr_end_ind to end-ind.
+
+	IF end-ind = 1 
+		GO TO sr-2.
+
+.EL
+
+.HL 2 TDMS REQUEST
+
+.LIT
+
+FORM IS INPUTR;
+FORM IS INPUTR_VALIDN_SCREEN;
+RECORD IS INPUTR_WORK;
+
+RETURN "5" TO INPUTR_END_IND;
+
+PROGRAM KEY IS GOLD "X"
+	NO CHECK;
+	RETURN "6" TO INPUTR_END_IND;
+END PROGRAM KEY;
+
+PROGRAM KEY IS GOLD "B"
+	NO CHECK;
+	RETURN "7" TO INPUTR_END_IND;
+END PROGRAM KEY;
+
+PROGRAM KEY IS GOLD "F"
+	NO CHECK;
+	RETURN "8" TO INPUTR_END_IND;
+END PROGRAM KEY;
+
+PROGRAM KEY IS GOLD "U"
+	NO CHECK;
+	RETURN "3" TO INPUTR_END_IND;
+END PROGRAM KEY;
+
+	CONTROL FIELD IS INPUTR_FIELD_NO
+
+	"025":	USE FORM INPUTR;
+		INPUT READING[1] TO INPUTR_READING;
+	"026":	USE FORM INPUTR;
+		INPUT READING[2] TO INPUTR_READING;
+	"027":	USE FORM INPUTR;
+		INPUT READING[3] TO INPUTR_READING;
+	"028":	USE FORM INPUTR;
+		INPUT READING[4] TO INPUTR_READING;
+	"029":	USE FORM INPUTR;
+		INPUT READING[5] TO INPUTR_READING;
+	"030":	USE FORM INPUTR;
+		INPUT READING[6] TO INPUTR_READING;
+	"031":	USE FORM INPUTR;
+		INPUT READING[7] TO INPUTR_READING;
+	"032":	USE FORM INPUTR;
+		INPUT READING[8] TO INPUTR_READING;
+	"033":	USE FORM INPUTR;
+		INPUT READING[9] TO INPUTR_READING;
+	"034":	USE FORM INPUTR;
+		INPUT READING[10] TO INPUTR_READING;
+	"035":	USE FORM INPUTR;
+		INPUT READING[11] TO INPUTR_READING;
+	"036":	USE FORM INPUTR;
+		INPUT READING[12] TO INPUTR_READING;
+	"037":	USE FORM INPUTR;
+		INPUT READING[13] TO INPUTR_READING;
+	"038":	USE FORM INPUTR;
+		INPUT READING[14] TO INPUTR_READING;
+	"081":	USE FORM INPUTR;
+		OUTPUT " " TO CHOICE;
+		INPUT CHOICE TO INPUTR_CHOICE;
+	"122":	USE FORM INPUTR;
+		INPUT PAGE_CHOICE TO INPUTR_PAGE_CHOICE;
+	"132":	USE FORM INPUTR_VALIDN_SCREEN;
+		OUTPUT " " TO VALIDN_CHOICE;
+		INPUT VALIDN_CHOICE TO INPUTR_CHOICE;
+	"090":	USE FORM INPUTR_VALIDN_SCREEN;
+		INPUT VALIDN_READING TO INPUTR_READING;
+
+	END CONTROL FIELD;
+
+END DEFINITION;
+
+.EL
+
+.HL 1 REPLACING TFRWRT
+
+.HL 2 COBOL CODE
+
+.LIT
+
+*		MOVE inp-last-value TO data-val(page-no,line-no),
+*				value-array(line-no)
+*		enter macro tfrwrt using field-no error-code
+
+		MOVE inp-last-value TO data-val(page-no,line-no),
+				value-array(line-no),inputr_reading
+		MOVE field-no TO inputr_field_no
+		CALL "tss$request" USING BY REFERENCE channel,
+					 BY REFERENCE library-id,
+					 BY DESCRIPTOR request-list(3),
+					 BY REFERENCE inputr_work,
+				   GIVING status-result
+		PERFORM check
+
+.EL
+
+.HL 2 TDMS REQUEST
+
+.LIT
+
+FORM IS INPUTR;
+RECORD IS INPUTR_WORK;
+
+USE FORM INPUTR;
+
+	CONTROL FIELD IS INPUTR_FIELD_NO
+
+	"025":	OUTPUT "          " TO READING[1];
+		OUTPUT INPUTR_READING TO READING[1];
+	"026":	OUTPUT "          " TO READING[2];
+		OUTPUT INPUTR_READING TO READING[2];
+	"027":	OUTPUT "          " TO READING[3];
+		OUTPUT INPUTR_READING TO READING[3];
+	"028":	OUTPUT "          " TO READING[4];
+		OUTPUT INPUTR_READING TO READING[4];
+	"029":	OUTPUT "          " TO READING[5];
+		OUTPUT INPUTR_READING TO READING[5];
+	"030":	OUTPUT "          " TO READING[6];
+		OUTPUT INPUTR_READING TO READING[6];
+	"031":	OUTPUT "          " TO READING[7];
+		OUTPUT INPUTR_READING TO READING[7];
+	"032":	OUTPUT "          " TO READING[8];
+		OUTPUT INPUTR_READING TO READING[8];
+	"033":	OUTPUT "          " TO READING[9];
+		OUTPUT INPUTR_READING TO READING[9];
+	"034":	OUTPUT "          " TO READING[10];
+		OUTPUT INPUTR_READING TO READING[10];
+	"035":	OUTPUT "          " TO READING[11];
+		OUTPUT INPUTR_READING TO READING[11];
+	"036":	OUTPUT "          " TO READING[12];
+		OUTPUT INPUTR_READING TO READING[12];
+	"037":	OUTPUT "          " TO READING[13];
+		OUTPUT INPUTR_READING TO READING[13];
+	"038":	OUTPUT "          " TO READING[14];
+		OUTPUT INPUTR_READING TO READING[14];
+
+	END CONTROL FIELD;
+
+END DEFINITION;
+
+.EL
+
+.HL 1 REPLACING TFRCHG
+
+.HL 2 CDD Work Area
+
+.LIT
+
+	INPUTR_VIDEO_ATTRIBUTES STRUCTURE.
+		INPUTR_VIDEO	DATATYPE TEXT 1 OCCURS 14 TIMES.
+	END INPUTR_VIDEO_ATTRIBUTES STRUCTURE.
+
+.EL
+
+.HL 2 COBOL CODE
+
+.LIT
+
+*	enter macro tfrchg using field-no 'NORMAL' error-code.
+	MOVE spaces TO inputr_video_attributes.
+	MOVE "7" TO inputr_video(field-no - 24).
+	CALL "tss$request" USING BY REFERENCE channel,
+				 BY REFERENCE library-id,
+				 BY DESCRIPTOR request-list(5),
+				 BY REFERENCE inputr_work,
+			   GIVING status-result.
+	PERFORM check.
+
+
+*		ENTER MACRO TFRCHG USING COL-5 'REVERSE-VIDEO' ERROR-CODE
+*		ENTER MACRO TFRCHG USING COL-5 'BOLD' ERROR-CODE.
+		MOVE spaces TO inputr_video_attributes
+		MOVE "5" TO inputr_video(col-5 - 24)
+		CALL "tss$request" USING BY REFERENCE channel,
+					 BY REFERENCE library-id,
+					 BY DESCRIPTOR request-list(5),
+					 BY REFERENCE inputr_work,
+				   GIVING status-result
+		PERFORM check.
+
+.EL
+
+.HL 2 TDMS REQUEST
+
+.LIT
+
+FORM IS INPUTR;
+RECORD IS INPUTR_WORK;
+
+USE FORM INPUTR;
+
+	CONTROL FIELD IS INPUTR_VIDEO[1 TO 14]
+		"1":	BLINK FIELD READING[%LINE];
+		
+		"2":	REVERSE FIELD READING[%LINE];
+			BLINK FIELD READING[%LINE];
+
+		"3":	BLINK FIELD READING[%LINE];
+			REVERSE FIELD READING[%LINE];
+			BOLD FIELD READING[%LINE];
+
+		"4":	BLINK FIELD READING[%LINE];
+			BOLD FIELD READING[%LINE];
+
+		"5":	REVERSE FIELD READING[%LINE];
+			BOLD FIELD READING[%LINE];
+
+		"6":	REVERSE FIELD READING[%LINE];
+	
+		"7":	RESET FIELD READING[%LINE];
+	
+	END CONTROL FIELD;
+
+END DEFINITION;
+
+.EL

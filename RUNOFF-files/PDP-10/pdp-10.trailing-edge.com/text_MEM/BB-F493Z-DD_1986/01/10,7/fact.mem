@@ -1,0 +1,381 @@
+
+
+
+SPECIFICATION
+
+
+
+                            FACT
+          A BRIEF DESCRIPTION OF THE  CONTENTS  OF
+          FACT.SYS,  THE ACCOUNTING SYSTEM RECORDS
+          FILE.
+
+
+
+                    Date:  13-Dec-72
+                    File:  FACT.RNO
+                    Edition:  1
+
+
+
+
+
+
+
+
+
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a  comitment by Digital Equipment
+Corporation.  Digital Equipment Corporation assumes no  responsibility
+for and errors that may appear in this document.
+
+The software described in this document is furnished under  a  license
+and  may  be  used or copied only in accordance with the terms of such
+license.
+
+Digital Equipment Corporation assumes no responsibility for the use or
+reliability  of  its  software  on  equipment  that is not supplied by
+DIGITAL.
+
+     Copyright (C) 1972,1979 by Digital Equipment Corporation
+
+The following are trademarks of Digital Equipment Corporation:
+
+DIGITAL        DECsystem-10   MASSBUS
+DEC            DECtape        OMNIBUS
+PDP            DIBOL          OS/8
+DECUS          EDUSYSTEM      PHA
+UNIBUS         FLIP CHIP      RSTS
+COMPUTER LABS  FOCAL          RSX
+COMTEX         INDAC          TYPESET-8
+DDT            LAB-8          TYPESET-10
+DECCOMM        DECsystem-20   TYPESET-11
+FACT                                                            Page 2
+
+
+1.0  INTRODUCTION
+
+The file  FACT.SYS  and  its  auxilliaries  FACT.X01,  FACT.X02,  ...,
+FACT.X77   contain   a   transaction  record  of  the  activity  on  a
+DECsystem-10 timesharing system.  The fact  files  are  written  by  a
+variety  of  system programs when each user logs on or off the system,
+runs batch jobs, uses the I/O spoolers, and  at  ten-minute  intervals
+throughout his use of the system.
+
+
+
+1.1  Standard Information
+
+Each entry includes an indication of why and when it was written,  the
+job  number  to which it refers, the terminal running the job, and the
+project, programmer number of the user.   In  addition,  many  entries
+contain  additional  information relevant to the particular conditions
+under which they were  written,  such  as  the  name  of  the  program
+running, or statistics on useage of sharable resources.
+
+
+
+1.2  Use of Auxilliary Files
+
+Ordinarily, all the information described in this document  is  output
+to  SYS:FACT.SYS,  by appending new entries to the end of the existing
+file, or by creating FACT.SYS if it  does  not  exist.   If,  however,
+FACT.SYS  should  be inaccessable because of LOOKUP or ENTER failures,
+or because of being in a file-being-modified state  for  ten  seconds,
+each  of  the programs which writes FACT file information is set up to
+give up on FACT.SYS, and start trying  to  write  FACT.X01.   If  this
+fails,  FACT.X02  is tried, and so on, counting in octal, to FACT.X77.
+If all 64 files are inaccessable, the message
+
+          ACCOUNTING SYSTEM FAILURE....
+          CALL THE OPERATOR.
+
+is printed, and the entry is not  written.   Note  that,  because  the
+condition  which  makes  a  file inaccessable may be cleared, FACT.SYS
+(for instance) may contain entries both  before  and  after  those  in
+FACT.X01.   Programs  which  depend on chronological order in the FACT
+files should merge the auxilliaries with FACT.SYS, sorting on date and
+time, before processing.
+
+
+
+1.3  Processing Procedures
+
+Because each installation will have different needs for reporting  and
+sumarizing computing activity, DEC does not attempt to provide general
+purpose programs for processing the FACT  files.   It  does,  however,
+distribute  two  programs,  MONEY and FACTPR which provide examples of
+how  reporting  programs  could  be  written.   MONEY  is  a   simple,
+supported,  reporting  program, written in MACRO, whereas FACTPR is an
+unsupported conversion program, suitable for use as a pre-processor to
+FACT                                                            Page 3
+
+
+a complex reporting system which might be written in COBOL.
+
+
+
+2.0  DEC-DEFINED ENTRIES
+
+A 9-bit byte in the first word of each entry identifies  the  type  of
+the  entry.  The values 0, 377, and 777 in this type code are reserved
+as markers in the FACT files.  Values from 1 to 376 are  reserved  for
+definition by DEC, while 400 to 776 are for customer definition.
+
+
+
+2.1  Basic Entry Format
+
+The first three words of every entry are the same, as follows:
+
+     Word#     Description
+     -----     -----------
+
+     0         header -- 4 bytes, as follows:
+
+               0-8       type code, which identifies  the  reason  for
+                         writing  the  entry,  and  the  format of the
+                         entry.  If the type code is even  (bit  8=0),
+                         the date/time word (2) is in old format, with
+                         12-bit date, and 24-bit time in jiffies.   If
+                         the type code is odd (bit 8=1), the date/time
+                         word is in new standard date time format, and
+                         clock  rate dependencies are not permitted in
+                         time representations.
+
+               9-17      job  number  to  which  this  entry   refers.
+                         Usually,   but  not  always,  the  job  which
+                         created the entry.
+
+               18-29     terminal number (as in TTYnnn) to  which  the
+                         job  is  attached.  CTY is indicated by 7777,
+                         and a detached job by 7776.
+
+               30-35     length of the entry in words, including  this
+                         header  word.  If an entry has only the basic
+                         information, this byte is 3.
+
+     1         project-programmer number to which this entry refers.
+
+     2         date and time  at  which  the  entry  was  created,  as
+               follows:
+
+               a.  if header bit 8=0, old format:
+
+                   0-11   date, in system 12-bit format.
+                   12-35  time, in clock ticks since midnight.
+
+               b.  if header bit 8=1, new format:
+FACT                                                            Page 4
+
+
+                   0-17   days since Nov.  17, 1858
+                   18-35  time, as a fraction of a day
+
+
+
+2.2  LOGIN (100), ATTACH (240)
+
+When a user logs in, or attaches his terminal to a detached job,  only
+the  basic  information  (as  described  in  2.1)  is  stored if he is
+successful:
+
+          Terminal and job numbers
+          Project, programmer number
+          Date and time of day
+
+If, however, the attempt is unsuccessful (e.g., he does not  know  the
+password),  then  20  is  added  to the type code, and the password he
+tried is recorded as word 3.  Further, if the  failure  is  due  to  a
+program's  attempt to LOGIN an illegal job on a PTY under its control,
+the project programmer number of that  job  is  recorded  as  word  4.
+LOGIN  failures,  therefore,  are  recorded  as  type  120, and ATTACH
+failures as 260.
+
+
+
+2.3  CHKPNT (200)
+
+At ten-minute  intervals  throughout  the  operation  of  the  system,
+so-called  CHECKPOINT  information  is  recorded about each job in the
+system.  In systems which use  DAEMON,  it  takes  the  CHECKPOINT  at
+intervals  controlled by the CHKTIM assembly parameter.  Other systems
+may use the  CHKPNT  program  to  record  the  same  information.   In
+addition  to  the  basic  information listed under 2.1, CHKPNT entries
+consist of:
+
+     Word#     Description
+     -----     -----------
+
+     3         job's accumulated run time, in milliseconds.
+
+     4         job's integrated time-size product, in kilo-core-ticks.
+
+     5         total disk blocks read by and for the job.
+
+     6         total disk blocks written by and for the job.
+
+     7         name of the program in the low segment, in SIXBIT.
+
+
+
+2.4  LOGOUT (140)
+
+When a user logs off the system,  the  LOGOUT  program  records  final
+values  of  all  the  CHECKPOINT  information (except program name) to
+sumarize the job.
+FACT                                                            Page 5
+
+
+2.5  SPOOL (250)
+
+Each time the spoolers  complete  a  request,  unless  assembled  with
+FACTSW zero, they call DAEMON to write a FACT file entry.  The job and
+terminal numbers in the header word are those of the spooling program,
+but  the  PPN  is  that  of  the  user  for whom the spool request was
+performed.  They record the  following  data  in  the  FACT  file,  in
+addition to the basic information:
+
+     Word#     Description
+     -----     -----------
+
+     3         three bytes:
+
+               0-11   queue name in SIXBIT
+               12-17  station number
+               18-35  APR serial number
+
+     4         runtime used  by  the  spooler  for  this  request,  in
+               jiffies (clock ticks).
+
+     5         kilo-core-ticks used by the spooler for this request.
+
+     6         disk reads by the spooler for this request.
+
+     7         disk writes by the spooler for this request.
+
+     8         physical device name of the spooler output device.
+
+     9         sequence number of the spool request.
+
+     10        quantity of output in same units as output  limits  for
+               this queue (e.g., pages, feet, etc.).
+
+
+
+2.6  SPACE (160)
+
+When the operator runs the (unsupported)  SPACE  program  to  evaluate
+disk  utilization, he can ask it (with the /FACT switch) to record the
+current figures in the FACT file for later use by a  billing  program.
+This  information  includes,  in  addition  to  basic  data, status of
+various variables in the  retrieval  information  block  of  the  file
+directory (UFD RIB) for each user on each file structure.  The job and
+terminal numbers in the header  word  refer  to  those  of  the  SPACE
+program,  but  the  PPN  is that of the UFD to which the entry refers.
+The rest of the entry is:
+
+     Word#     Description
+     -----     -----------
+
+     3         file structure name, in SIXBIT, on which this  UFD  was
+               found.
+
+     4         UFD status word (.RBSTS) from the UFD RIB.
+FACT                                                            Page 6
+
+
+     5         first come, first served quota (.RBQTF).
+
+     6         logged-out quota (.RBQTO).
+
+     7         reserved quota (.RBQTR).
+
+     8         blocks presently allocated to this user (.RBUSD).
+
+     9         blocks remaining available for first come, first served
+               allocation on this structure (.DCFCT).
+
+     10        one of the following three words, in SIXBIT:
+
+               OUT       there are no jobs logged in under this ppn.
+
+               IN        there is at least one job presently logged in
+                         under this ppn.
+
+               RECOMP    there are no jobs  logged  in,  but  the  UFD
+                         status  word  shows  the  logged-in  bit set.
+                         Allocation, therefore, needs to be recomputed
+                         for  this  user.   If  the  /BATCH switch was
+                         specified, SPACE has submitted a dummy  batch
+                         job  to  force  re-computation of allocation,
+                         but this job has not completed when the entry
+                         is  written,  so word 8 of the entry (.RBUSD)
+                         may be incorrect.
+
+
+
+2.7  Restart (370)
+
+Whenever DAEMON is run (usually by the OPSER auto  startup  file),  it
+writes  a basic entry, indicating that the system was reloaded, so the
+processing program can reset itself, figuring that jobs not logged off
+in the FACT file were running when the system crashed.
+
+
+
+2.8  Shutdown (372)
+
+Unimplemented, but intended to mark a scheduled system shutdown.
+
+
+
+FACT                                                            Page 7
+
+
+2.9  Hiatus (377)
+
+Whenever the FACT file is updated, the routine which adds a new  entry
+checks  the  last  word  of  the file (as indicated by the file length
+returned by LOOKUP) for the end-of-file  code  (see  below).   If  the
+end-of-file  indicator  is  not  found,  the routine backs up until it
+finds a non-zero word or the beginning of the block.  Hiatus codes are
+then  stored in the words backed over, to mark the spot where data may
+have been lost.
+
+
+
+2.10  End-of-file (777)
+
+The last word in the FACT file should always be the end-of-file code.
+
+
+
+2.11  New Entry Types
+
+As development of DECsystem-10 software continues, it is  likely  that
+DEC  will  add  new  entry types to the FACT files.  Customer programs
+which process the file, therefore, should be written to ignore, except
+possibly  for  a  warning message, new codes which appear in the file.
+This will ensure upward compatability.
+
+
+
+3.0  CUSTOMER-DEFINED ENTRIES
+
+Entry types 400 through 776 are reserved for customer  definition  and
+implementation.    DEC   recommends  that  the  format  of  the  basic
+information  words  be  followed  in  customer-defined  entries.   Two
+mechanisms are available for customers writing FACT file entries.  The
+.FACT function of the DAEMON UUO is the easiest to use, (documented in
+UUOPRV,  in  the Specifications section of the Software Notebooks) but
+users with systems  which  do  not  run  DAEMON  may  use  the  APPEND
+subroutine,  which  may  be  found  in  LOGIN,  LOGOUT, or DAEMON, for
+instance.  Note that the FACT file  contains  privileged  information,
+and so is accessable only to jobs with JACCT or running under [1,2].
+
+
+
+
+[End of FACT.RNO]

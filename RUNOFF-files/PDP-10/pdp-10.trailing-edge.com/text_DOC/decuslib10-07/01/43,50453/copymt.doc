@@ -1,0 +1,545 @@
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 1
+
+
+     COPYMT is a utility program to copy one magnetic  tape  to  another
+with simple processing.  COPYMT replaces and supercedes MAGCPY and makes
+full use of the new TAPOP. UUO in the 6.02 and later monitors.
+
+     The general command format is:
+
+                          ODEV:/SWITCHES=IDEV:/SWITCHES
+
+Available switches:
+
+
+     1.  /BACKSP:f:r
+         Backspace f files and r records (see command note 6)
+
+     2.  /BUFSIZ:n
+         Use a buffer size of n (default=1024(10)).
+
+     3.  /CLOSE
+         Terminate log file output if it was open.
+
+     4.  /COMMENT:"STRING-NO-DOUBLE-QUOTES .LE.  28.  CHARACTERS"
+         SEND THE STRING INSIDE QUOTES TO THE LOG FILE.  IF NO LOG  FILE
+         IS BEING MADE, THE SWITCH IS A NOOP.
+
+     5.  /CONCAT:f:r
+         Copy f files and r records, but do not copy ends-of-files.  The
+         only  way  to  write  an end-of-file with /CONCAT is to use the
+         /EOF switch (this also turns off  concatenation  mode),  or  by
+         encountering  the  logical end-of-tape on the input tape.  (see
+         command note 5)
+
+     6.  /COPY:f:r
+         Copy f files and r records (see command note 6)
+
+     7.  /DENSITY:arg
+         Set the magtape density to one of:  200 bpi (7-track only), 556
+         bpi  (7-track  only), 800 bpi (default for 7-track, can be used
+         on 9-track  also),  or  1600  bpi  (9-track  only,  default  on
+         9-track).
+
+     8.  /EOF
+         Write an end-of-file mark.  This switch may appear on the input
+         side,  but end-of-file markers are always written on the output
+         tape.
+
+     9.  /ERROR:arg
+         Controls what happens when there is an input error.  ARG may be
+         one of:
+
+         1.  CONTIN
+             Report the error and continue processing.
+
+         2.  IGNORE
+             Do not report the error and continue processing.
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 2
+
+
+         3.  QUERY
+             When there is an error, prompt the terminal for an  option.
+             See below.
+
+
+    10.  /IBUF:n
+         Use n input buffers (default=2).
+
+    11.  /IFTYP
+         Enable for type-in while COPYMT is processing  commands.   This
+         switch is ignored in batch jobs.  Legal commands are:
+
+         1.  E - Give error totals
+
+         2.  I - Ignore further type-in (cancel /IFTYP).
+
+         3.  K - Kill processing, return to command mode
+
+         4.  P - Pause and wait for another character to continue
+
+         5.  S - Give elapsed time and cpu time used
+
+         Illegal commands will be answered with a bell.
+
+    12.  /LOG:DEV:FILE.EXT[P,PN]
+         Setup to send all messages from COPYMT  to  the  specified  log
+         file  also.   This  switch  sticks  across  different commands.
+         (i.e.  you can give several different commands and the log file
+         will  be appended to with each successive command).  If /LOG is
+         given   with   no   file   specification,   the   default    is
+         DSK:COPYMT.LOG[-].   (If  parts  of  the file specification are
+         missing, the missing parts are filled  in  from  the  defaults.
+         The log file is opened after the whole command has been scanned
+         and processing is ready to begin.  All the /CLOSE  switch  does
+         is clear some flags and re-enable for another /LOG switch.
+
+    13.  /MODE:arg
+         Set the mode to one of:
+
+         1.  BINARY (default)
+             This is DEC-compatible core-dump mode (whatever  that  is).
+             BINARY  mode is the mode all magtapes are written in on the
+             DEC-10  when  no  other  special  mode  (see  INDUSTRY  and
+             SEVENBIT modes) is used.
+
+         2.  INDUSTRY
+             Use industry-compatible 8-bit mode.  The lower  4  bits  of
+             each word are ignored.  9-track only.
+
+         3.  SEVENBIT
+             This is the TU70 "marvelous  ASCII"  mode.   This  mode  is
+             legal only on 9-track TU70 tape units.
+
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 3
+
+
+    14.  /NORETRY
+         Disable monitor error retries.  Use on very  bad  input  tapes.
+         This also disables /REPORT.  If error reporting is desired with
+         /NORETRY, you must also specify /REPORT.
+
+    15.  /OBUF:n
+         Use n output buffers (default=2).
+
+    16.  /PARITY:arg
+         Set the parity for the tape unit to:  ODD  (default)  or  EVEN.
+         Note that 9-track tapes are always written in odd parity.
+
+    17.  /REPEAT:N
+         Used only with /TEST or /TAPTST (see "Tape testing  facility").
+         /REPEAT directs COPYMT to test the whole tape N times.  This is
+         very useful with tapes that have not been exercised in  a  long
+         time.   Note  that  /REPEAT  has no effect if /TEST is given an
+         argument in the command (to only test part of the tape).
+
+    18.  /REPORT
+         This is used in conjunction with /NORETRY.  Unless /REPORT  has
+         been specified with /NORETRY, input errors will not be reported
+         to the user.
+
+    19.  /RETRY:n
+         When testing a tape, perform a maximum of n retries (default=4)
+         before declaring the spot to be bad.
+
+    20.  /REWIND
+         Rewind the tape unit.
+
+    21.  /SKIP:f:r
+         Skip forward f files and r records (see command note 6)
+
+    22.  /TIME
+         At the end of  a  tape-to-tape  or  disk-tape  copy,  type  the
+         elapsed and cpu time used.
+
+    23.  /UNLOAD
+         Rewind and unload the tape unit.
+
+
+     Since COPYMT uses SCAN, all standard switches are  also  available.
+Type /HELP:SWITCHES for a list of the standard switches.
+
+     All switches except /BUFSIZ, /ERROR, /IBUF, /MODE, /NORETRY, /OBUF,
+and  /REPORT  are  executed  in  the order they are given in the command
+string.
+
+example:
+
+              MTA1:/SKIP:3=MTA2:/COPY:3:0/SKIP:1/CONCAT:2:0
+
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 4
+
+
+     The above command would skip 3 records on the output tape,  copy  3
+files  from  the  input  to  the output tape, skip 1 record on the input
+tape, and then concatenate the next two files from the input  tape  into
+one file on the output tape.
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 5
+
+
+                             COMMAND NOTES
+
+     1.  Input and output devices must be magtapes and may  not  be  the
+         same  physical magtape.  An extension to this is that if either
+         the input device or the output device is a disk file,  it  will
+         be  read(written)  in  IREAD  mode.  On tape, IREAD mode is one
+         logical record/physical record.  On the disk, a record consists
+         of a word count followed by that many data words.
+
+     2.  When copying from disk to tape or tape  to  disk,  the  default
+         extension  is  .DAT.  To get a null extension you must type the
+         dot.
+
+     3.  If no copy switch (either /COPY or /CONCAT) is given, the whole
+         input tape is copied to the output tape.
+
+     4.  /COPY, /CONCAT are illegal on the output specification.
+
+     5.  An end of file is never written when /CONCAT is used except  at
+         command  termination,  or  when /EOF is encountered.  Note that
+         /EOF terminates concatenation mode.
+
+     6.  To specify the number of files with /BACKSP, /COPY, /CONCAT,and
+         /SKIP,  you  must  specify  the  number of records also.  (I.E.
+         /BACKSP:3 means  backspace  3  records  and  /BACKSP:3:0  means
+         backspace 3 files.)
+
+     7.  COPYMT will  also  scan  SWITCH.INI  for  applicable  switches.
+         Allowable  switches  are /BUFSIZ, /ERROR, /IBUF, /IFTYP, /TIME,
+         and /OBUF.  This is dependent on feature test switch  FT$OPT=-1
+         at  assembly  time  (default).   See  appendix  A  for  a short
+         description of SWITCH.INI.
+
+
+                        OPTIONS FOR /ERROR:QUERY
+
+     When there is an error on the input tape, and /ERROR:QUERY has been
+specified, the user has several options available:
+
+     1.  C - copy this record (I.E.  record in error) and continue
+
+     2.  D - dump record in error to LPT:COPYMT.LPT and ask again.
+
+     3.  E - exit now.  if you type CONTINUE to the monitor, you will be
+         asked again for an option.
+
+     4.  G - same as "C", and change /ERROR:QUERY to /ERROR:CONTINUE.
+
+     5.  H - type help message
+
+     6.  S - skip this record (don't send to output tape) and continue.
+
+                    OUTPUT TAPE END-OF-TAPE HANDLING
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 6
+
+
+     When COPYMT encounters and end-of-tape on the output tape, a double
+end-of-file  is written, and the user is asked for an option.  Available
+options include:
+
+     1.  C - continue (assumes a new tape has been mounted).
+
+     2.  E - exit.  A continue will again ask for an option.
+
+     3.  H - type some help on the terminal.
+
+     4.  R - rewind the output tape (see note below)
+
+     5.  U - rewind and unload the output tape (see note below)
+
+
+
+                                  NOTE
+
+               Options "R" and "U" will again ask for  an
+               option   after   the   action   has   been
+               performed.
+
+
+                      COPYMT-BATCH JOB INTERACTION
+
+     When COPYMT is used in batch, it will interact  with  the  operator
+under  certain conditions.  Currently, the only implemented condition is
+output end-of-tape.  To enable batch to  use  this  facility,  you  must
+include the line ".OPERATOR" in your batch control file before COPYMT is
+run.  Then, any messages that require operator interaction will be  seen
+on  the  CTY  and  the  operator will be able to handle the condition by
+replying as outlined above.
+
+     To reply to a batch job that has entered dialog mode, the  operator
+must type:
+            "B<sjob#>-OPERATOR <line><cr>"
+where <sjob#> is the subjob number assigned by the batch controller  and
+typed out on all messages to the operator, <line> is the line of text to
+send to the batch job, and <cr> is a carriage return.
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 7
+
+
+                          TAPE TESTING FACILITY
+
+     A tape testing facility also exists in COPYMT.  This code is  under
+the  assembly-time switch FT$TST (normally on).  This allows you to test
+your tapes  by  writing  all  ones  with  the  monitor  error-correction
+disabled,  so all bad spots will be seen by the program.  It is believed
+that the verification feature  is  not  needed,  and  a  simple  FORTRAN
+program can duplicate this feature if desired.
+
+     To use the tape testing feature the command is:
+
+          TAPNAM:/TAPTST
+      or: TAPNAM:/TEST
+      or: /TEST     (attempts to use logical device "TAPTST")
+
+     The only other switches that may be applied  to  this  command  are
+/REPEAT, /DENSITY and /PARITY.  COPYMT will test any tape at any density
+and correctly report the length of the tape, as well as  the  bad  spots
+and the total number of errors.  Use of the /REPEAT:N switch permits you
+to test the tape N times (very useful with old tapes).
+
+     In addition, if a number is specified with /TEST or  /TAPTST,  then
+COPYMT  will  only  test that number of records, and will not rewind the
+tape.  This is useful if you wish to strip some tape off  the  beginning
+(I.E.  /TEST:20 would test 20 feet of tape and then quit).
+
+
+                          MTAPE MONITOR COMMAND
+
+     If COPYMT is assembled with FT$MTP=-1 (default), then  there  is  a
+monitor command MTAPE available.  The command format is:
+
+                  .MTAPE MTA:/S
+
+where /S is one of /BACKSP, /EOF, /SKIP, /REWIND, or /UNLOAD.  A command
+may contain several switches:
+
+                  .MTAPE MTA:/REW/SKIP:100
+
+This would rewind the tape unit and then skip 100 records forward.
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 8
+
+
+                            COPYMT MESSAGES
+
+Error messages:
+
+     1.  ?CMTBTS MTA BUFFER TOO SMALL FOR RECORD SIZE = n
+         COPYMT has encountered a record too large to fit in the magtape
+         buffer  when  copying  from disk to tape.  The copy is aborted.
+         You should respecify the command with a larger /BUFSIZ.
+
+     2.  ?CMTCER COMMAND ERROR
+         The command did not contain anything decipherable.
+
+     3.  ?CMTCGH CAN'T GET HIGH SEGMENT
+         COPYMT could not find its high segment.  This  message  is  not
+         expected  to  occur.   Please  show the terminal session to the
+         maintainer.
+
+     4.  ?CMTCOD CAN'T OPEN DEVICE, FILE dev:file.ext
+         The OPEN for the  specified  device  failed.   It  is  probably
+         unavailable to you.
+
+     5.  ?CMTDIF DSK IS FULL -- ABORTING
+         This message may occur when copying from magtape to disk if you
+         go over your logged-in quota.
+
+     6.  ?CMTDNM DEVICE IS NOT A MAGTAPE - DEV
+         The specified device is not a magtape.
+
+     7.  ?CMTID7 ILLEGAL DENSITY FOR 7-TRACK
+         The    only     legal     densities     for     7-track     are
+         /DENSITY:200,/DENSITY:556, and /DENSITY:800.
+
+     8.  ?CMTID9 ILLEGAL DENSITY FOR 9-TRACK
+         /DENSITY:200 and /DENSITY:556 are illegal for 9-track magtapes.
+
+     9.  ?CMTIM7 ILLEGAL MODE FOR 7-TRACK
+         The only mode legal for 7-track operation is /MODE:BINARY.
+
+    10.  ?CMTISO INPUT SWITCH ILLEGAL ON OUTPUT - SWITCH
+         The specified switch may appear only with input specifications.
+
+    11.  ?CMTLER LOOKUP/ENTER ERROR (N) FILE DEV:FILE.EXT
+
+    12.  ?CMTMNA MTA IS NOT AVAILABLE - MTA
+         The specified magtape is not available to your job.
+
+    13.  ?CMTOSI OUTPUT SWITCH ILLEGAL ON INPUT - SWITCH
+         The  specified  switch  may   only   appear   on   the   output
+         specification.
+
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                 Page 9
+
+
+Warning messages:
+
+     1.  %CMTIOE I/O STATUS = XXXXXX (YYY) ON DEV:FILE.EXT - CONTINUING
+         The specified I/O error has occurred on DEV:FILE.EXT.  The  I/O
+         error  bits are XXXXXX, with the decoding YYY, which may be one
+         or more of:
+
+         1.  IMP
+             The tape is write-locked.  COPYMT  will  wait  for  you  to
+             write-enable  it.   At  the  current  time, recovery is not
+             available,  so  the  job   will   be   aborted   (temporary
+             restriction).
+
+
+                                        NOTE
+
+                 Due to hardware restrictions the  operating  system
+                 has  a  very  hard time telling if the IBM 729 tape
+                 units are write-locked or not.  Therefore, you will
+                 probably  not  see  this  on  the  729  tape units.
+                 Rather, your job will probably go into IO wait, and
+                 eventually you will get a hung device.
+
+
+
+         2.  DER
+             Device error -- data missed, tape is bad  or  transport  is
+             hung.
+
+         3.  PAR
+             Parity error..
+
+         4.  BKT
+             Block too large -- you should recopy the tape with a larger
+             /BUFSIZ value.
+
+
+     2.  %CMTIOT TOTAL OF x yyyyyy ERRORS
+         This is the summary line output at the end of a copy.  x is the
+         total number of errors seen on yyyyyy (input or output).
+
+
+Informative messages:
+
+     1.  [CMTBKT BLOCK TOO LARGE ON INPUT--TRY LARGER /BUFSIZ]
+         COPYMT has encountered a record too large to fit in the buffer,
+         and  will  ask  you  if  you  want to continue copying.  If you
+         answer "y", the copy will continue, else it  will  be  aborted.
+         Note  that  this  message and the continue question will not be
+         output to batch jobs, but the %CMTIOE I/O STATUS message will.
+
+
+Operator messages:
+These messages are also seen by the operator in a batch job  if  enabled
+to do so (see note above on COPYMT-batch interaction).
+COPYMT -- MAGNETIC TAPE COPIER (SON OF MAGCPY) %7                Page 10
+
+
+     1.  %CMTOTF OUTPUT TAPE IS FULL
+         The output tape is full.  You must mount a new tape and respond
+         with the "c" option.
+
+Tape testing messages:
+These messages may be seen when using the /TEST (or /TAPTST) switch.
+
+     1.  %CMTFAR FAILED AFTER n TRIES AT m FEET
+         COPYMT has tried n times (assembly time feature=10.)  to  write
+         on  the  tape  at  m  feet  and  failed.  This spot is probably
+         unusable.
+
+     2.  [CMTTNE TOTAL NUMBER OF ERRORS = n]
+         This message is output at the end of the test and is  a  report
+         of the total number of errors found on the tape.
+
+     3.  [CMTTLI TAPE LENGTH = n]
+         COPYMT writes one foot tape records, and has found  the  length
+         of the tape to be n feet.
+
+
+
+
+
+
+
+
+
+
+
+
+
+                              APPENDIX A
+
+                         A PRIMER IN SWITCH.INI
+
+
+
+     SWITCH.INI is an option file.  It allows you to place your favorite
+switch  settings  in a file which is automatically read (unless disabled
+by /NOOPTION) by several SYSTEM programs, COPYMT among them.
+
+     The format of a line in SWITCH.INI is:
+PROGRAM(:OPTIONNAME) /SWITCH/SWITCH.../SWITCH
+
+     A PROGRAM NAME MAY BE IN THE FILE MORE THAN ONE TIME, BY ADDING  AN
+OPTIONNAME,  preceded  by a colon, right after the program name.  Thus a
+typical SWITCH.INI file might be:
+
+LOGIN   /WIDTH:80/MESSAGE:NAMES/NORTCOM/PAGE/NOFORM
+DIRECT  /WIDTH:80/OKNONE
+DIRECT:WIDE     /WIDTH:132/OKNONE
+COPYMT  /OBUF:6/IBUF:6/BUFSIZ:200
+COPYMT:BIG      /OBUF:1/IBUF:1/BUFSIZ:4000
+
+     AFTER COPYMT (or any other  program  which  scans  this  file)  has
+accepted  a  command  from the user, SWITCH.INI will be scanned, and any
+switches found for the program which have not been set by  user  command
+will be applied.  Thus, if the user had a /BUFSIZ switch in his command,
+the /BUFSIZ:200 in SWITCH.INI would not be applied.
+
+     In addition, one may specify  the  desired  option  by  adding  the
+switch  "/OPTION:NAME"  to  the  command  string (anywhere should do the
+trick).  For instance, if you added  /OPTION:BIG  to  a  COPYMT  command
+string,  the  line  beginning with COPYMT:BIG would be searched for.  If
+the specifed option is not found, a warning message will be issued.
+
+
+
+
+
+
+
+
+
+
+
+
+                              APPENDIX B
+
+                       COPYMT INSTALLATION GUIDE
+
+
+
+     1.  COPYMT must be assembled with MACRO %50 or later.
+
+     2.  COPYMT  uses  DEC-supplied  universal  files  JOBDAT,   UUOSYM,
+         MACTEN, and SCNMAC.
+
+     3.  COPYMT loads REL:HELPER and rel:scn7b.
+
+     4.  Feature test switches which may safely be changed are:
+
+         1.  FT$OPT (default=on)
+             If this switch is on,  SWITCH.INI  will  be  read  after  a
+             command is accepted from the terminal.
+
+         2.  FT$TST (default=on)
+             If this switch  is  on,  the  tape  testing  code  will  be
+             included.
+
+         3.  FT$MTP (default=on)
+             If this switch  is  on,  COPYMT  will  handle  the  monitor
+             command  MTAPE.   This  requires  a  small  change  to  the
+             monitor:
+             In COMCON.MAC,  insert  "C  MTAPE,RUNFLG,RUNCMT"  into  the
+             names   macro   somewhere.   Somewhere  convenient  (around
+             runque) insert the following two lines:
+             RUNCMT:    MOVE    P2,[SIXBIT/COPYMT/]
+                        JRST    RUNAME
+
+
+
+[end of COPYMT.DOC]

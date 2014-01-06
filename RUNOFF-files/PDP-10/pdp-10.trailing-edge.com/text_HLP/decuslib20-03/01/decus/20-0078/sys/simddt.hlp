@@ -1,0 +1,429 @@
+
+
+
+DEBUGGING SIMULA PROGRAMS WITH SIMDDT
+
+
+SIMDDT is an interactive program that is used to debug SIMULA programs.
+SIMDDT allows the user to:
+
+a) set up to 20 breakpoints in the program    [STOP] AT [module:] nn ...
+b) continue from a breakpoint                 PROCEED
+c) display the current breakpoint settings    [STOP] BREAKS
+d) remove a breakpoint setting                REMOVE [AT n]
+e) change the contents of a variable          INPUT x:= ...
+f) display the contents of a variable         OUTPUT x, ...
+g) display all variables in the storage pool  VARIABLES [/switches]
+h) display the dynamic operating chain        CHAIN
+i) display all scheduled processes            SCHEDULED
+k) switch output to a disk file e.g.  a.bug   USE a.bug
+l) display the source program                 DISPLAY [module:] mm[-nn]
+m) move SIMDDT viewpoint :  to object x       INSPECT x
+      to SIMDDT interrupt point               INSPECT/START
+      to CLASS or PROCEDURE generation point  INSPECT/RETURN
+      to viewpoint before last RETURN         INSPECT/RESET
+      to statically enclosing block           INSPECT/UP
+n) close open files                           [STOP] CLOSE
+o) read SIMDDT control file e.g.  x.cmd       @x.cmd
+p) terminate execution                        EXIT
+
+
+
+1.  LOADING AND STARTING SIMDDT
+
+
+The SIMDDT program is self-relocating and it is read from disk by a
+SIMRTS routine when requested.  The SIMULA compiler switches I
+(IDENTIFICATION, produces a line number table) and D (DEBUGS, produces a
+symbol table) must have been set during compilation if the program is to
+be debugged with SIMDDT.  The switches are set by default but if they
+were set off, SIMDDT will give incomplete information to the user.
+
+1.1 DEBUG
+
+     If the source file has extension SIM or the /SIMULA switch is used,
+     the DEBUG monitor command will ensure that SIMDDT is read into low
+     segment core and started before the SIMULA program execution
+     starts.
+     Command example:
+
+     .DEBUG MYPROG.SIM
+
+
+1.2 LOAD, SAVE, GET, REENTER
+
+     The monitor commands LOAD plus SAVE will save the user program not
+     including SIMDDT on disk.  If issued directly after LOAD (+SAVE) or
+     GET, the REENTER command will cause SIMDDT to be read into low
+     segment core and started.  The START monitor command will start
+     user program execution directly.
+     Command example:
+
+     .LOAD MYPROG.SIM
+     .SAVE
+     .REENTER
+
+
+1.3 ^C - REENTER
+
+     After the SIMULA program has started to execute without the
+     debugging system it is usually possible to invoke SIMDDT.  One or
+     two ^C commands will stop execution and return the terminal to
+     monitor mode.  The REENTER monitor command will load and start
+     SIMDDT, which will give the number of the source program line which
+     corresponds to the statement which was interrupted by ^C.  This is
+     very useful when the program is looping.  ^C can also be used if
+     SIMDDT is already loaded.
+     Command example:
+
+     .EXECUTE MYPROG.SIM
+     ^C
+     ^C
+     .REENTER
+
+
+1.4 Program errors
+
+     SIMDDT will be called to write the error message and information on
+     where the error occurred.
+
+
+1.5 CONTINUE after program exit
+
+     The CONTINUE monitor command can be used to start SIMDDT after a
+     normal program exit.  The variables in the storage pool can be
+     displayed with the VARIABLES command.
+
+
+1.6 REENTER after program exit
+
+     The REENTER command should be used to restart the program and
+     SIMDDT after program exit.  Note that all breakpoint settings will
+     be removed.  If SIMDDT was not loaded at execution start, the START
+     command will restart the program without invoking SIMDDT.
+
+
+
+2  SIMDDT COMMANDS
+
+
+SIMDDT operates in two modes, debug and error mode.  SIMDDT is in error
+mode when entered after a program error, otherwise it is in debug mode.
+
+
+2.1 Command syntax
+
+
+     SIMDDT will translate all lower case letters to upper case.  The
+     reserved words in the commands can be truncated to any number of
+     characters as long as they are unique.  The keywords INPUT and STOP
+     have also been given short forms namely I and ST.  A command may
+     not occupy more than one line.
+
+     A line starting with the character ; will be treated as a comment
+     and ignored.
+
+
+     The user identifies a breakpoint with a source program line number.
+     In the command descriptions below the notation <LINE> is used.
+     <LINE> has the form [<MODULE>:] <NNNNN>.
+
+     <MODULE> is MAIN or the SIMULA name of a separately compiled
+     procedure or class.  MAIN indicates the main program.  If <MODULE>:
+     is omitted, the current module is used by SIMDDT, that is MAIN at
+     program start and later the module in which the current breakpoint
+     is placed.
+
+     <NNNNN> is a line number in the source program.  The line should
+     contain the beginning of an executable statement.  If not found the
+     first higher numbered line on which a statement starts will be
+     chosen.
+
+     In the commands the user references a source variable with the
+     notation <IDENTIFICATION> or <IDENTIFICATION2>.
+
+     <IDENTIFICATION> ::= <IDENTIFICATION1> 
+                          [QUA <CLASS IDENTIFIER>] !
+                          <IDENTIFICATION>.<IDENTIFICATION1>
+
+     <IDENTIFICATION1> ::= <IDENTIFIER> !  
+                           THIS <CLASS IDENTIFIER>!
+                           <ARRAY IDENTIFIER>(<SUBSCRIPT LIST>)
+
+     <SUBSCRIPT LIST> ::= [-] <INTEGER> !
+                          [-] <INTEGER>,<SUBSCRIPT LIST>
+
+     <IDENTIFICATION2> ::= <IDENTIFICATION> !
+                          [<IDENTIFICATION>.]<ARRAY IDENTIFIER> !
+                          [<IDENTIFICATION>.]*
+
+     The <IDENTIFIER> must be a simple variable of type INTEGER, REAL,
+     LONG REAL, BOOLEAN or CHARACTER or a simple object reference or
+     TEXT type variable.  When the <IDENTIFIER> is a formal parameter
+     called by name it is not handled by SIMDDT.  A formal parameter
+     with transmission mode by value or by reference will be treated
+     like a declared variable.  The standard procedures SYSIN, SYSOUT,
+     FIRST, LAST, SUC, PRED, PREV, EVETIME, MAIN, TIME and CURRENT are
+     accepted by SIMDDT.
+
+     The brackets ( ) around the <SUBSCRIPT LIST> can be replaced by a
+     pair of square brackets, e.g.  A[1,2].
+
+     In the commands below the notation <STRING> is used.  <STRING> is a
+     string of characters enclosed in " .  The first 5 characters in the
+     string are part of the message that SIMDDT outputs at the
+     breakpoint.
+
+
+2.2 Commands
+
+
+     [STOP] AT <LINE> [,<N>] [<STRING>]
+
+     SIMDDT ACTION:  Identifies a breakpoint and outputs a message every
+     n:th time the referenced statement is executed.  If STOP is given
+     execution is halted and new SIMDDT commands are accepted.  <N>, the
+     loop counter, is an integer number.
+
+
+     [STOP] AT <LINE> [<STRING>] [IFCHANGED] <IDENTIFICATION2> [,
+     <IDENTIFICATION2> ]...
+
+     SIMDDT ACTION:  Identifies a breakpoint.  If IFCHANGED is specified
+     SIMDDT will output only changed variable values, otherwise the
+     values are always given.  If IFCHANGED is specified the first time
+     the breakpoint is reached, the value is compared to 0, FALSE,
+     NOTEXT, NONE or CHAR(0), depending on its type.  * the complete
+     block indicator and <ARRAY IDENTIFIER> are not allowed when
+     IFCHANGED used.
+
+     [STOP] AT <LINE> [<STRING>] IF <IDENTIFICATION> 
+     <RELATION OPERATOR> <VALUE>
+
+     SIMDDT ACTION:  Identifies a breakpoint.  SIMDDT will output the
+     variable value if the relation is TRUE.
+     The <RELATION OPERATOR> can be one of > >= < <= = \= == =/= GT GE
+     LT LE EQ NE EQV IS IN.  The <VALUE> can be an <IDENTIFICATION>,
+     TRUE, FALSE, NOTEXT, NONE, arithmetic constant, character constant,
+     text value constant or CLASS identifier.
+
+
+     REMOVE [ AT <LINE> ]
+
+     SIMDDT ACTION:  Remove all breakpoint commands for a specific line
+     or remove all breakpoints.
+
+
+     [STOP] BREAKS
+
+     SIMDDT ACTION:  List all breakpoint commands.  The input order is
+     not kept.  If STOP is specified, SIMDDT will halt after each
+     breakpoint command and give the user the possibility to remove it.
+     When all breakpoint commands for a line are removed the breakpoint
+     is removed.
+
+
+     OUTPUT <IDENTIFICATION2> [/-TEXT][/-ARRAY]
+     [,<IDENTIFICATION2>]...
+
+     SIMDDT ACTION:  Output the values of the variables.  See VARIABLES
+     for explanation of the switches.
+
+
+
+     INPUT <IDENTIFICATION> <ASSIGNMENT OPERATOR> <VALUE>
+
+     SIMDDT ACTION:  Changes the value of the referenced variable to the
+     value given in the command.  The operators are := and :-.  See
+     above for explanation of <VALUE>.
+
+
+     DISPLAY [<MODULE>:]<NNNNN> [-<NNNNN>]
+
+     SIMDDT ACTION:  Output the indicated source program lines.
+
+
+     INSPECT <IDENTIFICATION> !  /START !  /RETURN !  /RESET !  /UP
+
+     SIMDDT ACTION:  The point in the program, from which SIMDDT sees
+     the variables, is moved.  This makes it possible to input and
+     output variables, which are not visible from the block in which the
+     program execution was interrupted.
+
+     INSPECT <IDENTIFICATION>
+     SIMDDT will now see inside the CLASS object, to which the variable
+     refers.  It must be an object reference (not NONE).
+
+     INSPECT /START
+     SIMDDT will again see from the place, where program execution was
+     originally interrupted and SIMDDT entered.
+
+     INSPECT /RETURN
+     SIMDDT should be looking inside a procedure or an active CLASS.
+     /RETURN will make SIMDDT see from the point where the procedure was
+     called or where the class was generated or called.
+
+     INSPECT /RESET
+     Go back to where SIMDDT was looking before the last INSPECT /RETURN
+     command.
+
+     INSPECT /UP
+     Look directly at the statically enclosing block.
+
+
+     PROCEED
+
+     SIMDDT ACTION:  SIMDDT will either start program execution or
+     continue processing at the point where it was interrupted.  PROCEED
+     is not valid after an error from which it is not possible to
+     continue or after a NOPROCEED command.
+
+
+     USE <FILE SPECIFICATION>
+
+     SIMDDT ACTION:  SIMDDT output will be written on the file specified
+     in the command.  All output that signals a user action is also
+     output on TTY e.g.  the message "STOP AT MAIN:17 " will be output
+     both at the TTY and the file at the breakpoint stop.  The file is
+     not closed until a new USE command is given or at the end of
+     execution.  The format of the <FILE SPECIFICATION> is the same as
+     the one used for the other user files, see chapter 8.2.  USE TTY:
+     will reset SIMDDT output to the terminal.
+
+
+     CHAIN
+
+     SIMDDT ACTION:  Writes the dynamic operating chain starting with
+     the current block.  Only procedures, class instances and inspected
+     class instances are given.  The name of the block and its
+     activation line are listed.
+
+
+     VARIABLES [/-ARRAY][/-TEXT][/-GC]
+
+     SIMDDT ACTION:  The complete storage pool is scanned and all
+     variables that are of a type treated by SIMDDT are listed together
+     with the name of the dynamic block in which the variables are
+     declared.  If possible the garbage collector routine (G.C.) will be
+     called before the storage pool is investigated if not /-GC was
+     specified.  When /-ARRAY is specified all array elements are
+     skipped in the output.  When /-TEXT is specified all text
+     characters are skipped in the output.  To reduce output only
+     variables which do not have their initial values are given.  The
+     amount of data is often very large, and the USE command can be used
+     to direct the output to a disk or LPT file.
+
+
+     SCHEDULED
+
+     SIMDDT ACTION:  For each scheduled process the following will be
+     output:
+     EVTIME= scheduled time
+     Class name
+     Octal address of dynamic area DETACHED <LINE>
+
+
+     ALL [/-ARRAY] [/-TEXT] [/-GC]
+
+     SIMDDT ACTION:  Produces the same information as if the commands
+     CHAIN, VARIABLES and SCHEDULED had been given.  
+
+
+     [STOP] CLOSE
+
+     SIMDDT ACTION:  Lists and closes all open files except SYSIN and
+     SYSOUT.  If STOP specified SIMDDT will halt and give the user the
+     possibility to close the file.  Answer CLOSE or carriage return.
+
+
+     NOPROCEED
+
+     SIMDDT ACTION:  Inhibits the use of the PROCEED command.  After
+     this command it will be possible to use a critical command such as
+     USE or DISPLAY.  Not necessary when stopping at preset breakpoints.
+
+
+     @ <FILE SPECIFICATION>
+
+     SIMDDT ACTION:  SIMDDT input will be read from the file specified
+     in the command.  The command will be output on the TTY before it is
+     processed.  When end of file found SIMDDT will request input from
+     the TTY.
+
+
+     EXIT
+
+     SIMDDT ACTION:  Returns control to SIMRTS which closes the SYSIN
+     and SYSOUT files and then returns to the monitor.  
+
+
+     HELP
+
+     SIMDDT ACTION:  Lists part of the SIMDDT.HLP file.
+
+
+     2.3 Command examples
+
+
+     STOP AT 55 ,3
+
+     EXPLANATION:  Set a breakpoint at first statement on line 55 and
+     stop processing every third time the statement is executed so that
+     the user can communicate with SIMDDT.
+
+     AT MAIN:30 "LIST" VINT[1,3], VREF.VBOOL
+
+     EXPLANATION:  Output the values of the variables VINT[1,3] and
+     VREF.VBOOL each time the first statement on line 30 in the main
+     program is to be executed.  The message will contain the letters
+     "LIST".
+
+     AT 10 IFCHANGED VREAL,VTEXT
+
+     EXPLANATION:  Output the variable value if any of the variables
+     were changed since the last time the statement at line 10 was to be
+     executed.
+
+     STOP AT 80 IF VREAL>=1.5
+
+     EXPLANATION:  Stop execution at the statement on line 80 if the
+     variable VREAL>=1.5
+
+     INPUT VTEXT:="TEXT VALUE ASSIGNMENT"
+
+     EXPLANATION:  Change the value of the text variable.  Note that
+     only the characters may be changed, but not the length.
+
+     USE DEBFIL.LPT
+
+     EXPLANATION:  SIMDDT output will be written on file DEBFIL.LPT.
+     Output in connection with a breakpoint stop will also appear on the
+     user TTY.
+
+     DISPLAY 1-10
+
+     EXPLANATION:  Output the source program lines 1 to 10.
+
+
+
+
+2.4 SIMDDT input and output
+
+     The user TTY is normally used for input to SIMDDT .  A "*" on the
+     terminal signals that SIMDDT is expecting a user command.  The @
+     command will cause SIMDDT to read its input from the indicated
+     file.
+
+     The user TTY is used for output from SIMDDT when it is in debug
+     mode and no USE command has been given.
+
+     Both the user TTY and the SYSOUT file are used for output from
+     SIMDDT when it is in error mode.The output from the ALL command is
+     only written to SYSOUT but all other output is written on both
+     files.
+     If an output file is specified with the USE command it replaces the
+     SYSOUT file.
+
+
+                          [END OF SIMDDT.HLP]
+  

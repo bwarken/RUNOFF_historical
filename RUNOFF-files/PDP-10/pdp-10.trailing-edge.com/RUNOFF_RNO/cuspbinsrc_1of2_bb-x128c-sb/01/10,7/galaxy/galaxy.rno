@@ -1,0 +1,965 @@
+.JUSTIFY
+.LEFT MARGIN 6
+.RIGHT MARGIN 72
+.FIGURE 8
+.CENTER
+Operational and Internal Differences
+.SKIP 2
+.CENTER
+Between
+.SKIP 2
+.CENTER
+GALAXY v2 to v4.1
+.SKIP 10
+.LITERAL
+Copyright (C) 1982
+Digital Equipment Corporation, Maynard, Massachusetts, U.S.A.
+
+This software is furnished under a license and may be  used  and
+copied  only  in  accordance  with the terms of such license and
+with the inclusion of the above copyright notice.  This software
+or  any  other  copies  thereof may not be provided or otherwise
+made available to any other person.  No title to  and  ownership
+of the software is hereby transferred.
+
+The information in this software is subject  to  change  without
+notice  and  should  not be construed as a commitment by Digital
+Equipment Corporation.
+
+Digital  assumes no responsibility for the use or reliability of
+its software on equipment which is not supplied by Digital.
+.END LITERAL
+.PAGE
+.TITLE GALAXY 4.1
+Version 4.1 is the new release of the GALAXY Multistream Batch and
+Spooling System for TOPS-10. It contains mountable device facilities,
+the ability for a spooler to drive multiple devices, a new operator
+interface providing a common command syntax for all spoolers, and a new
+accounting system. The programs or components that make up the TOPS-10
+GALAXY system are:
+.LITERAL
+
+		ACTDAE	Accounting daemon
+		BATCON	Batch controller
+		CDRIVE	Card reader spooler
+		GLXLIB	Sharable GALAXY Object-Time-System
+		LPTSPL	Line printer spooler
+		MOUNT	User mount-class command entry program
+		OPR	Operator interface
+		ORION	Operator interface controller
+		PLEASE	Operator/User communications program
+		PULSAR	Tape label and disk processor
+		QUASAR	Queue manager and resource allocator
+		QUEUE	User queue-class command entry program
+		QMANGR	GALAXY/MPB interface
+		SPROUT	Card punch, paper tape punch and plotter spooler
+		SPRINT	Card reader interpreter
+
+.END LITERAL
+.PAGE
+.SUBTITLE Operational differences
+.HEADER LEVEL 1 OPERATIONAL DIFFERENCES
+.SUBTITLE GALAXY Startup Procedures
+.HEADER LEVEL 2 GALAXY Startup Proceedures
+Under GALAXY version 2, all components were started up under OPSER. With
+the exception of QUASAR all had to be attached to a terminal because each
+spooler had its own command scanner. Furthermore, each spooler was capable
+of driving only one device. Under GALAXY version 4.1, all components except
+for the operator interface program (OPR) can run detached. No spoolers have
+command scanners and all may drive multiple devices. A GALAXY system may
+still be started up under OPSER, but it is counterproductive to tie up a
+terminal and several PTYs to control programs that will never type out
+messages or accept commands from the operator. The recommended method of
+starting up a GALAXY system is by using INITIA. When INITIA runs from the
+CTY at system startup, it takes its commands from SYS:SYSJOB.INI.
+.SKIP 1
+Starting programs with SYSJOB has several advantages over using OPSER.
+First, SYSJOB offers extremley fast startup time. Second, the SYSJOB
+mechanism allows programs that are critical to system operation to get
+started well before all others. When SYSJOB.INI is processed, LOGIN
+commands do not run the LOGIN CUSP. Instead, the monitor will log the
+job in to [1,2] in the same way that the CTY has the option of logging
+in following a disk refresh during the ONCE dialogue. The monitor will
+set the PPN to [1,2] and assign all DEC privileges. The job's search list
+remains empty. When a program name is encountered in SYSJOB.INI, that
+program is run from SYS:. Once the program starts up, it must detach
+itself immediately and another line from SYSJOB.INI is processed. A
+sample SYSJOB.INI file would look like:
+.LITERAL
+
+		LOGIN
+		ACTDAE
+		LOGIN
+		DAEMON
+		LOGIN
+		FILDAE
+		LOGIN
+		QUASAR
+		LOGIN
+		ORION
+		LOGIN
+		PULSAR
+		LOGIN
+		BATCON
+		LOGIN
+		LPTSPL
+		
+.END LITERAL
+Each pair of commands will LOGIN a job and run the program specified
+by the second word in the pair of commands. First the accounting daemon
+(ACTDAE) starts up and detaches followed by DAEMON and the FILDAE. The
+order of these programs starting up is not critical unless accounting
+is of major importance. The GALAXY jobs follow, each logging in and
+detaching. Spoolers should be started after QUASAR starts.
+.PAGE
+.SUBTITLE Accounting
+.HEADER LEVEL 2 Accounting
+The Usage Accounting System consists of the accounting daemon (ACTDAE)
+and the programs that interface to it. Those programs include all GALAXY
+components that create Usage Accounting entries, LOGIN, BACKUP plus the
+LOGOUT and QUEUE. UUOs. All data concerning Usage Accounting resides on
+ersatz device ACT:. With this new style of accounting, a site has the
+option of requiring account string validation. This feature insures that
+the account string selected for use by the user is valid and is stored
+in all accounting entries created for that user. The GALAXY system will
+perform account validation prior to processing any output queue requests.
+Validation is not done for batch jobs until the job starts to run because
+the LOGIN process will take care of it.
+.SKIP 1
+Specific information relating to the content of Usage Accounting files
+is available in the TOPS-10/TOPS-20 Usage Accounting specification.
+
+.HEADER LEVEL 3 Account string validation
+Account validation refers to the function performed by LOGIN and various
+GALAXY components whereby the ACTDAE is asked to verify that a particular
+account string is legal for a user. For example, a user might try to print
+a file with an account string different from the one he or she logged in with.
+Obviously, the logged in account string is legal, because LOGIN set it, but
+the one specified on the PRINT command may not be legal. Prior to creating
+the queue request, the ACTDAE is queried regarding the validity of the
+account string for the user. If the string is legal, then the queue request
+gets created normally. If however, the string is illegal, an error message
+will be printed on the user's terminal and the request will not be created.
+Whether or not the account validation is required is determined by the
+setting of a bit in the monitor. A site may chose not to have account
+validation by answering 'NO' to the MONGEN dialogue question
+'Account#verification(Y,N)'. In addition, at system startup, the
+/NOVALIDATION switch may be appended to any answer to the question
+'Startup#option:'.
+
+.HEADER LEVEL 3 Setting up account strings
+All work performed for a user by GALAXY gets charged to an account. The
+Usage Accounting system uses an account string of 1 to 39 ASCII characters
+to uniquely identify a user or group of users and the work that was charged
+to them. Account strings are not stored in ACCT.SYS with the rest of a
+user's accounting profile, because a user may have several account strings.
+The mapping of a PPN to an account string is done by the PROJCT program
+using input from PROJCT.ACT. This file contains text that may be edited
+using any text editor. Each line in PROJCT.ACT maps a single PPN or
+wildcarded PPN to a list of one or more account strings. The format is:
+.LITERAL
+
+		proj,prog = string1/switch, string2, ...
+
+.END LITERAL
+where 'proj' and 'prog' can be possibly wildcarded values. A question mark
+(?) indicates a wild digit and an asterisk (*) a wild value. Each string
+following the equal sign may contain wildcards as well. Again, the question
+mark indicates a wild character and an asterisk a wild string or remainder
+of a string. An optional switch /DEFAULT may be appended to the end of a
+string. This means that if a user fails to specify an account string, this
+one will be the default. Typical entries in PROJCT.ACT might look like this:
+.LITERAL
+
+		10,56=GALAXY-10,galaxy-10
+		10,3076=CHUCK/DEFAULT,G*,H?H*
+		10,*=*
+		27,5434=WRITER
+
+.END LITERAL
+In the above examples, user [10,56] has two account strings, one upper
+cased named 'GALAXY-10' and one lower cased 'galaxy-10'. User [10,3076]
+has four valid account strings. 'CHUCK' is the default account string
+when a string isn't specified and string beginning with 'G' or matching the
+pattern 'H<single-character>H' at the begining of a string will be legal.
+The third example indicates that any project 10 PPN not already specified
+in PROJCT.ACT may have any account string. User [27,5434] has a single
+account string named 'WRITER'.
+.SKIP 1
+Note that by default, case is significant. The ACTDAE can be reassembled
+so that it will convert all account strings to upper case before performing
+any validation. This may be done by setting FTCASECONVERT to be non-zero
+in ACTDAE.MAC.
+.SKIP 1
+Once the system administrator has created PROJCT.ACT, the PROJCT program
+must be run. It will translate PROJCT.ACT, a text file into PROJCT.SYS,
+a binary file suitable for input to the ACTDAE.
+
+.HEADER LEVEL 3 Setting account strings for jobs created by SYSJOB.INI
+If a site maintains detailed accounting records for operator jobs such
+as the GALAXY components, DAEMON, FILDAE, etc., then it is necessary to
+set an account string for jobs created by SYSJOB.INI. Normally LOGIN
+would set the account string, but SYSJOB-created jobs are special. The
+monitor logs in these jobs and bypasses the standard LOGIN process.
+To get around the lack of an account string, the command
+'SET#DEFAULT#ACCOUNT#xxx' may be added to the beginning of SYSJOB.INI.
+This will cause all jobs logged in by the monitor to have account 'xxx'
+set for them.
+
+.HEADER LEVEL 3 Remark strings
+The Usage Accounting System allows remark text to be specified at LOGIN
+time by a user. A remark is a text string of 1 to 39 ASCII characters and
+may contain any information a user decides to type in. This text is stored
+in the Usage Accounting files and is never used internally by the monitor
+or any program.
+
+.HEADER LEVEL 3 Usage files produced by ACTDAE
+The accounting daemon writes ASCII Usage data into ACT:USAGE.OUT. The
+operator has two options available through the OPR program for dealing
+with the ACTDAE output. One OPR command 'SET#USAGE#BILLING-CLOSURE'
+causes ACTDAE to close ACT:USAGE.OUT at the specified time and rename it
+to ACT:yymmdd.xxx on a daily basis. 'yymmdd' represents the numeric year,
+month, and day that the file was closed and 'hhu' the number of hours plus
+the fraction of an hour past midnight. Another OPR command,
+'SET#USAGE#FILE-CLOSURE' will direct ACTDAE to checkpoint ACT:USAGE.OUT
+at the specified interval.
+
+.HEADER LEVEL 3 FACT file accounting
+To ease the conversion from GALAXY version 2 to 4.1 and from FACT file to
+Usage Accounting, GALAXY components will produce both FACT file entries
+and Usage Accounting records. As another aid to help the conversion
+process, the CONV10 program will convert Usage Accounting files to FACT
+file formatted files. Future GALAXY releases will not support FACT file
+accounting. FACT file accounting may be turned off should a site not wish
+to use two types of accounting systems.
+.PAGE
+.SUBTITLE Master Queue File Changes
+.HEADER LEVEL 2 Master Queue File Changes
+The format of the Master Queue File has changed since version 2. If a
+site anticipates experimenting with version 4.1 and then dropping back
+to version 2, then one of two things should be done: 1. Copies of each
+queue file will have to be saved and switched back and forth to coincide
+with the matching version of QUASAR. This method could prove rather
+cumbersome. 2. An alternative would be to convert the queue file from
+version 2 to 4.1 or the other way around. A conversion program (QSRCVT)
+is supplied as an unsupported tool to help any site that might want to
+attempt converting the queue files.
+.PAGE
+.SUBTITLE Operator Interface
+.HEADER LEVEL 2 Operator Interface
+The new operator interface acts as the command parser for all spoolers.
+It consists of two parts. The first is the OPR program which parses
+commands typed by the operator and displays text generated by the GALAXY
+system. The second part is the ORION program. It is the operator controller
+responsible for logging and routing messages sent to and from each OPR.
+The 4.1 operator interface is the same one released with GALAXY version 4
+on TOPS-20, but with TOPS-10 specific features added to it.
+.SKIP 1
+In order to run OPR, a user must have Operator Privileges granted to it
+by LOGIN. These privilege bits are stored in ACCT.SYS using the REACT
+program. There are three classes of operators; SYSTEM, HOST and REMOTE.
+Each type of operator privilege indicates what system devices may be
+controlled by a particular operator. Being a SYSTEM operator allows a
+user to control devices and batch jobs on all nodes in the system, process
+mount requests, and perform various SET commands that affect the operation
+of the entire system. A HOST operator may control devices and batch streams
+only at the host node in a system. REMOTE operators may only affect the
+operation of devices and batch streams on the remote node they are
+physically connected to. In keeping with the TOPS-10 philosophy that a
+[1,2] PPN affords a user full file access and the ability to read or set
+any system-wide parameter, [1,2] jobs are always allowed to run OPR with
+full SYSTEM operator privileges.
+.PAGE
+.SUBTITLE Crash Recovery Procedures
+.HEADER LEVEL 2 Crash Recovery Procedures
+In the unlikely event that a GALAXY component crashes, the method of
+recovering from the crash will vary depending upon the component in
+question. When a GALAXY component crashes or stopcodes, part of the
+stopcode procedure attempts to save the state of the program for later
+examination by a system programmer. After doing that, the stopcode
+processor sends a message to ORION (and hence to all OPRs) telling
+the world that a GALAXY component has crashed. A portion of the stopcode
+text follows. Except for the program and stopcode name, most of the
+information is of little interest to an operations staff, but is important
+to the system programmer who will most likely want to examine the crash.
+.LITERAL
+
+			  --  OPR terminated  --
+			job 35 [1,2] OPR    at terminal 51
+
+	?Stopcode - ILM - in module GLXINT on 22-Mar-82 on  4:58:50
+	 Reason: Illegal memory reference at PC 5064
+	 Program is OPR version 4(407) using GLXLIB version 1(1124)
+	 Crash block starts at location 674000
+	 Last GLXLIB error: 104 (No timer entry has expired)
+
+.END LITERAL
+When an operator notices that a GALAXY component has crashed, normal
+procedure should require him or her to attach to the terminated program
+and issue the monitor SAVE command. The component should be saved with
+a filename like OPRxxx where 'OPR' indicates the OPR program and 'xxx'
+is the stopcode name. The component should then be restarted and a system
+programmer notified of the GALAXY failure. Repeated crashes indicate that
+something is drastically wrong with the GALAXY system and it should be given
+immediate attention.
+
+.HEADER LEVEL 3 QUASAR
+QUASAR is by far the most important component in the GALAXY system.
+When QUASAR crashes, all other components must be restarted. The order
+in which the components get restarted should be the same as was the
+case at system startup. There are no restrictions governing how the
+GALAXY system gets restarted. Jobs may be logged in under OPSER and
+later detached, or started one at a time on a terminal and then detaching
+them.
+
+.HEADER LEVEL 3 ORION
+If ORION crashes,  it should be restarted in the same job slot if possible.
+This way, only the OPR jobs have to re-initiate communications with the
+restarted ORION. OPR will do that automatically when the first command
+is typed after the ORION restart. If the same job slot cannot be used for
+some reason (maybe the operator logged the job out), then QUASAR will need
+to be restarted. This implies the entire GALAXY system needs to be restarted.
+
+.HEADER LEVEL 3 PULSAR
+As in ORION's case, PULSAR should be restarted in the same job slot if
+possible. Otherwise, QUASAR and the entire GALAXY system will have to
+be restarted. When PULSAR gets restarted in the same job slot, any users
+of labeled magtapes could have their jobs hang indefinitely if PULSAR
+was performing tape label processing at the time. The jobs will show up
+as being in event wait for the tape labeler. Users who find themselves
+in this state will have to control-C out of their program, dismount their
+tape and mount it again. If PULSAR was processing an operator or QUASAR
+request to mount a structure, a SHOW STATUS STRUCTURE command to OPR will
+show the disk status as --Mounting--. When this happens, typing the OPR
+RECOGNIZE command for the disk units that make up the structure will
+usually clear up the problem. The problem gets a bit messy when PULSAR
+was processing an operator or QUASAR request to dismount a structure.
+Typically, the structure status is left as --Dismounting--. This means
+QUASAR is waiting for the dismount to be completed by PULSAR. Usually,
+the structure is still mounted and there is no combination of OPR commands
+that will cause QUASAR or PULSAR to exit this state. The only method of
+getting QUASAR's database back to normal will be to run the old OMOUNT
+CUSP and dismount the structure with it. QUASAR will now be satisfied
+because it wanted the structure dismounted, and normal operations may
+proceed.
+
+.HEADER LEVEL 3 BATCON
+BATCON crashes not only affect the batch controller, but cause all jobs
+controlled by BATCON to be detached. It is important to remember that,
+prior to restarting a new BATCON, the now detached batch jobs should
+be killed.
+
+.HEADER LEVEL 3 SPRINT
+SPRINT is a unique spooler in that it gets its jobs from a queue that
+the operator cannot control. SPRINT has no START, STOP, and ABORT commands.
+If a damaged queue request finds its way to SPRINT and causes
+SPRINT to crash, restarting it will only produce another crash. This is
+because SPRINT is automatically started by QUASAR at GALAXY startup. As
+soon as SPRINT notifies QUASAR that it is ready to process a job, QUASAR
+sends it the first job in the queue. because the previous job was never
+completed (it crashed SPRINT), it will be sent to SPRINT again for processing.
+It is impossible to cancel a job from SPRINT's queue because of the nature
+of the queue and the spooler. If a site experiences this type of crash,
+a system programmer should be contacted immediately.
+
+.HEADER LEVEL 3 Other spoolers
+When a spooler like LPTSPL or SPROUT crashes, any jobs currently being
+processed will have to be restarted. No other component should be affected
+by the crash. Jobs will normally be restarted at the last known checkpoint
+sent to QUASAR by the spooler.
+
+.HEADER LEVEL 3 OPR
+An OPR crash is the simplest one to recover from. Since OPR only communicates
+with ORION, it directly affects no spooler, QUASAR or PULSAR. OPR can be
+restarted in any job slot without affecting the running GALAXY system.
+.PAGE
+.SUBTITLE Internal Differences
+.HEADER LEVEL 1 INTERNAL DIFFERENCES
+This section briefly describes some of the internal changes new to GALAXY
+4.1. One noticable difference between version 2 and 4.1 will be the
+increased IPCF traffic on the system. This should not pose any problem,
+in most cases, but it is important to understand why the amount of IPCF
+activity has increased greatly and what could be done to alleviate problems
+should they arise (section 2.1). Both QUASAR and BATCON have changed greatly
+since the last release of the product, so a description of each follows
+(sections 2.2 and 2.3). PULSAR is new with 4.1 and some insight into how
+it works is discussed (section 2.4).
+.PAGE
+.SUBTITLE IPCF Message Flow
+.HEADER LEVEL 2 IPCF MESSAGE FLOW
+With GALAXY 4.1, there is a common operator interface (OPR) and an operator
+interface controller (ORION). No spoolers have a command scanner. Under
+GALAXY version 2, a command to LPTSPL (like PAUSE) involved no other GALAXY
+components. With 4.1, the equivalent OPR command (STOP) causes a message
+to be sent to ORION. The message is logged in the operator log file and
+is then passed to QUASAR. QUASAR determines which LPTSPL job is driving
+he printer to be stopped and sends the message to that job. After stopping
+the printer, LPTSPL then sends an acknowledgement (ACK) to ORION who logs
+it and routes the ACK back to the correct OPR. In this example, a simple
+command has generated five IPCF messages.
+.SKIP 1
+If excessive IPCF traffic is already causing problems, then some local
+modifications to IPCF message handling might be in order. Experiments
+in-house and at one field test site indicate that the average size of
+an IPCF message is between 25 and 35 words long. TOPS-10 can process
+packet-mode transfers faster than page-mode IPCF messages. A site may
+experiment by increasing the maximum size of a packet-mode send (location
+%CNIPL in COMMON). This can be done while the monitor is running.
+.SKIP 2
+.SUBTITLE QUASAR
+.HEADER LEVEL 2 QUASAR
+QUASAR manages queues and allocates resources. It comprises one half of
+MDA. It processes all operator commands and directs the spoolers and
+PULSAR to do the bulk of the work in the GALAXY system. All user QUEUE
+and MOUNT class commands and QUEUE. UUO functions go to QUASAR for
+processing. In addition, it interfaces to the accounting system when
+making accounting entries or requesting account string validation. Its
+role as a queue manager has changed little since the days of version 2.
+What is new, however, is the addition of the mountable device facilities.
+MDA (Mountable Device Architecture) is designed around the belief that
+a user will require a group of mountable devices to perform a task,
+but that these devices will not necessarily be needed all at once.
+
+.HEADER LEVEL 3 MDA data structures
+The MDA database consists of a series of data blocks linked together in
+such a way as to allow ownership (or allocation) of resources to be traced
+from a job number (or request-id) to each physical tape or disk drive,
+or given a tape volume or disk unit, find all jobs (or requests) owning
+or allocating the particular resource. A partial map of the database
+follows. The portions of the MDA database described in this section are
+all dynamically allocated and configured when jobs LOGIN or LOGOUT, batch
+jobs get put into or taken out of the queue, and when users request or
+give up resources.
+.TEST 45
+.LITERAL
+
+		+-----+     		+-----+
+		|     |     		|     |
+	 MDR	| MDR |<--------------->| MDR |
+	Chain	|     |     		|     |
+		+-----+     		+-----+
+		/|\  /|\		  /|\
+		 |    |			   |
+		 |    |			   |
+		 |    +---------------+    +-------------------+
+		 |		      |			       |
+		\|/		     \|/		      \|/
+		+-----+     	     +-----+     	     +-----+
+		|     |     	     |     |     	     |     |
+	 VSL	| VSL |<------------>| VSL |<--------------->| VSL |
+	Chain	|     |     	     |     |     	     |     |
+		+-----+     	     +-----+     	     +-----+
+		/|\  /|\            /|\  /|\                /|\
+		 |    |              |    |		     |
+		 |    |              |    |		     |
+		 |    |		     |    |		     |		
+		 |    +----------+   |    +-------------+    +--------+
+		 |	         |   |			|	      |
+		 |		 |   +-----------+      +--------+    |
+		 |		 |		 |		 |    |
+		\|/		\|/		\|/		\|/  \|/
+		+-----+		+-----+		+-----+		+-----+
+		|     |		|     |		|     |		|     |
+	 VOL	| VOL |		| VOL |		| VOL |		| VOL |
+	Chain	|  1  |<------->|  2  |<------->|  3  |<------->|  4  |
+		|     |		|     |		|     |		|     |
+		+-----+		+-----+		+-----+		+-----+
+				/|\		/|\		/|\
+				 |		 |		 |
+		     +-----------+   +-----------+   +-----------+
+		     |		     |		     |
+		     |		     |		     |
+		     |		     |		     |
+		    \|/		    \|/		    \|/
+		+-----+		+-----+		+-----+		+-----+
+		|     |		|     |		|     |		|     |
+	 UCB	| MTA |		| MTA |		| MTB |		| MTB |
+	Chain	|  0  |<------->|  1  |<------->|  0  |<------->|  1  |
+		|     |		|     |		|     |		|     |
+		+-----+		+-----+		+-----+		+-----+
+
+
+	MDR = Mountable Device Request blocks
+	VSL = Volume Set List blocks
+	VOL = Volume blocks
+	UCB = Unit Control Blocks
+
+.END LITERAL
+
+.HEADER LEVEL 4 Mountable Device Request blocks (MDR)
+The MDR is highest level in the MDA database architecture. One MDR gets
+created whenever a job logs in or a batch queue request is created. The
+MDR points to a list of allocated or mounted resources. The MDR contains
+information such as job number, user name, PPN, address of associated
+batch queue entry, account string, information for queue notification,
+and at least one pointer to a Volume Set List.
+
+.HEADER LEVEL 4 Volume Set List blocks (VSL)
+The Volume Set List is the data block that describes the characteristics
+of a volume set. A VSL gets created every time a user issues a new ALLOCATE
+or MOUNT command. It contains a backwards link to the controlling MDR. VSLs
+exist for both tape and disks and contain nearly all of the data specified
+by a user's ALLOCATE or MOUNT command. Additional information is kept about
+the volume set itself (tape protection codes, densities, track status, etc.).
+Associated with a VSL is an ASCIZ volume-set name. This is the name specified
+in a user's ALLOCATE or MOUNT command. ACK text will be stored in the VSL if
+PULSAR returns ASCIZ text in response to a mount or dismount message from
+QUASAR. There exist pointers to all volumes that make up a VSL. For example,
+there will be three pointers in the VSL to volume blocks in a three tape
+volume set.
+
+.HEADER LEVEL 4 Volume blocks (VOL)
+The volume block contains information relating to specific volumes that
+make up a volume-set. REELIDs, unit IDs, owner PPNs, volume status, etc.
+which make up the content of several displays (SHOW STATUS DISK and TAPE)
+are stored in the VOL blocks. The VOL blocks contain back pointers to the
+VSLs that point to them. Several VSLs may point to a single VOL block. If a
+volume is currently mounted, the VOL will point to a physical unit block
+(UCB).
+
+.HEADER LEVEL 4 Unit Control Blocks (UCB)
+The Unit Control Block is the lowest level data block in the MDA architecture.
+UCBs contain the physical device names and alternate port names of devices,
+device types and characteristics, and mount counts. Back pointers exist to
+the controlling VOL and VSL blocks.
+.PAGE
+.SUBTITLE PULSAR
+.HEADER LEVEL 2 PULSAR
+PULSAR is the other half of MDA, and is the tape label and disk processor
+for the GALAXY system. As the tape label processor, PULSAR is responsible
+for the initialization of tapes and verifying tape read/write access and
+volume switching. As the disk processor, it reads HOM blocks, performs
+structure mounting and dismounting, manipulates UFDs and job search lists,
+and modifies system search lists, crash dump lists, and active swapping lists.
+
+.HEADER LEVEL 3 Tape initialization
+Tape initialization is the process of writing tape labels on a new volume
+set. A tape volume set can consist of one to sixty tapes. PULSAR's
+initialization code is invoked by the OPR 'SET#TAPE#MTAx:#INITIALIZE' command.
+Through the use of switches to the command, various label parameters may be
+set. These include:
+.LITERAL
+
+		o	Density
+		o	Label type
+		o	Owner PPN
+		o	Volume-set protection code
+		o	Volume ID
+
+.END LITERAL
+
+Omission of some switches is allowed, because it may not be required for a
+particular parameter to be set (e.g. owner PPN or protection code). Some
+switches can be omitted because the information is not required. However,
+some information such as volume identification must be supplied. PULSAR
+will always attempt to read tape expiration dates prior to initializing
+a tape to insure valid data will not be overwritten. This can pose minor
+problems if the tape is a virgin tape. The tape will 'run away': the tape
+controller will select the drive and try to read the tape. Because no data
+is available, it keeps trying to read for several seconds. During this time,
+the tape is kept spinning. Eventually, the controller gives up and generates
+an off-line interrupt. This behavior is normal for virgin tapes. It is an
+aspect of the tape controller and cannot be programmed around by the monitor
+or PULSAR. To avoid this, the /OVERRIDE-EXPIRATION switch should be appended
+to the tape initialize command. When this switch is used, PULSAR will not
+make any attempt to read the expiration date.
+
+.HEADER LEVEL 3 Tape I/O and positioning
+When using labeled tapes, PULSAR will be called on first input or output
+operations, and on positioning requests. All types of I/O and tape positioning
+are legal for labeled tapes except for read-backwards. In this mode, buffers
+get filled backwards. PULSAR has no code to support reading label data in this
+way.
+.SKIP 1
+ANSI standards do not support labeled 7-track tapes. MDA does support
+ANSI standards, but will not prevent a user from writing a 7-track labeled
+tape. The only restriction is that the tape will be readable only on another
+DECsystem-10 running MDA. The code in PULSAR appears to work properly,
+though we have not done extensive testing with it and make no claims that
+any deficiencies in the label code will be corrected for 7-track tapes.
+
+.HEADER LEVEL 3 Tape volume switching
+Volume switching occurs when end of tape is encountered on a tape with a
+label type of NOLABELS, ANSI or EBCDIC. The user's program never sees EOT.
+Instead, the monitor notifies PULSAR (via IPCF) of the EOT condition. PULSAR
+writes the end of volume records, rewinds the tape, and asks QUASAR for the
+next tape in the volume set. QUASAR will determine, based on information
+supplied in the user's original MOUNT request, which tape should be assigned
+to the user. It may be necessary for the operator to initialize a new tape to
+extend a volume set that is in the process of being written. Eventually, QUASAR
+will inform PULSAR of the new tape (and possible new tape drive) to use.
+
+.HEADER LEVEL 3 Forcing end of volume processing
+If USER-EOT labels are used, a program (such as BACKUP) can force end of volume
+processing to occur with a TAPOP. UUO (function .TFFEV). This is a useful
+feature because some programs need to write their own end of volume records at
+the end of the tape. Forcing end of volume processing will cause another tape
+to be assigned to the user's job using the same logic that exists for labeled
+tape processing.
+
+.HEADER LEVEL 3 User/Monitor/PULSAR interface
+PULSAR may be invoked by a user attempting to do I/O, position a labeled
+tape or by forcing end of volume processing. Every time PULSAR intervenes
+in behalf of a user or monitor request, the user's job is put into an event
+wait state. PULSAR does all of the label processing while the user's job is
+suspended. In order for PULSAR to do I/O or position the same tape owned by
+the user's job, a Label DDB must be created.  PULSAR does this with a TAPOP.
+UUO (function .TFLBG). This new Label DDB is linked to the original magtape
+DDB and the TUB. PULSAR will perform all I/O and positioning on the Label DDB.
+When label processing is completed, the user's job is gotten out of event wait
+when PULSAR does a TAPOP. .TFLRL function which releases the user's job. One
+of the arguments to the label release function is an error code to set. PULSAR
+will set an error code whenever something failed during label processing. The
+user's program will either see the error as a TAPOP. UUO failure (in the case
+of a positioning request) or an I/O error. Label I/O errors will return all
+I/O error bits when a GETSTS is done. When this happens, a program should
+issue a TAPOP. UUO (function .TFLTC) to read the extended error code. Normal
+I/O or tape positioning will not be allowed to continue on that device until
+the errors have been cleared by the program.
+
+.HEADER LEVEL 3 Disk HOM block reading
+PULSAR will be called by QUASAR to read disk HOM blocks whenever a disk
+on-line interrupt occurs or the operator issues a RECOGNIZE command. The
+procedure is straight-forward. PULSAR will extract all information
+necessary to mount the structure that the disk unit belongs to, and return
+that information to QUASAR. The HOM block data of interest to QUASAR includes:
+.LITERAL
+
+		o	Unit ID
+		o	Next unit in structure
+		o	Logical unit in structure
+		o	Structure name
+		o	Owner PPN
+		o	Hardware-write-protect status
+
+.END LITERAL
+
+QUASAR will use this data (and possibly data from other disk units) to
+decide when all the required units of a structure are available. Determining
+the hardware-write-protect status has proven to be a rather awkward task. Some
+disk controllers are not capable of telling the monitor the write-protect
+status. To get around the hardware deficiencies, PULSAR must try to write to
+the disk. A failure indicates that the unit is hardware-write-protected.
+
+.HEADER LEVEL 3 Structure mounting
+When QUASAR determines that all the required units of a structure are
+available, it directs PULSAR to mount the structure. The IPCF message from
+QUASAR includes much of the same information PULSAR had supplied to QUASAR
+when each disk unit's HOM blocks were originally read. In addition, if the
+operator asked to have the structure mounted with a name other than the one
+written into the HOM blocks (alias name), the alias name is included in the
+message. During the mounting process (while filling the structure data block)
+PULSAR will compare the owner PPN from the HOM blocks with the one supplied
+by QUASAR. If there is a mismatch, the operator is informed of the discrepency.
+The owner PPN is then cleared in the structure data block to avoid the
+possibility if any security problems that could  arise from the wrong owner
+PPN being set up.
+
+.HEADER LEVEL 3 Structure dismounting
+At the request of the operator, through the use of an OPR DISMOUNT or LOCK
+command, PULSAR will be directed to dismount a structure. Part of this
+processing involves the checking of several conditions that could cause
+operational difficulties, GALAXY failure or system failures should a
+structure be dismounted. Checks are made for a structure that is:
+.LITERAL
+
+		o	In the system search list
+		o	Containing the queues
+		o	Containing a system catalog (STRLST.SYS)
+		o	Being in the crash dump list
+		o	Containing a KL10 front-end file system
+		o	Containing a KS10 front-end file system
+		o	Mount count being non-zero
+		o	Number of queue requests being non-zero
+		o	Having units in active swapping list
+
+.END LITERAL
+
+Before the structure is dismounted, if any checks detect potential problems,
+the operator will be notified of the conflict and asked to abort or proceed
+with the structure removal.
+
+.HEADER LEVEL 3 UFD and job search list handling
+When users mount or dismount structures, PULSAR gets called by QUASAR to
+create or delete UFDs and manipulate job search lists. There is actually
+very little code in PULSAR proper to deal with these things. PULSAR is loaded
+with the UFDSET subroutine package. UFDSET is a self contained package of
+routines written explicitly for use by LOGIN and PULSAR to process all
+types of UFD operations. It can easily be interfaced to any program wanting
+to do mounts, dismounts and disk recomputation for any job or UFD. In addition
+it will add or remove structures from the system search list. PULSAR
+has about a page or so of UFDSET interface code to set up the argument block
+and process text messages generated by UFDSET. All informational, warning and
+fatal messages produced by UFDSET are passed back to the user as part of the
+mount or dismount ACK. Fatal messages are checked against a list of error
+codes that indicate possible monitor or GALAXY system failures. Should one
+of these errors occur, the operator will be notified.
+.PAGE
+.SUBTITLE BATCON
+.HEADER LEVEL 2 BATCON
+Internally, the batch controller (BATCON) has been changed extensively.
+This caused no compatibility problems with existing control files. First,
+Full SCNSER PTYs are used. This type of PTY is unique in that it is an
+echoing PTY. All of BATCON's PTY logic and a large part of the log file
+logic had to be rewritten to accomodate the new type of PTYs. The result
+of this change shows up mostly in the log files (line identifiers, etc.).
+Second, the operator interface was completely rewritten. This was done
+to provide more informative and friendly messages to the operator as well
+as better response during command processing. The third major change
+involved the implementation of the MDA/batch interface. This interface,
+known as batch prescanning (or preprocessing) provides a mechanism for
+QUASAR to determine the resource requirements of a batch job. When a user
+submits a control file, the request is put into the input queue, but not
+considered for scheduling until the request's resource requirements are
+known. BATCON is directed by QUASAR to prescan the control file for a
+special header block at the begining of the file. This block, known as the
+step header, may contain ALLOCATE and MOUNT commands identical to those used
+by timesharing users. If one or more commands are found, they are parsed and
+the allocation or mount request information is passed back to QUASAR for use
+during the batch job scheduling process. For the sake of compatibility, the
+step header block is optional and users are not required to put one in their
+control files.
+.PAGE
+.SUBTITLE Making Local Modifications
+.HEADER LEVEL 2 MAKING LOCAL MODIFICATIONS
+In general, sites will find it easier to make local modifications to GALAXY
+4.1 than to version 2. Once familiar with the code, changes to spoolers should
+pose no problems. The code in QUASAR, PULSAR and ORION however is a bit more
+complex.
+
+.HEADER LEVEL 3 QUASAR
+The overall size and complexity of QUASAR is overwhelming, especially the
+MDA code. But if each module or function is viewed as a separate entity it is
+not nearly so bad. The bulk of QUASAR's duties revolve around queue management.
+Some of the more popular queues are:
+.LITERAL
+
+		o	INP	Input
+		o	LPT	Line printer
+		o	PTP	Paper tape punch
+		o	CDP	Card punch
+		o	PLT	Plotter
+
+.END LITERAL
+QUASAR has many queues most people are not aware of. Some are:
+.LITERAL
+
+		o	BIN	SPRINT
+		o	DBM	DBMS journaling
+		o	RDR	Card reader
+		o	SPL	Spooled file deletion
+		o	PSB	Processor status block
+		o	OBJ	Object (INP, LPT, PTP, etc.)
+		o	USE	Jobs in use
+		o	STR	Structure
+		o	NET	Network
+
+.END LITERAL
+Many sites will find it necessary to add queues of their own. Due to
+the amount of functionality and flexibility of QUASAR, creating a new
+queue involves more than adding an entry to a macro or two. Some queues
+are actually related to some spooling action (LPTSPL gets jobs from the
+LPT queue). Some queues may be displayed (LPT) while others are invisible
+(PSB). Some queues are of the input variety (INP and BIN) while others
+are output related (PLT). Another category is the free running queue.
+These queues require no operator interaction and are automatically started
+by QUASAR at GALAXY startup time. DBMS queue is one of these.
+.SKIP 1
+The following steps are needed to add a new queue to QUASAR:
+.SKIP 1
+Assume a site has a XEROX 9700 or similar unit, capable of reproducing
+printed text directly from a magtape. Users would want the queued files
+to be printed on the XEROX machine and to be able to examine the queues
+at any time. Operators would want to control the spooling using standard
+OPR commands like START, STOP, ABORT, SHUTDOWN, etc. Every queue needs a
+unique three character name. Let's call the XEROX queue XER. In the
+following discussion, all references to the queue name refer to the unique
+three character name selected for the queue (XER).
+.SKIP 1
+The first step would be to find the QUEUES macro in QSRMAC. It looks like
+this:
+.LITERAL
+
+		DEFINE	QUEUES,<
+		
+			LSTOF.
+		
+			X	INP,QNTSIZ,.QHTIP,0,S$INPT,LIQBAT
+			X	LPT,QNTSIZ,.QHTOU,0,S$LPT,LIQLPT
+			X	PTP,QNTSIZ,.QHTOU,0,S$PTP,LIQPTP
+			X	CDP,QNTSIZ,.QHTOU,0,S$CDP,LIQCDP
+			X	PLT,QNTSIZ,.QHTOU,0,S$PLT,LIQPLT
+			X	RET,QNTSIZ,.QHTAR,QH.INV,S$RET,LIQRET
+			X	NOT,QNTSIZ,.QHTAR,QH.INV,S$NOT,0
+			X	BIN,QNTSIZ,.QHTIP,QH.INV,S$BIN,0
+			X	DBM,QNTSIZ,.QHFRR,QH.INV,S$DBM,0
+			X	RDR,QNTSIZ,.QHFRR,0,S$RDR,0
+			X	SPL,SPLSIZ,.QHTQS,QH.INV,0,0
+			X	PSB,PSBSIZ,.QHTQS,QH.INV,0,0
+			X	OBJ,OBJSIZ,.QHTQS,QH.INV,0,0
+			X	USE,USESIZ,.QHTQS,QH.INV,0,0
+			X	STR,STRSIZ,.QHTQS,QH.INV,0,0
+			X	NET,NETSIZ,.QHTQS,QH.INV,0,0
+		
+			LSTON.
+
+		>  ;END OF DEFINE QUEUES
+
+.END LITERAL
+Each entry contains six arguments. The first is the queue name.
+The second is the in-core queue entry (QE) size. Unless a non-standard
+QE is used, QNTSIZ should be the queue size. The third argument is the
+queue type. The new XER queue is nearly identical to the LPT queue
+(except for output device), so the queue type should be .QHTOU (output).
+Queue flags make up the fourth argument. Currently only one flag is
+defined (QH.INV) indicating the queue is invisible. Because users will want
+to display the XER queue, it can't be invisable. Therefore, the flag word
+argument should be zero. The fifth argument is the scheduler dispatch table
+used to select a job to run. The scheduler resides in QSRSCH and all global
+entry points have symbols of the form S$xxxx. Lets call the XEROX scheduler
+dispatch table S$XER and make that the fifth argument. The sixth and last
+argument is the queue listing bit for QSRDSP. The listing bits are defined
+in QSRMAC where the LIST message is defined. The bits have symbols of the
+form LIQxxx where 'xxx' is the queue name. LIQXER will have to be defined
+and entered as the sixth argument in the QUEUES macro. The QUEUES macro
+entry is now complete. It will be expanded in QSRQUE, producing what are
+known as queue headers. Each header is pointed to by the symbol HDRxxx
+where 'xxx' is the queue name. In addition to the information supplied in
+the QUEUES macro, the queue headers will also point to the linked list of
+entries for each queue.
+.SKIP 1
+An object type must be created. Objects are line printers, plotters, card
+punches, etc. Object symbols have the form .OTxxx where 'xxx' is the queue
+name. The OBJCTS macro defines all object types and the ASCIZ name of the
+queue. OBJCTS is found in GLXMAC.
+.SKIP 1
+If the XER queue will be associated with a spooled device type, then an
+entry must be made in the DEVOBJ macro in QSRT10 to allow the processing
+of spooled file requests to be made. The DEVJOB macro looks like:
+.LITERAL
+
+		DEFINE DEVOBJ,<
+
+			XLIST
+
+			X	LPT,.TYLPT,.OTLPT
+			X	CDP,.TYCDP,.OTCDP
+			X	PTP,.TYPTP,.OTPTP
+			X	PLT,.TYPLT,.OTPLT
+			X	LL,.TYLPT,.OTLPT
+			X	LU,.TYLPT,.OTLPT
+
+			LIST
+
+		>  ;END DEFINE DEVOBJ
+	
+.END LITERAL
+The DEVOBJ macro takes three arguments: the queue name (XER) the monitor
+device type .TYXER and the object type .OTXER.
+.SKIP 1
+Some queues may have attributes associated with them. For example, the LPT
+queue has lower and upper case considerations to be made when scheduling
+jobs. The ATTRIB macro in QSRMAC defines the known attributes for all
+queues. Data generated by the ATTRIB macro is also used in the SHOW PARAMETER
+displays.
+.SKIP 1
+Now scheduler code must be written. The scheduler routines are accessed
+through the scheduler dispatch table for each queue. The offsets into the
+table are defined in QSRMAC. They are:
+.LITERAL
+
+		o	SCHLNK = 0	Link in a new entry
+		o	SCHSCH = 1	Schedule a job
+		o	SCHDEF = 2	Fill in queue defaults
+		o	SCHMOD = 3	Modify queue dependent parameters
+		o	SCHRJI = 4	Release a job
+		o	SCHFJB = 5	Find a job for an object
+
+.END LITERAL
+In our example, S$XER was the address of the dispatch table. It would
+be set up as follows:
+.LITERAL
+
+
+		S$XER::	JRST	XERLNK	;LINK IN A NEW ENTRY
+			JRST	XERSCH	;SCHEDULE A JOB FOR AN OBJECT
+			JRST	XERDEF	;FILL IN DEFAULTS FOR A JOB
+			JRST	XERMOD	;MODIFY QUEUE PARAMETERS
+			JRST	XERRJI	;RELEASE A JOB INTERLOCK
+			JRST	XERFJB	;FIND A JOB FOR AN OBJECT
+
+.END LITERAL
+All routines pointed to by the scheduler dispatch table must return
+TRUE or FALSE. For example, a FALSE return from the XERSCH routine
+would indicate that the job QUASAR was trying to schedule could not
+be run for some reason. A TRUE would mean a job was found to run on
+the selected object.
+.SKIP 1
+The above description of adding a queue to QUASAR is by no means complete,
+but should serve as a guide and details the major areas of QUASAR needing
+attention when attempting such a task. Also, keep in mind that some amount
+of work will also be required in ORION to add support for the OPR commands
+that affect the operation of the new spooler. For the most part, duplicating
+existing command tables for other spoolers is all that is necessary.
+
+.HEADER LEVEL 3 BATCON
+BATCON contains a dummy module, BATUSR, that gets called from several
+places within BATCON. This module contains user (customer) exit code.
+By putting all customer modifications in this module, changes to supported
+BATCON modules will be minimized. Each routine has a description of the
+calling sequences, the ACs available and when they are called. In addition,
+many routines show examples of how to use BATCON facilities to make log
+file entries, send text to PTYs, etc. Only the BATCON hooks are supported.
+An attempt was made to provide calls to BATUSR from places in BATCON where
+the customer would be most likely to make local modifications. Calls to
+BATUSR include:
+.LITERAL
+
+		o	BATCON initialization
+		o	Scheduler loop
+		o	IPCF message processing
+		o	Nextjob setup
+		o	Start of job processing
+		o	Log file header generation
+		o	LOGIN command building
+		o	Post LOGIN processing
+		o	Job processor loop
+		o	Pre-KJOB processing
+		o	End of job processing
+
+.END LITERAL
+Please do not take this as a commitment on DEC's part to provide
+subroutine calls in every major BATCON routine. This module is completely
+unsupported. Any suggestions to improve it's usefulness will be accepted,
+but do not expect all suggestions to be implemented.
+.PAGE
+.SUBTITLE Debugging
+.HEADER LEVEL 2 DEBUGGING
+New features exist with GALAXY 4.1 to facilitate debugging a GALAXY system
+under timesharing without conflicting with the running GALAXY system. In
+most cases, debugging may be done under a non-privileged PPN. Most MDA
+related functions do require [1,2] privileges however, and structure
+mounting, dismounting and locking operations could conflict with system
+MDA operations.
+.SKIP 1
+A debugging GALAXY system is frequently refered to as a 'private GALAXY world'.
+Setting up a private world is simple. JOBDAT location .JBOPS (135) is reserved
+for Object Time Systems. The OTS for GALAXY is GLXLIB and it makes use of this
+reserved word for debugging purposes. When .JBOPS is set to a non-zero value,
+all IPCF generated by the library is directed to special PIDs. The special
+PIDs are found by associating an ASCIZ name with a PID. PID names are of
+the form:
+.LITERAL
+
+			[PPN]component
+
+.END LITERAL
+where [PPN] is the PPN your job is running under and 'component' is the
+component name. For example, if user [10,56] started a private BATCON,
+the PID name would be [10,56]BATCON. Note that in order to assign a name
+to a PID, SYSINF must be running. This is the only dependancy in GALAXY
+on SYSINF. Although the QUEUE program does not use GLXLIB, it also behaves
+in this manner. Once the private world has been started, all normal GALAXY
+tasks may be performed.
+.SKIP 1
+[End of GALAXY.INF]

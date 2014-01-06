@@ -1,0 +1,3630 @@
+
+
+
+
+
+
+
+
+
+                 EXTENDED INTERPRETATION OF LISP FORMS
+
+
+
+ Extended Lambda Expressions
+
+
+      When solving problems  in  LISP,  it is very often convenient to
+ have a function which executes more  than one form but does  not need
+ the  variable  and  label  features  of  PROG.   We  have  added this
+ capability to UCI LISP by extending LAMBDA expressions to handle more
+ than one form.
+
+ (LAMBDA "ARGUMENT-LIST" "FORM1" "FORM2" . . . "FORMn")
+
+         When  such  a  LAMBDA  expression is  applied  to  a  list of
+         arguments each FORM is evaluated in sequence and the value of
+         the LAMBDA expression is FORMn (after the arguments are bound
+         to the LAMBDA variables).
+
+ Examples:
+
+         ((LAMBDA(X) (CAR X) (CDR X)) (QUOTE (A)))    = NIL
+         ((LAMBDA(X Y) X Y (CONS X Y)) NIL T)    = (NIL . T)
+
+
+         This means that functions defined by DF or DE evaluate all of
+         forms in their definition,  instead of just the first  one as
+         in Stanford's  version.   The  value  of  the function is the
+         value of the last form.
+
+
+ WARNING:  This  is not a PROG; GO and RETURN do not have the expected
+ result.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      3 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ The Functions PROG1 and PROGN
+
+
+ (PROG1 X1 X2 ... Xn) ,n<6
+
+         PROG1 evaluates all expressions X1 X2 ...   Xn and returns X1
+         as its value.
+
+
+ (PROGN X1 X2 ... Xn)
+
+         PROGN evaluates all expressions X1 X2 ...   Xn and returns Xn
+         as its value.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      3 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Conditional Evaluation of Forms
+
+
+ (SELECTQ X "Y1" "Y2" ... "Yn" Z)
+
+         This very useful function is  used to  select  a  sequence of
+         instructions  based  on  the value of its  first  argument X.
+         Each of the  Yi is a list of  the form  (Si E[1,i] E[2,i] ...
+         E[k,i]) where Si is the "selection key".
+
+         If Si is an atom the value of X is tested to see if  it is EQ
+         to  Si (not evaluated).   If so,  the  expressions E[1,i] ...
+         E[k,i] are evaluated in sequence, and the value of SELECTQ is
+         the value of the last expression evaluated, i.e. E[k,i].
+
+         If Si  is a list, and if any element (not evaluated) of Si is
+         EQ to the value of  X,  then E[1,i] ...  E[k,i] are evaluated
+         in turn as above.
+
+         If Yi is  not selected  in one of the two ways described then
+         Y[i+1]  is tested,  etc.  until all the Y's have been tested.
+         If none is  selected, the value of SELECTQ is the value of Z.
+         Z must be present.
+
+         An example of the form of a SELECTQ is:
+
+         (SELECTQ (CAR W)
+                  (Q (PRINT FOO) (FIE W))
+                  ((A E I O U) (VOWEL W))
+                  (COND (W (QUOTE STOP))))
+
+         which has  two  cases,  Q  and  (A E I  O  U)  and  a default
+         condition which is a COND.
+
+         SELECTQ compiles  open,  and is therefore very fast; however,
+         it  will  not work if  the  value of X  is  a  list,  a large
+         integer, or floating point number, since it uses EQ.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      3 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Changes to the Handling of Errors
+
+
+ (ERRSET E "F")
+
+         ERRSET has been changed slightly.  If F=NIL the error message
+         is suppressed  and  the error will not cause a  break  to the
+         Break Package.   If F is not  given then  ERRSET assumes that
+         F=T.   If F=0  (i.e.  zero)  then the  error  message will be
+         printed on the  current  output device,  otherwise it will be
+         printed on the teletype.
+
+
+ (ERR E)
+
+         There is now a special case of ERR.   If the  value  of  E is
+         ERRORX,  then ERR will return to the most recent ERRSET which
+         has F=ERRORX.   This allows  two levels of user errors.  If a
+         Control-G is typed  in by the user it generates a (ERR (QUOTE
+         ERRORX)).   This  means that the user can now protect himself
+         against this type of input error.
+
+
+ (ERROR E)
+
+         ERROR generates  a  real  LISP  error.   E  is  evaluated and
+         printed (unless error  messages  are suppressed)  and  then a
+         break occurs just as for any other LISP error.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      3 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Miscellania
+
+
+ (APPLY# FN ARGS)
+
+         APPLY# is similar to APPLY except that  FN may be  a function
+         of any type including  MACRO.  Note that when either APPLY or
+         APPLY# are given an EXPR as their first argument,  the second
+         argument is evaluated by APPLY# or APPLY, but the elements of
+         the resulting list are directly bound to the lambda variables
+         of  the  first argument,  and  are not  evaluated  again even
+         though it is an EXPR.
+
+ Examples:
+ (APPLY# (QUOTE PLUS) (QUOTE (3 2 2))) = 7
+ (APPLY# (QUOTE CONS) (LIST (QUOTE A) (QUOTE B))) = (A . B)
+
+
+ (NILL "X1" "X2" ... "Xn") = NIL
+
+         This function  allows the user to stick  S-Expressions in the
+         middle  of  a  function definition  (e.g. as  a PROG element)
+         without having them evaluated or otherwise noticed.   NILL is
+         also useful for giving a dummy definition to a function which
+         has not yet been defined.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      3 . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+           EXTENSIONS TO THE STANDARD INPUT/OUTPUT FUNCTIONS
+
+
+
+ Project-Programmer Numbers for Disk I/O
+
+
+ In all I/O  functions (including INPUT  and OUTPUT), the use of a two
+ element list (not a dotted pair)  in place of a device will cause the
+ function to assume DSK:  and  use the list as  the project-programmer
+ number.
+
+
+
+ Saving Function Definitions, etc. On Disk Files
+
+
+ (DSKOUT "FILE" "EXPRSLIST")
+
+         DSKOUT is  an FEXPR and  is used  to create an  entire output
+         file  on  disk file  DSK:  "FILE".  It sets the linelength to
+         LPTLENGTH,   and   evaluates   all   of  the  expressions  in
+         "EXPRSLIST".  If an expression on "EXPRSLIST" is atomic, then
+         that  atom  is  given  to  GRINL  instead of  being evaluated
+         directly.   If the value  of FILBAK  is non-NIL and  the file
+         already exists,  DSKOUT  will attempt to rename the file with
+         an extension of the value  of FILBAK.   An error message will
+         be printed on  the  TTY:  if the  file  cannot  be backed up.
+         FILBAK is initially set to LBK.
+
+ For example, if FNLIST is a list of your functions, they can be saved
+ on a disk file, FUNCS.LSP by:
+
+ (DSKOUT (FUNCS.LSP) FNLIST (PRINT (QUOTE END-OF-FILE)))
+
+ and the file  FUNCS.LSP  will be renamed to FUNCS.LBK  if  it already
+ exists.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      4 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Reading Files Back In
+
+
+ (DSKIN "LIST OF FILE-NAMES")
+
+         READ-EVAL-PRINTs  the contents  of the  given files.  This is
+         the function to use to read files created by DSKOUT.
+
+ Example:
+         (DSKIN (FUNCS.LSP) DTA0: (DATA.LSP))
+         Reads FUNCS.LSP from DSK: and DATA.LSP from DTA0:.
+
+         (DSKIN (667 2) (DSKLOG.LSP))
+         Reads DSKLOG.LSP from the disk area of [667,2].
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Reading Directories
+
+ The following  functions  are  for  reading  directories.   UFDINP is
+ analogous  to  the function  INPUT  in  that  it  opens  a  file on a
+ specified  channel.  The channel must be selected via INC in order to
+ be read.   The file is opened in binary  image mode and should not be
+ read by the normal LISP read functions.   All functions are SUBRS and
+ thus evaluate their arguments.
+
+
+ (UFDINP CHANNEL PPN)
+
+         UFDINP opens the directory of PPN on CHANNEL.  It returns the
+         value of CHANNEL  as it's result.   PPN is either of the form
+         (PROJ PROG)  where  PROJ and PROG are  both inums or NIL.  If
+         PPN is NIL the user's directory is assumed.
+
+ EXAMPLE:
+
+         *(UFDINP T (QUOTE (2206,1)))
+
+         T
+
+
+ (RDFILE)
+
+         RDFILE returns the next file in the directory that is open on
+         the current input channel.   It return a file which is either
+         an atom or an atomic dotted pair.   It  does  an  (ERR $EOF$)
+         when it reaches the end of file.
+
+ EXAMPLE:
+
+         *(PROG (X) (INC (UFDINP T NIL) NIL)
+                    (SETQ X (ERRSET (RDFILE)))
+                    (INC NIL NIL)
+                    (COND ((CONSP X)(RETURN (CAR X)))
+
+         (INIT . LSP)
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+ (DIR PPN)
+
+         DIR returns a list of  files from the directory  of  PPN.  If
+         PPN is NIL, the user's directory is assumed.
+
+ EXAMPLE:
+         (DIR (QUOTE (2206 4)))
+
+         ((INIT . LSP) (FOO .LSP) MYFILE))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+ File Manipulation
+
+ The following functions enable the user to manipulate files  in those
+ directories to  which  he  has  legitimate access.  The definition of
+ access  privileges  is  system  dependent.   These  functions use the
+ RENAME UUO  to  effect  the  desired  manipulations.   A  FILESPEC is
+ defined as follows:
+
+
+ (DEV FILNAM)
+
+
+ A DEV is either an atom whose last character is a colon, I.E.
+ DSK: or a a list of the form:
+
+ (PROJ PROG)
+
+ where PROJ and PROG are both numbers.  DEV is optional and if
+ ommitted the user's disk area is assumed.
+
+ A FILNAM is either an atom or an atomic dotted pair.
+
+ EXAMPLE:
+
+         MYFILE
+         (FILE . EXT)
+
+
+ (*RENAME FILESPEC1 FILESPEC2)
+
+         *RENAME  is  a SUBR that  renames FILESPEC1 to FILESPEC2.  It
+         returns  T if the rename is  successful  and NIL if it fails.
+         If a  device  is specified  in  FILESPEC1  and  no  device is
+         specified in  FILESPEC2 the device specified in  FILESPEC1 is
+         carried over to FILESPEC2.  Thus:
+
+         (*RENAME (QUOTE ((2206 4)(FOO . LSP)))
+                  (QUOTE ((FOO . BAK))))
+
+         is equivalent to:
+         (*RENAME (QUOTE ((2206 4)(FOO . LSP)))
+                  (QUOTE ((2206 4)(FOO . BAK))))
+
+         If no device is specified in either FILESPEC, the user's disk
+         area is assumed.
+
+
+
+
+
+
+
+                                    4 . 1 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+ (RENAME DEV1 FILNAM1 DEV2 FILNAM2)
+
+         RENAME is an FSUBR  that  renames  FILNAM1  to  FILNAM2.  The
+         DEV's  are  optional.   If  DEV2  is not  specified,  DEV1 is
+         assumed.  If both DEV's are not specified, the default is the
+         user's  disk  area.   RENAME  returns  T  if  the renaming is
+         successful and NIL if it fails.
+
+ EXAMPLES:
+
+         *(RENAME DSK: (FOO . LSP)(FOO . BAK))
+
+         T
+         *(RENAME FOO FIE)
+
+         T
+         *(RENAME (2206 4)(FOO . LSP)(2206 3)(FOO . LSP))
+
+         T
+
+
+ (DELETE DEV1 FILNAM1 DEV2 FILNAM2 ...)
+
+         DELETE is an FSUBR that  deletes the files in  the list.  The
+         DEV's are optional, and a DEV is effective over the following
+         FILNAM's  until  a  new  DEV  is  encountered.  DELETE always
+         returns NIL.   The user's disk area is assumed  if no DEV has
+         been specified.
+
+ EXAMPLES:
+
+         *(DELETE FOO (FOO1 . LSP) (2206 4) (OLDFIL . COM))
+
+         NIL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+ (FILBAK FILE NEWEXT)
+
+         FILBAK is  a SUBR  that  attempts  to  rename  FILE  with the
+         extension  of NEWEXT.   FILE  can  be either  a  FILNAM  or a
+         FILSPEC.  FILBAK returns T if the renaming was successful and
+         NIL if it fails.
+
+ EXAMPLES:
+
+         (FILBAK (QUOTE FOO)(QUOTE BAK))
+
+         will rename the file FOO to FOO.BAK.
+
+         (FILBAK (QUOTE (FOO . LSP))(QUOTE BAK))
+
+         will rename the file FOO.LSP to FOO.BAK.
+
+         (FILBAK (QUOTE ((2206 4) (FOO . LSP)))
+                 (QUOTE BAK))
+
+         will rename the file FOO.LSP[2206,4] to FOO.BAK[2206,4].
+
+
+ (MYPPN)
+
+         MYPPN  returns the user's project programmer number in a form
+         suitable for use by the directory and I/O functions.
+
+ EXAMPLE:
+
+         *(MYPPN)
+
+         (2206 4)
+
+
+ (LOOKUP DEV FILNAM)
+
+         LOOKUP is a SUBR that determines whether the file  DEV FILNAM
+         exists or not.   LOOKUP returns NIL if it can't find the file
+         and (LIST DEV FILNAM) if the file does exist.  If DEV is NIL,
+         DSK: is assumed and (LIST FILNAM) is returned.
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 6
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Queueing Files
+
+ (QUEUE QNAM: DEV: FILNAM SWITCHES DEV: FILNAM SWITCHES ....)
+
+         QUEUE  is an  FSUBR that queues files to the specified device
+         or  queue.  It is essentially the same as the monitor command
+         QUEUE,  both in  syntax and effect.   The  main  use  of this
+         function is to get output to line printer, paper tape punches
+         etc.  However, the input queue can also be specified in order
+         to batch a job.
+
+         A queue name QNAM:  is an atom of  three to six letters whose
+         last letter is a colon.  The first three letters indicate the
+         general queue (see below)  and the following letters indicate
+         the specific queue.
+
+
+         LPT     =LINE PRINTER QUEUE
+         PTP     =PAPER TAPE PUNCH QUEUE
+         PLT     =PLOTTER QUEUE
+         CDP     =CARD PUNCH QUEUE
+         INP     =JOB BATCH QUEUE
+
+         Thus (QUEUE LPT: ...) would queue to the line printer without
+         specifying a specific line printer queue.   (QUEUE LPT0: ...)
+         would queue to line printer 0.  As in the monitor command, if
+         the  queue  name  QNAM:  is not specified,  the default is to
+         LPT:.
+
+
+         If an INPUT  queue is  specified,  a  maximum of two files is
+         permitted.   The  second file is taken as the name of the log
+         file.  If it is not specified, the filename of the first file
+         with an extension of .LOG is assumed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 7
+
+
+
+
+
+
+
+
+
+
+
+
+
+         Switches consist of  two  element  lists,  the  first element
+         being the  switch and the second the value.  In the case of a
+         required  non-numeric value (as in DISP) only the first three
+         letters of the argument are looked at  i.e.  PRESERVE and PRE
+         are equivalent.
+
+         SWITCH ARGUMENT     EXPLANATION            QUEUES ALLOWED
+
+
+         COPIES NUMERIC      NUMBER OF COPIES       LPT,PTP,CDP,PLT
+                             TO BE OUTPUT
+         FORM   NON-NUMERIC  FORMS FOR DEVICE       LPT,PTP,CDP,PLT
+         LIMIT  NUMERIC      OUTPUT LIMIT           LPT,PTP,CDP,PLT
+         DISP   'PRE'        PRESERVE FILE          ALL
+                             'REN'                  RENAME FILE OUT OF
+                                                    DIRECTORY AND DELETE
+                                                    AFTER SPOOLING    ALL
+                             'DEL'                  DELETE AFTER SPOOLING ALL
+         CPU    NUMERIC      MAXIMUM CPU SECS FOR JOB INP ONLY
+
+         Defaults are system defined except for DISP which defaults to
+         PRE so that all files are preserved.
+
+         As  in the  monitor command,  switches  are  in  effect until
+         superseded by  another instance of  the switch.  Switches may
+         precede the first file or device.
+
+
+         DEV's are either an atom whose last character is a colon or a
+         ppn specification.  A device affects only the files following
+         it.   It is  superseded  by another device.   If no device is
+         specified, DSK: is assumed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 8
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Examples:
+
+         *(QUEUE LPT: DSK: FOO (FOO .  LSP))
+
+         prints the files FOO and FOO.LSP on the line printer.
+
+         *(QUEUE LPT: (FOO . LSP)(COPIES 2))
+
+         prints two copies of FOO.LSP on the line printer.
+
+         *(QUEUE INP: (FOO . CTL))
+
+         queues a job using FOO.CTL as its command file. Leaves a LOG
+         file in FOO.LOG.
+
+         *(QUEUE INP: (FOO . CTL)(FOO . LOG))
+
+         same as above.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 9
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      Recovery From QMANGR Errors
+
+      The QUEUE function must  swap  the  LISP  high  segment  for the
+ QMANGR high segment.   It then transfers control to  the  QMANGR high
+ segment.   In most cases,  if QMANGR finds an error, it simply prints
+ an error message.  In a few cases, however, it returns control to the
+ monitor.   The REE command will restore the appropriate  high segment
+ and processing will continue.  Note that in this instance, the system
+ does not wait for control characters.
+      A  .START  command to the  monitor  will also restore the user's
+ high segment.   However, this is not recommended as the allocation as
+ the reallocation procedure will be entered.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Printing Circular or Deeply Nested Lists
+
+
+ (PRINTLEV EXPRESSION DEPTH)
+
+         PRINTLEV is  a printing routine similar to  PRINT.  PRINTLEV,
+         however,  only prints  to  a depth  of  DEPTH.   In addition,
+         PRINTLEV recognizes lists which are circular down the CDR and
+         closes  these with '...]' instead of ')'.  The combination of
+         these two features allows PRINTLEV to print any circular list
+         without an infinite loop.
+
+         The value of PRINTLEV is the value of EXPRESSION.  This means
+         that  PRINTLEV  should  not  be  used  at  the  top  level if
+         EXPRESSION  is  a  circular  list  structure,  since the LISP
+         executive would then attempt to print the  circular structure
+         which is returned as the value.
+
+
+
+ Spacing Control
+
+
+ (TAB N)
+
+         TAB tabs to position N on the output  line doing a  TERPRI if
+         the current position is already past N.  Note should be taken
+         that TAB outputs spaces only when  necessary  and outputs tab
+         characters otherwise.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      4 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+ "Pretty Printing" Function Definitions and S-Expressions
+
+
+ (GRINDEF "F1" "F2" "F3" ... "FN")
+
+         GRINDEF is used to print the definitions of functions and the
+         values of variables  in a format suitable for reading back in
+         to LISP,  in what  is  known as DEFPROP format.  GRINDEF uses
+         SPRINT  (see below)  to print these s-expressions in a highly
+         readable  format,  in  which the levels of list structure (or
+         parentheses  levels)  are indicated by  indentation.  GRINDEF
+         prints  all the properties of the identifiers F1, F2, ..., Fn
+         which appear on the list GRINPROPS.   If Fi is non-atomic, it
+         will be SPRINTed.
+
+
+ GRINPROPS
+
+         The variable GRINPROPS contains the properties which  will be
+         printed by GRINDEF.   This variable can be set by the user to
+         print special properties which  he  has placed on atoms.  The
+         initial  value  of  GRINPROPS  is  (EXPR  FEXPR  MACRO  VALUE
+         SPECIAL).
+
+
+ (GRINL "F1" "F2" ... "FN")
+
+         GRINL  causes all of the  atoms, "F1" "F2" ...  "Fn", and all
+         of the  atoms on the lists which are the values  of the atoms
+         F1 F2  ...   Fn  to be GRINDEFed.  GRINL correctly prints out
+         read macros and  is the  only function  which  does.  GRINDEF
+         does not  save the  activation character for the read macros.
+         Warning: Each Fi must be an atom.
+
+
+ (SPRINT EXPR IND)
+
+         SPRINT is the function  which  does the "pretty  printing" of
+         GRINDEF.   EXPR is printed in a human readable form, with the
+         levels of list structure shown by indentation along the line.
+         This is useful  for  printing large complicated structures or
+         function  definitions.   The initial indentation  of  the top
+         level  list  is  IND-1 spaces.   In normal use, IND should be
+         given as 1.
+
+
+
+
+
+
+
+
+                                      4 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Reading Whole Lines
+
+
+ (LINEREAD)
+
+         LINEREAD  reads a line,  returning it  as  a  list.   If some
+         expression takes more than one line or a line terminates in a
+         comma, space or tab, then LINEREAD continues reading until an
+         expression ends at the end  of a line.   This is the function
+         used by the EDITOR and BREAK Package  supervisors  to read in
+         commands,   and  may  be  useful  for  other  supervisor-type
+         functions.
+
+ Example:
+
+ *(LINEREAD)
+ *A B (C D
+ *E) F G
+
+ (A B (C D E) F G)
+
+ *(LINEREAD)
+ *A B (C D E),
+ *F G
+
+ (A B (C D E) F G)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      4 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Teletype and Prompt Character Control Functions
+
+
+
+ (CLRBFI)
+
+         CLRBFI clears the Teletype input buffer.
+
+
+ (TTYECHO)
+
+         TTYECHO complements  the Teletype echo  switch.  The value of
+         TTYECHO is T if the echo is being turned on, and NIL if it is
+         being turned off.
+
+
+ (PROMPT N)
+
+         The LISP READ  routines type out a "prompt character" for the
+         user  when they  expect  to  read  from  the  teletype.  This
+         character  is normally  a  "*".   PROMPT  resets  this prompt
+         character.   N is the  ASCII representation of the new prompt
+         character.
+
+         The  ASCII  representation  of the  old  prompt  character is
+         returned as the  value of  PROMPT.   (PROMPT NIL) returns the
+         current prompt character without changing it.
+
+ Example:
+
+ *(PROMPT 53)
+ 52
+ +
+
+
+ (INITPROMPT N)
+
+         Whenever LISP  is forced back to  the top level  (e.g.  by an
+         error   or  Control-G),   the  prompt  character   is  reset.
+         INITPROMPT is similar to PROMPT except that it  sets  the top
+         level prompt character.   (INITPROMPT NIL)  returns the ASCII
+         value of the top level prompt character without changing it.
+
+
+
+
+
+
+
+
+
+
+                                      4 . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+ (READP)
+
+         READP  returns  T  if  a  character  can  be  input  and  NIL
+         otherwise.  READP does not input a character.
+
+ (UNTYI)
+
+         UNTYI unreads a character (such as a character input by a TYI
+         or a READCH) and returns the ASCII code for that character.
+
+ Example:
+
+ *(DE PEEKC () (UNTYI (TYI)))
+
+ *(PROG () (CLRBFI) (PEEKC) (RETURN (TYI))
+
+ *A
+
+ 101
+
+ (ERRCH N)
+
+         ERRCH changes the bell character that causes  an  (ERR (QUOTE
+         ERRORX)).   N  is  the ASCII representation of the character.
+         ERRCH returns the ASCII representation of the  old character.
+         Note that if the new  character is not a  break  character to
+         the monitor, it will not be processed until it is read in the
+         normal course of reading.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 5 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ READ MACROS - Extending the LISP READ ROUTINE
+
+
+      Read Macros allow the user to specify a function to  be executed
+ each time a selected  character is read  during input of his  data or
+ programs.   This function is generally used  to produce  one  or more
+ elements of the input list which  are built up in some way from later
+ characters of the input string.   There are two types of Read Macros;
+ Normal  Read Macros  whose  result is used as an element of the input
+ list in the position  where the  macro character occurred, and Splice
+ Macros whose result (must be a list  which)  is  spliced sequentially
+ into the input list.
+
+
+ WARNING:  Read macro characters will not be recognized if  they occur
+ inside  of an atom  name unless the character is first defined  to be
+ equivalent to a break or  separator character (e.g.  space  or comma)
+ using MODCHR.
+
+
+ Functions for Defining Read Macros
+
+ (DRM "CHARACTER" "FUNCTION")
+
+         CHARACTER is  defined as  a Normal Read Macro with "FUNCTION"
+         being a  function name or a LAMBDA expression of no arguments
+         which will  be evaluated each time CHARACTER is detected as a
+         macro during input.   FUNCTION is put on the property list of
+         CHARACTER under the  property READMACRO.  The value of DRM is
+         CHARACTER.
+
+ Examples:       (DRM * (LAMBDA () (NCONS (READ)))
+                 (DRM = (LAMBDA () (REVERSE (READ)))
+
+
+ (DSM "CHARACTER" "FUNCTION")
+
+         DSM is exactly like DRM except that CHARACTER is defined as a
+         Splice Macro.
+
+ Example:        (DSM : (LAMBDA () (CONS NIL (READ)))
+
+
+
+
+
+
+
+
+
+
+
+                                      4 . 6
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Using Read Macros
+
+      The use  of  Read Macros is  best described with  examples.  The
+ Read Macros defined above will be used for the examples.
+
+
+ Example 1
+
+      If the expression (A B C = (D E F) G H) is read in the
+ apparent input will be (A B C (F E D) G H).
+
+
+ Example 2
+
+      If (FOO1 FOO2 *FOO3 FOO4) is read the apparent input is
+ (FOO1 FOO2 (FOO3) FOO4).
+
+
+      In  each  case  the  associated  function was  evaluated and the
+ result was returned as the next element of the input list.
+
+
+ Example 3
+
+      Reading (AT1 :(AT2 AT3) AT4) will result in
+ (AT1 NIL AT2 AT3 AT4).
+
+
+ Example 4
+
+      If the input is (AA AB :AC) the result is (AA AB NIL . AC).
+
+
+      It can be seen that the effect of a Splice Macro is to place the
+ result  of the  function  evaluation into the input  stream minus the
+ outermost set of parentheses.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      4 . 7
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Modifying the READ Control Table
+
+
+      Since the LISP READ routines are table driven, it is possible to
+ redefine  the meaning of a character by changing its table entry.  In
+ each of the following functions CH is the ASCII representation of the
+ character being modified.
+
+
+ (MODCHR CH N)
+
+         The value of MODCHR is  the old  table entry for CH.  If N is
+         non-NIL  it must be a number which  represents a  valid table
+         entry.   The entry  for CH is  changed to N.  If N is NIL, no
+         change is made,  e.g. to make "." a letter (so it will behave
+         like the letter "A") execute (MODCHR 56 (MODCHR 101 NIL)).
+
+
+ (SETCHR CH N)
+
+         SETCHR is similar to MODCHR except  that it only modifies the
+         portion of the entry associated with read macros.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      4 . 8
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Reading without Interning
+
+
+ (RDNAM)
+
+         RDNAM  functions  in the  same manner  as READ except that it
+         does not intern the atoms  that it reads.   Thus an atom read
+         by RDNAM and an atom read by READ are **NOT** EQ.
+
+ Example:
+
+         *(PROG () (CLRBFI) (RETURN (EQ (RDNAM) (READ))))
+         *FOO
+         *FOO
+
+         NIL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      4 . 9
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        NEW FUNCTIONS ON S-EXPRESSIONS
+
+
+
+         S-Expression Building Functions
+
+
+         (TCONC PTR X)
+
+         TCONC is useful for building a list by adding elements one at
+         a time at the end.   This could be done with NCONC.  However,
+         unlike NCONC, TCONC does not have to search to the end of the
+         list  each  time it  is  called.   It  does this by keeping a
+         pointer to the end of the list being assembled,  and updating
+         this   pointer   after  each  call.    The  savings   can  be
+         considerable for long lists.   The  cost  is  the  extra word
+         required for  storing both  the list being assembled, and the
+         end  of the  list.   PTR  is that word: (CAR PTR) is the list
+         being assembled, (CDR PTR) is (LAST (CAR PTR)).  The value of
+         TCONC is PTR,  with the appropriate  modifications to its CAR
+         and CDR.   Note that TCONC is a  destructive operation, using
+         RPLACA and RPLACD.
+
+ Example:
+
+         *(MAPC (FUNCTION (LAMBDA (X) (SETQ FOO (TCONC FOO X))))
+                (QUOTE (5 4 3 2 1)))
+         *FOO
+         ((5 4 3 2 1) 1)
+
+         TCONC  can be initialized in two ways.   If PTR is NIL, TCONC
+         will make up a ptr.   In this case, the program must set some
+         variable to the value of the first call to TCONC.  After that
+         it is unnecessary to reset since TCONC physically changes PTR
+         thus:
+
+         *(SETQ FOO (TCONC NIL 1))
+         ((1) 1)
+         *(MAPC (FUNCTION (LAMBDA (X) (TCONC FOO X)))
+                (QUOTE (4 3 2 1)))
+         *FOO
+
+
+
+
+                                      5 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+         ((1 4 3 2 1) 1)
+
+         If PTR is initially (NIL),  the value of TCONC is the same as
+         for PTR=NIL, but TCONC changes PTR, e.g.
+
+         *(SETQ FOO (NCONS NIL))
+         (NIL)
+         *(MAPC (FUNCTION (LAMBDA (X) (TCONC FOO X)))
+                (QUOTE (5 4 3 2 1)))
+         *FOO
+         ((5 4 3 2 1) 1)
+
+         The latter method allows  the program to initialize, and then
+         call TCONC without having to perform SETQ on its value.
+
+
+ (LCONC PTR X)
+
+         Where TCONC  is  used to add elements at  the end of  a list,
+         LCONC is used for building a list by adding lists at the end.
+         For example:
+
+         *(SETQ FOO (NCONS NIL))
+         (NIL)
+         *(LCONC FOO (LIST 1 2))
+         ((1 2) 2)
+         *(LCONC FOO (LIST 3 4 5))
+         ((1 2 3 4 5) 5)
+         *(LCONC FOO NIL)
+         ((1 2 3 4 5) 5)
+
+         Note that  LCONC uses  the same pointer  conventions as TCONC
+         for eliminating searching to the end of the list, so that the
+         same pointer can be given to TCONC and LCONC interchangeably.
+
+         *(TCONC FOO NIL)
+         ((1 2 3 4 5 NIL) NIL)
+         *(LCONC FOO (LIST 3 4 5))
+         ((1 2 3 4 5 NIL 3 4 5) 5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      5 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+ S-Expression Transforming Functions
+
+
+ (NTH X N)
+
+         The  value of NTH  is  the tail of X beginning  with  the Nth
+         element, e.g. if N=2, the value is (CDR X), if N=3, (CDDR X),
+         etc.   If  N=1,  the value is X, if N=0, for consistency, the
+         value is (CONS NIL X).
+
+
+ (REMOVE X L)
+
+         Removes all  top  level  occurrences  of X  from  the list L,
+         giving  a COPY of L with all  top level elements  EQUAL  to X
+         removed.
+
+
+ (COPY X)
+
+         The  value of  COPY is a  copy of X.   COPY is equivalent to:
+         (SUBST 0 0 X).
+
+
+ (LSUBST X Y Z)
+
+         Like SUBST except X  is substituted as a segment.   Note that
+         if X is NIL, LSUBST returns a copy of Z with all Y's deleted.
+         For example:
+
+ (LSUBST (QUOTE (A B)) (QUOTE Y) (QUOTE (X Y Z))) = (X A B Z)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      5 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+ S-Expression Modifying Functions
+
+
+      All  these   functions  physically  modify  their  arguments  by
+ changing appropriate CAR's and CDR's.
+
+
+ (DREMOVE X L)
+
+         Similar to REMOVE, but uses EQ instead of EQUAL, and actually
+         modifies the list  L  when removing  X, and thus does not use
+         any additional storage.  More efficient than REMOVE.
+
+         NOTE:  If X = (L ...   L)  (i.e.  a list of any length all of
+         whose top level elements are EQ to L) then the value returned
+         by (DREMOVE X  L)  is  NIL,  but even  after  the destructive
+         changes to  X  there  is  still one  CONS  cell  left  in the
+         modified list  which cannot  be  deleted.   Thus  if  X  is a
+         variable and  it is possible that the result of (DREMOVE X L)
+         might  be  NIL the user must set the  value  of  the variable
+         given to DREMOVE to the value returned by the function.
+
+
+ (DREVERSE L)
+
+         The  value  of  (DREVERSE L)  is  EQUAL  to  (REVERSE L), but
+         DREVERSE destroys the original list  L and thus does  not use
+         any additional storage.  More efficient than REVERSE.
+
+ (DSUBST X Y Z)
+
+         Similar  to SUBST,  but  uses  EQ and does  not  copy  Z, but
+         changes the list structure Z itself.  DSUBST substitutes with
+         a copy of X.  More efficient than SUBST.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      5 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Mapping Functions with Several Arguments
+
+
+      All  of the  map functions  have  been extended to  allow called
+ functions which need more than one  argument.   The function FN to be
+ called is still the first argument.   Arguments 2 thru N (N <  7) are
+ used  as arguments 1 thru N-1 for FN.   If  the  arguments to the map
+ functions are of unequal length, the map function terminates when the
+ shortest list  becomes NIL.   The  functions  behave the same  as the
+ previous definitions of the functions when used with two arguments.
+
+
+ Example:  This  will set the values of  A,  B and C  to  1,  2 and 3,
+ respectively.
+
+ * (MAPC (FUNCTION SET) (QUOTE (A B C)) (QUOTE (1 2 3)))
+
+ NIL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      5 . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Mapping Functions Which Use NCONC
+
+      The functions MAPCON and MAPCAN produce lists by NCONC to splice
+ together  the  values  returned  by  repeated  applications  of their
+ functional argument.
+
+      MAPCON and MAPCAN are especially useful in  the  case  where the
+ function returns  NIL.   Since NIL does not affect a list if NCONC'ed
+ to  it,  the  output from that function does not appear in the result
+ returned from MAPCON or  MAPCAN.   For example,  a function to remove
+ all of the vowels from a word can be easily written as:
+
+ (READLIST (MAPCAN (FUNCTION VOWELTEST) (EXPLODE WORD)))
+
+ where VOWELTEST is  a procedure which  takes one  argument,  LET, and
+ returns NIL if LET is a vowel, and (LIST LET) otherwise.
+
+
+ (MAPCON FN ARG)
+
+         MAPCON calls the function FN to the list ARG.   It then takes
+         the CDR of ARG and applies FN to it.  It continues this until
+         ARG is NIL.   The  value  is each of the lists returned by FN
+         NCONC'ed together.
+
+ For a single list MAPCON is equivalent to:
+ (DE MAPCON (FN ARG)
+            (COND ((NULL ARG) NIL)
+                  (T (NCONC (FN ARG)
+                            (MAPCON FN (CDR ARG))))))
+
+ Example
+
+ * (MAPCON (FUNCTION COPY) (QUOTE (1 2 3 4)))
+
+ (1 2 3 4 2 3 4 3 4 4)
+
+
+ (MAPCAN FN ARG)
+ (MAPCONC FN ARG)
+
+         MAPCAN is similar to MAPCON except it calls  FN with  the CAR
+         of ARG instead of the whole list.
+
+
+
+
+
+
+
+
+
+                                      5 . 6
+
+
+
+
+
+
+
+
+
+
+
+
+
+ S-Expression Searching and Substitution Functions
+
+
+ (SUBLIS ALST EXPR)
+
+         ALST is a list of pairs ((U1 .  V1) (U2 .  V2) ...
+         (Un .   Vn)) with each Ui atomic.  The value of SUBLIS is the
+         result  of substituting each V  for  the  corresponding  U in
+         EXPR.
+
+ Example:
+
+ *(SUBLIS (QUOTE ((A . X) (C . Y))) (QUOTE (A B C D)))
+ (X B Y D)
+
+         New structure is created only if needed, e.g. if there are no
+         substitutions, value is EQ to EXPR.
+
+
+ (SUBPAIR OLD NEW EXPR)
+
+         Similar to SUBLIS except that elements of NEW are substituted
+         for corresponding atoms of OLD in EXPR.
+
+ Example:
+
+ *(SUBPAIR (QUOTE (A C)) (QUOTE (X Y)) (QUOTE (A B C D)))
+ (X B Y D)
+
+
+ Note:  SUBLIS and SUBPAIR do not substitute copies of the appropriate
+ expression, but substitute the identical structure.
+
+
+ (ASSOC# X Y)
+
+         Similar to ASSOC, but uses EQUAL instead of EQ.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      5 . 7
+
+
+
+
+
+
+
+
+
+
+
+
+
+ (LDIFF X Y)
+
+         Y must be a tail of X, i.e. EQ to the result of applying some
+         number of CDRs to X.  LDIFF gives a list of all elements in X
+         but not  in Y,  i.e.,  the list difference of  X and Y.  Thus
+         (LDIFF X (MEMB FOO X))  gives all elements  in  X  up  to the
+         first FOO.
+
+         Note that the value  of LDIFF is  always  new  list structure
+         unless Y=NIL, in which case (LDIFF X NIL) is X itself.
+
+         If Y is not  a tail of X,  LDIFF generates  an  error.  LDIFF
+         terminates on a NULL check.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      5 . 8
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Efficiently Working with Atoms as Character Strings
+
+
+ (FLATSIZEC L) = (LENGTH (EXPLODEC L))
+
+
+ (NTHCHAR X N) = (CAR (NTH (EXPLODEC L) N))              if N>0
+               = (CAR (NTH (REVERSE (EXPLODEC L)) N))    if N<0
+               = NIL if (ABS N) = 0 or > (FLATSIZEC L)
+
+
+ Note:  The  above  functions  do not  really  perform  the operations
+ listed.  They actually use far more efficient methods that require no
+ CONSes, but the effects are as given.
+
+
+ (CHRVAL X)
+
+         CHRVAL  returns  the   ASCII  representation   of  the  first
+         character of the print name of X.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      5 . 9
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            NEW PREDICATES
+
+
+
+ Data Type Predicates
+
+
+ (CONSP X)
+
+         The value of CONSP is X iff X is not an atom.
+         CONSP is equivalent to:
+
+                   (LAMBDA (X) (COND ((NOT (ATOM X)) X)))
+                   (LAMBDA(X) (NOT (ATOM X)))
+
+ Examples:       (CONSP T)       = NIL
+                 (CONSP 1.23)    = NIL
+                 (CONSP (QUOTE (X Y Z))) = T
+                 (CONSP (CDR (QUOTE (X))))       = NIL
+
+
+ (STRINGP X)
+
+         The value of STRINGP is T iff X is a string.
+
+
+ (PATOM X)
+
+         The  value of PATOM  is T iff  X is an atom or X is a pointer
+         outside of free storage.
+
+
+ (LITATOM X)
+
+         The value of LITATOM  is  T iff X is a literal atom, i.e., an
+         atom but not a number.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      6 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Alphabetic Ordering Predicate
+
+
+ (LEXORDER X Y)
+
+         The  value of LEXORDER is T iff X  is  lexically less than or
+         equal to  Y.   Note: Both arguments must be atoms and numeric
+         arguments are all lexically less than symbolic atoms.
+
+ Examples:       (LEXORDER (QUOTE ABC) (QUOTE CD))       = T
+                 (LEXORDER (QUOTE B) (QUOTE A))          = NIL
+                 (LEXORDER 123999 (QUOTE A))             = T
+                 (LEXORDER (QUOTE B) (QUOTE B))          = T
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      6 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Predicates that Return Useful Non-NIL Values
+
+
+ (MEMBER X Y)
+
+         MEMBER is the same  as  the old MEMBER except that it returns
+         the tail of Y starting at the position where X is found.
+
+ Examples:
+
+         (MEMBER (QUOTE (C D)) (QUOTE ((A B)(C D)E)))
+                                         = ((C D) E)
+         (MEMBER (QUOTE C) (QUOTE C)))   = NIL
+
+
+ (MEMB X Y)
+ (MEMQ X Y)
+
+         MEMQ is the same as the old MEMQ except that  it  returns the
+         tail of Y starting at the position where X is found.
+
+ Examples:
+
+         (MEMQ (QUOTE (C D)) (QUOTE ((A B)(C D)E)))      = NIL
+         (MEMB (QUOTE A) (QUOTE (Q A B)))                        = (A B)
+
+
+ (TAILP X Y)
+
+         The  value of TAILP  is X iff X is a  list and  a tail  of Y,
+         i.e., X is EQ to some number of CDRs & 0 of Y.
+
+
+ (AND X1 X2 ... Xn)      = Xn if all Xi are non-NIL
+                         = NIL otherwise
+
+
+ (OR X1 X2 ... Xn)       = The first non-NIL argument
+                         = NIL if all Xi are NIL
+
+
+ As with the  old AND and  OR these functions only evaluate as many of
+ their arguments as necessary to determine the answer (e.g.  AND stops
+ evaluation after the first NIL argument).
+
+
+
+
+
+
+
+
+                                      6 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Other Predicates
+
+
+ (NEQ X Y)
+
+         The value of NEQ is T iff X is not EQ to Y.
+         NEQ is equivalent to:
+
+                   (LAMBDA(X Y) (NOT (EQ X Y)))
+
+ Examples:       (NEQ T T)       = NIL
+                 (NEQ T NIL)     = T
+                 (NEQ (QUOTE A) (QUOTE B))       = T
+                 (NEQ 1 1.0)     = T
+                 (NEQ 1 1)       = NIL
+                 (NEQ 1.0 1.0)   = T
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      6 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+                         NEW NUMERIC FUNCTIONS
+
+
+
+ Minimum and Maximum
+
+
+ (*MIN X Y)              = Minimum of X and Y
+
+ (MIN X1 X2 ... Xn)      = Minimum of X1, X2, ... , Xn
+
+ (*MAX X Y)              = Maximum of X and Y
+
+ (MAX X1 X2 ... Xn)      = Maximum of X1, X2, ... , Xn
+
+ (INUMP X)
+
+         INUMP returns X iff X is an INUM.  It returns NIL otherwise.
+
+ (NUMTYPE X)
+
+         NUMTYPE  returns  FIXNUM  if  the  number  X is a fixed point
+         number and FLONUM if it is a floating point number.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      7 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+         FORTRAN Functions in LISP
+
+
+              It is now possible to  use the FORTRAN Math Functions in
+         LISP.   This  allows the user  to  perform  computations that
+         previously were  difficult  to  do  in  LISP.   All functions
+         return  FLONUMs for values but may have  either a FLONUM or a
+         FIXNUM for an argument.
+
+
+              To  load the Arithmetic Package execute the following at
+         the top level of LISP:
+
+                         *(INC(INPUT SYS: (ARITH.LSP)))
+                         <SEQUENCE OF OUTPUT>
+                         *(LOAD)SYS:ARITH$
+                         <LOADER TYPES BACK>
+                         *(ARITH)
+
+              The above will load the Arithmetic Package into expanded
+         core.   To  load the package into BINARY  PROGRAM  SPACE type
+         (LOAD T) instead of (LOAD).
+
+
+                         Available Functions
+
+                 Function Name       Meaning
+
+                     SIN             Sine with argument in radians
+                     SIND            Sine with argument in degrees
+                     COS             Cosine with argument in radians
+                     COSD            Cosine with argument in degrees
+                     TAN             Tangent
+                     ASIN            Arc Sine
+                     ACOS            Arc Cosine
+                     ATAN            Arc Tangent
+                     SINH            Hyperbolic Sine
+                     COSH            Hyperbolic Cosine
+                     TANH            Hyperbolic Tangent
+                     LOG             Log base e
+                     EXP             Take e to a power
+                     SQRT            Square Root
+                     FLOAT           Convert to a FLONUM
+                     RANDOM          Generates a random number
+                                     between 0.0 and 1.0
+
+
+
+
+
+
+
+                                      7 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   FUNCTIONS FOR THE SYSTEM BUILDER
+
+
+
+ Loading Compiled Code into the High Segment
+
+
+      The UCI LISP  System has  a  sharable  high segment.   This high
+ segment contains the interpreter,  EDITOR,  BREAK package, and all of
+ the utility functions.  If the user wants to create his own system he
+ must be able  to load compiled code into  the high segment.  To allow
+ the loading of code into the high segment, the user must both own the
+ file and have write priveleges; to be write priveleged, the user must
+ either be creating  the system from UCILSP.REL  (see  the  section on
+ creating  the  system)  or  follow  the  procedure  indicated  in the
+ function SETSYS.   The following three functions  are for the purpose
+ of loading code into the high segment and will only  work if the user
+ is write priveleged.
+
+
+ (HGHCOR X)
+
+         If X=NIL the  "read-only"  flag is turned on (it is initially
+         on) and HGHCOR returns T.  Otherwise X is the amount of space
+         needed  for  compiled  code.   The  space  is  then allocated
+         (expanding core if necessary), the "read-only" flag is turned
+         off and HGHCOR returns T.
+
+
+ (HGHORG X)
+
+         If X=NIL the address of the first unused location is returned
+         as  the value of  HGHORG.  Otherwise the address of the first
+         unused  location is set to  X and  the  old value of the high
+         seg. origin is returned.
+
+
+ (HGHEND)
+
+         The  value of  HGHEND  is  the  address  of  the  last unused
+         location in the high seg.
+
+
+
+
+
+
+
+
+
+
+
+                                      8 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ (SETSYS DEVICE FILE)
+
+         SETSYS  enables the user to  create  his own sharable system.
+         DEVICE is either a project-programmer number or a device name
+         followed by a colon (i.e.   DSK:).   FILE is the name  of the
+         system the user is  creating.  In order to create the system,
+         the user must Control-C out and do an SSA FILE,  then run the
+         system.   After this procedure, the user has write priveleges
+         and may load code into the sharable high segment.  (Note that
+         the user need not use this to save a low segment only).  This
+         procedure is not necessary for generating the system.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    8 . 1 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ The Compiler and LAP
+
+
+ Special variables
+
+      In order to  print variable bindings in the backtraces,  we have
+ put a pointer to thje atom header in the CAR of  the SPECIAL  cell of
+ all  bound atoms  not used free in compiled code.  Unfortunately, for
+ compiled code code  to  fun,  the  CAR  of  the  SPECIAL cell of free
+ variables  must  be  NIL.   This,  when  loading  LAP  code,  special
+ variables  must be  saved if they  are to  be printed  properly  in a
+ backtrace.   The  necessary information  is  stored  on  LAPLST which
+ contains the name and the special  cell  of each  special variable in
+ the system.   Since this means a two word  overhead for  each special
+ variable,  there is a  flag which controls  the  adding  of  items to
+ LAPLST.   Special  variables are  added  to  LAPLST  iff the variable
+ SPECIAL is non-NIL.  The initial value of SPECIAL is T.
+
+
+ Removing Excess Entry Points - NOCALL Feature
+
+      If,   during  compilation,  a  function  has  a  non-NIL  NOCALL
+ property,  all calls  to that function are compiled as direct PUSHJ's
+ to  the entry point of that function with no  reference  to  the atom
+ itself.   After  loading,  all functions used in  this manner will be
+ left as a list on the variable REMOB.  This means that many functions
+ which  are  not major entry points can often times be REMOBed to save
+ storage.   The  user  may use  (NOCALL  FOO1 FOO2 ...   FOOn) to make
+ several NOCALL declarations.   Like  SPECIAL and DECLARE, when NOCALL
+ is used outside of the compiler, it acts the same an NILL.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      8 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Miscellaneous Useful Functions
+
+
+ (UNBOUND)
+
+         UNBOUND returns the un-interned atom UNBOUND which the system
+         places  in  the  CDR of an  atom's  SPECIAL  (VALUE)  cell to
+         indicate that the atom currently has no  assigned  value even
+         though it has a SPECIAL (VALUE) cell on its property list.
+
+
+ (SYSCLR)
+
+         Re-initializes LISP to read the user's INIT.LSP file  when it
+         returns to the top level,  e.g. by a Control-G or a START, or
+         a REENTER.   SYSCLR also resets the  garbage  collection time
+         indicator to 0 and the CONSes  performed  indicator to 0.  It
+         also performs an EXCISE.
+
+ (INITFL "FILELST")
+
+         INITFL is an FSUBR  that sets up the file list for the user's
+         INIT  file.   FILELST may  consist  of  more  than  one file.
+         However,  if there is more  than  one file  in  the list, the
+         files following the first one must be found or an  error will
+         be generated.   The  first file in the list is optional.  The
+         INIT file is initially INIT.LSP.  INITFL returns the old file
+         list as its result.
+
+ Example:
+
+         *(INITFL (INIT1 . LSP) (MYFILE . LSP) FOO)
+
+         ((INIT . LSP))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      8 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ******WARNING******:
+
+      The following  two functions  can  catastrophically  destroy the
+ garbage collector by  creating  a circle in the free list if they are
+ used to return to the free list any words which are still in use.  Do
+ not use these  functions  unless you are  certain what you are doing.
+ (They are  only useful in  rare cases where a small amount of working
+ storage is needed by a routine which is called quite often.)
+
+
+ (FREE X)
+
+         FREE returns  the word X to the free storage list and returns
+         NIL.
+
+
+ (FREELIST X)
+
+         FREELIST returns  all of the words on  the  top  level of the
+         list  X to  the free storage list  and returns NIL.  FREELIST
+         terminates on a NULL check.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    8 . 3 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ New Symbol Table Functions
+
+ The  functions in  this section are similar to the currently existing
+ symbol  table  functions  except  that  they  either  strip  off (for
+ storing)  or add on the  atom  relocation.  This allows MACRO code to
+ use  the atom relocation register S to refer to free storage and thus
+ allow  expansion  of binary program  space without  destroying LOADed
+ code.   They  operate in  exactly  the  same  manner  as  their older
+ counterparts.   An  error is generated if  the arguments or returning
+ value is not a true cons cell.
+
+ (*RPUTSYM SYM VAL)
+
+         *RPUTSYM puts VAL - relocation in the symbol table under SYM.
+
+ (RPUTSYM X1 X2 ...)
+
+         RPUTSYM functions in the same manner as PUTSYM, i.e. if Xn is
+         an atom,  then Xn is placed in the symbol table with  Xn less
+         the relocation as it's value.   Otherwise (EVAL (CADR XN)) is
+         placed in the symbol table as the value of (CAR XN).
+
+ (*GETSYM X)
+
+         *GETSYM  gets  the  value  of  the  symbol  X,  adds  on  the
+         relocation and returns the cell pointed to as it's value.
+
+ (GETSYM P S1 S2 ...)
+
+         GETSYM searches the symbol table for the symbol Sn and places
+         the relocated value on the property list of Sn under property
+         P.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    8 . 3 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Initial System Generation
+
+
+ 1) To Generate UCILSP.REL
+
+    .R MACRO
+    *UCILSP.REL/P/P/P/P/P/P/P/P/P/P_UCILSP.MAC
+
+    (Needs to be done only when UCILSP.MAC is changed.)
+
+
+ 2) To Generate the LISP System (LISP.SHR and LISP.LOW)
+
+    R LOADER
+    *UCILSP.REL$
+    .CORE 15
+    .START
+    FULL WORD SP. = 750
+    BIN. PROG. SP. = 5
+    (INC (INPUT DSK: LAP))
+    <RANDOM MESSAGES>
+    ^C
+    .SSA LISP
+
+ <The preceeding loads the following files:
+ UCILSP.REL, LAP, SYS1.LAP, SYS2.LSP, ERRORX.LSP, ERRORX.LAP,
+ BREAK.LAP, EDIT.LAP>
+
+ (Needs to be done whenever any of the above files are changed.)
+
+ (If during the course of the above the message "NO FW STORAGE LEFT"
+ appears, experiment with variations in the allocation for Full
+ Word Space.)
+
+
+ 3) To Generate LISP.SYM, the LISP LOADER SYMBOL TABLE
+
+    .RU LO52A    (Version 52 of the DEC Loader.
+                  This file is included with the LISP System)
+    *UCILSP.REL/J,SYMMAK.REL$
+    .START
+
+    (Must be done whenever Step 1 is performed.)
+
+
+
+
+
+
+
+
+
+                                      8 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 4) To Generate COMPLR.SAV, The LISP COMPILER
+
+    .AS DSK SYS
+    .R LISP 36
+    FULL WORD SP. = 2000
+    BIN. PROG. SP. = 15000
+    *(INC (INPUT DSK: (COMPLR.LAP)))
+     <RANDOM MESSAGES>
+    *(NOUUO NIL)
+    *(CINIT)
+    ^C
+    .SA COMPLR.SAV
+    .DEL COMPLR.HGH
+
+    (Must be done whenever Step 3 is performed.)
+
+
+ 5) To Generate LISP.LOD, the LISP LOADER
+
+    .R LOADER
+    *LOADER.REL$
+    .START
+
+    (Needs to be done only when LOADER.MAC is changed.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      8 . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    THE LISP EVALUATION CONTEXT STACK
+
+
+
+    The Contents of the Context Stack
+
+
+         Whenever a  form is given to EVAL,  it is pushed onto the top
+    of the Special  Pushdown  List  in the form of an Eval-Blip.  This
+    information is used for backtraces.  An Eval-Blip entry has NIL in
+    the left  half  (see  SPDLFT)  and the form being evaluated in the
+    right half (see SPDLRT).
+
+         Also,  variable  bindings  are  saved on the Special Pushdown
+    List.   The left  side  of the  entry contains  a  pointer  to the
+    special cell and the  right  side  contains  the  value  which was
+    saved.
+
+         The only other items on the Special Pushdown List are used by
+    the LISP interpreter,  and always have a non-NIL atom  in the left
+    half.
+
+         In the user's programs, stack pointers are always represented
+    as INUMs.   This allows the program to easily modify them with the
+    standard arithmetic functions so that a program can step either up
+    (toward the most recent Eval-Blip)  or down (toward the  top level
+    of the interpreter) of the stack at will.
+
+         All of the  functions in this  chapter  take  INUM's  for the
+    pointer  arguments.   The  actual  pointer  to  the  stack element
+    requires an offset from the beginning of the stack.   For the user
+    to  obtain a  true LISP pointer he must  call  the function STKPTR
+    (with  an INUM argument also).  (i.e.  if the user wishes to do an
+    RPLACA or RPLACD on an element of the stack, he must get a pointer
+    via STKPTR.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      9 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+    Examining the Context Stack
+
+
+    (SPDLPT)
+
+         The value of SPDLPT is a stack pointer to the current  top of
+         the stack.  (Returns an INUM).
+
+
+ (SPDLFT P)
+
+         The value  of  SPDLFT  is  the  left  side  of the stack item
+         pointed to by the stack pointer P.
+
+
+ (SPDLRT P)
+
+              The value of SPDLRT  is the right side of the stack item
+         pointed to by the stack pointer P.
+
+
+ (STKPTR)
+
+         The value of STKPTR is a true LISP pointer to a stack item.
+
+
+ (NEXTEV P)
+
+         If the stack pointer  P is a  pointer  to  an  Eval-Blip, the
+         value of NEXTEV  is P.   Otherwise,  NEXTEV searches down the
+         stack,  starting from P,  and returns a stack pointer  to the
+         first  Eval-Blip  it  finds.   If  NEXTEV  can  not  find  an
+         Eval-Blip it returns NIL.
+
+
+ (PREVEV P)
+
+         PREVEV is similar to NEXTEV except that it moves up the stack
+         instead of down it.
+
+
+ (STKCOUNT NAME P PEND)
+
+         The  value of STKCOUNT  is  the number of  Eval-Blips  with a
+         STKNAME of  NAME occurring  between  stack  positions P-1 and
+         PEND, where PEND < P.
+
+
+
+
+
+
+                                      9 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+ (STKNAME P)
+
+         If position P is not  an Eval-Blip,  the value  of STKNAME is
+         NIL.   If position P is an Eval-Blip and  the form is atomic,
+         then  the  value of  STKNAME is  that atom.   If the  form is
+         non-atomic,  STKNAME returns  the CAR  for the form, i.e. the
+         name of the function.
+
+
+ (STKNTH N P)
+
+         The value of STKNTH is a  stack pointer to  the Nth Eval-Blip
+         starting  at position P.   If N is positive,  STKNTH moves up
+         the stack, and if N is negative, STKNTH moves down the stack.
+
+
+ (STKSRCH NAME P FLAG)
+
+         The  value  of  STKSRCH  is  a  stack  pointer  to  the first
+         Eval-Blip  with  a  STKNAME  of  NAME.   The direction of the
+         search is  controlled  by FLAG.   If FLAG=NIL,  STKSRCH moves
+         down  the  stack.   Otherwise  STKSRCH  moves  up  the stack.
+         STKSRCH  never returns  P for its value,  i.e.  it steps once
+         before checking for NAME.
+
+
+ (FNDBRKPT P)
+
+         The value of  FNDBRKPT is a stack pointer to the beginning of
+         the Eval-Block that P is in.   The  beginning of a Eval-Block
+         is defined as an  Eval-Blip which  does not contain  the next
+         higher Eval-Blip within it.   This function  is  used  by the
+         backtrace functions.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      9 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Controlling Evaluation Context
+
+
+ (OUTVAL P V)
+
+         OUTVAL  adjusts  P  to  an Eval-Blip  and  returns  from that
+         position with V.
+
+
+ (SPREDO P V)
+
+         SPREDO  adjusts P to an  Eval-Blip and re-evaluates from that
+         point.
+
+
+ (SPREVAL P V)
+
+         SPREVAL evaluates its argument v in its local context  to get
+         a form, and then it returns to the context specified by P and
+         evaluates  the  form  in that  context,  returning  from that
+         context  with  the  value.   This is  very similar  to SPREDO
+         except that the EVAL-blip on the stack is changed.
+
+ Note:  OUTVAL,  SPREDO  and SPREVAL  all use NEXTEV to adjust P to an
+ Eval-Blip.
+
+
+ (EVALV A P)
+
+         The value of EVALV is the value of the atom A evaluated as of
+         position P.   If A is not an atom then it must be the special
+         cell of an atom.   By using the special cell  instead  of the
+         atom,  special variables  can be  handled properly.  EVALV is
+         similar to EVAL with two arguments, but is more efficient.
+
+
+ (RETFROM FN VAL)
+
+         RETFROM returns VAL from the most recent call to the function
+         FN with the value VAL.  For RETFROM to work, there must be an
+         Eval-Blip  for  FN.   The  only  way  to be  sure  to  get an
+         Eval-Blip in  compiled  code is to call the function  with no
+         arguments inside of an ERRSET, e.g.  (ERRSET (FUNC)).
+
+
+
+
+
+
+
+
+
+                                      9 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+                          Storage Allocation
+
+
+      When  the LISP  system  is run  with a  core specification given
+ (i.e.,  ".R  LISP n",  n>22),  LISP types "ALLOC?  (Y OR N)".  If you
+ type  "N"  or  space  (for  no)  then  the  system  uses  the current
+ allocations.  If you type "Y" (for yes) then the system allows you to
+ specify for  each area  either an  octal  number followed by  a space
+ designating  the  number of  words to added to that  area, or a space
+ designating an increase of zero words.
+
+ Example: (user input is underlined)
+
+          ALLOC? (Y OR N) Y
+          FULL WORD SP. = 200
+          BIN. PROG. SP. = 2000
+          REG. PDL. =
+          SPEC. PDL. = 1000
+
+ Any remaining storage is divided between the spaces as follows:
+
+ 1/16 for full word space,
+ 1/64 for each push down list,
+ the remainder to free storage and bit tables.
+
+
+ Reallocation of Storage
+
+      If you  exhaust one of  the  storage  areas  it  is  possible to
+ increase  the size of  that area  by using the reallocation rocedure.
+ First, expand core with the time sharing system command CORE and then
+ reenter LISP with the REE command.  For example, if the original core
+ size was 22K, you could increase it by 4K as follows:
+
+ *^C
+ .CORE 26
+ .REE
+
+ When  you  reenter LISP, the same allocation procedure is followed as
+ described above.
+
+
+
+
+
+
+
+
+
+
+
+
+                                     10 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Initial Allocations
+
+      The  following  are  the  initial  allocations  for  the various
+ storage areas when LISP is initially run.
+
+          FREE STORAGE    = 2200
+          FULL WORD SP.   =  700
+          BIN. PROG. SP.  =  100
+          REG. PDL.       = 1000
+          SPEC. PDL.      = 1000
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     10 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+                     CONTIGUOUS BLOCKS OF STORAGE
+
+
+ A new data type, BLOCK, has been added to UCILSP.  A BLOCK consist of
+ a block  of  contiguous  storage locations  in Binary  Program Space.
+ BLOCKs are  similar to arrays in that they may contain  pointers that
+ are protected  from  garbage  collection,  or  their  contents may be
+ ignored by the garbage collector.  They differ, however, in the means
+ of access.   BLOCKs  are accessed  by  a  pointer into Binary Program
+ Space and  all of  the  functions which will act on a  cons cell will
+ work equally well on an element  of a  block  (except  for printing).
+ BLOCKs can be used for setting  up lists that are also tables,  as in
+ setting up multiple  OBLISTs.   NOTE BENE:  the value returned by the
+ BLOCK functions is a true address, not a LISP number.
+
+
+ (GTBLK LENGTH GC)
+
+         GTBLK is a SUBR that returns a zeroed BLOCK of  LENGTH words.
+         If GC is NIL,  then the contents of the BLOCK  are ignored by
+         the garbage collector.   If GC is non-NIL  then  the contents
+         are treated as pointers and the cells pointed to will  not be
+         collected.
+
+
+ (BLKLST LIST LENGTH)
+
+         BLKLST is a SUBR that returns a pointer type  BLOCK of LENGTH
+         words.  It chains the words in the BLOCK such that the CDR of
+         each  word is the succeeding word.   The top level of LIST is
+         then mapped into the CAR's of the block.   If  LENGTH is NIL,
+         then  the  length of  the  list is used.  If (LENGTH LIST) is
+         less  than LENGTH,  then  the CAR's  of  the remaindef of the
+         BLOCK are  set to NIL.   If  (LENGTH  LIST)  is  greater than
+         LENGTH, the list is truncated.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     11 . 1
+
+
+
+

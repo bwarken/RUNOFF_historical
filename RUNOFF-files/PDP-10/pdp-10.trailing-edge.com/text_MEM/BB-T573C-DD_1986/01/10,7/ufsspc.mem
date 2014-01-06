@@ -1,0 +1,139 @@
+
+
+
+                       The "Uncommon File System"
+
+
+
+1.0  INTRODUCTION
+
+The "Uncommon File System", or UFS, is an unsupported feature of TOPS-10
+version  7.03  to  facilitate  sharing  a CI bus among several different
+systems.  No sharing of disk units or files is provided by this feature.
+This  feature  only  assists in preventing access to a disk unit by more
+than one system.
+
+(Allowing more than one system to access a disk unit leads  to  SAT  and
+directory  differences,  causing  damage to new or existing data on that
+disk unit.  Co-ordinating this access would  require  extensive  monitor
+development which is not planned for TOPS-10 at this time.)
+
+
+
+2.0  "DISK SETS"
+
+Inherent in the design of UFS is the concept of a "disk  set".   A  disk
+set  is  a  group  of  file structures which are related.  This relation
+usually means they belong to the same system.  Disk sets are  especially
+important  in  the  case of CI disks, which can be accessible to several
+TOPS-10 systems at the same time.
+
+There are thirty-eight different disk  sets.   These  are  the  numbered
+sets,  1  through  36  (decimal),  the  "NO"  set,  and  the  "ALL" set.
+Structures in the "NO" set are never mounted by a system, structures  in
+the  "ALL"  set  are  always  mounted by a system, and structures in the
+numbered sets are mounted by a  system  only  if  the  system  has  been
+instructed to mount structures in one (or more) of the numbered sets.
+
+As an example, if system "A" had a system pack called DSKA,  and  system
+"B"  had  a  system  pack called DSKB, system A should not be allowed to
+access DSKB, nor should system B be allowed to access DSKA.  Without UFS
+there  is  no way to prevent TOPS-10 from trying to mount all structures
+accessible at ONCE time to the system.  Using UFS, you can  define  DSKA
+to be in set 1, and DSKB to be in set 2.  Further, you can tell system A
+to only mount structures in set 1, and system B to only mount structures
+in set 2.
+
+
+
+3.0  PARTS OF UFS
+
+Code to support UFS is contained in three places;  the  monitor,  TWICE,
+and PULSAR.
+                                                                  Page 2
+
+
+3.1  Monitor Support Of UFS
+
+Whether or not the monitor supports UFS is determined by the conditional
+assembly  option  "FTSETS",  defined  in  the F.MAC file produced by the
+MONGEN "F" dialogue.  The default setting for this conditional  is  zero
+(or  false).   By  responding  "NO"  to  the  MONGEN  question "Standard
+settings" you can enter the dialogue to change the  default  setting  of
+this conditional.
+
+Once you have created a new F.MAC  you  must  re-compile  the  following
+monitor modules:  F, COMMOD, ONCE, ONCMOD, and UUOCON.  You then proceed
+to link the monitor as usual.  The result is a monitor with UFS support.
+
+
+
+3.2  TWICE Support Of UFS
+
+TWICE is a user-mode version of the ONCE dialogue.   The  ONCE  dialogue
+allows  the operator to define or change disk parameters.  TWICE must be
+re-built after re-building the  monitor,  as  TWICE  searches  F.UNV  to
+obtain feature test settings.
+
+
+
+3.3  GALAXY Support Of UFS
+
+PULSAR has code to GETTAB the conditional feature test flag word in  the
+monitor  which  indicates  whether  the  monitor  supports  UFS.  If the
+monitor supports UFS, PULSAR will also, and vice versa.  No  re-assembly
+of PULSAR is necessary, as this code exists in the distributed version.
+
+
+
+4.0  DEFINING SET NUMBERS WHICH A SYSTEM MOUNTS
+
+There are two ways to define which numbered  sets  are  mounted  by  the
+system.   One  is  intended  to  be used when building monitors to set a
+default, and the other is intended to be  used  during  system  start-up
+when the default value is not acceptable.
+
+
+
+4.1  Via MONGEN
+
+The MONGEN parameter M.SETS defines a bit mask of  those  numbered  sets
+which  are  to  be mounted by the system.  Bit 0 represents set 1, bit 1
+represents set 2, ..., and bit 35 represents set 36.  If this  parameter
+is  not  specified  in the optional octal dialogue, the monitor will not
+mount any structures in the numbered sets (i.e., M.SETS defaults to zero
+if not defined).
+                                                                  Page 3
+
+
+4.2  During ONCE
+
+The optional switch /SETS to the "Startup option" question allows you to
+define at ONCE time which numbered sets are to be mounted to the system.
+If /SETS  is  specified,  the  resulting  value  over-rides  the  MONGEN
+parameter M.SETS.
+
+
+
+5.0  DEFINING WHICH SET A STRUCTURE BELONGS TO
+
+The set number is stored in the HOMe block of a disk.  The only  way  to
+change  the  set number is by using the the TWICE program to change disk
+parameters.  TWICE will ask if you want to change any  disk  parameters.
+If  you  answer  YES,  you will be allowed to specify which set number a
+structure belongs to.  A legal response is either "YES" or  "NO",  or  a
+number between 1 and 36 (decimal).
+
+The monitor will not allow you to access a disk  unit  during  the  ONCE
+dialogue  which  belongs  to a disk set which is not normally mounted to
+the system.  For this reason, you have to change the  set  number  using
+TWICE.
+
+By default, structures are defined as belonging to the "ALL" set;   that
+is,  they will always be mounted by any system which can access the disk
+unit(s) which contain that  structure.   When  defining  new  structures
+which are contained on CI type disk units, if you plan to have more than
+one system on the CI bus you should plan on putting that structure in  a
+unique numbered set.
+
+Structures which already exist will belong to the "ALL" set.

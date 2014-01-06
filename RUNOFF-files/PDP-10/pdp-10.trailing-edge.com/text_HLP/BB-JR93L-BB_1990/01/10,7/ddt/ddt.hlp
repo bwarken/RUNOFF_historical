@@ -1,0 +1,193 @@
+
+DDT Command
+
+Function
+
+     The DDT command starts DDT, the dynamic system debugger.  If  DDT
+     is already loaded with your core image, DDT starts at the address
+     given by the right half of .JBDDT in the Job Data Area.  (The Job
+     Data  Area  stores  information  pertinent  to  your  job.  It is
+     described in the TOPS-10 Monitor Calls Manual.) If DDT is not yet
+     loaded,  the  monitor  tries  to  merge  a special version of DDT
+     (called VMDDT)  into  the  address  space  starting  at  location
+     700000.
+
+     If DDT is not yet loaded and the monitor cannot read in VMDDT, it
+     prints  the  message:   ?NO  START ADDRESS.  The monitor will not
+     read in VMDDT if your core image is execute-only.
+
+     The DDT command copies  the  saved  program  counter  value  into
+     .JBOPC  and  starts  the  program  at  an  alternate  entry point
+     specified in .JBDDT (beginning address  of  DDT  as  set  by  the
+     monitor).   DDT contains commands to allow you to start or resume
+     at any desired address.
+
+     If your job was executing a monitor  call  when  interrupted  (at
+     monitor  level  and  not  in  TTY  input wait or SLEEP mode), the
+     monitor sets a status bit (UTRP) and continues  the  job  at  the
+     location  where  it  was  interrupted.   When  the  monitor  call
+     processing is complete, the monitor clears the status  bit,  sets
+     .JBOPC  to the address following the monitor call, and then traps
+     to the DDT address found in .JBDDT.
+
+     If your job is at monitor level and in TTY INPUT  WAIT  or  SLEEP
+     mode,  the  trap to the DDT address occurs immediately and .JBOPC
+     contains the address of the monitor call.  If your job is at user
+     level, the trap also occurs immediately.  Therefore, it is always
+     possible to continue the interrupted program  after  trapping  to
+     DDT by executing a JRSTF @.JBOPC.
+
+     For additional information on  the  DDT  program,  refer  to  the
+     TOPS-10 DDT Manual.
+
+Format
+
+     DDT
+
+Characteristics
+
+     Places your terminal at user level.
+
+     If .JBDDT is zero, the monitor will merge  SYS:VMDDT.EXE  at
+     location 700000.
+
+Example
+
+     The following example shows how the DEBUG and  DDT  commands  are
+     used.   Begin  by  writing  a  simple  program  with  a  spelling
+     (syntactical) error.
+
+     .TYPE TEST.MAC<RET>
+        TITLE   TEST    SIMPLE PROGRAM
+        SEARCH  MACTEN,UUOSYM
+
+     HIMSG:     ASCIZ   \HI THERE - THIS IS A SIMPLE TEST PROGRAM!
+     \
+     TEST:      JCLF
+                RESET
+                OUTSTR  HIMSG
+                MONRT.
+
+                END     TEST
+
+     Use DEBUG to compile and load the program:
+
+     .DEBUG TEST.MAC<RET>
+     MACRO: TEST
+     LINK: LOADING
+     ?LNKUGS 1 UNDEFINED GLOBAL SYMBOL
+        JCLF    0
+     [LNKDEB DDT EXECUTION]
+     DDT
+     ^Z
+
+     Loading showed that the program contained an error, which is then
+     corrected  by  using  the  SOS  editor to replace "JCLF" with the
+     correct "JFCL".
+
+     .SOS TEST.MAC<RET>
+     EDIT: TEST.MAC
+
+     *SJCLF<ESC>JFCL<ESC>.<ESC><RET>
+     600 TEST: JFCL
+     *ES<RET>
+
+     [DSKC:TEST.MAC]
+
+     After correcting the file, reload the program, again using DEBUG.
+
+     .DEBUG TEST.MAC<RET>
+     MACRO: TEST
+     LINK: LOADING
+     [LNKDEB DDT EXECUTION]
+     DDT
+     ^Z
+
+     The debugger successfully loaded  the  program;  no  errors  were
+     detected.  The new TEST.REL file automatically supersedes the old
+     .REL file.  Next, save the core image of the loaded program,  and
+     begin execution.
+
+     .SAVE TEST<RET>
+     TEST SAVED
+
+     .START<RET>
+
+     HI THERE - THIS IS A SIMPLE TEST PROGRAM!
+
+     The program ran successfully.  However, when you try to  run  the
+     program  again  with the CONTINUE command, the command fails.  No
+     provision has been made for rerunning the program.
+
+     .CONTINUE<RET>
+
+     ?ILLEGAL UUO AT USER PC 013303
+
+
+     Start the debugger, using the DDT command:
+
+     .DDT<RET>
+     DDT
+
+     13303/ 0  ^
+     TEST+3/ MONRT.<LF>
+     PAT../ 0 JRST TEST<RET>
+     ^Z
+
+     While running DDT, alter the core image of  the  program:   since
+     the  error  was  reported  at address 13303 (octal), examine that
+     address.  Then type an uparrow (^)  to  see  the  previous  line,
+     which  is  the  last line of program code.  Then type a line-feed
+     (<LF>) to see the next line.  "PAT.." is on the next line.  Here,
+     insert the call "JRST TEST," then exit DDT.
+
+     Next, start the program:
+
+     .START<RET>
+
+     HI THERE - THIS IS A SIMPLE TEST PROGRAM!
+     Then CONTINUE the program.  The execution is successful.
+
+     .CONTINUE<RET>
+
+     HI THERE - THIS IS A SIMPLE TEST PROGRAM!
+
+
+     Finally, edit the file with the changes made to the core image:
+
+     .SOS TEST.MAC<RET>
+     EDIT:TEST.MAC
+     *P^:*<RET>
+     100  TITLE TEST SIMPLE PROGRAM
+     200  SEARCH MACTEN,UUOSYM
+     300
+     400 HIMSG: ASCIZ \HI THERE - THIS IS A SIMPLE TEST PROGRAM!
+     500 \
+     600 TEST: JFCL
+     700  RESET
+     800 OUTSTR HIMSG
+     900 MONRT.
+     1000
+     1100 END  TEST
+     *I950<RET>
+     950 JRST TEST
+     *ES<RET>
+     [DSKC:TEST.MAC]
+
+     Load the program, begin execution, and rerun the program:
+
+     .LOAD TEST.MAC<RET>
+     LINK: LOADING
+     EXIT
+
+     .START<RET>
+
+     HI THERE - THIS IS A SIMPLE TEST PROGRAM!
+
+     .CONTINUE<RET>
+
+     HI THERE - THIS IS A SIMPLE TEST PROGRAM!
+
+     .
+
+     Execution is successful.

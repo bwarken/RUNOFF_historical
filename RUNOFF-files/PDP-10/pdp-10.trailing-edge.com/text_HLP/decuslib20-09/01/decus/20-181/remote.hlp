@@ -1,0 +1,81 @@
+                      REMOTE PRINTER SPOOLER HELP FILE
+                             Scott Mcclure ESI
+                                  6/17/85
+   
+   ABSTRACT:
+   	The remote printer spooler is a method to transfer print queue files
+   between TOPS-20 machines using DECNET. It is activated by using the
+   /DESTINATION: switch to specify the remote node where you want the file to
+   be sent. (Example: PRINT filename /DESTINATION:nodename::) The file is
+   then sent to the target machine and queued as a print file. All the normal
+   print switches can still be used and multiple files can be sent under a
+   single queue entry by using wildcards or commas between filenames.
+   	The system is setup to queue transferred files as user REMOTE. To
+   facilitate identification, the real user name is added to the NOTE field
+   of the queue on the target machine if no other NOTE is specified.
+   
+   OPERATION:
+   	The system consists of two parts, RMTQUE and RMTSPL. RMTQUE runs
+   on the source machine while RMTSPL runs on the target machine. Data is
+   transferred from RMTQUE to SPL using the DECNET 36-bit message format.
+   	RMTQUE is the active portion that scans the primary master queue
+   file searching for a /DESTINATION: that is remote. When found, the queue
+   entry is transferred, and then the file(s) to be printed are transferred a
+   page at a time. The queue entry is then removed from the local machine.
+   Each transfer by RMTQUE must be acknowledged by RMTSPL or the process is
+   aborted and the process attempted again on the next pass.
+   	RMTSPL remains inactive until a connection is requested by RMTQUE.
+   It accepts the incoming data and queues the print file when it is complete.
+   Then the link is closed and SPL waits for a new connection.
+	Queue entries are removed and inserted into the master queue file
+   through QUASAR using IPCF messages.
+   
+   INSTALLATION:
+   	First setup a directory called PS:<REMOTE> on each machine you want
+   to print remote files on. Files transferred are placed here for printing
+   and are deleted when printing is complete. In addition, since there is no
+   guarantee that the username of the person making the print request will
+   exist on the target machine, REMOTE is used as the user name of the printed
+   file. As mentioned above, the actual user name is placed in the NOTE field
+   to aid identification.
+   	Next, run RMTSPL and RMTQUE on each machine. There are several ways to
+   set this up, the only requirement being that the jobs have privilages
+   enabled. In our system, they run as subjobs of PTYCON and are started via
+   the PYTCON.ATO file. Theoretically there should be no requirement as to
+   which program is started first but this has not been confirmed in practice.
+   If there are already remote print files in the queue, there may be a
+   problem if QUE is started and there is no SPL on the other end to receive.
+   The safest bet is to start the SPL jobs first on each machine, and then
+   run QUE on each machine.
+   
+   LIMITATIONS:
+   	The system will only transfer a single page queue entry. This
+   results in an upper limit of about 20 files per queue request. The system
+   will only work with queue entry files of less than 513 pages. This has not
+   been found to cause any problems, but should be fixed to maintain
+   consistency with other DEC software.
+	At this time, the system is limited to TOPS-20 machines but it should
+   be possible to write a server for VAXes or other machines which can be
+   connected via DECNET.
+   
+
+   KNOWN BUGS:
+   	RMTSPL's DECNET server occasionally goes into aborted status. The
+   program continues to run but no files are transferred. The only recovery is
+   to restart RMTSPL.
+	Another problem is caused by edit #1222 of QUASAR version 4.2(1236).
+   This edit was intended to retain the request id number of modified print
+   files. It was incomplete however and only kept the internal request number.
+   The external request number was still changed. This results in RMTQUE not
+   being able to cancel the queue entry after the file is transferred. The
+   request remains in the queue and is sent repeatedly until the request is
+   cancelled manually. DEC answered SPR #20-20479 on 2/21/85 with a patch to
+   correct this problem. As we have moved to TOPS-20 version 6.0, we have not
+   been able to confirm this.
+   
+   DEBUGGING:
+   	Both programs have a debug switch to setup test versions that can be
+   run while the real RMTQUE and SPL programs continue to operate. The test
+   versions have their own server names and will only transfer files queued
+   for /DESTINATION:TEST::. The target node name is then changed to the real
+   node specified in the variable MYNODE in RMTQUE.

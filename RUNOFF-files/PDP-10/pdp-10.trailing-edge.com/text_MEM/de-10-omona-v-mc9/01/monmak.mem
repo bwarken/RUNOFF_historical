@@ -1,0 +1,677 @@
+
+
+
+                         BUILDING THE MONITOR
+
+                               (MONMAK)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    Author:  A. Frantz, B. Hardy
+                    Revised:  A. Frantz, M. Symonds
+                    Date:  1-Mar-76
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Copyright (C) 1975,1976
+Digital Equipment Corporation, Maynard, Mass.
+
+
+This software is furnished under a license for use only  on  a  single
+computer system and may be copied only with the inclusion of the above
+copyright notice.  This software, or any other copies thereof, may not
+be provided or otherwise made available to any other person except for
+use on such system and to one  who  agrees  to  these  license  terms.
+Title  to  and  ownership of the software shall at all times remain in
+DEC.
+
+The information in this software is subject to change  without  notice
+and  should  not  be  construed  as  a commitment by Digital Equipment
+Corporation.
+
+DEC assumes no responsibility  for  the  use  or  reliability  of  its
+software on equipment which is not supplied by DEC.
+MONMAK.RNO                                                      Page 2
+
+
+SUBJ:  Instructions on use of the 6.03 monitor maker .CTL files.
+
+
+In conjunction with our switch from black tapes  to  black  packs  for
+storing  the  monitor sources, the .CTL files used in loading monitors
+have been extensively re-worked.  The major goal of this  rewrite  was
+to  separate  the process into functional blocks such that a user need
+run only those portions of the process that are relevant to his needs.
+The  former  .CTL  files (named MONMK1, MONMK2...MONMK7) mixed monitor
+assembly and loading functions with  housekeeping  functions  such  as
+making fire storage tapes.  These housekeeping functions for the black
+packs are now performed by a separate set of .CTL  files.   This  memo
+describes  the  .CTL  files  specifically  used for monitor making and
+gives explicit directions for their use.
+
+The files involved are as follows:
+
+          MONMK0.CTL     MONMKL.CTL     MK040.CT
+          MONFIL.CCL     CONKL.CMD      MK040D.CT
+          VCHK.CTL       CMBKL.CCL      MK040G.CT
+          MONMKI.CTL     UNBKL.CMD      MK514.CT
+          TWICE.CTL      UCMKL.CCL      MK514V.CT
+          CONKI.CMD      MONMKW.CTL     MK514D.CT
+          CMBKI.CCL      CONVL.CMD      MK514X.CT
+          UNBKI.CMD      CMBVL.CCL      MK514H.CT
+          UCMKI.CCL      UNBVL.CMD      MK525.CT
+          MONMKV.CTL     UCMVL.CCL      MK525V.CT
+          CONVI.CMD      MONMKG.CTL     MK029W.CT
+          CMBVI.CCL      CONLUG.CMD     MK525H.CT
+          UNBVI.CMD      CMBLUG.CCL     MK546.CT
+          UCMVI.CCL      UNBLUG.CMD     MK546V.CT
+          MONMKA.CTL     UCMLUG.CCL     MK546H.CT
+          CONKA.CMD      MONMKH.CTL     MK592.CT
+          CMBKA.CCL      CONLGI.CMD     MK592V.CT
+          UNBKA.CMD      CMBLGI.CCL     MK026L.CT
+          UCMKA.CCL      UNBLGI.CMD     MK026W.CT
+                         UCMLGI.CCL     MK026E.CT
+          MKFTST.CTL     MKCTL.CTL      MK026Z.CT
+
+
+General notes and assumptions:  The source files are assumed to be  on
+BLKA:[7,5112].   Results  are stored into that same area.  Field image
+CUSPs  are  assumed  to  exist  on  DSKB:[10,7]  and  are   frequently
+referenced--there  are  almost  no  .R  MUMBLE commands, but many .RUN
+DSKB:MUMBLE[10,7] commands.  All the .CTL files contain  many  comment
+lines  so  they  should be reasonably self-explanatory.  All files use
+the .CHKPNT feature of BATCON and pains have been taken to  make  each
+section  re-entrant  so  they  should  be  relatively immune to system
+crashes.  All files also contain frequent .PLEASE messages to keep the
+operator informed of their progress.
+MONMAK.RNO                                                      Page 3
+
+
+1.0  INITIALIZATION
+
+To begin:
+
+     1.  Mount the two private disk packs MONI:  and BLKA:.
+
+     2.  Login under a ppn which has a quota on  MONI:.   The  numbers
+         [10,506],  [10,507],  [10,510],  and [10,511] are set up with
+         AUXACC entries which cause MONI:  to appear as the first item
+         in  the  user's  search list.  Thus, it is best to use one of
+         these ppn's since it is desirable to have all files  involved
+         in the monitor load on a private file structure and MONI:  is
+         dedicated to this task.
+
+     3.  Delete MONI:  *.* or refresh MONI:   with  TWICE  unless  you
+         know  you wish to have some old files left around, e.g., last
+         week's .REL files.  Standard procedure is to start fresh each
+         week.
+
+     4.  Copy MONMK0.CTL to MONI:  from BLKA:[7,5112].
+
+Now here are the  descriptions  of  the  work  done  by  each  of  the
+individual batch jobs in the monitor making set--
+
+
+2.0  MONMK0.CTL
+
+MONMK0.CTL asks to MOUNT MONI:  and BLKA:.   It  will  abort  with  an
+error  message  if  either MOUNT fails.  It then copies a PIP indirect
+file (MONFIL.CCL) from BLKA:[7,5112] to MONI:.  It also copies certain
+CUSPs  and  other  field  image  files  (COMPIL,  MACRO, LINK, LOADER,
+JOBDAT, DDT.MAC, etc.) onto MONI:  from DSKB:[10,7].
+
+Next, MONMK0 solves the  problem  of  supplying  the  monitor  version
+number  to  all  the  .CTL  files which need it.  These files exist on
+BLKA:  as .CT files which have ### in them at  each  point  where  the
+monitor  version  number should be substituted.  MONMK0 uses TECO's ^T
+and BATCON's .OPER features to interrogate the operator as follows:
+
+     TYPE 3-CHAR MONITOR VERSION NUMBER, E.G., 220 FOR 60220
+
+The operator might reply B1-OPER 212 (if MONMK0 were BATCH job #1  and
+he  was  loading monitor 60212).  MONMK0 then gets a directory of *.CT
+and uses a TECO macro to create a .CTL file  from  each  .CT  file  by
+substituting  the  version number which the operator typed in for each
+occurrence of ###.
+
+Next MONMK0 creates a sorted checksummed directory of all these  files
+and prints it out as MONFIL.DSF.  Finally it starts up VCHK.CTL.
+
+This job takes just under 15 minutes of  real  time  to  run.   It  is
+initiated by simply typing
+
+          .SUBMIT MONMK0/UNIQ:0/TIME:
+MONMAK.RNO                                                      Page 4
+
+
+2.1  MONFIL.CCL
+
+MONFIL.CCL is the PIP indirect file that specifies the complete set of
+files  which must be retrieved from the black packs in order to create
+a new monitor.  It now consists of many lines of the form:
+
+          MONI:<055>/X/B_BLKA:[7,5112]MUMBLE.MAC
+
+Note that since this assumes all the sources are  in  [7,5112]  it  is
+only  suitable  for  retrieving  files  for 6.02 remedial monitors.  A
+simple edit to this  file  could  transform  it  to  get  its  sources
+elsewhere (for building private monitors, SOUPS, etc.).
+
+
+2.2  VCHK.CTL
+
+VCHK.CTL checks all the monitor sources to see if their left and right
+angle  brackets match.  It uses CONKA.CMD, CONKI.CMD, and CONVI.CMD as
+the definitive lists of monitor sources, and with a little TECO  magic
+it  builds  a  PIP indirect file which runs a /V check on each monitor
+source file.  The results are combined (by more adroit  use  of  TECO)
+into  a  nicely formatted file VCHK.ERR which it prints.  This listing
+should be forwarded to Jim Flemming for corrective action if there are
+any  monitor  sources whose angle brackets fail to match.  VCHK.CTL is
+queued automatically by MONMK0.  It takes 6-7 minutes of CPU time  and
+about 35-40 minutes of real time.
+
+
+3.0  MONMKI.CTL
+
+MONMKI.CTL assembles, CREF's and  GLOBs  the  standard  1077  monitor.
+Here are the details:
+
+As soon as MONMK0 finishes, one may start up MONMKI with the command
+
+          .SUBMIT MONMKI/UNIQ:0/TIME:2::
+
+First MONMKI uses MONGEN to make FKI.MAC and compares this FKI.MAC  to
+the  one  it copied from BLKA:.  By an appropriately awkward mechanism
+it contrives to retain the older FKI.MAC if, and only if, they  proved
+identical.   Next  MONMKI needs to create HDWKI, TTYKI, and NETKI.  It
+does this by a "subroutine call" on the MK514D.CTL file.  That is,  it
+queues MK514D.CTL and then kills itself counting on MK514D to re-enter
+MONMKI when it has finished running MONGEN.  The  mechanics  of  doing
+this  are  neither pretty nor relevant.  Now MONMKI has all the pieces
+it needs to assemble the monitor.  First it asks
+
+          DO YOU WANT MONMKI CREF LISTINGS (YES/NO) ?
+
+The operator will reply BN-OPER YES if crefs are wanted, BN-OPER NO if
+crefs are not wanted.  MONMKI then proceeds with the familiar command
+
+          .COMPILE /CREF @CONKI,@UNBKI
+
+                    or
+MONMAK.RNO                                                      Page 5
+
+
+          .COMPILE @CONKI,@UNBKI
+
+When MONMKI has completed this monitor assembly, if  any  errors  were
+detected the .LOG file is queued for printing and the operator is told
+
+     .PLEASE ASSEMBLY ERRORS EXIST--MONMKI
+     .PLEASE EXAMINE ERROR LOG ON LPT, THEN KILL OR PROCEED?
+
+At this point, the operator may decide to ignore errors  and  proceed.
+To  do this he simply types Bn-$.  Alternatively, he may decide to fix
+some errors before proceeding.  To do this,  he  types  Bn-KILL FLUSH,
+then  makes the necessary edits to the sources on MONI:  (don't forget
+to copy sources and FILCOM results back onto BLKA:), and then restarts
+MONMKI at the point of assembly by typing
+
+          .SUBMIT MONMKI/UNIQ:0/TIME:2::/TAG:MIMAC
+
+(Substitute /TAG:MIMCC if CREF's are desired, or always use /TAG:MIASK
+and it will ask you again if you want CREF's).
+
+When the monitor  assembly  completes  correctly,  a  .PLEASE  message
+informs the operator of this fact.  Then the individual .RLI files are
+combined into TOPI10.REL  by  a  PIP  indirect  file  (CMBKI.CCL)  and
+UNBI10.REL  by  a PIP indirect file (UCMKI.CCL).  The operator is then
+asked if he is ready to copy the results back  onto  BLKA:.   He  will
+normally   reply   Bn-$,   and  FKI.MAC,  ???KI.MAC,  TOPI10.REL,  and
+UNBI10.REL will be copied to BLKA:[7,5112].  On  a  smoothly  running,
+lightly  loaded  KA10  system MONMKI will reach this point after 45-60
+minutes of real time, (35-45 minutes on a KI10).
+
+TWICE.CTL is started  up  at  this  point  by  MONMKI  after  FKI.MAC,
+TOPI10.REL,   and  UNBI10.REL  have  been  copied  to  BLKA:   because
+TWICE.CTL uses these files.
+
+Now MONMKI creates both TOPI10.FUD and UNBI10.FUD via the /L switch to
+FUDGE2, and TOPI10.GLB by running GLOB, (combining both TOPI10.REL and
+UNBI10.REL).   This  takes  4  or  5  minutes.   The  TOPI10.GLB   and
+TOPI10.FUD  files  are  also queued on MONI:  and will appear first on
+the listing tape before all monitor sources.  One  also  gets  a  hard
+copy  listing  of  TOPI10.GLB  and  should  put  it in the appropriate
+binder.  When the GLOB is finished the operator will be asked if he is
+ready  to  copy  TOPI10.FUD,  UNBI10.FUD and TOPI10.GLB to BLKA:.  The
+normal answer is Bn-$.  (The pause is there just to permit re-mounting
+BLKA:  in case it had been dismounted for some reason.)
+
+Finally, MONMKI is ready to CREF and it pauses to ask the operator
+
+          .PLEASE READY TO CREF?
+
+This question is asked whether or not  CREF  listings  were  generated
+above.   If  none  were generated it is safe to proceed since any .CRF
+files not found are simply ignored.  If one  wishes  to  defer  making
+listings, one may type Bn-KILL FLUSH at this time and then later
+
+          .SUBMIT MONMKI/UNIQ:0/TIME:2::/TAG:MICRF
+MONMAK.RNO                                                      Page 6
+
+
+to resume at this same point.
+
+We normally put CREF listings on magtape and produce hard  copy  later
+(if  at  all).   To  make  this  process  easier, we assign MONI:  the
+logical name QUE so that the  QUEUE  program  and  the  spoolers  will
+create  and  use  private  queues  on our own disk area instead of the
+system queues.  Then the CREF part on MONMKI queues all its .LST files
+into  our  private  queue.  When using a non-Galaxy system, we may put
+these listing files onto magtape by running a private copy  of  LPTSPL
+logged  in  under  our  same  ppn.   In  practice,  we run a specially
+modified version named LPTSPF which selects queue entries in  strictly
+sequential  order  (instead of choosing small listings first, etc., as
+the standard LPTSPL algorithm does).  This causes the listings on  our
+tape  to  remain in alphabetical order.  The commands for a non-Galaxy
+system are:
+
+          .ASSIGN MTAn
+          .R LPTSPF
+          *START MTAn:
+
+To make a listing tape when using  GALAXY,  the  operator  must  trick
+LPTSPL by making it believe a magtape drive is the lineprinter for the
+private QUEUE.  This is accomplished by  running  a  [1,2]  job  under
+OPSER.  The commands are:
+
+          !:SLOG
+          !:DEF T= (define a name for this job
+                    for easy identification)
+          !T-ASSIGN MTAn
+mount a magtape on drive n
+          !T-R LPTSPL
+          /START MTAn:=LPT50:
+when tape is finished type:
+          !T-
+          !t-unload mtan:
+          !T-K/F
+
+A final note about getting CREF listings,  EJBDAT  and  EDDT  are  not
+normally CREFed.  If you want either of these listings for some reason
+then you must CREF them and QUEUE the  listing  files  by  hand.   The
+commands  to  do  this  are  apparent by reading MONMKI.CTL.  The CREF
+portion of MONMKI (to magtape) typically runs for 45-60 minutes.
+
+This concludes MONMKI.  The total complete running time will be 2 to 3
+hours  on  a  KA system and less on KI or KL systems--if, Murphy's Law
+miraculously avoided, everything goes smoothly.
+
+However, once MONMKI has completed making TOPI10.REL  and  UNBI10.REL,
+the  operator  may  SUBMIT  one  or  more  MK????.CTL  jobs which load
+monitors to run in parallel to the CREF and GLOB portions of MONMKI.
+
+
+3.1  CONKI.CMD AND CMBKI.CCL
+
+CONKI.CMD is the command file which causes MACRO to assemble the  KI10
+MONMAK.RNO                                                      Page 7
+
+
+(1077) monitor.
+
+CMBKI.CCL is the PIP indirect file that combines the  individual  .RLI
+files  produced by CONKI.CMD into the TOPI10.REL library file.  It has
+not changed in concept since 4S72.
+
+
+3.2  UNBKI.CMD AND UCMKI.CCL
+
+UNBKI.CMD is the command file  which  causes  MACRO  to  assemble  the
+unbundled part of the KI10 (1077) monitor.
+
+UCMKI.CCL is the PIP indirect file that combines the  individual  .RLI
+files produced by UNBKA.CMD into the UNBI10.REL library file.
+
+
+4.0  TWICE.CTL
+
+TWICE.CTL makes TWICE.SAV from TWICE.MAC  and  selected  monitor  .REL
+files  which  it extracts from TOPI10.REL.  In the process it must run
+MONGEN to define a maximum supported disk configuration.  It will  ask
+the  operator  whether  he  wishes to produce a CREF listing of TWICE.
+The  normal  answer  is  Bn-OPER NO.   Please  examine  the  TWICE.LOG
+listing.   If  any  errors  are  found in assembling or loading TWICE,
+please report them to Ernie Socci (forward  the  .LOG  file  to  him).
+TWICE.CTL  is  queued  automatically by MONMKI.  It requires about 3-4
+minutes of CPU time and 10-15 minutes of real time.
+
+
+5.0  MONMKA.CTL AND FRIENDS
+
+MONMKA.CTL serves the same role  for  the  KA10  (1055)  monitor  that
+MONMKI  does  for the 1077 monitor.  It runs MONGEN to create FKA.MAC;
+calls MK040D as a "subroutine" to produce  HDWKA,  TTYKA,  and  NETKA;
+assembles  the KA10 monitor (via COMPILE @CONKA,@UNBKA);  combines the
+.RLA  files  into  TOPA10.REL  and  UNBA10.REL  using  CMBKA.CCL   and
+UCMKA.CCL;   optionally  produces  CREF  listings (normally not done);
+and produces but does not print a GLOB listing  of  the  KA10  monitor
+TOPA10.GLB.  This all takes 45-90 minutes of real time.
+
+MONMKA differs from MONMKI only in a few small details.  It  obviously
+does  not  start  up  TWICE.CTL.  It also does not automatically queue
+TOPA10.GLB to be printed.  (Save a tree-don't produce listings  people
+almost never look at).
+
+CONKA.CMD is the command file which causes MACRO to assemble the  KA10
+(1055) monitor.  It is exactly analogous to CONKI.CMD.
+
+CMBKA.CCL is the PIP indirect file that combines the  individual  .RLA
+files produced by CONKA.CMD into the TOPA10.REL library file.  This is
+exactly analogous to CMBKI.CCL.
+
+UNBKA.CMD is the command file  which  causes  MACRO  to  assemble  the
+unbundled part of the KA10 (1055) monitor.  It is exactly analogous to
+UNBKI.CMD.
+MONMAK.RNO                                                      Page 8
+
+
+UCMKA.CCL is the PIP indirect file that combines the  individual  .RLA
+files produced by UNBKA.CMD into the UNBA10.REL library file.  This is
+exactly analogous to UCMKI.CCL.
+
+
+6.0  MONMKV.CTL AND FRIENDS
+
+MONMKV.CTL serves the same role for the KI10 VM  monitor  that  MONMKI
+does  for  the 1077 monitor.  It runs MONGEN to create FVI.MAC;  calls
+MK514X as a "subroutine" to produce HDWVI, TTYVI, and NETVI;  asembles
+the  KI10-VM  monitor  (via COMPILE @CONVI,@UNBVI);  combines the .RLV
+files into TOPV10.REL and UNBV10.REL using  CMBVI.CCL  and  UCMVI.CCL;
+optionally  produces  CREF listings (normally not done);  and produces
+and prints a GLOB listing of the KI10-VM monitor TOPV10.GLB.  This all
+takes 45-90 minutes of real time.
+
+CONVI.CMD is the command file  which  causes  MACRO  to  assemble  the
+KI10-VM (1077) monitor.  It is exactly analogous to CONKI.CMD.
+
+CMBVI.CCL is the PIP indirect file that combines the  individual  .RLV
+files produced by CONVI.CMD into the TOPV10.REL library file.  This is
+exactly analogous to CMBKI.CCL.
+
+UNBVI.CMD is the command file  which  causes  MACRO  to  assemble  the
+unbundled part of the KI10-VM (1077) monitor.  It is exactly analogous
+to UNBKI.CMD.
+
+UCMVI.CCL is the PIP indirect file that combines the  individual  .RLV
+files produced by UNBVI.CMD into the UNBV10.REL library file.  This is
+exactly analogous to UCMKI.CCL.
+
+
+7.0  MONMKL.CTL AND FRIENDS
+
+MONMKL.CTL serves the same role  for  the  KL10  (1080)  monitor  that
+MONMKI  does  for the 1077 monitor.  It runs MONGEN to create FKL.MAC;
+calls MK026L as a "subroutine" to produce  HDWKL,  TTYKL,  and  NETKL;
+assembles  the KL10 monitor (via COMPILE @CONKL,@UNBKL);  combines the
+.RLL  files  into  TOPL10.REL  and  UNBL10.REL  using  CMBKL.CCL   and
+UCMKL.CCL;   optionally  produces  CREF  listings (normally not done);
+and produces and prints a GLOB listing of the KL10 monitor TOPL10.GLB.
+This all takes 45-90 minutes of real time.
+
+CONKL.CMD is the command file which causes MACRO to assemble the  KL10
+(1080) monitor.  It is exactly analogous to CONKI.CMD.
+
+CMBKL.CCL is the PIP indirect file that combines the  individual  .RLL
+files produced by CONKL.CMD into the TOPL10.REL library file.  This is
+exactly analogous to CMBKI.CCL.
+
+UNBKL.CMD is the command file  which  causes  MACRO  to  assemble  the
+unbundled part of the KL10 (1080) monitor.  It is exactly analogous to
+UNBKI.CMD.
+MONMAK.RNO                                                      Page 9
+
+
+UCMKL.CCL is the PIP indirect file that combines the  individual  .RLL
+files produced by UNBKL.CMD into the UNBL10.REL library file.  This is
+exactly analogous to UCMKI.CCL.
+
+
+8.0  MONMKW.CTL AND FRIENDS
+
+MONMKW.CTL serves the same role for the KL10 VM  monitor  that  MONMKI
+does  for  the 1077 monitor.  It runs MONGEN to create FVL.MAC;  calls
+MK026W as a "subroutine" to produce HDWVL, TTYVL, and NETVL;  asembles
+the  KL10-VM  monitor  (via COMPILE @CONVL,@UNBVL);  combines the .RLW
+files into TOPW10.REL and UNBW10.REL using  CMBVL.CCL  and  UCMVL.CCL;
+optionally  produces  CREF listings (normally not done);  and produces
+and prints a GLOB listing of the KL10-VM monitor TOPW10.GLB.  This all
+takes 45-90 minutes of real time.
+
+CONVL.CMD is the command file  which  causes  MACRO  to  assemble  the
+KL10-VM (1080) monitor.  It is exactly analogous to CONKI.CMD.
+
+CMBVL.CCL is the PIP indirect file that combines the  individual  .RLW
+files produced by CONVL.CMD into the TOPW10.REL library file.  This is
+exactly analogous to CMBKI.CCL.
+
+UNBVL.CMD is the command file  which  causes  MACRO  to  assemble  the
+unbundled part of the KL10-VM (1080) monitor.  It is exactly analogous
+to UNBKI.CMD.
+
+UCMVL.CCL is the PIP indirect file that combines the  individual  .RLW
+files produced by UNBVL.CMD into the UNBW10.REL library file.  This is
+exactly analogous to UCMKI.CCL.
+
+
+9.0  MONMKG.CTL AND FRIENDS
+
+MONMKG.CTL serves the same role for the KA10 LUG monitor  that  MONMKI
+does  for the 1077 monitor.  It runs MONGEN to create FLUG.MAC;  calls
+MK040G as a  "subroutine"  to  produce  HDWLUG,  TTYLUG,  and  NETLUG;
+asembles the KA10 monitor (via COMPILE @CONLUG,@UNBLUG);  combines the
+.RLG  files  into  TOPG10.REL  and  UNBG10.REL  using  CMBLUG.CCL  and
+UCMLUG.CCL;   optionally  produces  CREF listings (normally not done);
+and produces but does not print a GLOB listing of the KA10 LUG monitor
+TOPG10.GLB.  This all takes 45-90 minutes of real time.
+
+CONLUG.CMD is the command file which causes MACRO to assemble the KA10
+LUG monitor.  It is exactly analogous to CONKI.CMD.
+
+CMBLUG.CCL is the PIP indirect file that combines the individual  .RLG
+files  produced  by CONLUG.CMD into the TOPG10.REL library file.  This
+is exactly analogous to CMBKI.CCL.
+
+UNBLUG.CMD is the command file which  causes  MACRO  to  assemble  the
+unbundled  part  of  the KA10 LUG monitor.  It is exactly analogous to
+UNBKI.CMD.
+
+UCMLUG.CCL is the PIP indirect file that combines the individual  .RLG
+MONMAK.RNO                                                     Page 10
+
+
+files  produced  by UNBLUG.CMD into the UNBG10.REL library file.  This
+is exactly analogous to UCMKI.CCL.
+
+
+10.0  MONMKH.CTL AND FRIENDS
+
+MONMKH.CTL serves the same role for the KI10 LUG monitor  that  MONMKI
+does for the 1077 monitor.  It runs MONGEN to create FLUGI.MAC;  calls
+MK514H as a  "subroutine"  to  produce  HDWLGI,  TTYLGI,  and  NETLGI;
+asembles the KI10 monitor (via COMPILE @CONLGI,@UNBLGI);  combines the
+.RLH  files  into  TOPH10.REL  and  UNBH10.REL  using  CMBLGI.CCL  and
+UCMLGI.CCL;   optionally  produces  CREF listings (normally not done);
+and produces but does not print a GLOB listing of the KI10 LUG monitor
+TOPH10.GLB.  This all takes 45-90 minutes of real time.
+
+CONLGI.CMD is the command file which causes MACRO to assemble the KI10
+LUG monitor.  It is exactly analogous to CONKI.CMD.
+
+CMBLGI.CCL is the PIP indirect file that combines the individual  .RLH
+files  produced  by CONLGI.CMD into the TOPH10.REL library file.  This
+is exactly analogous to CMBKI.CCL.
+
+UNBLGI.CMD is the command file which  causes  MACRO  to  assemble  the
+unbundled  part  of  the KI10 LUG monitor.  It is exactly analogous to
+CONKI.CMD.
+
+UCMLGI.CCL is the PIP indirect file that combines the individual  .RLH
+files  produced  by UNBLGI.CMD into the UNBH10.REL library file.  This
+is exactly analogous to UCMKI.CCL.
+
+
+11.0  MK????.CT FILES
+
+MK????.CT are individual files used  to  load  specific  monitors  for
+specific systems.  As explained above, each .CT file is converted to a
+.CTL file of the same name by MONMK0  which  substitutes  the  current
+monitor  version  number  for  each occurrance of ### within the file.
+The name of the control file  is  the  system  number  for  which  the
+monitor is being built;  a suffix of D or E indicates a dual processor
+system, G or H indicates a "lug" monitor system, V or  W  indicates  a
+single processor Virtual Memory monitor system, and X or Z indicates a
+dual processor VM system.  The specific control files which  currently
+exist  are  MK040, MK040D, MK040G (for our developmental 1055 system),
+MK514, MK514D, MK514V, MK514X,  MK514H  (for  our  developmental  1070
+system),  MK546,  MK546V,  MK546H  (for our developmental 1060 system)
+(514 & 546 combined make our  1077  system),  MK525,  MK525V,  MK525H,
+MK029W  (for  our  marketing systems), MK592, MK592V (FOR OUR ADVANCED
+SYSTEM), AND MK026L, MK026W, MK026E,  MK026Z  (for  our  developmental
+1080 &1088 systems).
+MONMAK.RNO                                                     Page 11
+
+
+Each of these  files  must  be  started  by  the  operator  using  the
+following type of command:
+
+          .SUBMIT MK????/UNIQ:0/TIME:1::
+
+The pattern of each of these files is the same.  The  following  steps
+are performed:
+
+     1.  Run MONGEN (from own disk area) to define hardware, Teletype,
+         and  network  configuration.   For  example,  MK514  produces
+         HDW514.MAC, TTY514.MAC, and NET514.MAC.
+
+     2.  Assemble COMMON, COMDEV, (COMNET if needed), and  COMMOD  for
+         the configuration just defined.  The .REL files produced have
+         distinctive extensions.  For example, COMMON.RLI, COMDEV.RLI,
+         (COMNET.RLI),  COMMOD.RLI  are produced by MK514D.  Similarly
+         the .CRF  files  have  unique  names.   For  example,  MK040D
+         produces    CMN40D.CRF,    CMV40D.CRF,    (CMT40D.CRF),   and
+         CMD40D.CRF.  These names seem self-consistent to me  but  are
+         not  necessarily  obvious  so  check the .CTL file in case of
+         doubt.
+
+         Important  Note:  Step  2  is  usually   not   performed   by
+         MK040D.CTL,  MK514D.CTL,  MK514X.CTL, MK026L.CTL, MK026W.CTL,
+         MK040G.CTL,  or  MK514H.CTL.    because   the   corresponding
+         assembly   and   CREF   has  usually  already  been  done  by
+         MONMKA.CTL, MONMKI.CTL, MONMKV.CTL,  MONMKL.CTL,  MONMKW.CTL,
+         MONMKG.CTL,  or  MONMKH.CTL,  respectively.   That is, system
+         #40/2 is the "base system" for 1055, system #514/546  is  the
+         "base  system"  for  the  1077, and system #1026 is the "base
+         system" for the 1080 monitor development.   The  assembly  is
+         done  only  if  the  resultant  .REL  file  is  found  to  be
+         non-existant.
+
+     3.  Ask the operator if he wishes to produce CREF listings of the
+         COMMON,  COMDEV, (COMNET), and COMMOD just assembled.  He may
+         either delete these named .CRF files by answering NO  to  the
+         question 
+
+                   "DO YOU WANT CREF LISTINGS ?"
+
+         and then proceed if listings are not desired, or  answer  YES
+         if  listings  are  desired.   If  listings are made, they are
+         spooled to the private queue on MONI:.
+
+     4.  The monitor for  this  system  is  loaded  using  the  latest
+         version  of  LINK-10.   In the loading process a .MAP file is
+         produced.  The .MAP files for our most heavily used  monitors
+         are  printed (system queue, not to our private MONI:  queue).
+         Other .MAP files are not printed--again, save a  tree!   Both
+         the  .EXE and .MAP file have names which obey the conventions
+         of Rich  Krasin's  memo.   Examples:   RA743.EXE,  RI743.MAP,
+         RV7A1.EXE, etc.
+
+     5.  A monitor specific FILDDT is produced.  It has the same  name
+MONMAK.RNO                                                     Page 12
+
+
+         as the monitor .EXE file except for a preceeding F.  Example:
+         FRA743.EXE.
+
+     6.  The operator is asked if he is ready to copy results back  to
+         BLKA:.  If this is not desired, one may KILL FLUSH the job at
+         this point.  Otherwise,  after  being  sure  that  BLKA:   is
+         mounted,  the  operator  types Bn-$.  The .EXE and .MAP files
+         are then copied to BLKA:[7,5112].
+
+The MK????.CTL files  may  be  started  up  at  any  point  after  the
+corresponding  MONMK?.CTL file has completed making the TOP?10.REL and
+UNB?10.REL files.  One or more of these monitor loads may  be  run  in
+parallel with the CREF and GLOB operations perfomed by the latter part
+of MONMK?.  Several of these control files may be run in parallel.  In
+general,  one  wants to run enough parallel processes to fully utilize
+the resources of the system (more can be run on a 1077  for  example),
+but  one  does not want to have so many jobs going that swapping slows
+down the thruput.  If it becomes clear that a  "sloshing"  effect  has
+been  introduced  by  starting too many parallel jobs, one may use the
+Bn-STOP command to BATCON to effectively send that job a ^C.  Then  it
+may be reactivated by Bn-GO (which is equivalent to .CONT).
+
+The time required for each of these monitor loads varies widely  with:
+a)  system load, b) core available, c) number of processors available,
+and d) version of LINK-10, LOADER or MONLOD used.  The range of  times
+is roughly 15-40 minutes.
+
+
+12.0  MKFTST.CTL
+
+MKFTST.CTL makes "distribution tapes" for sending to field test sites.
+It's  only function is to write three FAILSA tapes with a selected set
+of files retrieved from the  production  monitor  area  BLKA:[7,5112].
+One,  a  standard set of files, one an unbundled set of files, and one
+to make a Virtual Memory monitor.  It is not part of the main suite of
+monitor  making .CTL files.  It is instead normally run under a [10,#]
+ppn.  Instead of weekly use, it is run at irregular intervals whenever
+a production monitor is deemed ready for field test.
+
+
+13.0  MKCTL.CTL
+
+This short file prints all the MONMK?.CTL  and  MK????.CT  files.   It
+also  contains  short  descriptions  of  the files and a highly useful
+table showing all the special filenames and extensions we have had  to
+invent  to  acheive  uniqueness in the six monitor assembly and 20-odd
+monitor loading control files.
+
+
+
+[End of MONMAK.RNO]

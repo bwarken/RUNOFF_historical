@@ -1,0 +1,407 @@
+           A FORTRAN IV - Machine Language Interface Package
+
+                            June 1972 (v.2)
+
+                          Author: Ken Shoemake
+
+
+
+
+    Conventions Used in this Document:
+
+         In order to  facilitate  the  description  of  the  various
+    routines  added  to the FORTRAN library certain conventions have
+    been adopted.  First, the format of the individual  descriptions
+    is:
+           Result = FUNCTION(argument1,argument2,...)
+    immediately followed by an explanation of the function  and  the
+    various  arguments.   All  of  the  routines  return  a  result,
+    although in many cases no result is  meaningful  so  a  zero  is
+    returned.   Routines  that return such a result are indicated by
+    an  asterisk  -  "*"  preceding  the   result.    FORTRAN   type
+    conventions  have  not  been  followed  in  the  naming of these
+    routines  so  an  "IMPLICIT  INTEGER"  or   "INTEGER   Function"
+    statement  is  usually necessary to avoid type conversion of the
+    results.  If the identifier on the  left  side  of  the  "="  is
+    "Intger"   then   the   function   returns  an  INTEGER  result.
+    Similarly, "Logic" indicates a result  of  type  "LOGICAL".   In
+    practice,  these two types may be interchanged, since the PDP-10
+    FORTRAN IV compiler allows arithmetic and logical operations  to
+    be performed on both types.  The constant ".TRUE." is defined to
+    be -1 and ".FALSE." is defined to be 0.  The identifier "Cmplex"
+    means  that  the  function returns a two word result.  It is not
+    meant to imply anything about the type of the result,  which  is
+    ordinarily INTEGER.  To access the second word of the result the
+    routine should be declared COMPLEX and the results assigned to a
+    COMPLEX variable.  The second word will then be contained in the
+    IMAGinary part of the variable.  For IMP programmers, the second
+    word  is  returned in register 1.  "Value" means the result is a
+    single word of arbitrary type.
+
+         The function names are intended to be mnemonic, and in  the
+    case  of  the UUO's, the routines do generally the same thing as
+    their MACRO equivalents.   This  implies  that  if  one  doesn't
+        understand what a function is supposed to do, one should consult
+    the  reference  manual  before   complaining   to   the   humble
+    documentor.   This applies to the arguments especially, since no
+    great attempt  has  been  made  to  explain  any  more  than  is
+    necessary given a familiarity with the relevant machine function
+    (due to obvious spatial  limitations).   Again,  mnemonic  names
+    have  been  used,  as  well as certain other conventions.  These
+    conventions are subject to modification if suitable complaint is
+    made,  but  at  present  they are as follows.  Arguments are not
+    checked for type by the routines so typing is left to programmer
+    discretion.   Array arguments are indicated by "array[n]", where
+    "n" is meant to be the size of the array.   Brackets  around  an
+    argument,  i.e.   "[address]",  mean  that  the  contents of the
+    argument are used to specify an address, rather than  using  the
+    address  of  the argument itself.  This form is only found where
+    the latter interpretation would usually be  assumed.   Arguments
+    in  single quotes, i.e.  'DEVICE', indicate that an ASCII string
+    is appropriate for the argument.  Usually the string  should  be
+    terminated  with a null character (FORTRAN does this for you for
+    literals, but you may get up to 4 extra blanks on the end).  Two
+    arguments  separated  by  a  "/" are alternate choices, in other
+    words, you may use either form.  A zero means that the  argument
+    to  the  function  is  ignored.   The  last, but most important,
+    convention is that arguments in parentheses (excluding the usual
+    ones,  of course) are optional and may be omitted.  For example,
+    "FUNC(a,(b,c))" means that "a" must be specified but "b" and "c"
+    are  not  necessary (usually default values are assumed).  If it
+    is necessary to specify "c", then "b" must  also  be  specified,
+    however "b" can be used without "c".
+
+         The  following  routines  are  included  in  the  available
+    functions:
+
+Intger = LOC(variable)
+
+    Returns the location of the named variable
+
+Value  = CON([address])
+
+    Returns the contents of the specified address
+
+*Value = SETWRD(value,[address])
+
+    Puts value in the specified address
+
+Intger = LSH(intvar,iamnt)
+
+    Returns intvar logically shifted (to the left) by iamnt
+
+Intger = RSH(intvar,iamnt)
+
+    Returns intvar logically shifted (to the right) by iamnt
+
+Intger = ROT(intvar,iamnt)
+
+    Returns intvar rotated (to the left) by iamnt
+
+*value = SETCOR(first,last,(value))
+
+    Sets consecutive core locations to value or 0; returns value or 0
+
+*0     = SAVREG(array[16])
+
+    Saves all the registers in array; returns 0
+
+*array = RSTREG(array[16])
+
+    Restores all the registers from array; returns array[1]
+
+Intger = ARGCNT(0)
+
+    Returns the number of arguments the calling routine was
+
+    called with; undefined for a main program
+
+Value  = ARGREF(n)
+
+    Returns the address of the n'th argument (1st arg. is n=1)
+
+    of the calling routine; undefined for a main program
+
+Cmplex = CALLI(n/'FUNCT',(iac/value,value2))
+
+    Returns the result of the indicated CALLI;  uses 2nd argument
+
+    as Ac number if appropriate; value2 goes into Ac+1
+
+Logic  = NOSKIP(0)
+
+    Returns .TRUE. if the last call to CALLI resulted in a no-skip
+
+    return, returns .FALSE. otherwise
+
+Value  = CODE(lefthalf,address)
+
+    Executes the instruction formed by using lefthalf as the left
+
+    half-word and address for the right half-word
+
+Intger = POINT(size,address,(position))
+
+    Returns a byte pointer to a byte of size bits in address;
+
+    if position is given then it specifies the position of
+
+    the right-most bit of the byte (bit 0 is the left-most
+
+    bit of the word), otherwise -1 is used (this gives the
+
+    proper pointer for an ILDB or IDPB to get the first byte)
+
+Intger = SIXBIT('ASCIZ')
+
+    Returns 'ASCIZ' (6 characters or less) converted to sixbit
+
+Cmplex = ASCII(SIXBIT)
+
+    Returns SIXBIT converted to ASCIZ
+
+Intger = RAD50('ASCIZ',(bits))
+
+    Returns the value of 'ASCIZ' as a radix 50 symbol with bits as
+
+    the 4 code bits
+
+Intger = RADX50(SIXBIT,(bits))
+
+    Returns the value of SIXBIT as a radix 50 symbol with bits as the
+
+    four code bits
+
+Cmplex = ASCI50(RADI50,bits)
+
+    Returns the RADIX-50 symbol in RADI50 converted to ASCII and sets
+
+    bits to the code bits in the symbol
+
+Intger = SIX50(RADI50,bits)
+
+    Returns the RADIX-50 symbol in RADI50 converted to SIXBIT and sets
+
+    bits to the code bits in the symbol
+
+Intger = ILDB(pointr)
+
+    Returns the result of an ILDB instruction using the given pointer
+
+*byte  = IDPB(byte,pointr)
+
+    Performs an IDPB instruction to deposit the given byte using the
+
+    given pointer; returns the given byte
+
+*pointr= IBP(pointr)
+
+    Increments the given byte pointer; returns the incremented pointer
+
+Intger = LDB(pointr)
+
+    Returns the byte pointed to by the given pointer
+
+*byte  = DPB(byte,pointr)
+
+    Deposits the given byte in the position pointed to by the given
+
+    pointer
+
+Logic  = OPEN(channel,array[3])
+
+    Performs the OPEN uuo with the address of array as the effective
+
+    address; returns 0 if no error, -1 otherwise
+
+Logic  = INIT(channel,status,('DEVICE',obuf/'0',ibuf/'0'))
+
+    Performs the INIT uuo with the specified information.  'DSK' is
+
+    the default device and if obuf or ibuf contains a left-justified
+
+    ASCII '0', the corresponding buffer is omitted in the call.
+
+*0     = INBUF(channel,n)
+
+    Performs the INBUF uuo with the specified information; returns 0
+
+*0     = OUTBUF(channel,n)
+
+    Performs the OUTBUF uuo with the specified information; returns 0
+
+Intger = RENAME(channel,array[n>3])
+
+Intger = RENAME(channel,'NAME','EXT',(proj,prog))
+
+    In form 1, performs the RENAME uuo with the address of array
+
+    In form 2, performs the RENAME uuo with the specified information
+
+    Returns 0 if no error, else -1-(error no.)
+
+Intger = ENTER(channel,array[n>3])
+
+Intger = ENTER(channel,'NAME','EXT',(proj,prog))
+
+    In form 1, performs the ENTER uuo with the address of the array
+
+    In form 2, performs the ENTER uuo with the specified information
+
+    Returns 0 if no error, else -1-(error no.)
+
+Intger = LOOKUP(channel,array[n>3])
+
+Intger = LOOKUP(channel,'NAME','EXT',(proj,prog))
+
+    In form 1, performs the LOOKUP uuo with the address the array
+
+    In form 2, performs the LOOKUP uuo with the specified information
+
+    Returns 0 if no error, else -1-(error no.)
+
+*0     = RELEA(channel)
+
+    RELEASE's the specified channel; returns 0
+
+*0     = CLOSE(channel,(n))
+
+    CLOSES the specified channel, n is optional; returns 0
+
+Logic  = IN(channel,([address]))
+
+Logic  = INPUT(channel,(address))
+
+    Performs the IN uuo for the specified channel; returns
+
+    .TRUE. for an error return, .FALSE. otherwise
+
+Logic  = OUT(channel,([address]))
+
+Logic  = OUTPUT(channel,(address))
+
+    Performs the OUT uuo for the specified channel; returns
+
+    .TRUE. for an error return, .FALSE. otherwise
+
+Intger = GETSTS(channel)
+
+    Returns the result of a GETSTS for the given channel
+
+*0     = SETSTS(channel,status)
+
+    Performs the SETSTS uuo for the given channel and status word
+
+Logic  = STATO(channel,bits)
+
+    Returns .TRUE. if a STATO for the given channel gave a skip
+
+    return, .FALSE. otherwise
+
+Logic  = STATZ(channel,bits)
+
+    Returns .TRUE. if a STATZ for the given channel gave a skip
+
+    return, .FALSE. otherwise
+
+Intger = GETCHA(0)
+
+    Returns the number of a free channel starting at channel 17
+
+    or a -1 if there are no free channels
+
+*0     = MTAPE(channel,n)
+
+    Performs the indicated MTAPE function
+
+Intger = UGETF(channel)
+
+    Returns the result of a UGETF uuo on the given channel
+
+*0     = USETI(channel,blknum)
+
+    Performs the USETI uuo for the given channel and block
+
+*0     = USETO(channel,blknum)
+
+    Performs the USETO uuo for the given channel and block
+
+Intger = INCHRW(0)
+
+    Read a character (right justified) from the TTY,
+
+    waiting until one is typed
+
+*0     = OUTCHR(char)
+
+    Type a character (right justified) on the TTY
+
+Intger = INCHRS(0)
+
+    Read a character (right justified) from the TTY;
+
+    return .TRUE. if none typed
+
+*0     = OUTSTR('ASCIZ STRING')
+
+    Type out the ASCII string on the TTY
+
+Intger = INCHWL(0)
+
+    Read a character (right justified) from the TTY,
+
+    but only if a break character has been typed
+
+            (best way to read lines from the TTY)
+
+Intger = INCHSL(0)
+
+    Same as INCHWL, but returns .TRUE. if a line has not
+
+    been typed
+
+Intger = GETLCH((line))
+
+    Returns the line characteristics for the given line;
+
+    assumes caller's line if none given
+
+*0     = SETLCH(intvar)
+
+    Sets the line characteristics for the given line;
+
+    assumes caller's line if none given
+
+Logic  = RESCAN(bit)
+
+    Backs up the TTY scan past one break character; if
+
+    bit is 1, returns .TRUE. if no command in buffer
+
+*0     = CLRBFI(0)
+
+    Clears the input buffer
+
+*0     = CLRBFO(0)
+
+    Clears the output buffer
+
+Logic  = SKPINC(0)
+
+    Returns .TRUE. if a character has been typed, .FALSE.
+
+    otherwise; does not input the character
+
+Logic  = SKPINL(0)
+
+    Returns .TRUE. if a line has been typed, .FALSE.
+
+    otherwise; does not input any characters
+
+*0     = IONEOU(char)
+
+    Types a single 8-bit character on the TTY
+
+**************************** That's All Folks *****************************
+
+

@@ -1,0 +1,240 @@
+CTHNRT -- CTERM server for 7.03, version 5(312) -- December 1985  Page 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (c) DIGITAL EQUIPMENT CORPORATION 1982,1984,1986.
+
+ALL RIGHTS RESERVED.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE  USED  AND  COPIED
+ONLY IN ACCORDANCE WITH THE TERMS OF SUCH LICENSE AND WITH THE INCLUSION
+OF THE ABOVE COPYRIGHT  NOTICE.   THIS  SOFTWARE  OR  ANY  OTHER  COPIES
+THEREOF  MAY  NOT  BE  PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY OTHER
+PERSON.   NO  TITLE  TO  AND  OWNERSHIP  OF  THE  SOFTWARE   IS   HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE WITHOUT NOTICE AND
+SHOULD   NOT   BE   CONSTRUED  AS  A  COMMITMENT  BY  DIGITAL  EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE  USE  OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+CTHNRT -- CTERM server for 7.03, version 5(312) -- December 1985  Page 2
+
+
+1.0  SUMMARY
+
+CTHNRT is the user agent for DECnet inter-system remote virtual terminal
+service.   CTHNRT  supports Digital's heterogeneous inter-system command
+terminal protocol, CTERM.  This protocol supports a common base level of
+terminal  processing  support  between  various  of  Digital's operating
+systems.
+
+CTHNRT  also  attempts  to  provide  some  compatability  with  previous
+(homogeneous)   inter-system   remote   terminal  protocols,  but  these
+alternate protocols are not supported in CTHNRT, and may well be removed
+in a future release of the software.
+
+CTHNRT has been tested on  KL10  and  KS10  processors  under  the  7.03
+version of the monitor.  This is a new product, which is intended solely
+for use under the 7.03 monitor.  The ancestor  product,  NRT,  is  still
+supported under 7.02; however, CTHNRT fully supersedes NRT for 7.03.
+
+
+
+2.0  EXTERNAL CHANGES
+
+The SET HOSTESS command  in  the  7.03  monitor  will  run  CTHNRT  when
+attempting  to  connect  to  a  DECnet node, rather than running the NRT
+program as in 7.02.  CTHNRT uses  a  two-character  switch  sequence  to
+enter  its  command  mode, rather than a single 'escape' character as in
+NRT.  CTHNRT does not slave the line, since 7.03 has  better  facilities
+for terminal control than previous monitor releases.
+
+
+
+2.1  Command (RESCAN) Changes
+
+After the destination node name is read, CTHNRT will accept one  of  the
+folowing switches (on the same line):
+
+      o  /CTERM Allow only a CTERM-mode connect.
+
+      o  /NRT   Allow only a NRT-mode connect.
+
+      o  /OLD   A synonym for /NRT.
+
+Note that NRT-mode connects are supported only to TOPS-10 and TOPS-20.
+
+
+
+2.2  Command (NRT_EXIT) Changes
+
+
+Certain of the subcommands in CTHNRT's command mode  have  changed  from
+those of NRT.
+CTHNRT -- CTERM server for 7.03, version 5(312) -- December 1985  Page 3
+
+
+2.2.1  Pass Command - The Pass command is no longer  needed,  since  the
+use  of  a switch sequence solves the problem of having a character that
+cannot be typed to the remote system.
+
+
+
+2.2.2  Monitor Command - The Monitor  command  does  not  actually  exit
+CTHNRT.  Instead, the 7.03 facility of having multiple contexts in a job
+(CTXSER) is utilized to PUSH out of the program.  To continue the remote
+session, use the POP command.
+
+
+
+2.2.3  Change Command - The   Change   command   prompts   for   a   new
+two-character  switch  sequence, not a single 'escape' character.  Since
+the Monitor command to CTHNRT merely suspends the program,  rather  than
+stopping it, the REENTER command of TOPS-10 is no longer available as an
+alternate form of this command.
+
+The related code for performance analysis  and  the  associated  feature
+test have also been removed.
+
+
+
+2.3  SWITCH.INI Changes
+
+CTHNRT looks for a line in SWITCH.INI labeled CTHNRT.  If one is  found,
+it is examined for certain switches, as detailed below.
+
+
+
+2.3.1  /SWCHR1:ch - This switch  changes  the  first  character  of  the
+switch  sequence  to  the  specified  value.   The  syntax  for the <ch>
+argument is this:
+
+      o  nnn - an octal  number,  specifying  the  ASCII  code  for  the
+         character.
+
+      o  "c" - a  quoted  character,  possibly  additionally  quoted  by
+         control-V (^V).
+
+      o  c - a literal character.  Use of this form is  discouraged,  as
+         it may not be supported in future releases.
+
+The default first character of the switch sequence, if  this  switch  is
+not found in SWITCH.INI, is control-backslash (^\).
+
+The /SW1 switch is recognized as a synonym for the /SWCHR1 switch.
+CTHNRT -- CTERM server for 7.03, version 5(312) -- December 1985  Page 4
+
+
+2.3.2  /SWCHR2:ch - This switch changes  the  second  character  of  the
+switch  sequence  to  the  specified  value.   The  syntax  for the <ch>
+argument is identical to that for the /SWCHR1 switch.
+
+The default second character of the switch sequence, if this  switch  is
+not found in SWITCH.INI, is carriage-return (^M).
+
+The /SW2 switch is recognized as a synonym for the /SWCHR2 switch.
+
+
+
+2.3.3  /MODE:level - This switch allows the user to  set  the  expertise
+level.  The legal values are:
+
+      o  NOVICE - Full prompting in command mode.  This is the default.
+
+      o  NOTIFY - Ring the terminal's bell  when  awaiting  command-mode
+         input.   This  can  be  useful  when running a display-oriented
+         program on the remote system, when it is desirable to keep from
+         changing the display.
+
+      o  EXPERT - Give  no  notice  when  command-mode  input  is  being
+         processed.
+
+Note that the CHANGE command will prompt for  the  new  switch  sequence
+even  in  EXPERT  and  NOTIFY  modes.   The  screen's  display is always
+modified in this case.
+
+Unrecognized values to this switch are treated  as  though  /MODE:NOVICE
+had been specified.
+
+
+
+2.4  Debugging
+
+The debugging of network messages in CTHNRT does not require the use  of
+DNSNUP  and  DNTATL.  See the comments in CTHNRT.MAC about debugging for
+instructions on the use of the built-in debugging aids.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+There  are  several   known   incompatibilites   between   the   various
+implementations  of the CTERM protocol.  While sometimes annoying, these
+are not the result of bugs in CTHNRT.  See the DECnet  BEWARE  file  for
+details.
+
+There are no known bugs in CTHNRT.
+CTHNRT -- CTERM server for 7.03, version 5(312) -- December 1985  Page 5
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+CTHNRT searches JOBDAT, MACTEN, MACSYM, and UUOSYM.  It  loads  with  no
+other modules.
+
+
+
+5.0  INTERNAL CHANGES
+
+Refer to the revision history in CTHNRT.MAC.
+
+
+
+6.0  SUGGESTIONS
+
+Implement code to support command-line editing in VMS V4.
+
+Support the VMS-private Read Verify message so that TDMS and FMS can  be
+used remotely.
+
+Add a command-line  qualifier  to  enable  the  logging  of  the  remote
+terminal session to a file.
+
+Add timestamps of some sort to the trace file produced  by  the  NRTNSP:
+debugging facility.
+
+
+
+[End of CTHNRT.DOC]

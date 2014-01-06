@@ -1,0 +1,455 @@
+
+
+	Since many Digital customers utilize Tops-20 machines and
+Vax hardware at their sites, we have received several inquiries on how
+one might transport ASCII data generated from a Tops-20 environment to a Vax
+environment. By using the available system commands on each individual
+machine this process can be accomplished. 
+
+	To transfer a file from a Tops-20 operating system to a labeled
+tape to be processed on a VAX-11/780 , you must do the following:
+
+1. Initialize a tape using the OPR command SET TAPE MTAnn: INITIALIZE,
+   to have ANSI standard labels if you have operator or wheel privileges.
+   ( NOTE: Have your operator do the Initialize procedure for you. )
+2. Mount the tape using the MOUNT TAPE command, specifying the volid,
+   label type, and density. The density must be 800 or 1600 bpi.
+3. Copy the file(s) onto tape using the COPY command, in ASCII mode.
+4. Be sure the record format is either fixed or variable. The VAX/VMS
+   operating system does not recognize span records.
+5. After the file(s) has been copied to tape, dismount the tape using
+   the DISMOUNT TAPE command, to relinquish control of the tape drive.
+
+The following is a photo session demonstrating what is described above and 
+in the Tops-20 Software notebook 11, chapter 6 - "INTERCHANGING TAPES":
+Also the VMS commands in the example are further described under the
+VAX/VMS Command Language User's Guide:
+
+**************************************************
+*  Step 1---> initialize the tape as ANSI label  *
+* ( Note: Place a write-ring on the tape )	 *
+**************************************************
+
+ TOPS-20 Command processor 5.1(1766)
+@ena
+$opr
+OPR>show staTUS tapE-DRIVE 
+OPR>
+12:51:44 	  -- Tape Drive Status --
+DRIVE  STATE     VOLID   REQ#  JOB#  USER
+-----  -----     ------  ----  ----  ----
+MTA1:  Loaded    
+MTA2:  Unloaded
+OPR>set tapE-DRIVE mta1: inITIALIZE /laBEL-TYPE:ansi /vOLUME-ID:tape1
+OPR>
+12:52:37 	  -- MTA1: Volume TAPE1 Initialized --
+		Label type: ANSI        Density: 1600
+
+12:52:37 	  -- INITIALIZE Completed --
+		MTA1: available for user tape requests
+OPR>ex
+
+*********************************************************
+*							*
+*	The tape is finally intitalized as a labeled	*
+*	ANSI tape with a tape-id name called TAPE1	*
+*							*
+*********************************************************
+								Page 2
+
+== Process of copying a file from a Tops-20 operating system onto tape ==
+
+
+********************************************************
+* Step 2----> Remount the tape using the MOUNT command *
+********************************************************
+
+
+@MOUNT TAPE (NAME) TAPE1: /WRITE-ENABLED /LABEL-TYPE:ANSI 
+[Mount request TAPE1 queued, request #30]
+
+[Tape set TAPE1, volume TAPE1 mounted]
+[TAPE1: defined as MT0:]
+
+@TY ASCII.TXT.1 
+
+*****************************************************************
+*								*
+*	This is the ASCII data file to be placed on tape	*
+*								*
+*****************************************************************
+This is an ASCII data file which will be copied off DSK from a
+Tops-20 operating system onto an ANSI labeled tape at 1600bpi (for
+this example on TU78 Drives). Next, this tape will be placed on a
+TU78, which is connected on a Vax 11/780 and copy the data from tape
+onto the Vax DSK.
+************************* THE END *****************************
+
+
+@COPY ASCII.TXT.1 (TO) TAPE1:*.*.* ,
+@@? confirm with carriage return
+  or one of the following:
+ ASCII	  BINARY    BYTE      IMAGE
+@@ASCII 
+@@
+ ASCII.TXT.1 => MT0:ASCII.TXT.1 [OK]
+@REW TAPE1:
+@DISMOUNT TAPE1:
+[Tape dismounted, logical name TAPE1: deleted]
+@logo
+
+
+============= Following example is taken from a VAX/VMS system ==========
+
+[Remote host is a VMS system]
+
+ VLNVAX: available and running v4.0 
+
+*****************************************************************
+*								*
+*  Next is a VMS SHOW COMMAND to get a status on the tape drive *
+* ( For our example, our tapes drives are logicial defined as	*
+* MFA1 and MFA2 your site may have it defined differently.)	*
+*								*
+*****************************************************************
+
+
+
+								Page 3
+
+
+
+$ SHOW DEVICE/FULL MFA
+
+Magtape VLNVAX$MFA0:, device type TU78, is online, file-oriented device, error
+    logging is enabled.
+
+    Error count                    0    Operations completed                  0
+    Owner process                 ""    Owner UIC                         [0,0]
+    Owner process ID        00000000    Dev Prot    S:RWED,O:RWED,G:RWED,W:RWED
+    Reference count                0    Default buffer size                2048
+    Density                     1600    Format                        Normal-11
+
+  Volume status:  no-unload on dismount, beginning-of-tape, write-locked, odd pa
+rity.
+
+
+
+
+Magtape VLNVAX$MFA1:, device type TU78, is online, file-oriented device, error
+    logging is enabled.
+
+    Error count                   19    Operations completed              68985
+    Owner process                 ""    Owner UIC                         [0,0]
+    Owner process ID        00000000    Dev Prot    S:RWED,O:RWED,G:RWED,W:RWED
+    Reference count                0    Default buffer size                2048
+    Density                     1600    Format                        Normal-11
+
+  Volume status:  no-unload on dismount, odd parity.
+
+*********************************************************
+*							*
+* Assign one of the tape drives to your process		*
+* (for this example we use MFA1 as our tape drive)	*
+*							*
+*********************************************************
+
+$ ALLOCATE MFA1:
+_MFA1: allocated
+
+*********************************************************
+*							*
+* Place the tape on the drive, hit the online button,	*
+* and issue the mount command to notify the system	*
+* that a tape is mounted to the drive.( For this e.g	*
+* we used the MOUNT command with the override switch	*
+* to avoid giving tape label names, and owner.)		*
+*							*
+*********************************************************
+
+$ MOUNT MFA1:/OVERRIDE=(ID,OWNER)
+TAPE1 mounted on _MFA1:
+
+
+
+
+
+
+								Page 4
+
+
+*********************************************************
+*							*
+* Below is the VMS copy command to restore the content	*
+* of the tape onto disk.				*
+*							*
+* Note: If you have several ascii files on the tape	*
+* you should use COPY command with /NOCONCATENATE 	*
+* switch, because system default will concatenate all	*
+* input file specs to one output file.			*
+* (eg. COPY MFA1:*.*;*/NOCONCATENATE  [GCHIN]*.*;* )	*
+*							*
+*********************************************************
+
+
+
+
+$ COPY MFA1:*.*;*
+To: ASCII.TXT
+MFA1:[]ASCII.TXT;1 copied to GODFATHER:[GCHIN]ASCII.TXT;1 (12 records)
+
+
+$ty ascii.txt
+
+*****************************************************************
+*								*
+*	This is the ASCII data file to be placed on tape	*
+*								*
+*****************************************************************
+This is an ASCII data file which will be copied off DSK from a
+Tops-20 operating system onto an ANSI labeled tape at 1600bpi (for
+this example on TU78 Drives). Next, this tape will be placed on a
+TU78, which is connected on a Vax 11/780 and copy the data from tape
+onto the Vax DSK.
+************************* THE END *****************************
+
+
+$DISMOUNT MFA1:
+$DEALLOCATE MFA1:
+$
+
+								
+*****************************************************************
+*								*
+* The following photo session is an example of (vise-versa)	*
+* copying ANSI ASCII data generated from a VAX/VMS system to	*
+* tape, and placing the data on tape onto a Tops-20 Operating	*
+* system by using the available system commands.		*
+*								*
+*****************************************************************
+LINK FROM GCHIN, TTY 75
+
+ TOPS-20 Command processor 5.1(1767)
+@host vlnvax
+
+[Attempting a connection, connect OK]
+
+
+								Page 5
+
+
+[Remote host is a VMS system]
+[TYPE ^P to return to node KL2116]
+
+ VLNVAX available and waiting... 
+
+
+ ... and running VMS V4.0 
+
+
+*********************************************************
+*							*
+* Issue the VMS SHOW command to get status of the tape	*
+* drive to see which one is available for use.		*
+*							*
+*********************************************************
+
+
+$ SHOW DEVICE/FULL MFA
+
+Magtape VLNVAX$MFA0:, device type TU78, is online, record-oriented device, file-
+    oriented device, error logging is enabled.
+
+    Error count                   37    Operations completed              11797
+    Owner process                 ""    Owner UIC                         [0,0]
+    Owner process ID        00000000    Dev Prot    S:RWED,O:RWED,G:RWED,W:RWED
+    Reference count                0    Default buffer size                 512
+    Density                     6250    Format                        Normal-11
+
+  Volume status:  no-unload on dismount, write-locked, odd parity.
+
+Magtape VLNVAX$MFA1:, device type TU78, is online, file-oriented device, error
+    logging is enabled.
+
+    Error count                   16    Operations completed              33611
+    Owner process                 ""    Owner UIC                         [0,0]
+    Owner process ID        00000000    Dev Prot    S:RWED,O:RWED,G:RWED,W:RWED
+    Reference count                0    Default buffer size                2048
+    Density                     6250    Format                        Normal-11
+
+  Volume status:  no-unload on dismount, write-locked, odd parity.
+
+*****************************************************************
+*								*
+* Mount a tape onto the drive, and assign it to your process.	*
+* (Doing another SHOW command to MFA you can see the OWNER 	*
+* PROCESS ID equal to you process or username )			*
+*****************************************************************
+
+$ ALLOCATE MFA1:
+_MFA1: allocated
+
+*****************************************************************
+*								*
+* Issue the INITIALIZE command to label the tape, and use the	*
+* override switch to avoid setting any protection to the tape	*
+*								*
+*****************************************************************
+								Page 6
+
+
+$ INITIALIZE MFA1: VAXTAP/OVERRIDE=OWNER
+$
+
+
+
+*****************************************************************
+*								*
+* Use the VMS MOUNT command to notify the system that a tape is	*
+* on the drive. Also use the override switch to avoid the 	*
+* system from asking for a VOL ID of the tape, and log file	*
+*								*
+*****************************************************************
+
+$ MOUNT MFA1:/OVERRIDE=(ID,OWNER)
+VAXTAP mounted on _MFA1:
+$ DIR ASCII.TXT
+
+Directory GODFATHER:[GCHIN]
+
+ASCII.TXT;1 
+
+Total of 1 file.
+$ TY ASCII.TXT
+ 
+GODFATHER:[GCHIN]ASCII.TXT;1
+ 
+
+*****************************************************************
+*								*
+*	This is the ASCII data file to be placed on tape	*
+*								*
+*****************************************************************
+This is an ASCII data file which will be copied off DSK from a
+VAX/VMS  operating system onto an ANSI labeled tape at 1600bpi (for
+this example on TU78 Drives). Next, this tape will be placed on a
+TU78, which is connected to a Tops-20 and copy the data from tape
+onto the DSK.
+************************* THE END *****************************
+
+
+*****************************************
+*					*
+* Below use the VMS COPY command	*
+*					*
+*****************************************
+
+
+$ COPY ASCII.TXT;1
+_To: MFA1:
+GODFATHER:[GCHIN]ASCII.TXT;1 copied to MFA1:[]ASCII.TXT;1 (12 records)
+
+****************************************************************
+*								*
+* Use the VMS DIRECTORY command to see if the file is on tape.	*
+*								*
+*****************************************************************
+
+								Page 7
+
+
+$ DIR MFA1:
+
+Directory MFA1:[]
+
+ASCII.TXT;1         
+
+Total of 1 file.
+
+
+
+
+*****************************************************************
+*								*
+* Below, use the DISMOUNT, and DEALLOCATE command to free the 	*
+* drive. Also, by logging out the system it will automaticly 	*
+* release the drive.						*
+*								*
+*****************************************************************
+
+$DISMOUNT MFA1:
+$DEALLOCATE MFA1:
+$ LOGO
+
+== Process of copying the file off tape and placing it on Tops-20 ==
+
+
+*****************************************************************
+*								*
+* Mount the tape on the drive, if you have wheel or operator	*
+* privileges you can find the status of the tape drives		*
+* (Below is a example of checking the status of the drive)	*
+*								*
+*****************************************************************
+
+@
+@ENA
+$OPR
+OPR>SHOW STATUS TAPE-DRIVE 
+OPR>
+14:16:59 	  -- Tape Drive Status --
+DRIVE  STATE     VOLID   REQ#  JOB#  USER
+-----  -----     ------  ----  ----  ----
+MTA1:  Unloaded
+MTA2:  Loaded    VAXTAP
+OPR>EX
+
+
+
+*****************************************************************
+*								*
+* Issue the MOUNT Command with /LABEL-TYPE: ANSI		*
+*( NOTE: remove the write-ring or issue /WRITE-ENABLE switch)	*
+*****************************************************************
+
+
+$MOUNT TAPE VAXTAP: /LABEL-TYPE:ANSI
+
+								Page 8
+
+
+[Mount request VAXTAP queued, request #24]
+[Tape set VAXTAP, volume VAXTAP mounted]
+[VAXTAP: defined as MT0:]
+
+
+*****************************************************************
+*								*
+* Issue the COPY command to restore the file from tape onto	*
+* disk.( Below the file is restored to the connected directory) *
+*								*
+*****************************************************************
+
+@COPY VAXTAP:*.*.* (TO) *.*.-1 
+ MT0:ASCII.TXT.1 => ASCII.TXT.1 [OK]
+
+
+@TY ASCII.TXT.1
+
+*****************************************************************
+*								*
+*	This is the ASCII data file to be placed on tape	*
+*								*
+*****************************************************************
+This is an ASCII data file which will be copied off DSK from a
+VAX/VMS  operating system onto an ANSI labeled tape at 1600bpi (for
+this example on TU78 Drives). Next, this tape will be placed on a
+TU78, which is connected to a Tops-20 and copy the data from tape
+onto the DSK.
+************************* THE END *****************************
+@DISMOUNT VAXTAP:
+[Tape dismounted, logical name VAXTAP: deleted]
+
+@LOGO
+
+    --------

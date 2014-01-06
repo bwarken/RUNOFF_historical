@@ -1,0 +1,185 @@
+	Debugging facilities in Dec-10 Simula-67 compiler (test version)
+	================================================================
+
+I. Test character handling:
+   =======================
+	Whenever the special symbol  occurs in the source file,
+	it will cause the next three characters (2 letters and 1 digit)
+	to be scanned, and the resulting identification is then matched
+	against three tables:
+
+	ZLSTT1 - a match will cause a debug switch in reg x1mask to be
+	         set on. (used e.g. to start trace actions)
+	ZLSTT2 - a match will cause a switch to be set off
+		 (e.g. stop tracing)
+	ZLSTT3 - a match will invoke a routine.
+		 (used e.g. to initiate a dump)
+
+	If no match occurs, a debug symbol followed by the identification
+	found, will be output to file IC1, in order to be handled
+	later by pass 2.
+
+	So far, the following identifications have been
+	implemented:
+
+	Ident	Action
+
+pass 1:	LS1	start successive output of symbols found by scanner
+	LS0	setoff LS1
+	SR1	start successive output of entry/exit of
+		syntactical routines
+	SR0	setoff SR1
+	SD1	start successive output of block stack entries 5 and 6,
+		for every execution of routines SDBEG and SDEND
+	SD0	setoff SD1
+	O11	start successive output of symbols output to IC1
+	O10	setoff O11
+	IC1	init dump of IC1 (to be printed when pass 1 is completed)
+	DF1	init dump of DF1 (to be printed when pass 1 is completed)
+
+
+pass 2:	M20	stop trace program
+	M21	start trace program
+	M22	abort with dump
+	M23	set SM2DB3
+	CG0	setoff CG1
+	CG1	dump expression tree before compilation
+	O21	output assembly list
+	O22	trace all fixups
+II. Debug File handling:
+    ===================
+	In order to facilitate edited test output, a special debug
+	file is constructed, into which file any submodule can place
+	debug information records for later output.
+	Every record in the debug file starts with a control half word,
+	indicating the meaning of the record. This half word is divided
+	into six fields, each one comprising of 3 bits of information.
+	case 1:	first field is zero.
+		meaning of second field:	1 = new page
+						2 = new line
+						3 = define new identifier,
+						    in this case the control
+						    half word is followed by
+						    a half word containing
+						    an index (1024-4095) and
+						    by 4 half words containing
+						    the identifier in sixbit
+
+	case 2:	first field nonzero.
+			every subsequent field indicates how the following
+			half words of data should be output.
+			codes:	0 = end of record
+				1 = convert field to octal
+				2 = convert field to decimal
+				3 = print a symbol or an identifier.
+				    half word contains corr index
+				4 = print text.
+				    the next 2 half words contains
+				    char in sixbit
+				5 = print text.
+				    half word contains index to text table
+				6 = print text.
+				    half word contains three sixbit char
+				7 = print text.
+				    the next 2 half words contains
+				    5 characters in ASCII (left adjusted)
+	Placing records in the debug file is accomplished by calls
+	=================================
+	to one or more of the subroutines O1DB1-O1DB7, where
+	the last digit indicates how many half words the record
+	consists of. On call to such a routine, the record
+	is to be placed in the system stack.
+
+	ex. record consists of control half word and 4 data half words:
+
+ 
+		    		/                   /  return address   /
+				/ data half word 4  /     not used      /
+				/ data half word 2  / data half word 3  /
+		     stacktop:  / control half word / data half word 1  /
+
+
+	Generated output:
+	================
+		Each record written, starts in a position, which
+		is the next multiple of 20. If remaining space of
+		present line is not sufficient, the record is written at
+		the beginning of next line. One blank separates the fields
+		from each other.
+	ex.
+	debug file:	/520000/000000/000010/
+			/020000/
+			/630000/SR /000067/
+			/030000/002000/SKR/#P /   /   /
+			/630000/LS0/002000/
+			/020000/
+			/500000/000002/
+
+	output:
+			DEBUG OUTPUT SIMULA-67 VERSION: 8
+		SR  BPROG           LS0 SKR#P
+		START PASS2
+General record dump macro:
+=========================
+	Define Record Dump (DRD)
+
+	Format:	DRD(R,<F1,F2,...,Fk>)
+	------
+
+		R = record name
+		Fi= field name (previously defined by a call to
+				Define Field (DF) - macro)
+
+	    DRD expands a subroutine named .R and it also
+		defines a macro R, which when later called, will
+		produce a symbolic dump of all the Fi-fields that were
+		specified in the call to the DRD-macro.
+		The dump will be octal and if the bit length, L, of a
+		field is not a multiple of 3, then ENTIER(L/3)+1 digits
+		will appear in the dump.
+		The fields will be dumped in the order of appearance
+		in the DRD-call.
+
+		The address of the record (first word) is supposed
+		to be in reg X1 at execution.
+
+	    DRD may not be called inside a PROC/EPROC body
+		(but the expanded routine may of course).
+
+ex. of use:
+----------
+
+DRD	DCZHE,<ZDETYP,ZHETYP,ZHESOL,ZHEDLV,ZHEEBL,ZHELEN,ZHEBNM,ZHEFIX,ZLINK>
+.
+.
+.
+PROC
+	.
+	.
+	.
+	DCZHE
+	.
+	.
+	.
+EPROC
+.
+.
+.
+
+
+Output on execution:
+-------------------
+
+=====
+DCZHE AT ADDRESS 400982
+=====
+
+ZDETYP=1
+ZHETYP=2
+ZHESOL=003
+ZHEDLV=777776
+ZHEEBL=02
+ZHELEN=0132
+ZHEBNM=002
+ZHEFIX=0000
+ZLINK=000118

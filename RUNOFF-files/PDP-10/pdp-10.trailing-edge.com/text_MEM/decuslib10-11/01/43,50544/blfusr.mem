@@ -1,0 +1,792 @@
+                     PRETTY - BLISS LANGUAGE FORMATTER
+				User's Guide
+
+                                   PRETTY
+
+
+1.0  Overview
+
+   PRETTY is a utility program that  reformats  BLISS  source  files  and
+   require files so that they correspond to generally accepted formatting
+   standards. PRETTY is a valuable tool in standardizing  the  appearance
+   of  BLISS  code,  for   it   promotes   readability  while  permitting
+   flexibility in program structure.
+
+   PRETTY is more than a reformatter.  It also performs a cursory  syntax
+   check  of your program and reports obvious errors that should be fixed
+   prior to compilation, such as mismatched BEGIN and END statements.
+
+
+
+2.0  Command Line Format
+
+   PRETTY is invoked in very much the same way  as  the  BLISS  compiler.
+   The command syntax for each host is:
+
+
+        =>10
+
+             .R PRETTY
+             *{out-spec} {,list-spec} = in-spec
+
+
+        =>20
+
+             @PRETTY
+              BLF>in-spec {/OUTPUT:out-spec} {/LISTING:list-spec} {/EXIT}
+
+
+        =>VAX
+
+             $ PRETTY:==$PRETTY
+             $ PRETTY in-spec {/OUTPUT:out-spec} {/LISTING:list-spec},...
+
+
+
+PRETTY User's Guide                                             Page 2
+
+
+   Command Semantics
+
+
+   The output file contains the reformatted  source  program  or  REQUIRE
+   file.  Some of the operations performed by PRETTY are:
+
+        o  To force routines to the top of a new page (if  they  are  not
+           nested within other routines).
+
+        o  To align BEGIN-END pairs.
+
+        o  To indent blocks.
+
+        o  Where possible, to align end-of-line comments (remarks)  to  a
+           standard column.
+
+        o  To align block comments with the enclosing blocks.
+
+        o  To realign control structures  to  one  or  more  lines  in  a
+           standard way.
+
+   Several options are available to enable a user  to  specify  different
+   kinds  of  formatting;   defaults  for all options are described.
+
+
+   The listing file differs from the output file in three ways:
+
+        o  Each line is appended with a slash (/), the SOS  page  number,
+           and the SOS line number as in:
+
+                /  4.  200
+
+        o  Each logical tab is preceded by  a  colon  (:),  so  that  the
+           indentation level is obvious as in:
+
+                IF .A                           /  1.  1200
+                THEN                            /  1.  1300
+                :                               /  1.  1400
+                :   IF .B                       /  1.  1500
+                :   THEN                        /  1.  1600
+                :   :                           /  1.  1700
+                :   :   IF .C                   /  1.  1800
+                :   :   THEN                    /  1.  1900
+                :   :   :                       /  1.  2000
+                :   :   :   D=5;                /  1.  2100
+
+PRETTY User's Guide                                             Page 3
+
+
+        o  There is a three line heading on each page:
+
+              . %TITLE information (which starts a new page)
+
+              . %SBTTL information
+
+              . Module and routine names and page number
+
+   The listing file cannot be used as input to the BLISS compiler.
+
+   On  the  DECSYSTEM-20,  an  output-file  is  always   produced.    The
+   output-file specification has the same name and extension as the input
+   file specification.   Thus,  the  input-file  is  overwritten  by  the
+   output-file  unless  a different file name is specified by the /OUTPUT
+   switch.  A listing-file is produced only if  the  /LISTING  switch  is
+   present.   The  listing  file  extension  defaults to .LIS on the VAX,
+   and to .LST on DECsystem-10 and -20 machines.  After the  reformatting
+   has taken place, PRETTY prompts for another command  unless the  /EXIT
+   switch is present, which causes PRETTY to return to the monitor.
+
+   On the DECsystem-10 and  VAX,  if  no  output  or  listing  files  are
+   specified,  only terminal error messages will be produced.  Otherwise,
+   an output file is  created,  if  specified,  and  a  listing  file  is
+   created,  if  specified.   If no input file extension is specified the
+   extension defaults to .BLI.
+
+   Producing both an output file and listing file doubles  the  execution
+   time  of  PRETTY.   However, PRETTY's typical execution time is only a
+   fraction of the BLISS compiler's.
+PRETTY User's Guide                                             Page 4
+
+
+3.0  FORMATTING RULES
+
+
+3.1  General Strategy
+
+The  basic  guidelines  for  the  formatting  rules   are   derived  from
+generally accepted formatting standards.  Where the choice of a format is
+unclear,  PRETTY  will  choose  a  format on the basis of the type of the
+enclosing  block:  If  BEGIN-END  are  used,  PRETTY  will choose an open
+format,  while  if  the  block is bounded by parentheses, a closed format
+will be used.  For example:
+
+         BEGIN
+         expression1;  expression2;  expression3;
+         END;
+
+would be formatted as
+
+         BEGIN
+         expression1;
+         expression2;
+         expression3;
+         END;
+
+while the input text
+
+         (expression1;
+         expression2;
+         expression3;)
+
+would be output as simply
+
+         (expression1;  expression2;  expression3;)
+
+
+To do its job, PRETTY reads only the  specified  input  file  and,  if
+used,  a  REQUIRE  file  consisting  of  user-specified PRETTY control
+directives.  As PRETTY reads  the  input  file,  it  throws  away  all
+spaces,  tabs,  linefeeds, formfeeds, and other nonprinting characters
+(comments,  character  strings,  and  specifically  unformatted   text
+excepted)  and  replaces  them according to the rules that follow.  In
+general, anything that PRETTY can insert  it  will  first  throw  away
+(including  PRETTY error messages.) An implication of this approach is
+that a coding style  which  is  dependent  on  vertical  alignment  or
+multiple blank lines may be defeated by PRETTY.
+
+In some situations, especially in macro definitions and in tables, the
+reformatting actions performed by PRETTY may impair the readability of
+the text.  Provision is made for explicitly overriding the  formatting
+process  so  that  where  the  input  format  is especially helpful in
+understanding the code, it can be retained permanently.
+
+PRETTY does not expand conditional code (%IF, %THEN,  etc.)  or  macro
+references.   As  a  result,  it is possible that the code that PRETTY
+processes may appear to be syntactically incorrect.  Some practice  in
+the  use  of  PRETTY  will  help the user to avoid coding styles which
+cause PRETTY to misinterpret the intent of the  syntax.   In  general,
+the  interpretation  of  conditionally  compiled  code will be correct
+PRETTY User's Guide                                             Page 5
+
+
+whenever the text would be correctly interpreted  if  the  conditional
+"%IF expr %THEN", "%ELSE" and "%FI" were missing.
+
+Where PRETTY issues error messages due to references to macros defined
+as partial control structures, e.g.
+
+MACRO
+    ORIF = ELSE IF %;
+
+a means is provided to allow PRETTY to parse the  macro  reference  as
+though  it were the macro expansion, i.e.  to interpret the macro name
+as a "synonym" for the control  structure  in  the  macro  definition.
+
+PRETTY produces an output file, which contains all the lexemes of  the
+input  file  in  the  same  order,  and  a  listing file with the same
+information displayed in expanded form (including  vertical  alignment
+guides,  SOS  page  and line numbers, and page headings).  In order to
+flag errors, comment lines of the form
+
+         !!ERROR!! ... message ...
+
+are produced.  (These comments appear both in the output  and  listing
+text  and,  slightly  revised,  at the terminal.) In general, an error
+message line  is  immediately  followed  by  the  lexeme  that  PRETTY
+considered  anomalous.   Several  error  messages may be produced by a
+single line of code.  In general, the first is  most  important:   the
+rest may have been triggered by the first error found.
+
+
+3.2  General Rules
+
+     1.  Every semicolon (except within a comment or quoted string, or
+         within   the  immediate  context  of  a  block  delimited  by
+         parentheses)  terminates  the  line  on  which  it   appears;
+         however, a trailing remark will also appear on the same line.
+
+     2.  The outermost level of control in the  BLISS  input  text  is
+         output   without   indentation;    as  sublevels  of  control
+         (Routines and other declarations, expressions, blocks,  etc.)
+         are  introduced  they are indented by one 'logical tab', i.e.
+         4 spaces, so that the deepest control levels appear  farthest
+         to  the right in the output file.  The conditions under which
+         a given expression is evaluated at run time can be determined
+         by  examining the language constructs which cause the changes
+         in  indentation  level  above  the  expression  in  question.
+
+         (Multiple logical tabs consist of a sequence of physical tabs
+         followed by either 4 spaces or none, depending on whether the
+         number of logical tabs is odd or even.)
+
+     3.  Indentation is limited by the number of tabs that are  issued
+         and  by  the  right margin of the page.  Lexemes too long for
+         the right margin are printed on following  lines,  using  the
+         indentation  level  of  the  current  expression.  Whenever a
+         lexeme is  moved  to  a  new  line  because  of  right-margin
+         violation,  any  immediately  preceding '.' lexemes appear on
+         the next line also.  Thus '.' will not be separated from  the
+         following lexeme by the end of the line.
+PRETTY User's Guide                                             Page 6
+
+
+     4.  Certain operators,  e.g.   "+",  "-",  and  "=",  are  always
+         bounded  by spaces.  "*" and "/" usually are not;  commas and
+         semicolons are always followed by  at  least  one  space.
+
+     5.  Certain occurences  of  commas  (e.g.   within  declarations)
+         cause  new  lines;   others (e.g.  in argument lists) do not.
+         However, if a list of items is too long for  one  line,  then
+         the line will be broken after the last comma that fits on the
+         line.  (The appearance of an  open  parenthesis  between  the
+         comma and the end of the line inhibits this break.)
+
+     6.  End-of-line remarks, which always cause a new line to  start,
+         can  be  used  by  the  coder  to enhance the capabilities of
+         PRETTY in certain cases, e.g.  in long expressions or  lists,
+         where style cannot readily be translated by PRETTY formatting
+         rules.
+
+     7.  All names and all numeric constants are  separated  by  white
+         space.
+
+
+3.3  Rules For Formatting Lexical Functions
+
+
+     1.  The lexical function %TITLE always appears at the  top  of  a
+         new page.
+
+     2.  The lexical function %SBTTL appears at the top of a new  page
+         unless  it  follows %TITLE more recently than ROUTINE.  Thus,
+         for example, %SBTTL'...' ROUTINE ...  will appear on the same
+         page, but ROUTINE ...  %SBTTL '...' will not.
+
+     3.  The lexical control expressions %IF, %THEN,  %ELSE,  and  %FI
+         are  handled  in  one  of  two ways:  occuring within a macro
+         definition, They are either left alone  or  indented  to  the
+         level  of the block in which they occur, depending on whether
+         the macro definition is being left alone or  formatted  as  a
+         block  body;  otherwise,  they are left-justified on separate
+         lines.  %IF and its associated expression appear on the  same
+         line.   The  text  separating  %THEN,  %ELSE, and %FI will be
+         indented one level and  be  interpreted  as  if  the  lexical
+         controls  were  missing,  and  will be formatted correctly if
+         that interpretation is consistent with the surrounding text.
+
+     4.  The  arguments  of  the  built-in  compiler-selection  macros
+         %BLISS16, %BLISS32, etc.  are parsed and formatted as if they
+         were block bodies.  This may in certain cases result in error
+         messages.
+PRETTY User's Guide                                             Page 7
+
+
+3.4  Rules For Formatting Declarations
+
+     1.  Declared names, and accompanying subelements  of  declarative
+         expressions, are indented.  All declarations within  a  BEGIN
+	 block  are  indented  to the level of the innermost enclosing
+         block.
+
+     2.  Each MODULE and Module-level ROUTINE declaration appears on a
+         separate  page.   Each  may  be  preceded  on  the  page by a
+         "%TITLE" or "%SBTTL".  MODULE may be preceded by comments.
+
+         Any other declaration is preceded by  a  blank  line.   Every
+         declaration is followed by a blank line.
+
+     3.  Unless PRETTY is specifically requested to make the  attempt,
+         macro-body  definitions  are  not reformatted, but are simply
+         reproduced in the output stream.  This treatment provides for
+         the arbitrary usage of lexemes in macro-bodies.  If PRETTY is
+         directed  to  reformat  them,  macro-bodies  are  treated  as
+         block-bodies.    In  any  event,  the  sequence  "MACRO  name
+         (<list>) =" is formatted according to conventional rules  for
+         declarations.
+
+
+3.5  Rules For Formatting Expressions
+
+In the following discussion, the following definitions are used:
+
+     "P-block" means a block bounded by parentheses.
+
+     "B-block" means a block bounded by BEGIN and END.
+
+     1.  Except within a P-block, all control expressions are preceded
+         and  followed by blank lines.  BEGIN and END always appear on
+         separate lines.
+
+     2.  IF-THEN-ELSE may be handled in any of three ways:
+
+         1.  Within a P-block, the entire expression tends  to  appear
+             on  one  line.   This  tendency  is  overcome only by the
+             occurence of other control expressions, by remarks, or if
+             the line is too long.
+
+         2.  Within B-blocks, IF-THEN-ELSE will  appear  on  one  line
+             under  the same conditions as in the P-block context.  If
+             the IF-THEN-ELSE will not fit on the line for any reason,
+             then:
+
+         3.  The IF-THEN-ELSE is expanded to  several  lines,  in  the
+             general format
+
+             IF conditional-expression
+             THEN
+                 true-action-expression
+             ELSE
+                 false-action-expression
+PRETTY User's Guide                                             Page 8
+
+
+     3.  In post-tested loops, DO appears on its own line, as does the
+         terminating  WHILE  or  UNTIL clause;  however, in pre-tested
+         loops the conditional clause precedes  the  DO  on  the  same
+         line.
+
+     4.  SET and TES, as well as each of the  alternative  specifiers,
+         appear  on  separate  lines.   SELECT and CASE also appear on
+         separate lines, along with  the  conditional  expression  and
+         range, etc.  expressions.  Except within a P-block, instances
+         in a SET/TES will be separated by blank lines.
+
+     5.  INCR or DECR appears,  with  its  index,  FROM,  BY,  and  TO
+         expressions,  on one line preceding the body of the loop.  If
+         the body is a P-block,  it  will  start  on  the  same  line;
+         otherwise, the body will appear on subsequent lines.
+
+     6.  The indentation level is increased whenever a new  expression
+         is   encountered   and  decreased  when  each  expression  is
+         completed.  As a result, expressions too long  for  one  line
+         are  continued  on  the  following  line,  indented  from the
+         beginning of the expression.  However, BEGIN and  END  appear
+         at  the  same indentation level as their contained expression
+         list.
+
+     7.  Macro references may, of course,  occur  anywhere  after  the
+         macros   are  defined.   They  will  be  interpreted  without
+         indication  of  error  if  they  appear  in  the   place   of
+         expressions,   declarations,   or  the  names  or  values  of
+         attributes being declared, and in a few isolated other cases.
+         References   to   macros   which   include   partial  control
+         expressions, e.g.
+
+         MACRO
+             ELSEIF = 
+                 ELSE IF %;
+
+         usually  cause  both   error   messages   and   inappropriate
+         formatting.
+
+         The effect of such macro definitions can usually be  overcome
+         by  use of the SYNONYM control described later, which permits
+         the definition of  the  macro  name  as  a  synonym  for  the
+         principal  sequence  of  lexemes in the macro definition, for
+         the purposes of formatting.
+PRETTY User's Guide                                             Page 9
+
+
+3.6  Rules For Formatting Comments
+
+     1.  Embedded comments "%(...)%" are left alone unless they extend
+         beyond  the  right margin, in which case they are split after
+         the "%(" prefix.
+
+     2.  All full-line comments  are  left  alone.   (Error  messages,
+         however,  are deleted.) Block comments, that is, sequences of
+         comments of the form
+
+         !+ ...
+         ! ...
+         !- ...
+
+         are set off by blank lines before and after the sequence.
+
+     3.  Comments starting beyond column 1 are indented to  either  of
+         two  points on the text line:  either to the Remark Column, a
+         number of physical tabs to the right;  or to the  indentation
+         level  of  the  surrounding  program text.  A remark (i.e., a
+         comment appearing on the same line as program text) is always
+         indented to the remark column unless that column is preempted
+         by program text, in which case it will either appear one  tab
+         position  to the right of that text or (only if it won't fit)
+         on a separate line.
+
+         Other comments will appear in the remark column if
+
+         1.  The "!" character is immediately followed by "."
+
+         2.  The comment appears near the remark column in  the  input
+             text and is not affected by the following rule
+
+         Block Comments, and other comments appearing to the  left  of
+         the  remark  column  in  the  input text, are indented to the
+         level of the surrounding program text.
+
+         The following example illustrates these rules:
+
+         ! This is a full-line comment, starting in column 1.
+                 IF expr
+                 THEN                            ! Remark
+                     BEGIN                       ! Another remark
+                     ! Non-block comments input to the left of 
+                     ! the remark column
+                                                 ! Input as a remark
+
+                     !+ Preceded by blank line.
+                     ! Block Comment ...
+                                                 !. Forced by "."
+                     !- Followed by blank line.
+
+                     ...
+PRETTY User's Guide                                             Page 10
+
+
+3.7  Case Conversion
+
+Except  within  comments  and  character  strings,  all   identifiers,
+including BLISS reserved words (BEGIN, WHILE, etc.) are recognized and
+subject to upper-lower case control.
+
+
+
+
+4.0  Formatting Options
+
+   A number of options can be  specified  in  the  source  input.   These
+   options  give  you  flexibility  in  deciding how to format your code.
+   Formatting options are supplied by means  of  directives  inserted  as
+   full-line  comments  in  the  input  source  text.   The format of the
+   formatting option directive is:
+
+        !<BLF/option>
+
+   The exclamation point that starts the command must begin in column  1.
+   Options  may  be typed in uppercase or lowercase characters.  Commands
+   are passed to PRETTY in this  fashion  without  modification  to  both
+   the  output and the listing files.  Since the directives begin with an
+   exclamation point, they are  interpreted  as  comments  by  the  BLISS
+   compiler.
+
+   Formatting option directives are described  below.   An  asterisk  (*)
+   identifies the default.
+
+
+   ERROR*
+
+        Enables the insertion of  error  messages  (that  is,  lines
+        beginning with "!!ERROR!!") into the output file.  Error messages
+        are automatically deleted from source files on subsequent runs.
+	Errors displayed on the terminal are preceded by "?!ERROR!!".
+
+        Example:  !<BLF/ERROR>
+
+   NOERROR
+
+        Disables the insertion of error  messages  into  the  output
+        file.  Error messages are always output to the terminal.
+
+   FORMAT*
+
+        Causes resumption of formatting by PRETTY.
+
+
+   NOFORMAT
+
+        Inhibits formatting by PRETTY until the next !<BLF/PAGE>  or
+        !<BLF/FORMAT> is encountered.
+PRETTY User's Guide                                             Page 11
+
+
+   LOWERCASE
+
+        Causes all identifiers  and  keywords  to  be  converted  to
+        lowercase.
+
+
+   LOWERCASE_KEY
+
+        Causes BLISS keywords, builtins, and predefined names to  be
+        converted to lowercase.
+
+
+   LOWERCASE_USER
+
+        Causes user identifiers to be converted to lowercase.
+
+
+   MACRO
+
+        Causes macros to be formatted.  Use of this option may cause
+        error  messages that do not appear when formatting with macros is
+        disabled.
+
+
+   NOMACRO*
+
+        Disables formatting of macros.
+
+
+   NOCASE*
+
+        Causes all identifiers and keywords to remain unchanged.
+
+
+   NOCASE_KEY
+
+        Causes all BLISS keywords, builtins, and predefined names to
+        remain unchanged.
+
+
+   NOCASE_USER
+
+        Causes all user identifiers to remain unchanged.
+
+
+   PAGE
+
+        A page break (formfeed) is generated.
+
+
+   PLIT
+
+        Causes formatting  of  PLIT  bodies  to  occur.   Since  the
+        content  of  PLITs is difficult to analyze, PRETTY may format the
+        PLIT differently than you had intended.
+PRETTY User's Guide                                             Page 12
+
+
+   NOPLIT
+
+        Inhibits formatting of PLIT bodies.  Only the first line  of
+        a PLIT body is formatted;  the remaining lines remain unchanged.
+
+
+   REMARK:n (Default = 6)
+
+        Causes subsequent comments to begin at column 8*n+1, where
+        2 < n < 16.  The default comment starts at column 49.
+
+
+   REQUIRE'file-spec'
+
+        The  specified  file  is  read  for  further  formatting   option
+        directives.   Everything  in  the  REQUIRE  file other than legal
+        directives is ignored.  Directives in the REQUIRE  file  are  not
+        reproduced in the output or listing files.  The REQUIRE file must
+        not contain another REQUIRE directive.
+
+        Example:  !<BLF/REQUIRE'COMMAND.REQ'>
+
+
+   SYNONYM name = lexeme...
+
+        This option describes to PRETTY macros that you have  defined  to
+        substitute  for  keywords.  SYNONYM causes subsequent occurrences
+        of "name" to be  treated  as  a  sequence  of  other  tokens  for
+        formatting  purposes.   The  special  token  "*"  can  be used to
+        indicate where to position  "name"  with  regard  to  the  normal
+        position of the tokens that it replaces.
+
+        Example:  !<BLF/SYNONYM ELIF = ELSE IF *>
+
+        permits the sequence:
+
+             IF expr THEN expr ELIF expr THEN expr;
+
+        to be formatted without error.  Only the name ELIF is output, but
+        it is indented as though ELSE IF had occurred in the text.
+
+        In the above example, formatting would occur as follows:
+
+             IF expr
+             THEN
+                 expr
+                 ELIF expr
+                 THEN
+                     expr;
+PRETTY User's Guide                                             Page 13
+
+
+        If !<BLF/SYNONYM ELIF = ELSE * IF> had been specified, formatting
+        would occur as:
+
+             IF expr
+             THEN
+                 expr
+             ELIF
+                 expr
+                 THEN
+                     expr;
+
+
+   UPPERCASE
+
+        This causes all identifiers  and  keywords  to  be  converted  to
+        uppercase.
+
+
+   UPPERCASE_KEY
+
+        This causes all BLISS keywords, builtins, and predefined names to
+        be converted to uppercase.
+
+
+   UPPERCASE_USER
+
+        This causes all user identifiers to be converted to uppercase.
+
+
+   WIDTH:n (Default = 110)
+
+        This causes subsequent output  lines  to  have  a  width  of  "n"
+        columns, where 71 < n <141.
+
+        Example:  !<BLF/WIDTH:80>
+
+
+
+
+   Hints on Using Pretty
+
+   Because of the great flexibility possible in  the  use  of  the  BLISS
+   language,  specification of fixed formatting rules for the language is
+   difficult.  In order to construct a formatting  tool  like  PRETTY,  a
+   reasonable  idealized  model  of a BLISS program has to be used.  This
+   model may be quite different from  your  particular  style  of  manual
+   formatting.
+
+   Several features of the language can be used in such a way as to  make
+   formatting  difficult  without  very  extensive semantic analysis.  In
+   order to meet its goals  of  executing  many  times  faster  than  the
+   compiler, PRETTY does not perform this kind of extensive analysis, but
+   rather relies on hints from the programmer.
+PRETTY User's Guide                                             Page 14
+
+
+   Breaking Lines - PRETTY attempts to break lines  by  certain
+   general  rules.   In a begin-block, every semicolon terminating a main
+   line expression causes a line break except if  a  remark  follows.   A
+   remark,   therefore,   can   be   used   to   force   a   line  break.
+
+   Operator-expressions that are too long to fit on a single line will be
+   broken around an operator.  A programmer can specify an alternate line
+   break strategy by using the exclamation point as  a  break  character.
+   Consider a (visually) long expression of the form:
+
+        E1 OR ... AND EN
+
+   where Ei denotes an expression.
+
+   If  the  programmer  wishes  to  control how this line is broken, the
+   following can be written:
+
+        E1    OR    ! comment
+        E2    OR    !
+        ...   AND   !
+        EN          !
+
+   PRETTY attempts to place an if-expression on a single line if it fits.
+   If  it  does not, PRETTY will automatically place the 'THEN' under the
+   'IF', and the 'ELSE' if present, under the 'THEN'.
+
+
+   Comments - While  BLISS  recognizes  only   two   kinds   of comments,
+   embedded  comments  ( %( ...  )% )  and  trailing  comments ( !...  ),
+   PRETTY distinguishes several subtypes of trailing comments:
+
+        o  Remarks:
+
+                     ...! comment
+           These are lined up in the remark  column,  but  otherwise  not
+           analyzed.  They cause a line break.
+
+        o  Full line comment:
+
+                ! rest of line ...
+
+           This occurs in column 1.  The entire line  is  passed  to  the
+           output file without further processing.
+
+        o  Offset Block comments:
+
+                ...
+
+                !+
+                ! comment
+                !-
+
+                ...
+
+           These are preceded and followed by a blank line, and  indented
+           to the current indentation level.
+PRETTY User's Guide                                             Page 15
+
+
+        o  Non-offset BLOCK comments:
+
+                ...
+                !
+                ! comment
+                !
+                ...
+
+           These are similar to offset block comments in  that  they  are
+           similarly  indented,  but  are not offset from the surrounding
+           text by blank lines.  They are recognized  as  block  comments
+           rather  than  remarks only if they appear more than one tab to
+           the left of the remark column.
+
+
+   MACROs - Because it is possible to write macros in BLISS that
+   are  not  expressions  or  lists of expressions, PRETTY conservatively
+   makes no attempt to format macro bodies, and treats macro  invocations
+   in the same way as routine calls.  Thus, the macro body appears in the
+   output file the same way it appeared in the input file, and  therefore
+   may be  formatted  quite  differently  from  surrounding  text  in the
+   output file.
+
+   Experience has shown, however, that the great majority of macro bodies
+   can  be  successfully  formatted  by PRETTY.  Because of this, you may
+   want to change the default to:
+
+        !<BLF/MACRO>
+
+   for your programs  by  preceding  each  source  file  with  the  above
+   command.   Macro  formatting  can  be  turned off before any offending
+   macro declaration, and turned on after it, should there be any.
+
+   The SYNONYM facility allows users a limited way of telling  PRETTY  to
+   interpret certain macro invocations as other than routine calls, as in
+   the ELIF macro given above.
+
+
+
+   PLITs - PLITs are used to construct  initialized  tables  in
+   BLISS, and in practice, the programmer-specified formatting of a table
+   gives a good indication to the reader of the structure and meaning  of
+   the  table.   Rather  than  try to guess the structure of a PLIT, PLIT
+   formatting is turned off by default.
+
+   The initial-attribute of a declaration is handled exactly as a PLIT.
+

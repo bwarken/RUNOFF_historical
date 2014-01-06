@@ -1,0 +1,127 @@
+                    D2D - A Disk to Disk Utility
+
+                   Coordinated Science Laboratory
+                       University of Illinois
+                         Urbana, Ill. 61801
+
+
+With D2D it is possible to transfer files from one disk structure to
+another.  One advantage of D2D over other programs is that the
+destination structure need not have UFD's defined. It is possible to
+copy an entire structure without actually naming the PPN's to be
+transferred.  All SFD's are properly copied.  When D2D is used in
+conjunction with DCRPE and TWICE, all of the functions of formatting,
+refreshing, and copying disks can be done in a timesharing mode.
+
+Using D2D is equivalent to doing a FAILSAFE save to magnetic tape, a
+refresh, and a restore using FAILSAFE, however it is faster and more
+reliable.  Copying is done to recover "lost" blocks and to optimize
+disk file placement.  "Lost" blocks are blocks which the monitor
+thinks are in use but are not actually in any file. File placement is
+improved because new files are written contiguously on disk. D2D will
+copy files from one disk structure to another without regard for
+whether the structures are different sizes.  Thus, no special
+considerations are necessary when both structures are single RPO4's
+or single RPO3's.  Furthermore, a 2 RPO3 structure can be copied to a
+single RPO4 or vice versa.  Although it has not been tried, D2D
+should be able to copy a 3 RPO4 structure to a 6 RPO3 structure, for
+example.  The combinations are many. Copying one rather full RP03
+structure to another takes about 40 minutes.
+
+However, consider that the system disk (DSKB) consists of a RPO4 and
+it is desired to maintain a backup RPO3 DSKB consisting of only the
+most essential files.  D2D can optionally copy only the PPN's
+specified during its execution permitting the user (System
+Administrator) to extract the PPNs of his choice.
+
+                              Operation
+
+The destination structure may be mounted single access to prevent
+unwanted UFD's from appearing. The source structure can be mounted
+single access if it is important that no editing be permitted (which
+might not be copied to the destination structure). It is not
+necessary to mount either source or destination /SINGLE access.
+
+	.Mount DSKJ (/SINGLE)
+
+	.Mount DSKC (/SINGLE)
+
+Assuming that a structure called DSKJ exists and is physically
+mounted, the copying can begin.  OMOUNT may complain that the pack id
+is incorrect; if so, the operator should tell it to proceed anyway.
+
+	.R D2D
+
+	Input Disk: DSKC
+
+	Output Disk: DSKJ
+
+	PPN to Transfer:
+
+<CR> means entire disk structure.  If PPN's are specified, they must
+be in square brackets, entered one per line. In this mode a lone <CR>
+will terminate the copying. If the whole pack is being copied, D2D
+will now copy all files (including UFD's and SFD's) from DSKC to
+DSKJ.  This takes about 40 minutes on an RP03. D2D will print out the
+name of every UFD after it has transferred files in that UFD, as a
+check on its progress.  If you want to see how much further D2D has
+to go, you can do a "DIRECT DSKC:[1,1]/L" under another [1,2] job
+which will print out all UFD's that must be copied.
+
+D2D will print an error message if it cannot copy a file.  Usually
+this means the file was bad, and nothing valuable has been lost.
+However, if this happens you should notify the user, and if he wants,
+restore the file from a FAILSAFE tape.  You may also get a message
+"?Cannot enter UFD for [xx,xx] code (2)" or similiar; this means D2D
+tried to create a non-system UFD which for some reason already
+existed.  If no other errors occur, this one can be ignored. All
+files will be copied, possibly overwriting existing files for PPN's
+which have UFD's on the destination device. Any other error messages,
+particularly D2D bombing out, should be reported to a systems
+programmer.
+
+	Do you want to change file structure name?
+
+This is useful if the new pack(s) is(are) to be used as a structure
+which is currently on the system.  D2D will rename any structure
+currently spinning, thus be sure of what you are doing when
+responding "yes" to this question. If the answer is "no", D2D will
+exit.
+
+	(If "yes")
+	Do you want D2D to remove <STRNAM>?  (<STRNAM> will be the
+structure being renamed.  The usual response would be "yes". A "no"
+would merely suggest using OMOUNT.  Finally, the new structure name
+is requested, the renaming occurs, and D2D exits.)
+
+                                Hints
+
+Note that the new structure probably has no copy of BOOTS, so it may
+be good practice to run WTBOOT after D2D.
+
+It is useful to have several spare structure names defined in
+STRLST.SYS for use when copying or renaming.  Since OMOUNT checks to
+see if the right type of drives are available, structures should only
+be named to agree with those defined in STRLST.
+
+If the destination and source disks contain no swapping space, it is
+possible to dismount the old and mount the new. Otherwise, the new
+structure cannot be used without crashing the monitor.
+
+In case the new copy of the file structure seems to be unusable, you
+can go back to the old copy. If only one file seems to be unusable on
+the new structure, you can mount the old copy of the file structure
+under a different name (DSKJ is convenient) while still keeping the
+new copy on the system. OMOUNT will complain bitterly when you do
+this, but keep telling it to proceed and eventually it will do the
+mount.  Then copy the bad file from DSKJ to the new file structure:
+
+.COPY DSKC:FILE.EXT[P,PN,SFDS]=DSKJ:FILE.EXT[P,PN,SFDS]
+
+For further information,
+Contact: Tom Burtnett
+Programmers: Steve Fortune
+	     Peter Dewolf
+
+DECUS # 10-256
+

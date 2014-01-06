@@ -1,0 +1,424 @@
+
+
+
+
+                    Z     A     P     !
+
+
+                 ZOFTIG ALTERATION PROGRAM
+
+
+
+                        USER'S GUIDE
+
+
+
+
+
+
+
+
+
+
+                                 DANIEL KOHANSKI
+                               CCIS Systems Group
+                               RUTGERS UNIVERSITY
+                               NEW BRUNSWICK, N.J.
+
+                                  JANUARY 1975
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                  Page 2
+    USER'S GUIDE
+
+
+                I. Basic Properties of ZAP!
+
+
+The purpose of ZAP!  is to  permit  minor  modifications  of
+disk files on the PDP-10.  It is not intended as an addition
+to or replacement for any of the  various  text  editors  or
+DDT.   It  was  originally  conceived  of  as  an  emergency
+surgical tool to be used on  large  binary  data  sets,  and
+subsequent developments have kept this idea in mind.
+
+     As such, ZAP!  will not expand or  contract  the  file;
+it  will  only  replace  one string with another of the same
+size.  Furthermore, no backup files are  created.   Updating
+in  place  is  used,  which is faster, but does require some
+user responsibility.  While certain defensive  measures  are
+taken  (the  RIB,  for  example,  cannot  be  ZAPped), it is
+assumed that the user knows what he is doing.  That  is,  he
+should  know exactly what his data looks like in binary form
+and what effects will result from his changing it.
+
+     ZAP!  operates on one file at a time,  and  within  the
+file,  on  one  block  (128  decimal  words) at a time.  Any
+number of operations may be performed on the same block, and
+any block may be selected at random.
+
+     (For the uninitiated, ZOFTIG is Yiddish for "strong".)
+
+
+
+                         DISCLAIMER
+
+     While ZAP!  has been extensively tested and performs as
+     described  herein, no guarantee is expressed or implied
+     by the author or Rutgers University,  which  assume  no
+     responsibility  or  liability  for  any actions of this
+     program.
+
+     Users discovering bugs are requested to report them  to
+     the author.
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                  Page 3
+    USER'S GUIDE
+
+
+                     II. File Commands
+
+
+
+        (In the command prototypes,  parameters  in  <>  are
+optional;   names  in  lower  case are to be replaced by the
+appropriate  value.   All  commands  are  one  letter.   All
+numbers are octal.)
+
+     Ffile.ext<[p,pn]>
+
+     Open file "file.ext" to be worked on.  This fails if  a
+file  is  already  open,  or if no file exists by that name.
+(The user will receive the appropriate error message in each
+case.)  If  the  user  has  read but not write access to the
+file, the file will be opened in PROTECTED mode  (see  below
+section VII).
+
+     An alternative command is:
+
+     Afile.ext<[p,pn]>
+
+     Close the current file, if one is open,  and  open  the
+new  one.   Read  in  the first block, set the mode to octal
+(see  below  section  III),   and   display   all   relevant
+information (see the I command section VII).  This will fail
+if a zapped block is still in core.  (A "zapped" block is  a
+block in which at least one word has been changed - zapped -
+but the block has not yet been written back onto the disk.)
+
+     At the start of a ZAP!  session,  one  may  peform  the
+equivalent of the A command by typing:
+
+     R ZAP-file.ext<[p,pn]>
+
+
+     After the file is opened, the  desired  block  must  be
+specified:
+
+     Rn or R+<n> or R-<n>
+
+     where "n" is the block number, in octal, or the  number
+of  blocks  to  move  forward  (+)  or backward (-) from the
+current one.  The size of the file in  blocks  is  given  as
+part  of the I command.  If a zapped block is still in core,
+the user is given the  option  of  rereading  the  block  by
+typing "R",thereby wiping out all zaps on that block.
+
+     After a block has been zapped  (altered),  it  must  be
+written back onto the disk by the command:
+
+     W
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                  Page 4
+    USER'S GUIDE
+
+
+     This ensures that the user determines that the block is
+in the desired condition.  If no changes have been made, the
+block will not be written.   After  this  command  has  been
+executed,  the  block  is no longer considered "zapped", and
+the R, C, E and A commands have their usual effect.
+
+     After all work is done, the file must be closed:
+
+     C or E or ^C^C (ctrl-C)
+
+     Any of these will close the file;  E and ^C^C will exit
+after  closing.  (There is one special case where ^C^C has a
+different effect;  see below, section  VI.)  These  commands
+will  not  work if a zapped block is still in core.  In this
+case, the user will be allowed to  close  the  file  without
+writing  this block (command "C") or reread the block ("R").
+Use of any other command at  this  point  will  cancel  this
+special use of the C and R commands.
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                  Page 5
+    USER'S GUIDE
+
+
+                      III. Data Modes
+
+
+
+     The data mode (also  referred  to  as  the  display/zap
+mode)  governs most of the remaining commands.  It specifies
+the way the block is displayed, what kind of string to  look
+for, and what to zap it with.
+
+     The mode is set by the command:
+
+     Mk
+
+     where k is:
+
+
+ O -   octal
+ S -    sixbit
+ K -    ascii character
+ A -   ascii (7-bit)
+ I -   instruction
+
+     The original mode when a file is opened is octal.   The
+current  mode  remains  in  effect  until the next M, F or A
+command.  R and W do not change the mode.
+
+     The  following  mode  definitions  are  given  for  the
+display  command.   With  slight  variations, they are to be
+followed when inputting values.  Differences between  output
+and input forms will be noted as appropriate.
+
+
+OCTAL - Each word is displayed as  two  half  words  of  six
+       digits each.
+
+SIXBIT - Each word is displayed as six characters in  sixbit
+       mode.
+
+ASCII CHARACTER - Each word is displayed as 5 characters  in
+       7-bit  ascii.   Control characters are printed as "\"
+       (backslash).  The low order bit (bit 35)  is  ignored
+       and is not accessible.
+
+ASCII (7-bit) - Each word is displayed  as  5  groups  of  3
+       digits each, where the first digit is 0 or 1, and the
+       remaining digits are 0-7.  The low order bit (bit 35)
+       is  displayed  as  0 or 1.  The character equivalents
+       are also shown.
+
+INSTRUCTION - Each word is displayed as an instruction, with
+       the  op, a/f, y, x and indirect fields arranged as in
+       MACRO-10.  The CALLI mnemonics are  included  through
+       SUSET.  (CALLI 146).
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                  Page 6
+    USER'S GUIDE
+
+
+                  IV. DISPLAY/ZAP Commands
+
+     Once a block is in core,  any  portion  of  it  can  be
+displayed  in current mode:  (all references are relative to
+the start of the block)
+
+     D<loc<,n>>
+
+     If "loc" but not ",n" is given, only location "loc"  is
+displayed.   If  ",n"  but  not  "loc" is given, the first n
+locations are shown.   If  "loc,n"  is  given,  n  locations
+starting  at  "loc"  are  displayed.   Saying just "D" means
+display the entire block.  All values are in octal.
+
+     To change a single word in a block, the command is:
+
+     Zloc
+
+     Only one location at a time can be zapped.  The word to
+be  zapped  is  first  displayed, then the user types in his
+changes.   When  he  is  done,  the  entire  word  is  again
+displayed, and the block is flagged as being zapped.  The R,
+C, E and A commands will not have their usual effect.
+
+
+
+
+               IVa. ZAP! Editing Conventions
+
+
+Only those characters which are legal in  the  current  mode
+may  be typed in;  illegal characters are echoed as "?", and
+the cursor is not moved.  Where a word consists of more than
+one  group (ascii, octal), the group separation character is
+provided by the program.
+
+     When entering a  new  value,  certain  characters  have
+special meanings:
+
+ctrl-L - forward space;  that is, retain the original  value
+         of the current character.
+ctrl-H - backspace  one  character.   Backspacing  past  the
+         start of the word is equivalent to rubout.
+rubout - retain the original value.  Do not flag  the  block
+         zapped, unless it has been zapped already.
+escape - finish out the word with the old value.  Equivalent
+         to a series of ctrl-L's.
+
+
+    Notes:
+          1.  In ascii character mode, any control character
+              can   be   typed   by   preceding  it  with  !
+              (exclamation mark).   The  next  character  is
+              made  into  a  contol  character (thus, for ^C
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                  Page 7
+    USER'S GUIDE
+
+
+              (003), type !C.  Rubout (177)  is  entered  by
+              !rubout.)   The  exclamation  mark  itself  is
+              entered as "!!".
+          2.  In ascii mode, the first  bit  of  each  group
+              (byte) must be 0 or 1, as must be bit 35.
+          3.  In instruction mode, type a space after the op
+              code  or  its  mnemonic if it is less than six
+              characters;   the  program  will  supply   the
+              remaining  spaces.   Backspacing  is permitted
+              only to the start of the current field.  It is
+              not  necessary  to indicate those fields which
+              are not included.
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                  Page 8
+    USER'S GUIDE
+
+
+                 V. Search Command - Basics
+
+
+This is the most powerful command in the  ZAP!   repertoire.
+It  will  search an entire file looking for a single pattern
+and replace it automatically.  Because  of  its  complexity,
+its explanation has been broken into two sections.
+
+     The basic search command is:
+
+     S
+
+     The search routine will type out the current  mode  and
+ask  the user for the string (value) to be looked for.  This
+string may be up to one word  (36  bits)  in  size,  and  is
+entered according to the ZAP!  editing conventions.
+
+    Notes:
+          1.   When  entering  the  search   value,   ctrl-L
+              (forward space) is not recognized.
+          2.  In instruction mode, "X" for the op code means
+              ignore  the  op code part.  Other fields which
+              are omitted entirely will not be  included  in
+              the search.
+          3.  Zero is a search value identical  in  behavior
+              to any other digit.
+          4.  Escape (altmode) defines the end of the search
+              string,  if  it  is  less  than a full word in
+              length.
+          5.  The search is confined to the  current  block;
+              each  new  search  returns to the start of the
+              block.
+
+     When the string is  found,  the  user  is  offered  the
+opportunity  of  zapping  it.  The cursor or type element is
+placed under the first  character  of  the  matching  string
+(backspacing  is  allowed).   If the string is split between
+two  words,  the  user  is  guided  in  zapping  each   part
+separately.  (Instruction mode is always a single word.)
+
+     The ZAP!  editing conventions apply when typing in  the
+new  value.  If RUBOUT is typed, the word is unchanged;  the
+second part (if any) will not be shown.
+
+
+
+     Additional Search Commands
+
+
+SC  - continue search.  The search continues from  the  last
+      successful  match  (possibly even in the middle of the
+      word).  A search cannot be continued past the  end  of
+      the block.
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                  Page 9
+    USER'S GUIDE
+
+
+SM  - same as S, only for the  entire  file,  not  just  the
+      current  block.   Unlike S, which returns to the start
+      of the block, SM begins at the start  of  the  current
+      block and continues from there to the end of the file;
+      it does not go back to the start of the file.
+
+SCM - continue multiple block search.  Same as SC, only  for
+      SCM.   Use  of the R command (in any direction) before
+      SCM is permissible.
+    Note:
+              If  the  block  has  been  zapped,  SCM   will
+              automatically  write  it  out in the course of
+              the search.  This feature is a variation  from
+              the  philosophy  embodied in the W command and
+              should be carefully noted.
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                 Page 10
+    USER'S GUIDE
+
+
+               VI. Search Command - Continued
+
+
+By the use of switches following the  S  (SM)  command,  the
+user  can  avail himself of additional facilities.  Switches
+may be specified in any order and in any combination.
+
+S/F - initiate fullword search.  The  right-jusified  search
+      string must match the entire word for the search to be
+      successful.
+    Note:
+              In ascii (7-bit) mode, if bit 35  is  included
+              in   the  search  string,  this  automatically
+              requests a fullword  search.   In  instruction
+              mode,  S/F  requires  an  exact  match  of the
+              instruction as typed in.  In all other  modes,
+              looking  for 36 (35) bits is not equivalent to
+              S/F.
+S/R - search and  replace  automatically.   The  replacement
+      value  is typed in after the search value (the routine
+      will ask for each in turn).   Except  for  a  fullword
+      search, the search and replacement strings must be the
+      same length.  ZAP!  editing conventions  (with  search
+      exceptions) apply.
+S/C - automatically continue search after the value has been
+      zapped  or  replaced.   During  the  search, typing ^C
+      (ctrl-C) will halt the search  eventually  (especially
+      in the case of S/R/C).  Use this switch with caution.
+S/W - requires that the matching string  be  found  entirely
+      within  one  word,  not  spread across two words as is
+      normally allowed.  If a fullword search is  requested,
+      this switch is ignored.
+ZAP! - THE ZOFTIG ALTERATION PROGRAM                 Page 11
+    USER'S GUIDE
+
+
+                VII. Miscellaneous Commands
+
+
+Pn - Set Write Protection
+
+     If n = 0, all commands operate normally  (the  file  is
+unprotected).   If  n = 1, the file will be write protected.
+Z will not work, and the various  S  commands  will  display
+only  (in particular, S/R will cause an error).  If the file
+is write-protected by the system, P0 has no effect.
+
+     I - Information
+
+     Print the name  and  size  of  the  current  file,  the
+current  block  and  mode, the protection and zapped status,
+and the search conditions.
+
+     Tk - Set Terminal Status
+
+     ZAP!  was written on  and  for  a  CRT  type  terminal.
+Hardcopy  users  will  find editing easier by defining their
+terminal as hardcopy - "TH".  Line-feeds  will  be  inserted
+after  backspaces  for  greater legibility.  "TC" returns to
+CRT type.
+
+     H - Type the "HELP" message.
+
+     Hk - type the help message for command "k".

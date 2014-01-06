@@ -1,0 +1,330 @@
+1.0  INTRODUCTION
+
+     KLEPTO is a damage assesment program for  TOPS10  file  structures.
+The  inspection  includes  tests  for  numerous types of errors, but the
+emphasis is on SAT block errors.  KLEPTO will automatically correct  all
+errors in the SAT blocks.
+
+     KLEPTO is designed to be a replacement for DSKRAT and  RIPOFF.   It
+is significantly faster than its predessors.
+
+
+
+2.0  HOW TO RUN KLEPTO
+
+Type:
+
+.AS dskx STR
+.AS dsky LPT
+.R KLEPTO
+
+Where "dskx" is the name of the file  structure  to  be  processed,  and
+"dsky"  is the name of the structure to place the log file on.  The name
+of the log file will be dskx.LOG.  Note that if logical  name  "LPT"  is
+not  assigned,  then  the log file will go to TTY:.  Note that a spooled
+LPT is not legal (or any other spooled device).
+
+
+
+3.0  TYPES OF CORRUPTION
+
+     When KLEPTO discovers a discrepancy  in  the  SAT  block,  it  will
+categorize  it  into  one of three types:  lost clusters, free clusters,
+and multiply used clusters.
+
+
+
+3.1  Lost Clusters
+
+     A lost cluster is where the SAT block says that the cluster  is  in
+use,  but there is no file anywhere on the structure which has a pointer
+to this cluster (i.e.  the SAT bit is one but should be zero).
+
+     Of the three types, a lost cluster is  by  far  the  least  severe.
+Under  normal  day  to  day  operations it is expected that all the file
+structures on your system will slowly accumulate lost clusters.  This is
+to  be considered perfectly normal.  You should not be alarmed even if a
+structure has a large number of lost clusters.
+
+     Consider the following scenario:  The file X.DAT is 5000 blocks.  A
+user  attempts  to copy X.DAT to Y.DAT.  The first 3000 blocks have been
+copied when the system accidentally crashes.  At the time of the  crash,
+the  file  Y.DAT had not yet been closed.  Thus there is no entry in the
+UFD.  The 3000 blocks which had already been  allocated  to  Y.DAT  will
+become lost.
+
+     This scenario is typical of how lost clusters  are  created.   They
+are created when the system crashes during the creation of a file.  Each
+crash will probably create at least one lost cluster.  Some crashes will
+create more.
+
+
+
+3.2  Free Clusters
+
+     A free cluster is the exact opposite of a  lost  cluster.   A  free
+cluster  is where the SAT block says that the cluster is not in use, but
+there is, in fact, a file which uses the cluster (i.e.  the SAT  bit  is
+zero but should be one).
+
+     The existence of a free cluster is not be taken  lightly.   A  free
+cluster  is a rather severe error.  The file which contains this cluster
+is quite likely to be corrupt.  Although  KLEPTO  will  repair  the  SAT
+block,  it  cannot  repair  the file itself.  To insure the integrity of
+your data, we suggest that you restore the  file  from  a  BACKUP  tape.
+KLEPTO will tell you which file(s) contain free clusters.
+
+
+
+3.3  Multiply Used Clusters
+
+     As the name implies, a "multiply  used  cluster"  is  one  that  is
+pointed to by several files.  This is to be considered a serious error.
+
+     Note that a given cluster can easily switch from the state of being
+free  to  the  state  of  being  multiply  used (and vis a vis).  If the
+monitor allocates a free cluster to some file, then the cluster  becomes
+multiply  used.   If  one  of the two files is then deleted, the cluster
+becomes free again.
+
+     During the interval that the cluster is multiply used,  it's  quite
+easy for one or both of the files to have its data corrupted.  Data from
+the first file can overwrite data from the second file.  Likewise,  data
+from the second file can overwrite data from the first file.  It's quite
+possible that a given cluster contains  a  mixture  of  data  from  both
+files.
+
+     To be on the safe side, you  should  assume  that  both  files  are
+corrupt.   Both  files  should  be  restored  from BACKUP tapes.  Before
+restoring the files, however, you must  delete  the  corrupted  versions
+using  the /S switch to DELFIL.  Failure to do this will result in a BAZ
+stopcode.
+
+
+
+4.0  CHECKSUMMING
+
+     There is a checksum associated which each retrieval pointer in each
+file  on  the  structure.  The purpose of this checksum is to detect the
+condition outlined above (when data from one file  overwrites  the  data
+from  another  file).  KLEPTO will test each of these checksums and type
+out a warning message if there are any discrepancies.
+
+     Be aware, however, that the checksum only includes the  first  word
+of  the  first block of the first cluster in a retrieval pointer.  It is
+therefore quite possible for the file to be corrupt even if there is  no
+checksum error.  For safety sake, you should assume that any file with a
+free or multiply used cluster is corrupt.
+
+
+
+5.0  BAD BLOCKS
+
+     When reading or writing  a  file,  if  the  monitor  encounters  an
+unrecoverable  disk  error,  it  will  store the block number in the DDB
+(location DEVELB).  Later, when the file is closed, DEVELB is copied  to
+the  RIB (location RIBELB), and also to the BAT block.  Much later, when
+the file is deleted, the monitor is careful to inspect  location  RIBELB
+and  not  return  that cluster to the free pool.  Thus the bad spot will
+not be reallocated to another file.
+
+     Note that at this point in time the cluster is technically  "lost".
+KLEPTO will not, however, include this cluster in its lost list.  KLEPTO
+will not include any cluster which is listed in the BAT block.
+
+     Note that the cluster will continue to be "technically lost"  until
+the  next  time  the  structure  is refreshed.  The cluster will then be
+inserted into BADBLK.SYS.
+
+
+
+5.1  Bad Free Blocks
+
+     If KLEPTO encounters a cluster which is listed in BAT but for which
+the  SAT bit is zero (i.e.  the cluster is not contained in BADBLK.SYS),
+then KLEPTO will list the cluster as being "free".   If  these  are  the
+only  free  blocks,  KLEPTO  will print the message "All free blocks are
+bad".  Pass two will be omitted.
+
+     The existence of a bad free block is not a serious error.   Do  not
+be  alarmed.  It means simply that RIBELB overflowed.  There's only room
+in the RIB to list one bad spot.  If a file has two bad spots, then  one
+will have to be dropped.  Both are listed in the BAT block, but only one
+is recorded in the RIB.  When the file is deleted, the bad spot which is
+not  recorded  in  RIBELB  will  become a bad free cluster.  KLEPTO will
+light the cooresponding SAT bit, which is what the  monitor  would  have
+done if there had been more room in the RIB.
+
+
+
+6.0  WHEN TO RUN KLEPTO
+
+     The primary reason for running KLEPTO is to  recover  lost  blocks.
+The  number  of  lost  blocks  you  can  expect  to  recover  is roughly
+proportionate to the  number  of  crashes  you've  experienced.   During
+periods of frequent crashes you should run KLEPTO often.  During periods
+of high stability it will not be necessary to run KLEPTO at all.
+
+     There is no precise method for anticipating what the number of lost
+blocks    will    be.    Contrary   to   common   belief,   DSKLST   and
+DIRECT/ALLOCATE/SUM are not good indicators of actual file usage.   They
+do  not include the files which are currently open.  Moreover, they take
+substantially longer to run than KLEPTO itself.
+
+
+
+7.0  DISMOUNT
+
+     To prevent anybody from altering any file, KLEPTO will dismount the
+structure during processing (single access is not good enough).  All I/O
+will be performed as super I/O.
+
+     When processing is complete, KLEPTO will automatically re-mount the
+structure.   If  the  structure was initially in the system search list,
+then KLEPTO will re-insert it.  If need be, KLEPTO will  also  re-insert
+the  structure  into  the active swapping list and the system dump list.
+KLEPTO will make no attempt, however, to restore  anybody's  job  search
+list.
+
+
+
+8.0  ALGORITHM
+
+     In an internal data base, KLEPTO maintains a linked list of  nodes.
+There's one node for each block on the disk that KLEPTO intends to read.
+The list is sorted in ascending order by block number.  There are  three
+types of nodes:  RIB's, directory data blocks, and checksum blocks.
+
+     To prevent head trashing, KLEPTO processes the  list  in  order  by
+cylinder.   I.E.   KLEPTO will process all the nodes on a given cylinder
+before moving the heads to a new cylinder.  Within a given cylinder, the
+nodes  are  not necessarily processed in order.  The rotational position
+of the disk will determine which block can be pulled into  core  in  the
+least amount of time.
+
+     Not all transfers are one block long.   If  KLEPTO  needs  to  read
+several  consecutive  blocks,  it will do so in a single transfer.  E.G.
+The entire data portion of a UFD is usually read in a  single  transfer.
+The  RIB  of a file and the checksum block are normally read in a single
+transfer.
+
+     All transfers are performed in non-blocking mode.  KLEPTO does  the
+processing  for  one block while the transfer is in progress for another
+block.
+
+     Upon reading a checksum block, KLEPTO merely  computes  the  folded
+checksum  and  compares this with the anticipated value.  Upon reading a
+directory block, KLEPTO inserts a new node in the list for each entry in
+the  directory.   Upon  reading a RIB, the action taken by KLEPTO varies
+greatly depending on whether or not the file  is  a  directory.   For  a
+non-directory  RIB,  KLEPTO  inserts  a  new  node  in the list for each
+retrieval pointer (i.e.  each checksum block).   For  a  directory  RIB,
+KLEPTO  inserts  a  new  node  in  the  list  for each data block in the
+directory.
+
+     The algorithms used by KLEPTO are rather  core  intensive.   For  a
+complex  structure,  KLEPTO  will need to store a large number of nodes.
+But there are few structures that will require more than 200P.  Under no
+cirumstance,  however,  will KLEPTO allow itself to go virtual.  If core
+gets tight, KLEPTO will alter its scheduling algorithm  to  insure  that
+some core is returned.
+
+
+
+9.0  PASS TWO
+
+     If the structure has any free clusters or multiply  used  clusters,
+then  KLEPTO  will perform a second a pass.  The purpose of this pass is
+soley to print diagnostic messages.  KLEPTO will  list  each  file  that
+references  the  cluster.  KLEPTO cannot do this on the first pass as it
+does not yet know which clusters are multiply used and/or free.
+
+     Note that checksums are not computed on pass two.
+
+
+
+10.0  ALL STRUCTURES
+
+     To process all the structures on the system, type:
+
+.AS ALL STR
+.AS dsky LPT
+.R KLEPTO
+
+Where dsky is the name of the structure  to  place  the  log  files  on.
+KLEPTO  will  create a seperate log file for each structure it processes
+(e.g.  the log file for structure DSKX will be DSKY:DSKX.LST).
+
+     Note that KLEPTO cannot place DSKY.LST directly on DSKY:   as  DSKY
+is not mounted at the time.  KLEPTO will create a TMP file on some other
+structure.  When the processing of DSKY is completed, KLEPTO  will  copy
+the log file to its proper place.
+
+
+
+11.0  MULTIPLE KLEPTOS
+
+     When processing all the structures on the system, it often helps if
+you run multiple copies KLEPTO.  If you run two copies, for example, the
+job will get done in roughly half the time.  Don't run too many  copies,
+however,  as this can do more harm than good.  The optimum number varies
+from system to system.  We suggest that you try a  few  experiments  and
+see  what works best on your own configuration.  As a starting point, we
+suggest you try CPUN+1 (one plus the number of CPU's).
+
+     Note that the various copies of KLEPTO communicate with each  other
+via  a  shared  HISEG.   By  mutual  consent, they agree which copy will
+process which structure and in what order.  The scheduling algorithm  is
+very  complex  and  considers  many  factors.   The  prime  goal  is, if
+possible, to give each copy of KLEPTO a dedicated disk channel.
+
+
+
+12.0  CPU SPECIFICATION
+
+     Do not use the "SET CPU" command  when  running  KLEPTO.   Although
+there  are a few cases where the command would help, they are not at all
+obvious.  In fact, they are extremely counter intuitive.
+
+     KLEPTO knows exactly what these cases are  and  will  set  the  CPU
+specification if necessary.  Don't interfere by using the SET command.
+
+
+
+13.0  HPQ
+
+     Don't use the "SET HPQ" command when running KLEPTO.  KLEPTO  won't
+run  substantially  faster as a result.  Moreover, the "SET HPQ" command
+will have an adverse affect on the other jobs that might be running.
+
+
+
+14.0  OCTAL VERSUS DECIMAL
+
+     Some of the numbers KLEPTO types are octal and  some  are  decimal.
+The  rule  is  as  follows:  Counters are always decimal, and everything
+else is octal.  Thus block numbers  and  cluster  addresses  are  always
+octal.  But the count of lost clusters, for example, is decimal.
+
+
+
+15.0  7.01A VERSUS 7.02
+
+     KLEPTO was designed to run under version 7.02 of the  monitor.   It
+will,  however,  run  under  7.01A but it will do so at slightly reduced
+speed.
+
+
+
+16.0  KNOWN BUGS AND DEFICIENCIES.
+
+     There are no known bugs in KLEPTO itself.   KLEPTO  does,  however,
+exercize a bug in version 4(1150) of QUASAR.
+
+     When KLEPTO dismounts a file structure,  QUASAR  correctly  notices
+this  fact.   When  KLEPTO  re-mounts  the structure, however, QUASAR is
+oblivious.  The result is that GALAXY refuses  to  touch  any  structure
+that  has  been  processed by KLEPTO.  GALAXY insists that the structure
+does not exist.  PCO  10-702-62  will  correct  this  problem.   It  is,
+however,  a difficult PCO to install.  As a workaround, you can dismount
+the structure with OMOUNT and issue a recognize command to OPR.

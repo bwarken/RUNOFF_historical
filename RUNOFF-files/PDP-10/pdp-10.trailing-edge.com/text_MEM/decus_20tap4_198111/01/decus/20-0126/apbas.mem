@@ -1,0 +1,719 @@
+Programming Note 13                                        Page 1
+
+
+              BASIC FORTRAN PLOTTING SUBROUTINES
+              ----------------------------------
+
+
+                        Trevor Williamson
+                         Computer Centre
+                            25-Sep-75
+
+
+
+1.0  GENERAL
+
+     The subroutines described below manipulate a "pen" which can
+be  moved  about,  raised or lowered, to create a line drawing on
+paper.  Pen movements are made in a straight line from one  point
+to  another,  relative to an origin which can be defined.  Curves
+are made up by drawing a number of small straight line  segments.
+Subpictures   can  be  created  by  writing  a  subroutine  which
+redefines the origin to a given point, draws the subpicture,  and
+restores the original origin.  There are subroutines to aid graph
+drawing, which will scale an array of data to fit a  given  graph
+size,  draw  axes,  and  draw the points.  Other subroutines will
+draw text messages and magnify a part of the  plot  and  set  and
+return some parameters like the current pen position.
+
+     These functions are  primitive  operations  from  which  the
+programmer  can  build  his own more complicated drawings.  Other
+FORTRAN callable plotting routines are ATOPLT, which is a  simple
+method  of drawing graphs described in PD25, and others which may
+be found in the Application Software Catalogue.
+
+
+
+1.1  Plotting Hardware At La Trobe
+
+     The plotter is a Gould  electrostatic  printer/plotter.   It
+does  not have a physical pen like an incremental plotter but can
+operate at  high  speed  producing  medium  quality  drawings  on
+electrostatic  paper.  The plotting software makes the Gould look
+like an incremental plotter but allows the user to  make  use  of
+some  special features on the Gould, such as the ability to erase
+lines already drawn and to draw lines of different densities.  
+
+     The plotter paper is 250mm wide and the maximum plot  length
+is  about  3m.  The plotting software will allow the user to draw
+plots up to 3m wide by breaking the plot into a number of  strips
+250mm  wide,  which  can  be  joined by the user to give the full
+sized plot.  Users who wish to use this  feature  should  consult
+the  Computer  Centre  staff  first  as it is a marvellous way to
+waste expensive paper.
+
+     The computer centre is  writing  routines  to  enable  these
+basic  FORTRAN  subroutines  to  be  used with the Tektronix 4012
+terminal.  This is the subject of a separate note.
+Programming Note 13                                        Page 2
+
+
+1.2  Plot Spooling
+
+     Subroutines do not  draw  directly  onto  the  plotter,  but
+create disk files which must be queued to the plotter.  The files
+produced by the  plotter  subroutines  have  a  random  name  and
+extension .PLT.  At logout the KJOB command queues all .PLT files
+to the plotter, but the user may queue the files beforehand using
+the PLOT command (see User's Handbook), e.g.
+
+
+                        .PLOT   *.PLT
+                        -
+
+
+
+1.3  Units
+
+     All plotting is done in millimeters.  This means that if you
+request,  by a call to some subroutine, a line or pen movement of
+say W units, the actual distance on the paper covered by the line
+or  pen  movement  will be W mm.  This holds true unless the user
+specifies a scaling factor (or magnification factor) by a call to
+the subroutine FACTOR.  If a scaling factor of say Z is specified
+for the X direction on the paper then a call  for  a  move  of  W
+units in the X direction will result in a move of W*Z mm in the X
+direction on the paper.  These scaling factors,  once  set,  hold
+for  all  lines  drawn  by  any  plotting  subroutine.  The units
+specified by the user in a call are refered to as USER UNITS,  as
+opposed to the scaled physical units of movement.
+
+
+
+2.0  PLOTTING SUBROUTINE CALLS.
+
+     FORTRAN naming conventions are used throughout this document
+to  indicate  whether  a  variable  is REAL or INTEGER.  Optional
+arguments are indicated by inclusion in '[]' (which are not  part
+of  the  argument  string)  and may be included or omitted at the
+wish of the user.
+
+     The subroutine calls are similar to a set of calls known  as
+CALCOMP  subroutine  calls and widely used as a de facto industry
+standard.  The differences between the La Trobe calls and CALCOMP
+calls are detailed in Appendix D.
+
+
+
+2.1  Initializing A Plot.
+
+     This routine  must  be  called  BEFORE  any  other  plotting
+routine.   It  creates  the  output file and initializes internal
+variables.  Failure to call this routine will result in the fatal
+error message 'PLOT FILE NOT OPEN'.
+
+     The paper sizes specified in this call (PX and PY)  are  the
+expected  true size of the plot, that is the physical size of the
+paper used by the plot.  If this size is exceeded by a plot  then
+the user program will by stopped and the message
+Programming Note 13                                        Page 3
+
+
+        'X COORDINATE OUT OF BOUNDS'  
+or
+        'Y COORDINATE OUT OF BOUNDS'
+
+will be printed.
+
+     This subroutine moves the pen to  (0.0,0.0)  the  paper  and
+sets the scaling factors to 1.0.
+
+
+                CALL PLOTS (PX,PY,IBAK)
+
+        PX      X paper size in millimeters
+        PY      Y paper size in millimeters
+        IBAK    background code
+                IBAK  = -1 is black paper with white lines
+                      =  0 is white paper with black lines
+
+
+
+2.2  Moving The Pen
+
+     This subroutine allows the user to move  the  pen  from  its
+current position to that specified by the arguments.  See 2.5 for
+details of scaling and 2.3 for details of origin moving, both  of
+which  effect  the  result  of  a call to PLOT.  The routine also
+allows for the pen to be raised, lowered or left as it is  before
+the required move is performed.
+
+
+                CALL PLOT (X,Y,IPEN)
+
+        (X,Y)   the coordinate (in user units) of  the  point  to
+                which the pen is to move
+        IPEN    the code to indicate the state to which  the  pen
+                must be set before the movement
+                IPEN = 3 pen up
+                IPEN = 2 pen down
+                IPEN = 1 no change
+                IPEN = 0 erase line
+
+
+
+2.3  Moving The Origin
+
+     All coordinates given are relative to a user defined origin.
+The  origin  is  defined  to  be  (0.0,0.0), the left hand bottom
+corner of the paper.  It can be moved  by  calling  PLOT  with  a
+negative value for IPEN.  The pen is placed on the new origin.
+
+
+                CALL PLOT (X,Y,IPEN)
+
+        (X,Y)   the new origin relative to the old origin
+        IPEN    the code to indicate the state of the pen  before
+                the move to (X,Y)
+                IPEN = -3  pen up during move
+                IPEN = -2  pen down during move
+                IPEN = -1  no change to pen before move
+Programming Note 13                                        Page 4
+
+
+2.4  Closing A Plot.
+
+     Before stopping, a user program must close  the  plot  file.
+If  this is not done the output may be lost.  This is achieved by
+a call to PLOT.
+
+
+                CALL PLOT (X,Y,999)
+
+        (X,Y)   ignored
+        999     indicates that  any  open  plot  file  should  be
+                closed
+
+
+
+2.5  Altering The Scaling Factors.
+
+     Sets the scaling (magnification) factors for the plot.   The
+factors  are multiplicative.  For instance if you wish a call for
+a movement of M units to correspond to 0.5M millimetres of  paper
+a scaling factor of 0.5 should be employed:  
+i.e.  (user units) X (scaling factor) = (millimetre moved).
+
+
+                CALL FACTOR (XFACT[,YFACT])
+
+        XFACT   X-scaling factor, and Y scaling factor unless the
+                YFACT argument is given
+        YFACT   Y-scaling factor, if given
+
+
+
+2.6  Plotting Text
+
+     The subroutine SYMBOL allows a program to plot a  string  of
+ASCII  characters.  The string may be located at any point in the
+plot and be drawn at any angle to the X direction.  The height of
+the characters can be specified.  The width of the character plus
+the inter-character space is equal to the  height.   The  pen  is
+positioned  at  the  lower left hand corner of the next character
+position on return from SYMBOL (see appendix C for a table of the
+characters as they are drawn).
+
+
+                CALL SYMBOL (X,Y,HEIGHT,TEXT,ANGLE,NCHAR)
+
+        (X,Y)   position of lower left hand corner of text
+        HEIGHT  height of characters in user units
+        TEXT    text to be plotted, either a literal or an array
+        ANGLE   the angle of the  text  to  the  X  direction  in
+                degrees, anticlockwise rotation.
+        NCHAR   0   a single character, in R1 format, is plotted
+                +N  N is the number of characters, in A5 format,
+                    plotted
+Programming Note 13                                        Page 5
+
+
+2.7  Plotting Special Centering Symbols
+
+     There are a number of symbols available that are not part of
+the  standard  ASCII character set.  These symbols are plotted by
+the subroutine SYMBOL and are centred on the  coordinates  given.
+The  symbol  to  be plotted is represented by an integer value in
+the calling sequence.  Appendix C lists the symbols available and
+their  corresponding  integers.  The pen is left at the centre of
+the symbol after it is drawn.  
+
+                CALL SYMBOL (X,Y,HEIGHT,INTEG,ANGLE,ICODE)
+
+        (X,Y)   centre of the symbol
+        HEIGHT  height of the symbol
+        INTEG   integer corresponding to the desired symbol
+        ANGLE   angle of symbol to X direction in degrees
+        ICODE   -3  pen up for move to (X,Y)
+                -2  pen down for move to (X,Y)
+
+
+
+2.8  Plotting An Axis
+
+     This   subroutine   draws   an   axis   according   to   the
+specifications  in  the  call,  with  ticks  every 10 user units,
+titles and value labels.  The values of the arguments XMIN and DX
+can  best  be  obtained by calling the routine SCALE (see section
+2.11).
+
+                CALL AXIS (X,Y,ASC,NASC,S,THETA,XMIN,DX)
+
+        X       X coordinate of start of axis
+        Y       Y coordinate of start of axis
+        ASC     axis label, either literal or array
+        NASC    number of characters in ASC.  If NASC is positive
+                ticks  are  on  clockwise  side  of  axis  and if
+                negative they are on anticlockwise side
+        S       length of axis in user units
+        THETA   angle of axis to X direction, in degrees
+        XMIN    value of label to be drawn at the first  tick  on
+                the axis
+        DX      the amount by which the label drawn at each  tick
+                is incremented per tick
+
+
+
+2.9  Drawing Lines Through Points
+
+     Draws a continuous set of  straight  line  segments  between
+given points.
+
+                CALL LINE (X,Y,N,K)
+
+        X       array of X data
+        Y       array of Y data
+        N       number of points to be drawn
+        K       the increment to be used to  select  values  from
+                the  X  and  Y  array.   For instance if K=2 only
+                every second point in the X and Y arrays will  be
+                plotted.
+Programming Note 13                                        Page 6
+
+
+2.10  Plotting Numbers
+
+     This routine plots a number in FORTRAN F type format  except
+that  no  limit  is  given  for the total number of digits in the
+number.
+
+                CALL NUMBER (X,Y,SIZE,FNUM,THETA,NDIG)
+
+        X       X coordinate of start of number  (lower  lefthand
+                corner)
+        Y       Y coordinate of start of number  (lower  lefthand
+                corner)
+        SIZE    size of each digit in user units
+        FNUM    number to be plotted
+        THETA   angle of number to X direction in degrees
+        NDIG    number of  digits  to  be  plotted  to  right  of
+                decimal point (if negative, the integer part only
+                is drawn)
+
+
+
+2.11  Scaling Points For Plotting
+
+     The subroutine SCALE is passed an array of data (X) and  the
+length  of  the  axis  on which the data is to be plotted.  SCALE
+selects a suitable minimum value (XMIN) and  increment  per  tick
+(DX) from the array, so that the data may be plotted on the axis.
+The values of XMIN and DX are returned and should be  used  in  a
+call  to  AXIS  so  that the axis drawn fits the data in array X.
+These values are chosen in such a way as  to  eliminate  rounding
+error  from  the  plotted tick values.  The contents of the array
+are scaled to allow them to be plotted against the  axis  with  a
+call  to  LINE.  SCALE normally changes the contents of the array
+X.
+
+
+                CALL SCALE (X,N,S,XMIN,DX)
+
+        X       the data array
+        N       number of elements in X
+        S       axis length
+        XMIN    scaled data minimum for use by AXIS
+        DX      scaled data increment for use by AXIS
+
+
+
+2.12  Locating The Pen
+
+     Returns the current setting of the variables in the  calling
+sequence.
+
+                CALL WHERE (X,Y,XFACT[,YFACT])
+
+        (X,Y)   pen  position  in  user  units  relative  to  the
+                current origin
+        XFACT   current X scaling factor
+        YFACT   current Y scaling factor
+Programming Note 13                                        Page 7
+
+
+2.13  To Change Line Density
+
+     The plotter is capable of plotting lines of various density.
+Every  nth point in the line is plotted to achieve a line density
+of 1/n.  This setting, which is applied to characters and  erases
+also, holds until the next call to LINEWT.
+
+                CALL LINEWT (I)
+
+        I       density indicator
+                0 or 1  standard
+                -n      1/n line density
+
+
+Programming Note 13                                        Page 8
+
+
+3.0  EXAMPLES
+
+3.1  Example Of Use Of PLOTS, PLOT, FACTOR And SYMBOL.
+
+     See APPENDIX A for output.
+
+
+C          INITIALIZE THE PLOT
+C
+        CALL PLOTS(450.0,250.0,0)
+C
+C          REDEFINE THE ORIGIN
+C
+        CALL PLOT(220.,130.,-3)
+C
+C          SET THE SCALING FACTORS
+C          FOR X 1 UNIT = 50. MM
+C          FOR Y 1 UNIT = 50. MM
+C
+        CALL FACTOR(50.,50.)
+C
+C          NOW DRAW A BOX WITH SYMBOLS AT THE
+C          CORNERS.
+C
+        CALL PLOT(-1.,1.,3)
+        CALL PLOT(-1.,-1.,2)
+        CALL PLOT(1.,-1.,2)
+        CALL PLOT(1.,1.,2)
+        CALL PLOT(-1.,1.,2)
+C
+C          NOW TO DRAW THE SYMBOLS 2.0 MM TO THE RIGHT OF
+C          AND ABOVE EACH CORNER.
+C
+        CALL SYMBOL(-.96,1.04,0.06,'A',0.0,1)
+        CALL SYMBOL(-.96,-.96,0.06,'B',0.0,1)
+        CALL SYMBOL(1.04,-.96,0.06,'C',0.0,1)
+        CALL SYMBOL(1.04,1.04,0.06,'D',0.0,1)
+C
+C          CLOSE THE PLOT FILE
+C
+        CALL PLOT(0.,0.,999)
+        STOP
+        END
+Programming Note 13                                        Page 9
+
+
+3.2  Use Of SCALE, AXIS And LINE.
+
+     See APPENDIX B for output.
+
+
+        DIMENSION X(20),Y(20)
+        DATA X /1.,2.,3.,4.,5.,6.,7.,8.,9.,10.,11.,12.,
+        113.,14.,15.,16.,17.,18.,19.,20./
+        DATA Y /.01,.02,.03,.04,.05,.06,.07,.08,.09,.1,
+        1.09,.08,.07,.06,.05,.04,.03,.02,.01,.00/
+C
+C          INITIALIZE THE PLOTTING SOFTWARE
+C
+        CALL PLOTS(250.,250.,0)
+C
+C          SCALE THE X DATA
+C
+        CALL SCALE(X,20,150.,XMIN,DX)
+C
+C          SCALE THE Y DATA
+C
+        CALL SCALE(Y,20,150.,YMIN,DY)
+C
+C          DRAW THE X AXIS
+C
+        CALL AXIS(30.0,30.0,'X AXIS',-6,150.,0.0,XMIN,DX)
+C
+C          DRAW THE Y AXIS
+C
+        CALL AXIS(30.0,30.0,'Y AXIS',6,150.,90.0,YMIN,DY)
+C
+C          SET THE ORIGIN TO WHERE THE AXIS CROSS
+C
+        CALL PLOT(30.,30.,-3)
+C
+C          PLOT THE DATA
+C
+        CALL LINE(X,Y,20,1)
+C
+C          CLOSE THE PLOT FILE
+C
+        CALL PLOT(0.,0.,999)
+        STOP
+        END
+Programming Note 13                                       Page 10
+
+
+                           APPENDIX A
+
+                 Plot Produced by Example 1.
+                 ---------------------------
+Programming Note 13                                       Page 11
+
+
+                           APPENDIX B
+
+                 Plot Produced by Example 2.
+                 ---------------------------
+Programming Note 13                                       Page 12
+
+
+                           APPENDIX C
+
+                             Symbols
+                             -------
+Programming Note 13                                       Page 13
+
+
+                           APPENDIX D
+
+           Converting CALCOMP Calls to La Trobe.
+           -------------------------------------
+
+     This section explains how to modify a program using  CALCOMP
+Plotting  Subroutines  to  work at La Trobe.  Full details of the
+CALCOMP  software  is  available  in  'PROGRAMMING  CALCOMP   PEN
+PLOTTERS'  which  may  be borrowed from the reception desk of the
+computer centre.
+
+     1.  PLOTS
+
+              Calls to this routine  are  plotter  dependent  and
+         must  be replaced.  Simply replace the CALCOMP call with
+         a suitable La Trobe call.
+
+     2.  PLOT
+
+              No changes are needed to calls to PLOT.
+
+     3.  FACTOR
+
+              No changes are needed to calls to FACTOR.
+
+     4.  WHERE
+
+              No changes are needed to calls to WHERE.
+
+     5.  AXIS
+
+              No changes are needed to calls to AXIS.
+
+     6.  NEWPEN
+
+              This subroutine has no exact equivalent on  the  La
+         Trobe system.  Similar effects can sometimes be obtained
+         by varying the line weight (CALL LINEWT) on the La Trobe
+         plotter.  Therefore a user may remove calls to NEWPEN or
+         replace them with suitable calls to LINEWT.
+
+     7.  SYMBOL
+
+              The only differences between  the  CALCOMP  and  La
+         Trobe  SYMBOL  subroutines  occur  in  the  call to draw
+         centred symbols.  The CALCOMP call uses -1 for pen up in
+         move  to  (X,Y)  and  -2 for pen down.  Change -1 in the
+         CALCOMP call to -3 and the two routines will perform the
+         same function.
+
+              The La Trobe  SYMBOL  routine  does  not  have  the
+         continuation  feature.   That  is, if the call has 999.0
+         for the  X  and  Y  arguments  then  the  text  will  be
+         continued  after  the  last  text  drawn.  The following
+         example will show how to  simulate  this  effect  at  La
+         Trobe.
+Programming Note 13                                       Page 14
+
+
+         CALCOMP:
+
+                 CALL SYMBOL (10.0,20.0,3.0,'EXAMP',0.0,5)
+                  .
+                  .
+                  .
+                 CALL SYMBOL (999.0,999.0,3.0,'LE',0.0,2)
+                  .
+                  .
+                  etc
+
+
+         La Trobe:
+
+                 CALL SYMBOL (10.0,20.0, 3.0,'EXAMP',0.0,5)
+                 CALL WHERE  (SX,SY,FACT)
+                  .
+                  .
+                  .
+                 CALL SYMBOL (SX,SY,3.0,'LE',0.0,2)
+
+     8.  NUMBER
+
+              No changes are required to the calls to NUMBER, but
+         the  result  may  be slightly different.  In the CALCOMP
+         call the number-of-digits argument  equal  to  -n  means
+         truncate  n  digits from the right of the number.  At La
+         Trobe it means the same as -1, that is draw the  integer
+         part of the number only.
+
+     9.  SCALE
+
+              In the CALCOMP call the order  and  number  of  the
+         arguments  is different.  The second and third arguments
+         are reversed and  the  increment  is  not  available  at
+         LaTrobe.
+
+              For the CALCOMP call the values of XMIN and DX  are
+         returned  in the data array, so that the data array must
+         be two elements longer than the number of data  elements
+         in  it.   It  is  necessary  to  modify CALCOMP calls to
+         include XMIN and DX in the arguement  list  and  to  use
+         these values later, e.g.  in calls to AXIS.
+
+              Other more serious  difficulties  may  arise  as  a
+         result of the following 
+
+         1.  The La Trobe call does not allow the user to specify
+             an  increment for the arrays (so that only every nth
+             element is used).  This may result in  the  need  to
+             copy  the  data  to  be scaled into a seperate array
+             before calling SCALE.
+
+         2.  The sign  of  INC  in  the  CALCOMP  call  indicates
+             whether  XMIN is to be a maximum or a minimum and DX
+             negative or  positive  respectively.   This  feature
+             does not exist in the La Trobe system.
+Programming Note 13                                       Page 15
+
+
+         The CALCOMP call:
+
+                 CALL SCALE (X,AXLEN,N,INC)
+
+         X       data array, where X is 2  elements  longer  than
+                 the length of the data
+         AXLEN   axis length
+         N       size of X
+         INC     increment to be used when choosing elements of X
+                 that  is  if  INC  =  2 only select every second
+                 element of X
+
+
+         EXAMPLES
+
+
+         CALCOMP:
+
+                 DIMENSION X(202)
+                 CALL SCALE (X,200.0,100,2)
+                 CALL AXIS (50.0,50.0,'CALCOMP',7,200.0,
+               *         10.0,X(201),X(203))
+
+
+           La Trobe:
+
+                 DIMENSION X(200),XI(100)
+         C
+         C       COPY REQUIRED DATA INTO AN ARRAY
+         C
+                 DO 10 I = 1,100
+         10      X1(I) = X(2I-1)
+                 CALL SCALE (X1,100,200.0,XMIN,DX)
+                 CALL AXIS (50.0,50.0,'LA TROBE',8,200.0,XMIN,DX)
+
+
+
+    10.  LINE
+
+              The CALCOMP call to  LINE  allows  the  drawing  of
+         symbols at the points being plotted, optionaly joined by
+         straight  line  segments.   These   features   are   not
+         available  with  the  La  Trobe LINE routine and must be
+         programmed (see examples below).
+Programming Note 13                                       Page 16
+
+
+         The CALCOMP call is:
+
+
+
+                 CALL LINE (X,Y,N,INC,LTYP,INT)
+
+         X & Y   data arrays
+         N       number of points to be plotted
+         INC     the increment in the array between points to  be
+                 plotted
+         LTYP    magnitude of LTYP determines  the  frequency  of
+                 plotted  symbols  i.e.   if  LTYP = 4 the symbol
+                 specified by INT is  drawn  at  every  4th  data
+                 point;   if  LTYP  =  0  points are connected by
+                 straight line segments and no symbols are drawn;
+                 if  LTYP  >  0 straight lines connect every data
+                 point;  if LTYP <  0  no  connecting  lines  are
+                 drawn
+         INT     integer specifying the centering  symbol  to  be
+                 drawn at the points
+
+              To replace a call to the CALCOMP LINE  routine  the
+         following will be necessary.
+
+              (a) if LTYP = 0 include the La Trobe call to LINE
+
+                 CALL LINE (X,Y,N,INC)
+
+              (b) if LTYP > 0 replace the CALCOMP call  with  the
+         following code
+
+
+                 J = 0
+                 CALL PLOT (X(1),Y(1),3)
+                 DO 10 I=1,N,INC
+                 J = J + 1
+                 IF(MOD(J,LTYP).NE.1) CALL PLOT(X(I),Y(I),2)
+                 IF(MOD(J,LTYP).EQ.1) 
+                       CALL SYMBOL(X(I),Y(I),XIZE,INT,0.0,-2)
+         10      CONTINUE
+
+
+
+              (c) if LTYP < 0 replace the CALCOMP call  with  the
+         following code
+
+
+                 J = 0
+                 DO 10 I=1,N,INC
+                 J = J + 1
+                 IF(MOD(J,LTYP).NE.1) GO TO 10
+                 CALL SYMBOL (X(I),Y(I),SIZE,INT,0.0,-3)
+         10      CONTINUE
+
+
+
+
+
+   

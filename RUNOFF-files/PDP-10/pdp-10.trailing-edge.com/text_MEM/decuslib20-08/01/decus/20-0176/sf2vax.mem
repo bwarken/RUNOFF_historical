@@ -1,0 +1,2229 @@
+
+
+
+The following are trademarks of Digital Equipment Corporation:
+
+          DEC              DECsystem-10     PDT
+          DECUS            DECSYSTEM-20     RSTS
+          DIGITAL          DECwriter        RSX
+          PDP              DIBOL            VMS
+          UNIBUS           EduSystem        VT
+          VAX              IAS              digital logo
+          DECnet           MASSBUS
+
+
+
+
+                        SF2VAX.MEM    October, 1983
+
+                          Revised December, 1983
+
+
+
+
+
+1.0  PURPOSE     _______
+
+
+
+The purpose of this document is to explain the migration process from APLSF
+to  VAX  APL which is performed by the tool SFTOVX.  An example is provided
+to illustrate the process of migrating APL workspaces and data files.  This
+document  also explains the possible error messages and lists the APLSF/VAX
+APL incompatibilities.
+
+
+
+
+
+2.0  EXPLANATION     ___________
+
+
+
+The migration of APL workspaces and data files from APLSF to VAX APL occurs
+through  text  files.   MIGRATE,  an  APL  function, builds a batch control
+stream which then executes APL functions that create text  files  from  APL
+files.  Note that the easiest way to perform the migration in an unattended
+mode is by building this batch control stream.  MIGRATE interacts with  the
+user  to  find  out  what  should  be  transported and prompts the user for
+filenames.  MIGRATE also allows the user  to  specify  an  optional  filter
+workspace  (containing  functions  such  as FILTER, ASFILTER, and DAFILTER)
+which allows the user to modify the file before it is  transported.   Files
+which can be transferred include workspaces, and /AS, /IS, /DA and /BS data
+files.
+
+Through MIGRATE, a batch  stream  is  executed  which  invokes  the  DRIVER
+function to transfer workspaces, the ASDRIVER function to transfer /AS data
+files, etc.  Note that when the driver function is invoked  to  transfer  a
+data  file,  its  name  reflects  the  type of file it is transferring (for
+                                                                     Page 2
+
+
+example, ASDRIVER, DADRIVER).
+
+These driver functions dump the workspaces and data files as input  scripts
+into text files which are then transferred by the user's own methods to the
+VAX.  They are then used by VAX APL as  )INPUT  files.   DRIVER  transports
+variables,     system    variables,    channel    assignments,    workspace
+identifications, groups, and unlocked functions within APLSF workspaces  as
+text  to  the  VAX.  While the text file is being made, DRIVER examines the
+user-defined functions to perform source transformations that minimize  the
+incompatibilities between APLSF and VAX APL.
+
+Note that these transformations do not occur within literals (for  example,
+arguments  to  execute).  Any informational messages displayed for the user
+are comment lines in the file that is used as )INPUT to VAX APL.
+
+Once DRIVER has generated the text file and the user has transferred it  to
+the VAX, the user executes an APL function called SUBMIT.  SUBMIT interacts
+with the user and builds a VMS command file that, when run indirectly or in
+batch,  will  execute  VAX APL for each input script specified by the user.
+When these input scripts are processed by means of VAX APL, a workspace  or
+a  data  file  is created on the VAX.  These created files are the migrated
+images of their counterparts on TOPS-20.
+
+This is a general tool which can be overlaid  by  the  user's  software  in
+certain instances (for example, the FILTER function).
+
+
+
+                                   NOTE
+
+               DRIVER performs a  )LOAD  of  each  workspace
+               being  migrated.  If the workspace contains a
+               nonempty .BXLX, the .BXLX will  be  executed.
+               This   may   interfere   with  the  migration
+               process.  Note that APLSF has  no  facilities
+               to suppress .BXLX when loading a workspace.
+
+
+
+
+
+
+
+2.1  Files In The Migration Tool     _____ __ ___ _________ ____
+
+Several files are contained in the migration tool.
+
+SFTOVX contains files for both the -20 and the VAX.  The  tools  themselves
+assume  that they reside in a directory with the logical name APLT2V:, both
+on the VAX and the -20.  The following files are contained in SFTOVX.
+
+
+      o  SF2VAX.MEM
+
+         SF2VAX.MEM is the documentation for the APLSF to VAX APL migration
+                                                                     Page 3
+
+
+         tool.   It contains only APL TTY mnemonics for the APL characters.
+         It may be listed on an ASCII printer for  easy  access.   All  APL
+         expressions in SF2VAX.MEM assume .BXIO is 1.
+
+         There are detailed examples listed in  SF2VAX.MEM.   The  examples
+         are  always  reproduced  in APL TTY mnemonics, even though some of
+         the files produced by the migration tool  contain  APL  key-paired
+         ASCII  APL  characters.  Note that .KM and .KJ are the VAX APL TTY
+         mnemonics for <carriage return> and <linefeed>.  Since  the  files
+         built  for  migration  have  lines longer than 132 characters, the
+         examples listed in Sf2VAX.MEM have their lines wrapped to fit on a
+         printed  line.   When  such  wrapping  occurs,  the line ends with
+         "<wrap>" to show that it was wrapped for expository reasons.
+
+      o  BXAV.LA
+
+         This is a translation table from APLSF's .BXAV to VAX APL's  .BXAV
+         used  by  the  migration  tool.   The file contains APL key-paired
+         ASCII APL character set and therefore must be printed or displayed
+         on a device that can display APL characters.
+
+         Note the following:
+
+          -  All of the APLSF  .BXAV  characters  that  print  as  .SQ  are
+             translated into the VAX APL character .SS (.BXAV [210]).
+
+          -  The following APLSF .BXAV characters do not exist in VAX APL's
+             .BXAV and are translated into the VAX APL character .CO (.BXAV
+             [211]):  38 (.FI), 121, 103, 113, 115, 116, 117, 122,123  (all
+             internal   use   characters).    See  .LD.USAV  below  for  an
+             explanation of these internal use characters in APLSF.
+
+          -  VAX  APL  allows  illegal  overstrikes  in  data,  in   quoted
+             literals,  and  in .QQ input.  The text files produced by this
+             migration tool contain APL overstrikes.  Therefore,  an  ASCII
+             backspace cannot be migrated as a single character because VAX
+             APL will assume it to be part of  an  overstrike.   Therefore,
+             APLSF .BXAV [99 265] are translated into the VAX APL character
+             .CC (.BXAV [207]).
+
+          -  Internal carriage return (.BXAV [102] in APL-SF) is  converted
+             to  .CC  if  it is inside a function because .BXBOX is used to
+             fix text.  An internal  carriage  return  inside  a  character
+             array is not affected.
+
+          -  There are three overstrikes in VAX APL's .BXAV that are not in
+             APLSF's .BXAV.  If these overstrikes exist as three characters
+             in a row in the APLSF data being migrated, they will appear as
+             a single character in VAX APL.  These are the following:
+
+                  .CC (, over -)       VAX APL  .BXAV [207]
+                  .SS (.LU over .US)   VAX APL  .BXAV [210]
+                  .CO (.RU over .US)   VAX APL  .BXAV [211]
+
+                                                                     Page 4
+
+
+      o  SF2VX0.APL
+
+         SF2VX0.APL is built using the text file SF2VX0.IN as a )INPUT file
+         to  APLSF.   For  example,  the  following terminal session builds
+         SF2VX0.APL on the -20:
+
+            @APLSF
+            terminal..TT
+            <APLSF banner>
+            CLEAR WS
+                  )INPUT SF2VX0,IN
+            <messages>
+
+         SF2VX0.APL is an APLSF workspace containing the function  MIGRATE.
+         MIGRATE  interacts  with the user to build a control file that can
+         be run in batch.  The control  file  performs  the  time-consuming
+         task of interacting with the DRIVER functions that transform APLSF
+         workspaces and data files into text files.
+
+         On the -20, put SF2VX0.APL in APLT2V:.
+
+      o  SF2VX1.APL
+
+         SF2VX1.APL is built from the APLSF )INPUT file SF2VX1.IN.
+
+         SF2VX1.APL is an APLSF workspace containing the  function  DRIVER.
+         DRIVER  runs inside an APLSF workspace to transform it into a text
+         file.  SF2VX1.APL transfers the workspace identification, the file
+         channel   assignments,   the   settable   system   variables,  the
+         user-defined  groups,  the   user-defined   functions,   and   the
+         variables.  It also performs certain source transformations inside
+         user-defined functions in an effort to minimize  incompatibilities
+         between APLSF and VAX APL.
+
+         On the -20, put SF2VX1.APL in APLT2V:.
+
+      o  SF2VX3.APL
+
+         SF2VX3.APL is built from the VAX APL )INPUT file SF2VX3.IN.
+
+         SF2VX3.APL is a VAX APL workspace containing numerous user-defined
+         functions  that  simulate the behavior of certain APLSF primitives
+         under VAX APL.  The source transformations performed by DRIVER (in
+         SF2VX1.APL)   replace   certain   APLSF   primitives   with  these
+         user-defined APL functions:
+
+          -  .LD.USEN uses .BXVR under VAX APL to simulate monadic .EN from
+             APLSF.
+
+          -  .LD.USDE uses monadic .EP under VAX APL  to  simulate  monadic
+             .DE from APLSF.
+
+          -  .LD.USOM uses B/.IO.RO B under VAX APL to simulate .OM B  from
+             APLSF.
+                                                                     Page 5
+
+
+          -  .LD.USDQ uses a particular setting of .BXCT under VAX  APL  to
+             simulate .DQ from APLSF.
+
+          -  .LD.USAB sets .BXCT to  0  under  VAX  APL  before  simulating
+             dyadic .AB from APLSF.
+
+          -  .LD.USIB simulates certain monadic I-beams under APLSF on  VAX
+             APL.   The  ones that cannot be simulated or are not supported
+             under APLSF signal an error.
+
+          -  .LD.USAPPEND, .LD.USDEQ, .LD.USENQ, .LD.USFCM,  and  .LD.USMTP
+             replace  the APLSF system functions .BXAPPEND, .BXDEQ, .BXENQ,
+             .BXFCM,  and  .BXMTP.   These  user-defined  functions  report
+             functionality that is "NOT AVAILABLE IN VAX APL".
+
+          -  .LD.USASCII replaces .BXASCII from APLSF.  It also  returns  a
+             vector  of  128  characters from VAX APL's .BXAV which closely
+             resemble the ASCII characters.
+
+          -  .LD.USAV replaces .BXAV from APLSF.  It also returns a  vector
+             of  512 characters from VAX APL's .BXAV which closely resemble
+             APLSF's .BXAV.  See the file BXAV.LA for the .BXAV translation
+             table in APL character set.
+
+             Note that all of the characters in APLSF's .BXAV that print as
+             .SQ  are  simulated  by  VAX APL's .BXAV [251].  The following
+             .BXAV codes in APLSF are not supported and have been  replaced
+             by .BXAV [211]:
+
+                APLSF .BXAV index      name
+
+                 38                    .FI
+                101                    double linefeed
+                103                    null
+                113                    left bracket
+                115                    right bracket
+                116                    up arrow
+                117                    left arrow
+                122                    tilde
+                123                    delete
+
+          -  .LD.USASS replaces .BXASS from APLSF and reports an  error  if
+             its argument contains an APLSF password, a "ppn" surrounded by
+             square brackets, or the switches /BS or /DUMP, since  none  of
+             these are supported in VAX APL.
+
+          -  .LD.USCHS, .LD.USCLS, .LD.USDAS,  and  .LD.USFLS  replace  the
+             APLSF  system  functions  .BXCHS,  .BXCLS, .BXDAS, and .BXFLS.
+             While all of these system functions exist in  VAX  APL,  their
+             behavior  in  VAX APL on empty arguments and arguments greater
+             than 100 is different from under  APLSF.   These  user-defined
+             functions simulate the behavior under APLSF in these cases.
+                                                                     Page 6
+
+
+          -  .LD.USCIQ, .LD.USCOQ, and .LD.USDVC replace the  APLSF  system
+             functions  .BXCIQ,  .BXCOQ  and  .BXDVC.   While  all of these
+             system functions exist in VAX APL, their behavior in  VAX  APL
+             is  different  from under APLSF.  These user-defined functions
+             report an error that the specific system function is  "IN  VAX
+             APL" but is "INCOMPATIBLE WITH APLSF".
+
+          -  .LD.USQLD, .LD.USQCO and .LD.USQPC replace  the  APLSF  system
+             functions  .BXQLD,  .BXQCO,  and  .BXQPC.   These user-defined
+             functions check their argument for an APLSF-style password  on
+             the  workspace  being  accessed  and  replace  it  with  a VAX
+             APL-style password.
+
+          -  .LD.USRENAME replaces the  APLSF  system  function  .BXRENAME.
+             This   user-defined  function  is  designed  to  simulate  the
+             behavior of APLSF's .BXRENAME by using  the  command  ".EP')DO
+             RENAME ..." in VAX APL.
+
+          -  .LD.USTT replaces the unsettable APLSF system variable  .BXTT.
+             This  user-defined function uses .BXTT in VAX APL to construct
+             the correct value returned by .BXTT  in  APLSF  for  "terminal
+             type".
+
+          -  Because the  user  may  not  desire  to  perform  all  of  the
+             transformations,  note  that  the  primitives  are in TAB3 and
+             their replacements are  in  the  rows  of  MAP3.   The  system
+             function names are located in TAB4.
+
+         On the VAX, put SF2VX3.APL in APLT2V:.
+
+      o  SF2VX4.APL
+
+         SF2VX4.APL is built from the APLSF )INPUT file SF2VX4.IN.
+
+         SF2VX4.APL is an APLSF workspace that contains the  file  drivers,
+         DRIVER, ASDRIVER, ISDRIVER, BSDRIVER, and DADRIVER.  These drivers
+         are used to transform APLSF data files (/AS,  /IS,  /BS,  and  /DA
+         files, respectively) into text files.
+
+         On the -20, put SF2VX4.APL in APLT2V:.
+
+      o  SF2VX5.APL
+
+         SF2VX5.APL is built from the VAX APL )INPUT file SF2VX5.IN.
+
+         SF2VX5.APL is a VAX  APL  workspace  that  contains  the  function
+         SUBMIT.   SUBMIT  interacts  with the user to build a command file
+         that can be run in batch that will perform the time-consuming task
+         of  running  VAX  APL  on  all  of  the  text files that have been
+         migrated from the -20.
+
+         On the VAX, put SF2VX5.APL in APLT2V:.
+
+                                                                     Page 7
+
+
+2.2  Files Built By The Migration Tool     _____ _____ __ ___ _________ ____
+
+
+Several files are built by the migration tool.
+
+The APL functions in SFTOVX produce files that either run  other  tools  or
+consist of text that should be transferred from the -20 to the VAX.
+
+      o  MIGRATE in SF2VX0.APL on the -20
+
+         MIGRATE produces a batch  control  file  named  MIGnnn.CTL,  where
+         "nnn"  is  a  number  from  000  through  999,  in  the  connected
+         directory.  It chooses "nnn" by finding the first such  file  name
+         that does not exist.
+
+         The workspaces and APL data files  on  the  -20  that  are  to  be
+         migrated  to  the  VAX  can reside in any accessible directory, as
+         long as the file is not protected against reading.
+
+      o  DRIVER in SF2VX1.APL on the -20
+
+         DRIVER produces a  file  named  "wsid.W2V"  where  "wsid"  is  the
+         workspace  identifer of the workspace being transferred.  The .W2V
+         file contains APL key-paired ASCII APL characters.
+
+      o  File drivers in SF2VX4.APL on the -20
+
+         ASDRIVER, ISDRIVER, BSDRIVER,  and  DADRIVER  each  produce  files
+         named  "file.x2V",  where  "file" is the name of the APL data file
+         being transferred, and "x" is "A", "I", "B",  or  "D",  indicating
+         the type of DRIVER that produced the file.  The .x2V file contains
+         APL key-paired ASCII APL characters.
+
+      o  SUBMIT in SF2VX5.APL on the VAX
+
+         SUBMIT produces a command file named SUBnnn.COM, where "nnn" is  a
+         number from 000 through 999, in the default directory.  It chooses
+         "nnn" by finding the first such file name that does not exist.
+
+         The VAX APL images of workspaces and APL data files migrated  from
+         the -20 will be constructed either in the default directory on the
+         VAX or in a directory associated with the  logical  name  APLnnn:,
+         where  "nnn"  was chosen by the DRIVER that produced the text file
+         on the -20.  SUBMIT will prompt the user for the  definitions  for
+         these logical names.
+
+
+
+
+2.3  User-Defined Filters     ____________ _______
+
+The following describes user-defined filters which handle special migration
+difficulties.
+
+MIGRATE allows the user to specify a  "filter  workspace"  to  be  executed
+                                                                     Page 8
+
+
+before the workspace or APL data file in question is processed:
+
+      o  Migrating workspaces
+
+         The user-specified filter workspace is copied, using  )COPY,  into
+         the  workspace  and  the  function named FILTER is executed.  This
+         niladic user-defined function can perform whatever transformations
+         it  wishes on the workspace.  To prevent this workspace from being
+         migrated, it can circumvent further processing  by  exiting  APLSF
+         via  )OFF  HOLD.  When FILTER finishes,it is erased, using )ERASE,
+         so it will not be migrated with the rest of  the  workspace.   The
+         migration process assumes that FILTER will remove any objects that
+         are not to be migrated from the workspace before it completes.
+
+      o  Migrating APL data files
+
+         The user-specified filter workspace is copied, using  )COPY,  into
+         the   workspace  SF2VX4  and  the  function  named  "xxFILTER"  is
+         executed, where "xx" represents the first two  characters  of  the
+         DRIVER  that  will  be executed.  ISFILTER, BSFILTER, and DAFILTER
+         are monadic (as are  the  associated  drivers),  where  the  right
+         argument  is  the name of the file being processed.  ASFILTER (and
+         ASDRIVER) is dyadic, where the left argument is the character  set
+         to  be  used  to  read the file (1 if TTY, 2 if APL) and the right
+         argument is the file name.
+
+         Note that it is important for users to provide their  own  version
+         of  the xxREAD routine that the xxDRIVER calls to process the data
+         file, especially if the file being processed is a /BS file with no
+         headers on the records.  In that case, users are the only ones who
+         know what constitutes a record in the  file.   There  is  internal
+         documentation  of  the xxREAD and xxDRIVER functions in SF2VX4.APL
+         and SF2VX4.IN so users can determine if they  must  provide  their
+         own xxREAD to migrate a data file.
+
+         Several character set conversions take place.  .SQ is converted to
+         .SS.  Any element designated for internal use is converted to .CO.
+         Backspace is converted to .CC and  any  internal  carriage  return
+         within a function is converted to .CC.
+
+
+
+
+3.0  EXAMPLE     _______
+
+Below is an example that illustrates the interaction between the  user  and
+the migration tool.  The example is divided into five parts:
+
+     1.  MIGRATE running under APLSF
+
+     2.  The TOPS-20 batch control file that results from running MIGRATE
+
+     3.  DRIVER and the corresponding file drivers running under APLSF
+                                                                     Page 9
+
+
+     4.  Transfer of text files to VAX by the user's own methods
+
+     5.  SUBMIT running under VAX APL
+
+The input scripts, the result of executing a DRIVER, follow the running  of
+each  corresponding  DRIVER function.  Following each of these parts, there
+is a brief explanation of some lines of the script.
+
+Note that terminal output is in uppercase,  with  APL  input  indented  six
+spaces.  Annotations are in lowercase.
+
+1.  The user runs MIGRATE from the workspace  APLT2V:SF2VX0  and  describes
+the files that are to be processed.
+      @APLSF
+      TERMINAL..TT
+            )LOAD APLT2V:SF2VX0
+      SAVED 10:41:05 9-SEP-83 7P
+                         check to see what .CTL files are already on disk
+            )LIB *,CTL
+      DSK:
+      MIG000.CTL
+                         MIGRATE will create DSK:MIG001.CTL
+            MIGRATE
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  <cr>
+                         invalid input gets the help message
+      VALID FILE TYPES ARE W (WORKSPACE), A (/AS), I (/IS), D (/DA), B (/BS)
+      OR ANY SYSTEM COMMAND TO BE EXECUTED
+      OR Q (TO QUIT)
+                         and back to the prompt
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  )FOO
+                         error 21 is INCORRECT {system} COMMAND
+      .EP ')FOO' REPORTED ERROR 0 21
+                         and back to the prompt
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  W
+                         "revert" means go back to the previous question
+      WHAT FILE SPEC?  [CR TO REVERT] <cr>
+                         and back to the prompt
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  W
+                         an illegal file spec
+      WHAT FILE SPEC?  [CR TO REVERT] $
+                         error 22 is INCORRECT PARAMETER {in a system command}
+      ERROR 0 22 IN FILESPEC $,APL
+                         file does not exist
+      WHAT FILE SPEC?  [CR TO REVERT] XXX
+      XXX,APL DOES NOT EXIST
+      WHAT FILE SPEC?  [CR TO REVERT] <cr>
+                         and back to the prompt
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  )LIB
+                         output from .EP ')LIB'
+      DSK:
+           A
+           B
+                         and back to the prompt
+                         user wants to migrate workspaces
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  W
+                                                                                                                           Page 10
+
+
+                         migrate all workspaces in the connected directory
+      WHAT FILE SPEC?  [CR TO REVERT] *
+                         use FILTER in FOO:W
+      USER DEFINED FILTER?  [CR IF NONE] FOO:W
+                         workspaces DSK:A.APL and DSK:B.APL have been processed
+      ! WORKSPACE A,APL SETUP COMPLETE
+      ! WORKSPACE B,APL SETUP COMPLETE
+                         user wants to do more
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+                         user wants to migrate workspaces
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  W
+                         wants to migrate DSK:WS.PD
+      WHAT FILE SPEC?  [CR TO REVERT] WS,PD
+                         no filter this time
+      USER DEFINED FILTER?  [CR IF NONE] <cr>
+                         the WS is locked
+      WORKSPACE WS,PD IS LOCKED
+                         if the user provides the password, the WS can be
+                         processed
+      WHAT IS THE PASSWORD?  [CR TO SKIP THIS WS] FOO
+      ! WORKSPACE WS,PD SETUP COMPLETE
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  W
+      WHAT FILE SPEC?  [CR TO REVERT] WS,PD
+      USER DEFINED FILTER?  [CR IF NONE] <cr>
+      WORKSPACE WS,PD IS LOCKED
+                         user wants to skip processing of WS.PD
+      WHAT IS THE PASSWORD?  [CR TO SKIP THIS WS] <cr>
+      ! SKIPPING WORKSPACE WS,PD
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  )LIB WRK:*,ADA
+           A.ADA
+           B.ADA
+                         user wants to process /DA files
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  D
+      WHAT FILE SPEC?  [CR TO REVERT] WRK:*.ADA
+                         use DAFILTER in FOO:DA
+      USER DEFINED FILTER?  [CR IF NONE] FOO:DA
+      ! DA FILE WRK:A,ADA SETUP COMPLETE
+      ! DA FILE WRK:B,ADA SETUP COMPLETE
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+                         user wants to process /AS files
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  A
+      WHAT FILE SPEC?  [CR TO REVERT] A.AAS
+                         an extra question for /AS files only
+                         empty input causes a reprompt
+      WHAT CHARACTER SET?  [TTY OR BIT OR KEY] <cr>
+                         invalid input gets the help message
+      WHAT CHARACTER SET?  [TTY OR BIT OR KEY] W
+      VALID CHARACTER SETS FOR READING /AS FILES ARE T (TTY), B (BIT), K (KEY)
+      WHAT CHARACTER SET?  [TTY OR BIT OR KEY] T
+      USER DEFINED FILTER?  [CR IF NONE] FOO:TTY
+      ! AS FILE A,AAS SETUP COMPLETE
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  A
+                                                                                                                           Page 11
+
+
+      WHAT FILE SPEC?  [CR TO REVERT] A.AAS
+      WHAT CHARACTER SET?  [TTY OR BIT OR KEY] K
+      USER DEFINED FILTER?  [CR IF NONE] FOO:KEY
+      ! AS FILE A,AAS SETUP COMPLETE
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  A
+      WHAT FILE SPEC?  [CR TO REVERT] A.AAS
+      WHAT CHARACTER SET?  [TTY OR BIT OR KEY] B
+      USER DEFINED FILTER?  [CR IF NONE] FOO:BIT
+      ! AS FILE A,AAS SETUP COMPLETE
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  )LIB *.AAS[4,244]
+      DSK:
+           A.AAS
+           B.AAS
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  A
+                         file spec may contain [ppn]
+      WHAT FILE SPEC?  [CR TO REVERT] *.AAS[4,244]
+      WHAT CHARACTER SET?  [TTY OR BIT OR KEY] T
+      USER DEFINED FILTER?  [CR IF NONE] FOO:AS
+      ! AS FILE A,AAS[4,244] SETUP COMPLETE
+      ! AS FILE B,AAS[4,244] SETUP COMPLETE
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  )LIB WRK:*,AIS[4,244]
+           A.AIS
+           B.AIS
+                         user wants to process /IS files
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  I
+      WHAT FILE SPEC?  [CR TO REVERT] WRK:*.AIS[4,244]
+      USER DEFINED FILTER?  [CR IF NONE] FOO:IS
+      ! IS FILE WRK:A,AIS[4,244] SETUP COMPLETE
+      ! IS FILE WRK:B,AIS[4,244] SETUP COMPLETE
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Y
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  )LIB *.ABI
+      DSK:
+           A.ABI
+           B.ABI
+                         user wants to process /BS files
+      WHAT TYPE OF FILE DO YOU WISH TO MIGRATE?  B
+      WHAT FILE SPEC?  [CR TO REVERT] *.ABI
+      USER DEFINED FILTER?  [CR IF NONE] FOO:BI
+      ! BS FILE A,ABI SETUP COMPLETE
+      ! BS FILE B,ABI SETUP COMPLETE
+                         user wants to quit
+      DO YOU HAVE MORE FILES TO PROCESS?  [Y OR N] Q
+                         MIGRATE built MIG001.CTL all right
+      ! MIG001,CTL [4,244]/AS COMPLETED
+            )OFF HOLD
+      @
+
+
+Note that !  means the message will be listed in the  CTL  file.   Although
+users  may insert a comma (,) or a period (.) in the filespec, only a comma
+is output in the messages.
+                                                                                                                           Page 12
+
+
+Users can revert to the 'type of file' prompt even if they are at the  file
+spec  prompt  level.   This  allows  them  to  check what files are on disk
+through )LIB.  Note the following behavior of )LIB in APLSF.
+
+For R_.ep')LIB ' F, where R is the  result  and  F  is  the  argument,  the
+following apply.
+
+      o  F may have a comma or a period before the file type.
+
+      o  If F is of the form f or f,apl or f,typ  or  DSK:f...,  R's  first
+         line will be DSK:.
+
+      o  If F has no *, R will be a vector.
+
+      o  If F has a *, R is a matrix,  .BXPW  wide,  with  filenames  right
+         justified  to  column six and .filetype in column 7 if the type is
+         not APL.  If the file type is .APL, ,APL will not be present in R.
+
+      o  R is 0 e .ro 0 if an error occurs.
+
+      o  If 0 = .ro,R, F does not exist.
+
+      o  If F is dev:f...  and F does not exist, 0 = .roR.
+
+      o  If F is f...  or DSK:F...  and F does not exist, R is DSK:
+
+      o  ")LIB f*" does not work in APLSF.
+
+      o  ")LIB F-X" yields 22 INCORRECT PARAMETER
+
+      o  )LIB  must  have  the  device  name   (dev:)   before   the   file
+         specification and the [ppn] after the file specification.
+
+
+2.  MIGRATE creates a batch control file, MIG001.CTL,  which  contains  the
+following:
+
+
+      o  The files MIGRATE built and when the building occurred (.BXTS)
+
+          ! BUILDING MIG001,CTL [4,244]/AS 1983 9 9 10 43 8 990
+          @NOERROR
+
+      o  User errors that occurred while using MIGRATE
+
+          ! MIGRATING $,APL TYPE ,APL
+          ERROR 0 22 IN FILESPEC $,APL
+          ! MIGRATING XXX,APL TYPE ,APL
+          XXX,APL DOES NOT EXIST
+
+      o  Workspace processing (with the user-defined filter  that  must  be
+         named FILTER in the specified workspace, for example, FOO:W)
+
+          ! MIGRATING *,APL TYPE ,APL
+          ! USING FILTER FOO:W
+                                                                                                                           Page 13
+
+
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD A,APL
+          *)COPY FOO:W
+          *FILTER
+          *)ERASE FILTER
+          *)PCOPY APLT2V:SF2VX1 DRIVER
+          *DRIVER
+          *)OFF HOLD
+          ! WORKSPACE A,APL SETUP COMPLETE
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD B,APL
+          *)COPY FOO:W
+          *FILTER
+          *)ERASE FILTER
+          *)PCOPY APLT2V:SF2VX1 DRIVER
+          *DRIVER
+          *)OFF HOLD
+          ! WORKSPACE B,APL SETUP COMPLETE
+
+      o  Locked workspace processing (no user-defined filter)
+
+          ! MIGRATING WS,PD TYPE ,APL
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD WS,PD-FOO
+          *)PCOPY APLT2V:SF2VX1 DRIVER
+          *DRIVER
+          *)OFF HOLD
+          ! WORKSPACE WS,PD SETUP COMPLETE
+
+      o  Locked workspace  processing  -  workspace  skipped  because  user
+         doesn't know password
+
+          ! MIGRATING WS,PD TYPE ,APL
+          ! SKIPPING LOCKED WORKSPACE WS,PD
+
+      o  /DA files processing (with the user-defined filter, must be  named
+         DAFILTER  in  the specified workspace, for example, FOO:DA).  Note
+         the file specification contains a device name.
+
+          ! MIGRATING WRK:*,ADA TYPE ,ADA
+          ! USING FILTER FOO:DA
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:DA
+          *    DAFILTER 'WRK:A,ADA'
+          *)ERASE DAFILTER
+          *    DADRIVER 'WRK:A,ADA'
+                                                                                                                           Page 14
+
+
+          *)OFF HOLD
+          ! DA FILE WRK:A,ADA SETUP COMPLETE
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:DA
+          *    DAFILTER 'WRK:B,ADA'
+          *)ERASE DAFILTER
+          *    DADRIVER 'WRK:B,ADA'
+          *)OFF HOLD
+          ! DA FILE WRK:B,ADA SETUP COMPLETE
+
+      o  /AS files processing (with the user-defined filter ASFILTER, which
+         is  dyadic).  Note the TT/BIT response to the "terminal..." prompt
+         for the /BIT character set.
+
+          ! MIGRATING A,AAS TYPE ,AAS
+          ! USING CHARACTER SET /TTY
+          ! USING FILTER FOO:TTY
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:TTY
+          * 1  ASFILTER 'A,AAS'
+          *)ERASE ASFILTER
+          * 1  ASDRIVER 'A,AAS'
+          *)OFF HOLD
+          ! AS FILE A,AAS SETUP COMPLETE
+          ! MIGRATING A,AAS TYPE ,AAS
+          ! USING CHARACTER SET /KEY
+          ! USING FILTER FOO:KEY
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:KEY
+          * 2  ASFILTER 'A,AAS'
+          *)ERASE ASFILTER
+          * 2  ASDRIVER 'A,AAS'
+          *)OFF HOLD
+          ! AS FILE A,AAS SETUP COMPLETE
+          ! MIGRATING A,AAS TYPE ,AAS
+          ! USING CHARACTER SET /BIT
+          ! USING FILTER FOO:BIT
+          @APLSF
+          *TT/BIT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:BIT
+          * 2  ASFILTER 'A,AAS'
+          *)ERASE ASFILTER
+          * 2  ASDRIVER 'A,AAS'
+          *)OFF HOLD
+                                                                                                                           Page 15
+
+
+          ! AS FILE A,AAS SETUP COMPLETE
+
+      o  /AS files processing (with user-defined filter).   Note  the  file
+         specification contains [ppn].
+
+          ! MIGRATING *,AAS[4,244] TYPE ,AAS
+          ! USING CHARACTER SET /TTY
+          ! USING FILTER FOO:AS
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:AS
+          * 1  ASFILTER 'A,AAS[4,244]'
+          *)ERASE ASFILTER
+          * 1  ASDRIVER 'A,AAS[4,244]'
+          *)OFF HOLD
+          ! AS FILE A,AAS[4,244] SETUP COMPLETE
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:AS
+          * 1  ASFILTER 'B,AAS[4,244]'
+          *)ERASE ASFILTER
+          * 1  ASDRIVER 'B,AAS[4,244]'
+          *)OFF HOLD
+          ! AS FILE B,AAS[4,244] SETUP COMPLETE
+
+      o  /IS files processing (with user-defined filter).   Note  the  file
+         specification contains both a device name and [ppn].
+
+          ! MIGRATING WRK:*,AIS[4,244] TYPE ,AIS
+          ! USING FILTER FOO:IS
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:IS
+          *    ISFILTER 'WRK:A,AIS[4,244]'
+          *)ERASE ISFILTER
+          *    ISDRIVER 'WRK:A,AIS[4,244]'
+          *)OFF HOLD
+          ! IS FILE WRK:A,AIS[4,244] SETUP COMPLETE
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:IS
+          *    ISFILTER 'WRK:B,AIS[4,244]'
+          *)ERASE ISFILTER
+          *    ISDRIVER 'WRK:B,AIS[4,244]'
+          *)OFF HOLD
+          ! IS FILE WRK:B,AIS[4,244] SETUP COMPLETE
+                                                                                                                           Page 16
+
+
+      o  /BS files processing (with the  user-defined  filter  BSFILTER  in
+         FOO:BI).
+
+          ! MIGRATING *,ABI TYPE ,ABI
+          ! USING FILTER FOO:BI
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:BI
+          *    BSFILTER 'A,ABI'
+          *)ERASE BSFILTER
+          *    BSDRIVER 'A,ABI'
+          *)OFF HOLD
+          ! BS FILE A,ABI SETUP COMPLETE
+          @APLSF
+          *TT
+          *)MAXCORE 352
+          *)LOAD APLT2V:SF2VX4
+          *)COPY FOO:BI
+          *    BSFILTER 'B,ABI'
+          *)ERASE BSFILTER
+          *    BSDRIVER 'B,ABI'
+          *)OFF HOLD
+          ! BS FILE B,ABI SETUP COMPLETE
+          ! MIG001,CTL [4,244]/AS COMPLETED
+
+         Note that @NOERROR means that SFTOVX continues processing in batch
+         no  matter what messages it receives.  The )ERASE that follows the
+         copying of the filter workspace insures that the  filter  function
+         will not be migrated.
+
+
+3.  The user runs DRIVER in APLT2V:SF2VX1 on DSK:TEST0.APL.
+
+
+      o  Workspace TEST0.APL contains the following:
+
+          -  channels 1, 2, 4, 6, and 8 assigned
+
+          -  various system variables settings different from a CLEAR WS
+
+          -  two groups
+
+          -  six functions (1 locked;  1 containing an error)
+
+          -  six variables
+
+
+      o  DRIVER runs under APLSF, producing messages.
+
+           !  MIGRATING TEST0,APL TYPE ,APL
+           @APLSF
+           terminal..TT
+           APL-20 DECSYSTEM-20 APLSF 2(552)
+                                                                                                                           Page 17
+
+
+           TTY226) 12:26:50 TUESDAY 27-SEP-83 USER [4,244]
+           CLEAR WS
+                 )MAXCORE 352
+           WAS 40P
+                 )LOAD TEST0,APL
+           SAVED 12:24:12 27-SEP-83 8P
+                 )PCOPY APLT2V:SF2VX1 DRIVER
+           SAVED 9:21:55 27-SEP-83 16P
+                 DRIVER
+           " *** '[4,244]' REPLACED BY 'APL000:' IN WSID
+           " *** 'FOO,ADA [4,244]/DA' REPLACED BY 'APL001:FOO,ADA /DA' ON CHANNEL 1
+           " *** 'TWO,AAS [4,244]/AS' REPLACED BY 'APL002:TWO,AAS /AS' ON CHANNEL 2
+           " *** 'DEV:FOUR,AIS [4,244]/IS' REPLACED BY 'APL004:FOUR,AIS /IS' ON CHANNEL 4
+           " *** 'DEV:SIX,ADA [4,4]/DA' REPLACED BY 'APL006:SIX,ADA /DA' ON CHANNEL 6
+           " *** 'EIGHT,ABI [4,4]/BS' REPLACED BY 'APL008:EIGHT,ABI /BS' ON CHANNEL 8
+           '1 QUAD NAMES WERE REMOVED FROM THE HEADER OF FF'
+           'ASSIGNMENTS TO THE FOLLOWING QUAD NAMES WERE REPLACED WITH QUAD SINK IN FF
+           AV
+           '
+           'THE FOLLOWING PRIMITIVE FUNCTIONS WERE REPLACED WITH USER FUNCTIONS IN FF
+           .AB.OM.IB$
+           '
+           'THE FOLLOWING SYSTEM FUNCTIONS WERE REPLACED WITH USER FUNCTIONS IN FF
+           AV
+           '
+           " *** LOCKED LOCKED
+           " *** BIG INTEGER IN Y
+                 )OFF HOLD
+           TTY226) 12:27:05 27-SEP-83
+           CONNECTED 0:00:15 CPU TIME 0:00:08
+           2233 STATEMENTS 9337 OPERATIONS
+
+           EXIT
+           @
+
+      o  DRIVER produces a script in TEST0.W2V:.  Note that APL000:, APL002:, APL004:,
+         APL006:, and APL008:  must be defined on the VAX for TEST.W2V to work on the VAX.
+
+           " BUILDING TEST0,W2V [4,244]/AS 1983 9 27 12 26 53 675
+           )CLEAR
+           " *** '[4,244]' REPLACED BY 'APL000:' IN WSID
+           )WSID APL000:TEST0
+           )COPY APLT2V:SF2VX3
+           " *** 'FOO,ADA [4,244]/DA' REPLACED BY 'APL001:FOO,ADA /DA' ON CHANNEL 1
+           .LD.USASS ' 1 APL001:FOO.ADA /DA'
+           " *** 'TWO,AAS [4,244]/AS' REPLACED BY 'APL002:TWO,AAS /AS' ON CHANNEL 2
+           .LD.USASS ' 2 APL002:TWO.AAS /AS'
+           " *** 'DEV:FOUR,AIS [4,244]/IS' REPLACED BY 'APL004:FOUR,AIS /IS' ON CHANNEL 4
+           .LD.USASS ' 4 APL004:FOUR.AIS /IS'
+           " *** 'DEV:SIX,ADA [4,4]/DA' REPLACED BY 'APL006:SIX,ADA /DA' ON CHANNEL 6
+           .LD.USASS ' 6 APL006:SIX.ADA /DA'
+           " *** 'EIGHT,ABI [4,4]/BS' REPLACED BY 'APL008:EIGHT,ABI /BS' ON CHANNEL 8
+           .LD.USASS ' 8 APL008:EIGHT.ABI /BS'
+           .BXRESET
+           .BXAUS_0
+                                                                                                                           Page 18
+
+
+           .BXCT_0
+           .BXGAG_0
+           .BXIO_0
+           .BXPP_10
+           .BXPW_79
+           .BXRL_0
+           .BXTIMELIMIT_0
+           A.US_''
+           A.US_A.US,'.BX:.KM.KJ      '
+           .BXSF_10.ROA.US
+           A.US_''
+           A.US_A.US,'HI THERE - THIS IS .BXTRAP'
+           .BXTRAP_24.ROA.US
+           A.US_''
+           .BXLX_0.ROA.US'
+           A.US_''
+           A.US_A.US,')GROUP G1 A BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB C '
+           .XQ A.US
+           A.US_''
+           A.US_A.US,')GROUP G2 XXXXXXXXXXXXXXXXXXXXXXXXXXXXX Y ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ '
+           A.US_A.US,' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA '
+           A.US_A.US,' '
+           .XQ A.US
+           A.US_''
+           A.US_A.US,'R_DUPSOUT X .KM.KJ'
+           A.US_A.US,'"REMOVES DUPLICATES FROM VECTOR .KM.KJ'
+           A.US_A.US,'R_((.IO.ROX)=X.IOX)/X_,X .KM.KJ'
+           A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           A.US_''
+           A.US_A.US,'ERROR.KM.KJ'
+           A.US_A.US,'L:1 .KM.KJ'
+           A.US_A.US,'L:2 .KM.KJ''
+           A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           A.US_''
+           A.US_A.US,'Z_A F B;T;.BXIO.KM.KJ'
+           A.US_A.US,'L:1 .KM.KJ'
+           A.US_A.US,'''1 2 3 4 5 6 7 8 9 0 +   .DM'' .KM.KJ'
+           A.USA.US,'''.DD .NG < .LE = .GE > .NE & .OR - % $'' .KM.KJ'
+           A.US_A.US,'''Q W E R T Y U I O P _ .GO'' .KM.KJ'
+           A.US_A.US,'''?  .OM .EP .RO ~ ^ .DA .IO .LO * { }'' .KM.KJ'
+           A.US_A.US,'''A S D F G H J K L ( ) .RK'' .KM.KJ'
+           A.US_A.US,'''.AL .CE .FL .US .DL .LD .SO '''' .BX [ ] .LK'' .KM.KJ'
+           A.US_A.US,'''Z X C V B N M , .  /'' .KM.KJ'
+           A.US_A.US,'''LEFT .LU RIGHT .RU .DU .UU .DE .EN | ;  :  \'' .KM.KJ'
+           A.US_A.US,'''.ZA .ZB .ZC .ZD .ZE .ZF .ZG .ZH .ZI .ZJ .ZK .ZL .ZM'' .KM.KJ'
+           A.US_A.US,'''.ZN .ZO .ZP .ZQ .ZR .ZS .ZT .ZU .ZV .ZW .ZX .ZY .ZZ'' .KM.KJ'
+           A.US_A.US,'''.UD !  " .IB .XQ .FM .DQ .IQ .OQ .QQ .QD .GU .GD .PD'' .KM.KJ'
+           A.US_A.US,'''.NR .NN .LG .RV .TR .CR .CS .CB'' .KM.KJ'
+           A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           A.US_''
+           '2 QUAD NAMES WERE REMOVED FROM THE HEADER OF FF'
+           A.US_A.US,'FF;.BXIO.KM.KJ'
+           A.US_A.US,' .LD.USOM ''.OM'' .KM.KJ'
+           A.US_A.US,'A .LD.USAB ''|'' .KM.KJ'
+           A.US_A.US,' .LD.USIB ''.IB'' .KM.KJ'
+                                                                                                                           Page 19
+
+
+           A.US_A.US,'.BXSINK_ .LD.USAV .KM.KJ'
+           A.US_A.US,'''$'' .BXFMT ''$'' .KM.KJ'
+           A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           'ASSIGNMENTS TO THE FOLLOWING QUAD NAMES WERE REPLACED WITH QUAD SINK IN FF
+           AV
+           '
+           'THE FOLLOWING PRIMITIVE FUNCTIONS WERE REPLACED WITH USER FUNCTIONS IN FF
+           |.OM.IB$
+           '
+           'THE FOLLOWING SYSTEM FUNCTIONS WERE REPLACED WITH USER FUNCTIONS IN FF
+           AV
+           '
+           A.US_''
+           A.US_A.US,'HOWDUPSOUT .KM.KJ'
+           A.US_A.US,'''THIS FUNCTION RETURNS A VECTOR FORMED BY TAKING THE RIGHT ARGUMENT'' .KM.KJ'
+           A.US_A.US,'''AND REMOVING DUPLICATES FROM IT.'' .KM.KJ'
+           A.US_A.US,'''THE RIGHT ARGUMENT MAY BE A NUMERIC OR CHARACTER SCALAR OR VECTOR.'' .KM.KJ'
+           A.US_A.US,''' '' .KM.KJ'
+           A.US_A.US,''' ....................TRY.......'' .KM.KJ'
+           A.US_A.US,'''.................................RO.BX_DUPSOUT .IO12'' .KM.KJ'
+           A.US_A.US,'''.................................RO.BX_DUPSOUT 12.RO .IO3 '' .KM.KJ'
+           A.US_A.US,'''NOTE THAT SCALARS BECOME VECTORS OF LENGTH 1'' .KM.KJ'
+           A.US_A.US,''' .RO.BX_DUPSOUT 1'' .KM.KJ'
+           A.US_A.US,'3 1 .RO'' '' .KM.KJ'
+           A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           " *** LOCKED LOCKED
+           A.US_.IO0
+           A.US_A.US,0 1 2 3 4 5 6 7 8 9
+           A.US_A.US,10 11 12 13 14 15 16 17 18 19
+           A.US_A.US,20 21 22 23 24 25 26 27 28 29
+           A.US_A.US,30 31 32 33 34 35 36 37 38 39
+           A.US_A.US,40 41 42 43 44 45 46 47 48 49
+           A.US_A.US,50 51 52 53 54 55 56 57 58 59
+           A.US_A.US,60 61 62 63 64 65 66 67 68 69
+           A.US_A.US,70 71 72 73 74 75 76 77 78 79
+           A.US_A.US,80 81 82 83 84 85 86 87 88 89
+           A.US_A.US,90 91 92 93 94 95 96 97 98 99
+           X_100.ROA.US
+           A.US_.IO0
+           A.US_A.US,0.5 1.5 2.5 3.5 4.5 5.5 6.5 7.5 8.5
+           A.US_A.US,9.5 10.5 11.5 12.5 13.5 14.5 15.5 16.5 17.5
+           A.US_A.US,18.5 19.5 20.5 21.5 22.5 23.5 24.5 25.5 26.5
+           A.US_A.US,27.5 28.5 29.5 30.5 31.5 32.5 33.5 34.5 35.5
+           A.US_A.US,36.5 37.5 38.5 39.5 40.5 41.5 42.5 43.5 44.5
+           A.US_A.US,45.5 46.5 47.5 48.5 49.5 50.5 51.5 52.5 53.5
+           A.US_A.US,54.5 55.5 56.5 57.5 58.5 59.5 60.5 61.5 62.5
+           A.US_A.US,63.5 64.5 65.5 66.5 67.5 68.5 69.5 70.5 71.5
+           A.US_A.US,72.5 73.5 74.5 75.5 76.5 77.5 78.5 79.5 80.5
+           A.US_A.US,81.5 82.5 83.5 84.5 85.5 86.5 87.5 88.5 89.5
+           A.US_A.US,90.5 91.5 92.5 93.5 94.5 95.5 96.5 97.5 98.5
+           A.US_A.US,99.5
+           XX_100.ROA.US
+           A.US_.IO0
+           A.US_A.US,1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 <wrap>
+           0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 <wrap>
+                                                                                                                           Page 20
+
+
+           0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1
+           A.US_A.US,1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 <wrap>
+           1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1
+           XXX_200.ROA.US
+           A.US_''
+           A.US_A.US,'.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS!.RV.TR.IB.QQ <wrap>
+           .LG.NN.NR".GU.GD.CR.CS.CB.SS.PD.QD.IQ.OQ.DQ$.CO.XQ.FM.SS.SS.SS.SS.SS.SS <wrap>
+           .DD<.LE.GE>?.OM.EP.RO^.DA.IO.AL.CE.FL()[].LU.RU.UU.US.SS.SS.SS_.GO.BX.NE=.DU.DE&
+
+           A.US_A.US,'.OR~/*#%+-.LO|;,.SO.EN.DL:''.CC.KJ.CO.KM.CO@.KL.KI.SS..NG.SS@ <wrap>
+           .CO.LK.CO.CO.CO.DM{.RK}.CO.CO.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS'
+
+           A.US_A.US,'.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS'
+
+           A.US_A.US,'.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.WN.KA.KB.KC <wrap>
+           .KD.KE.KF.KG.CC.KI.KJ.KK.KL.KM.KN.KO.KP.KQ.KR.KS.KT.KU.KV.KW.KX.KY.KZ.WE.WF <wrap>
+           .WG.WR.WU.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS0123456789.SS.SS.SS.SS.SS'
+
+           A.US_A.US,'.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.LDABCDEFGHIJKLMNOPQRSTUVWXYZ.SS !.QU.PS$.PC.AP''()*+,-./01'
+
+           A.US_A.US,'23456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~.WD.SS.SS'
+
+           A.US_A.US,'.SS.SS.UD.ZA.ZB.ZC.ZD.ZE.ZF.ZG.ZH.ZI.ZJ.ZK.ZL.ZM.ZN.ZO.ZP.ZQ.ZR.ZS.ZT.ZU.ZV.ZW.ZX.ZY.ZZ.SS.SS.SS.SS.SS'
+
+           XXXX_32 16.ROA.US
+           A.US_.IO0
+           " *** BIG INTEGER IN Y
+           A.US_A.US,8589934592 .NG8589934592 8589934592 .NG8589934592
+           Y_4.ROA.US
+           A.US_.IO0
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+                                                                                                                           Page 21
+
+
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           .LD.LDRANK_300.ROA.US
+           A.US_.IO0
+           A.US_A.US,2
+           YY_.LD.LDRANK.ROA.US
+           .BXSINK_.BXEX 2 6.RO 'A.US .LD.LDRANK'
+           )SAVE
+
+      o  Using TEST0.W2V as input to VAX APL produces the workspace TEST0.APL.  Note that TEST0.W2V is a /KEY file.
+
+                 )IN TEST0.W2V/KEY
+                 " BUILDING TEST0,W2V [4,244]/AS 1983 9 27 12 26 53 675
+                 )CLEAR
+           CLEAR WS
+                 " *** '[4,244]' REPLACED BY 'APL000:' IN WSID
+                 )WSID APL000:TEST0
+           WAS CLEAR WS
+                 )COPY APLT2V:SF2VX3
+           SAVED 26-SEP-1983 14:19:57 42 BLKS
+                 " *** 'FOO,ADA [4,244]/DA' REPLACED BY 'APL001:FOO,ADA /DA' ON CHANNEL 1
+                 .LD.USASS ' 1 APL001:FOO.ADA /DA'
+           1
+                 " *** 'TWO,AAS [4,244]/AS' REPLACED BY 'APL002:TWO,AAS /AS' ON CHANNEL 2
+                 .LD.USASS ' 2 APL002:TWO.AAS /AS'
+           2
+                 " *** 'DEV:FOUR,AIS [4,244]/IS' REPLACED BY 'APL004:FOUR,AIS /IS' ON CHANNEL 4
+                 .LD.USASS ' 4 APL004:FOUR.AIS /IS'
+           4
+                 " *** 'DEV:SIX,ADA [4,4]/DA' REPLACED BY 'APL006:SIX,ADA /DA' ON CHANNEL 6
+                 .LD.USASS ' 6 APL006:SIX.ADA /DA'
+           6
+                 " *** 'EIGHT,ABI [4,4]/BS' REPLACED BY 'APL008:EIGHT,ABI /BS' ON CHANNEL 8
+                 .LD.USASS ' 8 APL008:EIGHT.ABI /BS'
+           .BXASS FILE SPEC CONTAINING /BS IS UNSUPPORTED
+                 .BXRESET
+                 .BXAUS_0
+                 .BXCT_0
+                 .BXGAG_0
+                 .BXIO_0
+                 .BXPP_10
+                 .BXPW_79
+                 .BXRL_0
+                 .BXTIMELIMIT_0
+                 A.US_''
+                 A.US_A.US,'.BX:<cr><lf>      '
+                 .BXSF_10.ROA.US
+                 A.US_''
+                                                                                                                           Page 22
+
+
+                 A.US_A.US,'HI THERE - THIS IS .BXTRAP'
+                 .BXTRAP_24.ROA.US
+                 A.US_''
+                 .BXLX_0.ROA.US
+                 A.US_''
+                 A.US_A.US,')GROUP G1 A BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB C '
+                 .XQ A.US
+                 A.US''
+                 A.US_A.US,')GROUP G2 XXXXXXXXXXXXXXXXXXXXXXXXXXXXX Y ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ '
+                 A.US_A.US,' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA '
+                 A.US_A.US,' '
+                 .XQ A.US
+                 A.US_''
+                 A.US_A.US,'R_DUPSOUT X <cr><lf>'
+                 A.US_A.US,'"REMOVES DUPLICATES FROM VECTOR <cr><lf>'
+                 A.US_A.US,'R_((.IO.ROX)=X.IOX)/X_,X <cr><lf>'
+                 A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           DUPSOUT
+
+                 A.US_''
+                 A.US_A.US,'ERROR<cr><lf>'
+                 A.US_A.US,'L:1 <cr><lf>'
+                 A.US_A.US,'L:2 <cr><lf>'
+                 A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           2
+             6 LABEL ERROR (DUPLICATE LABEL)
+           L:2
+           ^
+                 A.US_''
+                 A.US_A.US,'Z_A F B;T;.BXIO<cr><lf>'
+                 A.US_A.US,'L:1 <cr><lf>'
+                 A.US_A.US,'''1 2 3 4 5 6 7 8 9 0 +   .DM'' <cr><lf>'
+                 A.USA.US,'''.DD .NG < .LE = .GE > .NE & .OR - % $'' <cr><lf>'
+                 A.US_A.US,'''Q W E R T Y U I O P _ .GO'' <cr><lf>'
+                 A.US_A.US,'''?  .OM .EP .RO ~ ^ .DA .IO .LO * { }'' <cr><lf>'
+                 A.US_A.US,'''A S D F G H J K L ( ) .RK'' <cr><lf>'
+                 A.US_A.US,'''.AL .CE .FL .US .DL .LD .SO '''' .BX [ ] .LK'' <cr><lf>'
+                 A.US_A.US,'''Z X C V B N M , .  /'' <cr><lf>'
+                 A.US_A.US,'''LEFT .LU RIGHT .RU .DU .UU .DE .EN | ;  :  \'' <cr><lf>'
+                 A.US_A.US,'''.ZA .ZB .ZC .ZD .ZE .ZF .ZG .ZH .ZI .ZJ .ZK .ZL .ZM'' <cr><lf>'
+                 A.US_A.US,'''.ZN .ZO .ZP .ZQ .ZR .ZS .ZT .ZU .ZV .ZW .ZX .ZY .ZZ'' <cr><lf>'
+                 A.US_A.US,'''.UD !  " .IB .XQ .FM .DQ .IQ .OQ .QQ .QD .GU .GD .PD'' <cr><lf>'
+                 A.US_A.US,'''.NR .NN .LG .RV .TR .CR .CS .CB'' <cr><lf>'
+                 A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           F
+
+                 A.US_''
+                 '2 QUAD NAMES WERE REMOVED FROM THE HEADER OF FF'
+           2 QUAD NAMES WERE REMOVED FROM THE HEADER OF FF
+                 A.US_A.US,'FF;.BXIO<cr><lf>'
+                 A.US_A.US,' .LD.USOM ''.OM'' <cr><lf>'
+                 A.US_A.US,'A .LD.USAB ''|'' <cr><lf>'
+                 A.US_A.US,' .LD.USIB ''.IB'' <cr><lf>'
+                 A.US_A.US,'.BXSINK_ .LD.USAV <cr><lf>'
+                 A.US_A.US,'''$'' .BXFMT ''$'' <cr><lf>'
+                                                                                                                           Page 23
+
+
+                 A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           FF
+
+                 'ASSIGNMENTS TO THE FOLLOWING QUAD NAMES WERE REPLACED WITH QUAD SINK IN FF
+           AV
+           '
+           ASSIGNMENTS TO THE FOLLOWING QUAD NAMES WERE REPLACED WITH QUAD SINK IN FF
+           AV
+
+                 'THE FOLLOWING PRIMITIVE FUNCTIONS WERE REPLACED WITH USER FUNCTIONS IN FF
+           |.OM.IB$
+           '
+           THE FOLLOWING PRIMITIVE FUNCTIONS WERE REPLACED WITH USER FUNCTIONS IN FF
+           |.OM.IB$
+
+                 'THE FOLLOWING SYSTEM FUNCTIONS WERE REPLACED WITH USER FUNCTIONS IN FF
+           AV
+           '
+           THE FOLLOWING SYSTEM FUNCTIONS WERE REPLACED WITH USER FUNCTIONS IN FF
+           AV
+
+                 A.US_''
+                 A.US_A.US,'HOWDUPSOUT <cr><lf>'
+                 A.US_A.US,'''THIS FUNCTION RETURNS A VECTOR FORMED BY TAKING THE RIGHT ARGUMENT'' <cr><lf>'
+                 A.US_A.US,'''AND REMOVING DUPLICATES FROM IT.'' <cr><lf>'
+                 A.US_A.US,'''THE RIGHT ARGUMENT MAY BE A NUMERIC OR CHARACTER SCALAR OR VECTOR.'' <cr><lf>'
+                 A.US_A.US,''' '' <cr><lf>'
+                 A.US_A.US,''' ....................TRY.......'' <cr><lf>'
+                 A.US_A.US,'''.................................RO.BX_DUPSOUT .IO12'' <cr><lf>'
+                 A.US_A.US,'''.................................RO.BX_DUPSOUT 12.RO .IO3 '' <cr><lf>'
+                 A.US_A.US,'''NOTE THAT SCALARS BECOME VECTORS OF LENGHT 1'' <cr><lf>'
+                 A.US_A.US,''' .RO.BX_DUPSOUT 1'' <cr><lf>'
+                 A.US_A.US,'3 1 .RO'' '' <cr><lf>'
+                 A.US_.BX_.BXFX .BXBOX A.US .DM (0=1^0.RO A.US)/.BXERROR
+           HOWDUPSOUT
+
+                 " *** LOCKED LOCKED
+                 A.US_.IO0
+                 A.US_A.US,0 1 2 3 4 5 6 7 8 9
+                 A.US_A.US,10 11 12 13 14 15 16 17 18 19
+                 A.US_A.US,20 21 22 23 24 25 26 27 28 29
+                 A.US_A.US,30 31 32 33 34 35 36 37 38 39
+                 A.US_A.US,40 41 42 43 44 45 46 47 48 49
+                 A.US_A.US,50 51 52 53 54 55 56 57 58 59
+                 A.US_A.US,60 61 62 63 64 65 66 67 68 69
+                 A.US_A.US,70 71 72 73 74 75 76 77 78 79
+                 A.US_A.US,80 81 82 83 84 85 86 87 88 89
+                 A.US_A.US,90 91 92 93 94 95 96 97 98 99
+                 X_100.ROA.US
+                 A.US_.IO0
+                 A.US_A.US,0.5 1.5 2.5 3.5 4.5 5.5 6.5 7.5 8.5
+                 A.US_A.US,9.5 10.5 11.5 12.5 13.5 14.5 15.5 16.5 17.5
+                 A.US_A.US,18.5 19.5 20.5 21.5 22.5 23.5 24.5 25.5 26.5
+                 A.US_A.US,27.5 28.5 29.5 30.5 31.5 32.5 33.5 34.5 35.5
+                 A.US_A.US,36.5 37.5 38.5 39.5 40.5 41.5 42.5 43.5 44.5
+                                                                                                                           Page 24
+
+
+                 A.US_A.US,45.5 46.5 47.5 48.5 49.5 50.5 51.5 52.5 53.5
+                 A.US_A.US,54.5 55.5 56.5 57.5 58.5 59.5 60.5 61.5 62.5
+                 A.US_A.US,63.5 64.5 65.5 66.5 67.5 68.5 69.5 70.5 71.5
+                 A.US_A.US,72.5 73.5 74.5 75.5 76.5 77.5 78.5 79.5 80.5
+                 A.US_A.US,81.5 82.5 83.5 84.5 85.5 86.5 87.5 88.5 89.5
+                 A.US_A.US,90.5 91.5 92.5 93.5 94.5 95.5 96.5 97.5 98.5
+                 A.US_A.US,99.5
+                 XX_100.ROA.US
+                 A.US_.IO0
+                 A.US_A.US,1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 <wrap>
+           0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 <wrap>
+           1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1
+                 A.US_A.US,1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 <wrap>
+           0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1
+                 XXX_200.ROA.US
+                 A.US_''
+
+                 A.US_A.US,'.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS!.RV.TR.IB.QQ.LG.NN.NR".GU.GD.CR.CS <wrap>
+           .CB.SS.PD.QD.IQ.OQ.DQ$.CO.XQ.FM.SS.SS.SS.SS.SS.SS.DD<.LE.GE>?.OM.EP.RO^.DA.IO.AL.CE.FL()[].LU.RU.UU <wrap>
+           .US.SS.SS.SS_.GO.BX.NE=.DU.DE&'
+
+                 A.US_A.US,'.OR~/*#%+-.LO|;,.SO.EN.DL:''.CC.KJ.CO.KM.CO@.KL.KI.SS..NG.SS@.CO.LK.CO.CO.CO.DM{ <wrap>
+           .RK}.CO.CO.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS.SS.SS.SS.SS.SS'
+
+                 A.US_A.US,'.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS'
+
+                 A.US_A.US,'.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.WN.KA.KB.KC.KD.KE.KF.KG.CC.KI.KJ.KK.KL <wrap>
+           .KM.KN.KO.KP.KQ.KR.KS.KT.KU.KV.KW.KX.KY.KZ.WE.WF.WG.WR.WU.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS0123456789.SS.SS.SS.SS.SS'
+
+                 A.US_A.US,'.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS.SS <wrap>
+           .SS.SS.SS.LDABCDEFGHIJKLMNOPQRSTUVWXYZ.SS !.QU.PS$.PC.AP''()*+,-./01'
+
+                 A.US_A.US,'23456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~.WD.SS.SS'
+
+                 A.US_A.US,'.SS.SS.UD.ZA.ZB.ZC.ZD.ZE.ZF.ZG.ZH.ZI.ZJ.ZK.ZL.ZM.ZN.ZO.ZP.ZQ.ZR.ZS.ZT.ZU.ZV.ZW.ZX.ZY.ZZ <wrap>
+           .SS.SS.SS.SS.SS'
+
+                 XXXX_32 16.ROA.US
+                 .BXSINK.BXEX 2 6.RO 'A.US    .LD.LDRANK'
+                 )SAVE
+           27-SEP-1983 13:01:49 62 BLKS
+
+3a.  The user runs ASDRIVER in APLT2V:SF2VX4 on DSK:A.AAS.
+
+      o  A.AAS is created in TTY character set with  []PW  ==  80  via  the
+         following statements:
+
+           [1] (.IO10) .OQ[2] chan
+           [2] (3 4.RO'ABCD') .OQ[2] chan
+           [3] (4 .RO .FL 2*33) .OQ[2] chan
+           [4] (5 5.RO 0 1 0 1 0) .OQ[2] chan
+                                                                                                                           Page 25
+
+
+      o  ASDRIVER runs under APLSF, producing messages.  Note that ASDRIVER
+         is dyadic.
+
+            1  ASDRIVER 'A,AAS'
+           " BUILDING A,A2V [4,244]/AS 1983 9 14 12 22 31 440
+           " ALL DONE WITH INPUT FILE:  A,AAS /AS
+
+      o  DSK:A.A2V is a VAX APL )INPUT script that  reconstructs  A.AAS  on
+         the VAX.
+
+           " BUILDING A,A2V [4,244]/AS 1983 9 27 11 2 41 882
+           WS.USCHAN_.BXASS 'A.AAS/AS'
+           A.US_''
+           A.US_A.US,'1 2 3 4 5 6 7 8 9 10'
+           RECORD_20.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,'ABCD'
+           RECORD_4.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,'ABCD'
+           RECORD_4.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,'ABCD'
+           RECORD_4.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,'8589934592 8589934592 8589934592 8589934592'
+           RECORD_43.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,' 0 1 0 1 0'
+           RECORD_10.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,' 1 0 1 0 1'
+           RECORD_10.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,' 0 1 0 1 0'
+           RECORD_10.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,' 1 0 1 0 1'
+           RECORD_10.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           A.US_''
+           A.US_A.US,' 0 1 0 1 0'
+           RECORD_10.ROA.US
+           RECORD.OQ[3]WS.USCHAN
+           .BXDAS WS.USCHAN
+           " ALL DONE WITH INPUT FILE:  A,AAS /AS
+                                                                                                                           Page 26
+
+
+3b.  The user runs ISDRIVER in APLT2V:SF2VX4 on WRK:A.AIS.
+
+      o  A.AIS is constructed via the following statements:
+
+           [1] (.IO10) .OQ chan
+           [2] (3 4.RO'ABCD') .OQ chan
+           [3] (4 .RO .FL 2*33) .OQ chan
+           [4] (5 5.RO 0 1 0 1 0) .OQ chan
+           [5] ((300 .RO 1).RO.NG77).OQ chan
+
+
+      o  ISDRIVER runs under APLSF, producing messages.  Note that  APL002:
+         must be defined on the VAX for A.I2V to work there.
+
+                     ISDRIVER 'WRK:A,AIS'
+           " BUILDING A,I2V [4,244]/AS 1983 9 14 12 22 31 440
+           " *** 'WRK:' REPLACED BY 'APL002:'
+           " *** BIG INTEGER IN RECORD
+           " ALL DONE WITH INPUT FILE:  WRK:A,AIS /IS
+
+
+      o  DSK:A.I2V is a VAX APL )INPUT script that  reconstructs  A.AIS  on
+         the  VAX.   APL002:   must be defined on the VAX for A.I2V to work
+         there.
+
+           " BUILDING A,I2V [4,244]/AS 1983 9 27 11 2 44 572
+           " *** 'WRK:' REPLACED BY 'APL002:'
+           WS.USCHAN_.BXASS 'APL002:A.AIS/IS'
+           A.US_.IO0
+           A.US_A.US,1 2 3 4 5 6 7 8 9 10
+           RECORD_10.ROA.US
+           RECORD.OQWS.USCHAN
+           A.US_''
+           A.US_A.US,'ABCDABCDABCD'
+           RECORD_3 4.ROA.US
+           RECORD.OQWS.USCHAN
+           A.US_.IO0
+           " *** BIG INTEGER IN RECORD
+           A.US_A.US,8589934592 8589934592 8589934592 8589934592
+           RECORD_4.ROA.US
+           RECORD.OQWS.USCHAN
+           A.US_.IO0
+           A.US_A.US,0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0
+           RECORD_5 5.ROA.US
+           RECORD.OQWS.USCHAN
+           A.US_.IO0
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+                                                                                                                           Page 27
+
+
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           A.US_A.US,1 1 1 1 1 1 1 1 1 1
+           .LD.LDRANK_300.ROA.US
+           A.US_.IO0
+           A.US_A.US,.NG77
+           RECORD_.LD.LDRANK.ROA.US
+           RECORD.OQWS.USCHAN
+           .BXDAS WS.USCHAN
+           " ALL DONE WITH INPUT FILE:  WRK:A,AIS /IS
+
+3c.  The user runs BSDRIVER in APLT2V:SF2VX4 on A.ABI[4,244].
+
+      o  A.ABI was constructed via the following statements:
+
+           [1] (.IO10) .OQ chan, 1
+           [2] (3 4.RO'ABCD') .OQ chan, 1
+           [3] (4 .RO .FL 2*33) .OQ chan, 1
+           [4] (5 5.RO 0 1 0 1 0) .OQ chan, 1
+
+
+      o  BSDRIVER runs under APLSF, producing messages.  Note that  APL003:
+         must be defined on the VAX for A.B2V to work there.
+
+                     BSDRIVER 'A,ABI[4,244]'
+           " BUILDING A,B2V [4,244]/AS 1983 9 14 12 22 31 440
+           " *** '[4,244]' REPLACED BY 'APL003:'
+           " *** BIG INTEGER IN RECORD
+           " ALL DONE WITH INPUT FILE:  A,ABI[4,244] /BS
+
+
+      o  DSK:A.B2V is a VAX APL )INPUT script that reconstructs A.ABI as  a
+         /IS  file  on  the  VAX (since /BS files do not exist in VAX APL).
+         APL003:  must be defined on the VAX for A.B2V to work there.
+
+           " BUILDING A,B2V [4,244]/AS 1983 9 27 11 2 46 285
+           " *** '[4,244]' REPLACED BY 'APL003:'
+                                                                                                                           Page 28
+
+
+           WS.USCHAN_.BXASS 'APL003:A.ABI/IS'
+           A.US_.IO0
+           A.US_A.US,1 2 3 4 5 6 7 8 9 10
+           RECORD_10.ROA.US
+           RECORD.OQWS.USCHAN
+           A.US_''
+           A.US_A.US,'ABCDABCDABCD'
+           RECORD_3 4.ROA.US
+           RECORD.OQWS.USCHAN
+           A.US_.IO0
+           " *** BIG INTEGER IN RECORD
+           A.US_A.US,8589934592 8589934592 8589934592 8589934592
+           RECORD_4.ROA.US
+           RECORD.OQWS.USCHAN
+           A.US_.IO0
+           A.US_A.US,0 1 0 1 0 0 1 0 1 0 0 1 0 1 0 0 1 0 1 0 0 1 0 1 0
+           RECORD_5 5.ROA.US
+           RECORD.OQWS.USCHAN
+           .BXDAS WS.USCHAN
+           " ALL DONE WITH INPUT FILE:  A,ABI[4,244] /BS
+
+3d.  The users runs DADRIVER in APLT2V:SF2VX4 on WRK:A.ADA[4,244].
+
+      o  A.ADA was constructed via the following statements:
+
+           [0] )CREATE 100 A.ADA
+           [1] (.IO10) .OQ[1] chan
+           [2] (3 4.RO'ABCD') .OQ[2] chan
+           [3] (4 .RO .FL 2*33) .OQ[3] chan
+           [4] (5 5.RO 0 1 0 1 0) .OQ[4] chan
+
+
+      o  DADRIVER runs under APLSF, producing messages.  Note that  APL004:
+         must be defined on the VAX for A.D2V to work there.
+
+                     DADRIVER 'WRK:A,ADA[4,244]'
+           " BUILDING A,D2V [4,244]/AS 1983 9 14 12 22 28 949
+           " *** 'WRK:[4,244]' REPLACED BY 'APL004:'
+           " *** BIG INTEGER IN RECORD
+           " ALL DONE WITH INPUT FILE:  WRK:A,ADA[4,244] /DA
+
+
+      o  DSK:A.D2V is a VAX APL )INPUT script that  reconstructs  A.ADA  on
+         the  VAX.   APL004:   must be defined on the VAX for A.B2V to work
+         there.
+
+           " BUILDING A,D2V [4,244]/AS 1983 9 27 11 2 48 105
+           " *** 'WRK:[4,244]' REPLACED BY 'APL004:'
+           WS.USCHAN_.BXASS 'APL004:A.ADA/DA'
+           A.US_.IO0
+           A.US_A.US,1 2 3 4 5 6 7 8 9 10
+           RECORD_10.ROA.US
+           RECORD .OQ[1] WS.USCHAN
+           A.US_''
+           A.US_A.US,'ABCDABCDABCD'
+                                                                                                                           Page 29
+
+
+           RECORD_3 4.ROA.US
+           RECORD .OQ[2] WS.USCHAN
+           A.US_.IO0
+           " *** BIG INTEGER IN RECORD
+           A.US_A.US,8589934592 8589934592 8589934592 8589934592
+           RECORD_4.ROA.US
+           RECORD .OQ[3] WS.USCHAN
+           A.US_.IO0
+           A.US_A.US,0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0
+           RECORD_5 5.ROA.US
+           RECORD .OQ[4] WS.USCHAN
+           .BXDAS WS.USCHAN
+           " ALL DONE WITH INPUT FILE:  WRK:A,ADA[4,244] /DA
+
+
+4.  The text files created by each DRIVER are moved from the -20 to the VAX
+by  some means.  Facilities for moving files are not part of this migration
+tool.  The user could, for  example,  use  DECnet  file  transfer  or  ANSI
+labeled magnetic tape.
+
+5.  Once the text files reside on the VAX, the SUBMIT function in  the  VAX
+APL  workspace,  SF2VX5.APL, can be used to create a command procedure that
+processes each text file as a )INPUT (/KEY) file to VAX APL.
+
+      o  The following files reside in the default directory:
+
+                 A.A2V       text image of A.AAS on the -20
+                 A.B2V       text image of A.ABI on the -20
+                 A.D2V       text image of A.ADA on the -20
+                 A.I2V       text image of A.AIS on the -20
+                 TEST0.W2V  text image of TEST0.APL on the -20
+
+      o  SUBMIT in SF2VX5.APL runs on the following text files:
+
+                 )LOAD SF2VX5
+           SAVED 28-SEP-1983 10:48:06 50 BLKS
+                 SUBMIT
+           ENTER FILE NAMES TO BE INCLUDED :[*.*;*] X:A.%2V
+
+           BUILDING DCL FILE SUB006.COM ***
+
+           $!  INCLUDING APLD$:[USER]A.A2V;1
+
+           THE LOGICAL APL003 NEEDS TO BE DEFINED FOR FILE APLD$:[USER]A.B2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] <cr>
+           $!  INCLUDING APLD$:[USER]A.B2V;1
+
+           THE LOGICAL APL004 NEEDS TO BE DEFINED FOR FILE APLD$:[USER]A.D2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] USRD$:[USER]
+           THE LOGICAL APL004 WILL BE DEFINED AS USRD$:[USER]
+           $!  INCLUDING APLD$:[USER]A.D2V;1
+
+           THE LOGICAL APL002 NEEDS TO BE DEFINED FOR FILE APLD$:[USER]A.I2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] <cr>
+           $!  INCLUDING APLD$:[USER]A.I2V;1
+                                                                                                                           Page 30
+
+
+           DCL FILE SUB006.COM COMPLETED ***
+                 SUBMIT
+           ENTER FILE NAMES TO BE INCLUDED :[*.*;*] TEST0.W2V
+
+           BUILDING DCL FILE SUB007.COM ***
+
+           THE LOGICAL APL000 NEEDS TO BE DEFINED FOR FILE USRD$:[USER.APL]TEST0.W2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] USRD$:[USER]
+           THE LOGICAL APL000 WILL BE DEFINED AS USRD$:[USER]
+           THE LOGICAL APL001 NEEDS TO BE DEFINED FOR FILE USRD$:[USER.APL]TEST0.W2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] <cr>
+           THE LOGICAL APL002 NEEDS TO BE DEFINED FOR FILE USRD$:[USER.APL]TEST0.W2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] <cr>
+           THE LOGICAL APL004 NEEDS TO BE DEFINED FOR FILE USRD$:[USER.APL]TEST0.W2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] <cr>
+           THE LOGICAL APL006 NEEDS TO BE DEFINED FOR FILE USRD$:[USER.APL]TEST0.W2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] <cr>
+           THE LOGICAL APL008 NEEDS TO BE DEFINED FOR FILE USRD$:[USER.APL]TEST0.W2V;1
+           EQUIVALENCE NAME?:[<CR> IF NONE ] <cr>
+           $!  INCLUDING USRD$:[USER.APL]TEST0.W2V;1
+
+           DCL FILE SUB007.COM COMPLETED ***
+                 )OFF
+
+      o  The command files built by SUBMIT can  be  run  indirectly  or  in
+         batch.   The  text file is processed by VAX APL and the file being
+         migrated is created.  Note that answering "<cr>" to the request to
+         define  a  logical  name  leaves  the  logical  name as previously
+         defined, either by a previous request in this SUBMIT execution  or
+         by the user externally to SUBMIT.
+
+         SUB006.COM built in the previous step looks like the following:
+
+           $!  BUILDING SUB006.COM/AS 1983 9 28 16 3 54 490
+           $SET NOON
+           $!  INCLUDING APLD$:[USER]A.A2V;1
+           $ APL/TERM=TTY/NOSILENT
+           )OUTPUT SYS$OUTPUT:/TTY
+           )MAXCORE 1500
+           )INPUT APLD$:[USER]A.A2V;1/KEY
+           )OFF HOLD
+           $!
+           $!  INCLUDING APLD$:[USER]A.B2V;1
+           $ APL/TERM=TTY/NOSILENT
+           )OUTPUT SYS$OUTPUT:/TTY
+           )MAXCORE 1500
+           )INPUT APLD$:[USER]A.B2V;1/KEY
+           )OFF HOLD
+           $!
+           $!  INCLUDING APLD$:[USER]A.D2V;1
+           $ DEFINE APL004 USRD$:[USER]
+           $ APL/TERM=TTY/NOSILENT
+           )OUTPUT SYS$OUTPUT:/TTY
+           )MAXCORE 1500
+           )INPUT APLD$:[USER]A.D2V;1/KEY
+                                                                                                                           Page 31
+
+
+           )OFF HOLD
+           $!
+           $!  INCLUDING APLD$:[USER]A.I2V;1
+           $ APL/TERM=TTY/NOSILENT
+           )OUTPUT SYS$OUTPUT:/TTY
+           )MAXCORE 1500
+           )INPUT APLD$:[USER]A.I2V;1/KEY
+           )OFF HOLD
+           $!
+
+
+         SUB007.COM built in the previous step looks like the following:
+
+           $!  BUILDING SUB007.COM/AS 1983 9 28 16 4 54 780
+           $SET NOON
+           $!  INCLUDING APLD$:[USER]TEST0.W2V;1
+           $ DEFINE APL000 USRD$:[USER]
+           $ APL/TERM=TTY/NOSILENT
+           )OUTPUT SYS$OUTPUT:/TTY
+           )MAXCORE 1500
+           )INPUT APLD$:[USER]TEST0.W2V;1/KEY
+           )OFF HOLD
+           $!
+
+
+
+
+4.0  INCOMPATIBILITES     ________________
+
+Incompatibilities exist between APLSF and VAX APL.   The  action  that  the
+migration  tool  takes  on  each of these incompatibilties is listed below.
+"SFTOVX takes no action" means that the migration tool  does  not  identify
+the incompatibility, nor does SFTOVX replace it to simulate APLSF behavior.
+Any transformations done by the migration tool are  reported  to  the  user
+when the tool runs.
+
+
+                                   NOTE
+
+               These  transformations  do  not  take   place
+               within quoted literals.
+
+
+
+      o  Escape mode does not exist in VAX APL.
+
+         "@" on input to VAX APL in TTY mode will remain an "@".  "@R", for
+         example, are not translated to .RO.
+
+         SFTOVX takes no action.
+
+
+      o  Tabs in data and in files will  remain  as  tabs.   They  are  not
+         converted to spaces in VAX APL.
+                                                                    Page 32
+
+
+      o  .Z@ is not recognized by VAX  APL  as  the  character  underscored
+         delta.
+
+         SFTOVX takes no action on .Z@.  Underscored delta is output in APL
+         characters  by the migration tool.  In VAX APL, .UD is underscored
+         delta.
+
+
+      o  In APLSF, .RU is a "U" with the feet pointing to the  right;   .LU
+         is a "U" with the feet pointing to the left.  In VAX APL, .RU is a
+         "U" with the feet pointing to the left and .LU is a "U"  with  the
+         feet  pointing to the right (in other words, the directions of the
+         feet are opposite what they are in APLSF).
+
+         SFTOVX will output the "U" with the feet pointing to the right  as
+         "left  U"  (.LU) and the "U" with the feet pointing to the left as
+         "right U" (.RU).  The APL graphic from APLSF will be the  same  as
+         the APL graphic inside VAX APL.
+
+
+      o  Dyadic $ is not supported in VAX APL.
+
+         SFTOVX converts a $ primitive function to .BXFMT.
+
+
+      o  Monadic .EN, .DE and .OM are not supported in VAX APL.
+
+         SFTOVX converts the primitive functions .EN, .DE, and .OM  to  the
+         user-defined  (DEC-provided)  functions  .LD.USEN,  .LD.USDE,  and
+         .LD.USOM which simulate their behavior under APLSF.
+
+
+      o  If A is an integer in A/B in APLSF, it is an error.  In  VAX  APL,
+         it is the function replicate.
+
+         SFTOVX takes no action.
+
+
+      o  Both monadic and dyadic .DQ are fuzzy in VAX APL but not in APLSF.
+
+         SFTOVX replaces the primitive function .DQ  with  .LD.USDQ,  which
+         sets   .BXCT  to  0.22204460E.NG15,  APLSF's  internal  value  for
+         singularity testing (established in APLSF v2 in edit  257)  before
+         executing .DQ.
+
+
+      o  Dyadic .AB is fuzzy in VAX APL but not in APLSF.
+
+         SFTOVX replaces the primitive function .AB  with  .LD.USAB,  which
+         sets the local .BXCT to 0 if invoked dyadically.
+
+
+      o  Floor and Ceiling apply .BXCT  differently  in  VAX  APL  than  in
+         APLSF.
+                                                                    Page 33
+
+
+         SFTOVX takes no action.
+
+
+      o  A negative number raised to a non-integer power by means of dyadic
+         * is an error in VAX APL;  it gives an answer in APLSF.
+
+         SFTOVX takes no action.
+
+
+      o  Output from .FM format is different in VAX APL.
+
+         SFTOVX takes no action.
+
+
+      o  VAX APL uses .BXCT of "absolute fuzz" to test for a near-integer.
+
+         SFTOVX takes no action.
+
+
+      o  Monadic transpose of a scalar is a  vector  in  APLSF;   it  is  a
+         scalar in VAX APL.
+
+         SFTOVX takes no action.
+
+
+      o  Monadic and dyadic !  (Beta and Gamma functions)  give  different,
+         more accurate answers in VAX APL than in APLSF.
+
+         SFTOVX takes no action.
+
+
+      o  I-beams do not exist on the VAX.
+
+         SFTOVX replaces the primitive function .IB  with  .LD.USIB,  which
+         simulates   most  of  the  documented  I-beams  and  none  of  the
+         undocumented ones:
+
+
+         17  symbol table size, entries     not simulated
+         18  condition of the ws            always return 0 == ok
+         19  keying time                    always return 0 == .BXAI[4]
+         20  time of day in 60th seconds    simulated
+         21  the CPU time in 60th seconds   simulated
+         22  WS available in words          return .BXWA % 4
+         23  system job number              return .BXUL
+         24  APL sign-on time in 60th seconds
+             since midnight                 something like .bxAI[3]
+         25  current date                   .BXTS[2 3 1] reformatted
+         26  current line number            returns 1^1.DA.BXLC
+         27  all line numbers               returns 1.DA.BXLC
+         28  terminal character set         0 == APL;  1 == TTY
+         29  user's ppn                     return .BXAI[1]
+         30  clear the SI stack             execute .BXRESET
+         31  number of statements executed  get info from )CHARGE
+         32  number of operations executed  get info from )CHARGE
+                                                                    Page 34
+
+
+         33  TOPS-10 only kilo-core seconds  return 0
+
+
+      o  .BXASCII is not supported in VAX APL.
+
+         SFTOVX replaces .BXASCII  with  a  niladic  function  .LD.USASCII,
+         which returns 128 VAX APL .BXAV codes that resemble ASCII.
+
+
+      o  .BXAV is different in VAX APL than in APLSF.
+
+         SFTOVX replaces .BXAV with  a  niladic  function  .LD.USAV,  which
+         returns 512 VAX APL .BXAV codes that resemble .BXAV in APLSF.
+
+
+      o  .BXRENAME may behave differently in VAX APL than it does in APLSF.
+
+         SFTOVX  replaces  .BXRENAME   with   the   user-defined   function
+         .LD.USRENAME  which attempts to simulate the behavior of .BXRENAME
+         in APLSF.
+
+
+      o  .BXENQ, DEQ, MTP, APPEND and FCM are not in VAX APL.
+
+         SFTOVX replaces these system names  with  user-defined  functions,
+         for  example,  .LD.USENQ,  which  executes  .BXBREAK  '.BXENQ  not
+         supported in VAX APL'.
+
+
+      o  In APLSF, certain system variables and all system functions can be
+         localized  in  function  headers or assigned to.  In VAX APL these
+         system variables are niladic system functions so  they  cannot  be
+         localized or assigned to.
+
+         The system names involved are the following:
+
+                    AV     ALPHA  ALPHAU NUM    CTRL    LC
+                    AI     TS     TT     UL     WA
+
+         SFTOVX removes these and all system function names  from  function
+         header   local   lists.   It  replaces  assignment  to  them  with
+         assignment to '.BXSINK_'.  Therefore the only quad  names  allowed
+         in locals lists are the following:
+
+                    AUS    IO     RL     CT     TIMELIMIT 
+                    SF     ERROR  PP     GAG    TIMEOUT
+                    PW     TRAP   LX
+
+
+      o  Several system commands in APLSF are not in VAX APL.
+
+         The system commands involved are the following:
+                    MODE   TABS   LIB and DROP switches   BLOT
+                    C      CALL   CREATE                  ECHO
+                    R      RUN    SEAL                    TIME
+                                                                    Page 35
+
+
+         For any of these to be used,  they  would  have  to  be  executed,
+         either  with .XQ or .EP.  Note that .EP returns 0 21 .ro 0 and .XQ
+         dies.
+
+         SFTOVX takes no action.
+
+
+      o  In APLSF, the shape of the result of  .EP')cmd'  is  a  matrix  of
+         .BXPW  columns  (if  the result contains more than 1 row).  In VAX
+         APL, the result is a vector with the rows delimited by CR-LF.
+
+         SFTOVX takes no action.  Note that .BXBOX in VAX  APL  converts  a
+         vector of lines delimited by CR-LF into a matrix.
+
+
+      o  Passwords on workspaces and /DA files are spelled  "-password"  in
+         APLSF.  The syntax is "/PASSWORD=password" in VAX APL.
+
+         Passwords may appear  in  )LOAD,  )SAVE,  )COPY,  )PCOPY,  .BXASS,
+         )CREATE, .BXQLD, .BXQCO, .BXQPC.
+
+         SFTOVX replaces .BXQLD,  .BXQPC,  .BXQCO,  and  .BXASS  with,  for
+         example,  .LD.USQLD which checks for a "-password" at run-time and
+         change it to "/PASSWORD=password".  SFTOVX takes no action on  the
+         system commands.
+
+
+      o  .BXTT returns different answers in VAX APL than in APLSF.
+
+         SFTOVX  replaces  the  .BXTT  system  variable  with  the  niladic
+         user-defined  function  .LD.USTT.   This  produces  the  following
+         results:
+
+               if VAX APL .BXTT is      then .LD.USTT returns
+
+               2 == TTY                 0 == TTY
+               3 == GIGI                3 == KEY
+               4 == LA                  2 == LA or Tektronix
+               5 == KEY                 3 == KEY
+               6 == BIT                 4 == BIT
+               8 == VT102-PA/RA         3 == KEY
+               11 == Tektronix 4013     2 == LA or Tektronix
+               12 == Tektronix 4015     2 == LA or Tektronix
+
+         Note that VAX APL does not  support  TTYCOM,  ONTEL  or  2741  APL
+         terminals, which APLSF does.
+
+
+      o  .FM and $ both output "-" for negative  numbers  in  TTY  mode  in
+         APLSF.  VAX APL outputs "-" only if .BXNG is 0.
+
+         SFTOVX does not set .BXNG in the VAX APL workspace since  it  also
+         affects .BXFI and .BXVI.
+
+                                                                    Page 36
+
+
+      o  T.LDf and S.LDf set the trace and stop vectors in VAX APL.   These
+         names are valid identifiers in VAX APL.
+
+         SFTOVX leaves these as identifiers;  the trap  and  stop  settings
+         for user-defined functions are not transferred.
+
+
+      o  /BS, /BS* and /BU binary files are not supported in VAX APL.
+
+         .BXASS is replaced by .LD.USASS, which executes  .BXBREAK  if  the
+         .BXASS  fails.  .BXASS reports a "not supported" error message for
+         the following facilities:  passwords, [ppn], /BS, /DUMP.
+
+
+      o  .BXCLS, DAS, CHS, DVC and FLS on .IO0 return information on all 12
+         channels.
+
+         SFTOVX replaces each  of  these  system  names  with  user-defined
+         functions.   For  example, .LD.USCLS checks to see if its argument
+         is an empty vector:  if it is, it  executes  .BXCLS  .BXCHANS  and
+         returns  .IO0 (these functions are not quiet in APLSF).  They also
+         change channel numbers of the form 100+n to -n.
+
+
+      o  .BXCIQ and COQ take  different  arguments  and  produce  different
+         results in VAX APL than in APLSF.
+
+         .BXCIQ and COQ  deal  with  internal  representations,  which  are
+         different  in  the  VAX  than in APLSF.  Therefore SFTOVX replaces
+         these system names  with  user-defined  functions.   For  example,
+         .LD.USCIQ  executes  .BXBREAK  'CIQ  IN  VAX APL INCOMPATIBLE WITH
+         APLSF'.
+
+
+      o  A trailing "lamp" on output to the terminal  suppresses  the  next
+         CR-LF  in  APLSF.  It is output simply as a trailing "lamp" in VAX
+         APL.
+
+         SFTOVX takes no action.
+
+
+      o  STOPSET can be trapped in VAX APL.  It cannot in APLSF.
+
+         SFTOVX takes no action.
+
+
+      o  APLSF does very little shape-checking on indexed assignment.
+
+         SFTOVX takes no action.
+
+
+      o  The character representation of a number can overflow on the VAX.
+
+         Numbers are transferred as character strings with .BXPP set to 18.
+         Rounding  may cause the string to be a number outside the range of
+                                                                    Page 37
+
+
+         allowable numbers in VAX APL.  A LIMIT ERROR is  reported  by  VAX
+         APL.
+
+         SFTOVX takes no action.
+
+
+      o  Some functions are quiet in VAX APL, but not in APLSF.
+
+         The only function that is quiet that is not being  transformed  is
+         .OQ.   This  function  cannot  be  replaced  with  a  user-defined
+         function because it takes an  axis  argument,  which  user-defined
+         functions can't do.
+
+         SFTOVX takes no action.
+
+      o  .BXGAG values in APLSF are reversed in VAX APL.
+
+         SFTOVX takes no action.
+
+
+      o  Valid value sets for certain system variables are different in VAX
+         APL than they are in APLSF.
+
+          - .BXCT  in  an  APLSF  workspace  is  migrated  to  VAX  APL  as
+            2.328E.NG10 even if it is larger than this value.
+
+          - .BXPP in an APLSF workspace is migrated to VAX APL as  16  even
+            if it is larger than this value.
+
+          - .BXRL in an APLSF workspace is migrated to VAX APL as .NG1+2*31
+            (2147483647).
+
+          -  .BXTIMELIMIT  in  an  APLSF  workspace   is   converted   from
+            milliseconds  to  seconds  and  is  migrated  to VAX APL as 255
+            seconds even if .BXTIMELIMIT is bigger than that value.
+
+          - The internal null character (APLSF .BXAV [103]) is removed from
+            .BXLX in an APLSF workspace before it is migrated to VAX APL.
+
+          - .BXPW in an APLSF workspace is migrated to VAX APL as  35  even
+            if .BXPW is smaller than that value.
+
+         o  The integer range in APLSF is  from  -2*35  to  .NG1+2*35.   In
+            VAXAPL,  the  integer  range  is  from -2*31 to .NG1+2*31.  Any
+            integer outside of  the  VAXAPL  range  will  be  stored  as  a
+            floating  point  number under VAXAPL.  The warning "BIG INTEGER
+            IN name" is issued.  When using  base  and  represent  to  pack
+            small  values  into  integers,  the  packing may not work under
+            VAXAPL.
+
+
+
+
+
+                                                                    Page 38
+
+
+5.0  ERROR MESSAGES     _____ ________
+
+
+
+Error messages put out by the various pieces of SFTOVX:
+
+
+      o  MIGRATE in SF2VX0
+
+         'MIG000,CTL THRU 999 IN USE'
+
+         MIGRATE cannot find a file spec  of  the  form  MIGnnn.CTL  (where
+         "nnn"  is  a  3  digit number) to use as the batch control file it
+         wants to build.  Execution will be suspended at this point  -  the
+         user  can  take  remedial  action  by  getting  rid of files named
+         MIGnnn.CTL on DSK:  and then typing _.GO  .BXLC  +  1  to  restart
+         MIGRATE.
+
+
+         The functions MIGRATE and PERFORM in SF2VX0 do  not  set  .BXTRAP,
+         which  implies that software failures will display a message (only
+         the 1st line since )ECHO is OFF) and suspend execution at the line
+         in error.  The user can then determine how to correct the failure.
+
+
+
+      o  DRIVER in SF2VX1
+
+         'SI NOT EMPTY'
+
+         This is an informational  message  only.   The  SI  stack  in  the
+         workspace   being   migrated  contains  suspended  and/or  pendent
+         functions.  The workspace will be transferred but local copies  of
+         functions and variables will be dumped out to the input script.
+
+
+         DRIVER does not set .BXTRAP, which implies that software  failures
+         will  display a message (only the 1st line since )ECHO is OFF) and
+         suspend execution at  the  line  in  error.   The  user  can  then
+         determine how to correct the failure.
+
+
+
+      o  The file drivers, ASDRIVER, BSDRIVER,  ISDRIVER  and  DADRIVER  in
+         SF2VX4
+
+         'ERROR ASSIGNING INPUT FILE:  name'
+
+         all four drivers display this error if the file is not found
+
+         'ERROR n READING FROM FILE name COMPONENT i'
+         'ERROR n READING FROM FILE name RECORD i'
+
+         DADRIVER says COMPONENT;  all others say RECORD, where "n"  is  an
+         APLSF  error  number  (see  Appendix  A  in  the VAX APL REFERENCE                                                          ___ ___ _________
+                                                                    Page 39
+
+
+         MANUAL), "name" is the file the driver is trying to read, and  "i"         ______
+         is the record or component number currently being read.
+
+         This message is then followed by the 1st line of  .BXERROR,  which
+         will be the text for error "n".
+
+         'ERROR 69 READING FROM FILE name,ADA COMPONENT 0
+         FILE FORMAT NOT DIRECT ACCESS'
+
+         'ERROR 70 READING FROM FILE name,ais RECORD 1
+         FILE FORMAT NOT INTERNAL SEQUENTIAL'
+
+         Processing of the file stops when an error occurs and  the  output
+         file (that is the VAX input script) being built is closed.
+
+
+      o  All drivers check numeric data for integer values that are outside
+         the  integer  range in VAX APL.  The warning "BIG INTEGER IN name"
+         means that such an integer was found in the variable name.
+
+
+      o  While MIGRATE is interacting with  the  user,  recoverable  errors
+         (such as FILE NOT FOUND) are reported and the user is prompted for
+         alternate input.  If the error is not  recoverable,  the  function
+         suspends so the user can diagnose the failure.
+
+
+      o  For functions that will most likely  be  executed  in  batch  (for
+         example,the  drivers), errors are reported and APLSF then suspends
+         execution.  While running the control file built by  MIGRATE  from
+         batch,  the  next command will be )OFF HOLD which returns the user
+         to the "@" prompt.  The user must examine the .LOG file  from  the
+         batch  job  to see if the process was successful.  If the function
+         is run interactively, suspending the function gives the  user  the
+         chance  to  diagnose  the  problem.   Note  that if a user-defined
+         filter function is unsuccessful, the user can debug it  if  it  is
+         being run interactively.
+

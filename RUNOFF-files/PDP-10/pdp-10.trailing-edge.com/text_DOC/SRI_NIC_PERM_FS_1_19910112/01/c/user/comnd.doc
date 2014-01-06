@@ -1,0 +1,228 @@
+COMND package documentation					    Macky, 9/87
+
+
+COMND is a package for interfacing C programs with the TOPS-20 COMND%
+jsys.  In general, using C COMND is much like doing it yourself in
+assembler.  You create a state block, FDBs, keyword tables, etc, do a
+one-time initialization, and then do parses with cm_parse() calls.
+
+The setup steps for using COMND are:
+
+    initialization:
+
+	- include the file <nic/comnd.h> and link in nicprog:comnd.rel
+	- create a state block of type cm_state
+	- create your FDBs of type cm_fdb
+	- create keyword tables with cm_table_begin, cm_table_entry's,
+	  and cm_table_end
+	- declare your FDBs and their keyword table relationships
+	  by putting them in a cm_declare array
+
+    runtime:
+
+	- initialize COMND with cm_init
+	- set your reparse address with cm_set_reparse()
+	- go for it!
+
+The state block.  The state block used by COMND is an image of the
+COMND% jsys state block, plus extra things thrown onto the end.
+
+The reparse address in the state block is set by cm_init() to be
+cm_do_reparse, which is the only reparse handler in COMND.  when
+the user declares their reparse address with cm_set_reparse(),
+their state is saved in a jmp_buf in the state block.  When reparse
+is needed, the cm_do_reparse() routine longjmp's back to that saved
+state.
+
+An input and atom buffer are allocated as part of each state block,
+the pointers and counts to each being set by cm_init().  Since COMND%
+can only handle local 18-bit addresses, it would not work to allocate
+these buffers with malloc(), since for extended addressing they would
+be in a different section.  The sizes are currently 1024 chars for the
+main input and 128 chars for the atom buffer.
+
+The only thing initially supplied by the user for the state block is
+the prompt string, which is set with the cm_init() call.
+
+The three return values for a parse are kept in the state block.  They
+are:
+
+    int r_flags		the returned flag word
+
+    int r_data		whatever piece of data is returned by the
+			function you did
+
+    ch_fdb *r_used	a pointer to the FDB that was actually used
+			in the parse
+
+Declare your state block like this:
+
+    struct cm_state state;	/* "state" is your state block */
+
+FDBs.  FDBs, like state blocks, start out with an image of their
+COMND% counterpart.  The tail end of a COMND FDB has a (cm_fdb *)
+pointer to the next FDB in the chain, which you will note is out of
+place.  Due to weakness in the initialization of ints in C, the
+next-FDB cannot be placed directly into the next-FDB field in the
+header word of the FDB.
+
+Also, for keyword and switch parses, the address of the keyword table
+cannot be initialzed in.  You will declare FDB-keyword-table pairs in
+the cm_declare array as decribed later.
+
+At cm_init() time, the FDBs are fixed up: the next-FDB pointer is
+packed into the first header word, and all keyword tables are
+internalized, and pointers to them placed in the data word of the FDB.
+
+COMND% can only handle 7-bit strings.  It checks all byte pointers
+to make sure they are of 7-bit (local or global) type.  All strings
+must be of 7-bit bytes.  That means FDB help, default, and token
+strings.  COMND provides a str7() macro that when given a string,
+return a 7-bit byte pointer to one before the start of that 7-bit
+string.  that is, just use str7("foo") instead of plain "foo" when
+filling in those FDB string-pointer fields.
+
+Here are a few sample FDB declarations:
+
+    cm_fdb cmnum = {
+	_CMNUM,				/* function code */
+	cm_hpp|cm_sdh,			/* flag bits */
+	0,				/* next FDB, but be 0 initially */
+	10,				/* data for function */
+	str7("number of pounds"),	/* help string */
+	0,				/* default string */
+	0,				/* break mask address */
+	keyfdb				/* nest FDB in chain */
+    };
+    cm_fdb keyfdb = {
+	_CMKEY, cm_hpp, 0, 0, str7("command")
+    };
+
+Note that if all the elements at the tail end of an FDB are 0, they
+need not be explicitly initialzed.
+
+Keyword tables.  Keyword tables cannot be correctly formed at compile
+time, so a little klugery is called for.  Start a new table with
+
+    cm_table_begin(name, _name)
+
+where name is the name of your table.  Due to weak C macros, you
+must manually supply the name of the internal table that will be
+created to hold the actual TBLUK-format table.  The internal name
+should be _ followed by the regular name.  In the future, this
+call will be changed only to need the first name, with the internal
+one being gensym'd for you.
+
+make entries in the table with
+
+    cm_table_entry("key", data)
+
+where "key" is the alphabetized command/switch key.  the data portion
+will eventually be going in the right half of a internal table word,
+so it should be no larger than 18 bits.  it is cast as (int) for you.
+
+end the table definition with
+
+    cm_table_end(name, _name)
+
+where the "name"s are exactly the same as in the cm_table_begin().
+
+FDB and FDB-keyword-table declarations.  All FDBs require fixing up at
+runtime.  The user should declare an array of type cm_declare, each
+element of which is a small structure.  The first structure element is
+a pointer to the FDB.  The second element, needed for keyword and
+switch FDBs only, is a pointer to the keyword table.  All FDBs must
+be mentioned.  The last element in the array must be a 0!
+
+A declaration would look like this:
+
+    cm_declare fdbs[] = {
+	{ &foofdb }, { &barfdb }, { &keyfdb, keytab},
+	{ &bazfdb }, { 0 }
+    };
+
+It's not that funny, is it?
+
+Functions.  The actual parsing functions are few in number.
+
+void cm_init(sblk, fdbs, prompt)
+struct cm_state *sblk;
+cm_declare fdbs[]
+char7 *prompt;
+
+    This is the one-time-only COMND initialization call.  It declares
+    your state block (sblk), the array of FDB pointers and keyword
+    table mapings (fdbs), and the prompt to use.  Note that the prompt
+    is of type (char7 *) which is defined in comnd.h; make your
+    prompt with str7() or lose.
+
+#define cm_set_reparse(sblk)		setjmp(sblk.rep_buf)
+
+    when your declare your reparse address (which is the location in
+    your code where the parsing really begins, AFTER the _CMINI parse),
+    what really happens is that the current state is saved away into
+    a jmp_buf in your state block.  the state block itself has its
+    reparse address set to cm_do_reparse(), a fixed routine that does
+    a longjmp back to that saved state.  note that since this is a
+    macro, you give it the name of the state block itself, not a pointer
+    to it.
+
+int cm_parse(fdb)
+cm_fdb *fdb;
+
+    this is the actual parsing routine.  give it a pointer to the first
+    FDB in the chain, and it will return 0 on error, else 1.  the return
+    values from the parse (flags, optional int data value, and pointer
+    to FDB actually used in parse) are kept in your state block as
+    r_flags, r_data, and used respectively.
+
+#define cm_confirm()			cm_parse(&cmcfm)
+#define cm_noise(s)			cm_squawk(str7(s))
+
+    cm_confirm() is just a shorthand call for confirmation.  it does
+    a straight _CMCFM call, confirm with carriage return.  cm_noise()
+    stuffs the noise FDB data pointer to your string and then does a
+    noise parse.  note that this macro encloses your string in a
+    str7(), so you shouldn't do it yourself.
+
+extern cm_fdb cmini, cmcfm, cmcma;
+
+    these three FDBs are provided by the COMND package.  a _CMINI parse
+    is necessary for COMND% to grovel over your state block; it also
+    is the call that types out the prompt.  cmcfm is confirm with
+    carriage return; cmcma is parse for a comma.
+
+Programming example.  Here's a tiny programming example that shows the
+whole enchilada.
+
+#include "stdio.h"
+#include "comnd.h"
+
+cm_fdb keyfdb = {
+    _CMKEY
+};
+
+
+cm_fdb numfdb = {
+    _CMNUM, cm_sdh|cm_hpp, 0, 10, str7("decimal number"), 0, 0, &keyfdb
+};
+
+cm_table_begin(keytab, _keytab)
+    cm_table_entry("and", 1)
+    cm_table_entry("boy", 2)
+    cm_table_entry("gorganzola", 3)
+    cm_table_entry("xerxes", -1)
+    cm_table_entry("zoop-de-doop", 99)
+cm_table_end(keytab, _keytab)
+
+cm_declare fdbs[] = { {&numfdb}, {&keyfdb, keytab}, {0}};
+
+struct cm_state state;			/* comnd state block */
+
+main()
+{
+    cm_init(&state, fdbs, str7("test> "));	/* initialize */
+    cm_parse(&cmini);			/* do _CMINI parse, types prompt */
+    cm_set_reparse(state);		/* set reparse address to here. */
+    cm_parse(&numfdb);			/* parse for a number or keyword */
+}

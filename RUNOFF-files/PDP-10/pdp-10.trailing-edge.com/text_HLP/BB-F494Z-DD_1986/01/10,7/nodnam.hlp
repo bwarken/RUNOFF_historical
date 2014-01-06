@@ -1,0 +1,69 @@
+
+NODNAM is a utility that assigns node names to node numbers much faster
+than NCP commands to OPR.  NODNAM is intended to be run on FRCLIN at system
+startup, and whenever the node name database is updated on disk.
+
+By default, NODNAM's database is contained in the file INI:NODNAM.INI.
+If you define INI:/OVERRIDE (with PATH), you can use any file you wish.
+
+NODNAM runs on both TOPS-10 and TOPS-20, figuring out at run-time
+which OS it is running under.  The same .EXE file may be used for both.
+
+NODNAM.INI may be formatted as OPR NCP commands, or as the output from
+an NCP LIST KNOWN NODES TO NODNAM.INI command executed on VMS.
+In particular, the following formats are accepted in NODNAM.INI.
+	SET NODE area.node NAME name
+      or
+	DEFINE NODE area.node NAME name
+      or
+	Executor node = area.node (name)
+      or
+	Remote node = area.node (name)
+where area. is optional, and if omitted is assumed to be the home area.
+
+All other lines are ignored.
+
+Besides the NODNAM.INI file, NODNAM prompts for the home area number.
+This allows NODNAM to function on a phase III (7.02) DECnet system.
+Under PHASE III, NODNAM only defines the nodes in the home area.
+Under phase IV, NODNAM verifies that the area number specified at MONGEN
+matches what is provided at runtime to ensure that the file is processed
+the same way in both cases.
+
+To assist in generating the NODNAM.INI file, additional utilities are
+provided.  Because a VAX will generally be used as a level II router,
+and has a permanent database, we believe that system managers are more
+likely to update a VAX permanent database (with DEFINE commands) than
+they are to edit NODNAM.INI.
+
+The utility GETNODES.FOR is a VAX fortran program that reads a VMS
+version 3 or 4 permanent database file (SYS$SYSTEM:NETNODES.DAT), and
+produces a NODNAM.INI suitable for direct input to NODNAM.  You
+NFT COPY GETNOD.FOR to the VAX, calling it GETNODES.FOR on the VAX.
+Then,
+	$ FORTRAN GETNODES
+	$ LINK GETNODES
+GETNODES must be run from an account that has access to SYS$SYSTEM:NETNODES.
+DAT.  The resulting file may be copied back to INI: on the -10 or -20.
+
+
+On the -10, NODNAM will DETACH and report it's status to OPR terminals if
+it was run from the FRCLIN.  On the -20, and other -10 terminals, it's
+typeout is on TTY:.
+
+NODNAM may be used without the other utilities.  However, if a VAX is 
+maintained anyway, the other utilities prevent much duplication of effort.
+
+All software described in this document is officially unsupported, but is
+used extensively internally.
+
+GETNODES understands VMS 3.x and 4.0 VAX databases.  (you specify 3 or 4
+at runtime)  Because VMS engineering occaisionally changes the format
+of the NETNODE.DAT file, NODNAM also accepts the output of VAX NCP's
+LIST KNOWN NODES TO NODNAME.INI command.  GETNODES is MUCH faster
+in both CPU and wall clock time and is preferred when it works.  
+The LIST KNOWN NODES option is provided to ensure that should NETNODE.DAT
+change incompatibly in the future, NODNAM users will retain the ability
+to get their NODNAM.INI in an automated fashion.  (Note that the LIST
+KNOWN NODES output is much larger than GETNODES, and that GETNODES output
+can be fed to NCP (OPR), while LIST KNOWN NODES can not.)

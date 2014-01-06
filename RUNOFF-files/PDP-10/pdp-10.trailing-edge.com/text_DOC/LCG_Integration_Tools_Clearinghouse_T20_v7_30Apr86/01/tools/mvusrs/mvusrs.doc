@@ -1,0 +1,4619 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        MVUSRS
+
+                        Utility Reference Manual
+
+
+
+
+                        T. A. Brengle
+                        Lawrence Livermore National Laboratory
+                        P. O. Box 5511, L-630
+                        Livermore, California  94550
+
+                        Phone : (415) 422-1543
+                                FTS   532-1543
+
+                        ARPANET : BRENGLE%LLL@LLL-MFE
+
+
+
+
+
+
+
+                        November 1985
+
+
+
+                        This manual describes the MVUSRS Utility, which assists
+                        in moving user accounts from TOPS-10/20 systems to VMS
+                        systems.
+
+
+
+
+
+                        Revision/Update Information:        This is a new manual.
+
+                        Software Version:                   MVUSRS Version 1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        ------------------------------------
+                        November 1985
+
+
+                        -----------------
+                        The information in this document is subject to change
+                        without notice and should not be construed as a
+                        commitment by Lawrence Livermore National Laboratory.
+                        Lawrence Livermore National Laboratory assumes no
+                        responsibility for any errors that may appear in this
+                        document.
+
+                        The software described in this document is copyrighted by
+                        the Regents of the University of California and may be
+                        used and copied freely, provided all copyright notices
+                        are preserved in all copies made.
+
+                        -----------------
+                        Copyright 1985 by the Regents of the University of
+                        California
+
+                        -----------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                         MVUSRS-2
+
+
+
+
+
+
+
+
+
+
+
+                    MVUSRS Utility
+                    MVUSRS Utility
+                    MVUSRS Utility
+                    MVUSRS Utility
+
+
+
+                         Contents
+                         Contents
+                         Contents
+                         Contents
+
+
+                              Software Product Description                 4
+
+                              Overview                                     5
+                                   Extracting the User Account             5
+                                     Information
+                                   Running MVUSRS                          5
+                                   Installing the VMS Accounts             6
+
+                              Moving TOPS-10 User Accounts                 8
+                                   Extracting the User Account             8
+                                     Information
+                                   Running MVUSRS                         10
+                                   Installing the VMS Accounts            18
+
+                              Moving TOPS-20 User Accounts                21
+                                   Extracting the User Account            21
+                                     Information
+                                   Running MVUSRS                         23
+                                   Installing the VMS Accounts            31
+
+                              Appendix : MVUSRS Source Listing            34
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                         MVUSRS-3
+
+
+
+
+
+
+
+               Software Product Description
+               Software Product Description
+               Software Product Description
+               Software Product Description
+               ________ _______ ___________
+
+
+
+               Product Name:  MVUSRS, Version 1.0
+
+
+               Description:
+
+               The MVUSRS utility assists in the moving of TOPS-10/20 user accounts to
+               VMS systems.  MVUSRS runs on the source TOPS-10/20 system and combines
+               user account information from the TOPS system (from REACT on TOPS-10 or
+               from DLUSER on TOPS-20) with input from the operator of the utility to
+               generate a VMS DCL COM file.  This COM file can then be shipped to the
+               target VMS system and executed.
+
+               Several options are provided in MVUSRS to facilitate review and
+               modification of the user account information, both before and after
+               writing the DCL commands into the COM file.
+
+               For each user account, MVUSRS generates DCL commands to perform the
+               following functions:
+
+
+                    * Run DISKQUOTA to establish the user's permanent and overdraft
+                      disk quotas.
+
+                    * Create a first-level directory for the user.
+
+                    * Copy a template VMS LOGIN.COM file into the user's directory.
+
+                    * Run AUTHORIZE to establish the user's
+                         - user name
+                         - full name
+                         - default account name
+                         - default login device name
+                         - default login directory name
+                         - user identification code
+                         - privileges
+                         - password
+
+               The procedures used by MVUSRS for determining the information to be
+               given to VMS are dependent on the data available from the account files
+               on the source TOPS system.
+
+
+               Prerequisite Software:
+
+               MVUSRS is known to work with TOPS-10 Version 7.01, TOPS-20 Version 5.1,
+               and VMS Version 4.1.  Other versions may work, but have not been tested.
+               In particular, it is unlikely that MVUSRS will work with versions of VMS
+               prior to 4.0 since much use has been made of the enhanced user account
+               information available in Version 4.0.
+
+
+
+
+               November 1985                                                         MVUSRS-4
+
+
+
+
+
+
+
+               Overview
+               Overview
+               Overview
+               Overview
+               ________
+
+
+
+               This section gives a brief overview of the operation of MVUSRS,
+               including aspects which are common to usage under both TOPS systems.
+               Detailed operating instructions are given in the sections on "Moving
+                                                                             Moving
+                                                                             Moving
+                                                                             Moving
+               TOPS-10 User Accounts" and "Moving TOPS-20 User Accounts", along with
+               TOPS-10 User Accounts       Moving TOPS-20 User Accounts
+               TOPS-10 User Accounts       Moving TOPS-20 User Accounts
+               TOPS-10 User Accounts       Moving TOPS-20 User Accounts
+               the system specific aspects.  This manual is structured to allow an
+               operator to read this section and then proceed directly to the section
+               for the TOPS system of interest.
+
+
+               Extracting the User Account Information
+               __________ ___ ____ _______ ___________
+
+               Prior to running MVUSRS on the source TOPS-10/20 system, the user
+               account information must be extracted from the system into an ASCII text
+               file that will be used as input to the utility.  The operator of the
+               utility then has the option to edit the text file to modify user
+               information or to eliminate it from the file in cases where it is not
+               appropriate to move the account to VMS (e.g. system accounts).
+
+
+               Running MVUSRS
+               _______ ______
+
+               MVUSRS is then invoked.  The utility displays a short introductory
+               message, followed by a series of questions used to set defaults for
+               items needed by VMS but not given by the TOPS system or where it is not
+               appropriate to use the TOPS information.  MVUSRS then allows the
+               operator to modify them if desired.
+
+               Once the defaults have been set, MVUSRS begins to process user account
+               information.  The utility reads data from the input file, then uses
+               TOPS-10 or TOPS-20 specific procedures to generate appropriate VMS user
+               account information.
+
+               This information is then processed through VMS specific procedures to
+               make sure that the information will be valid and legal under VMS
+               (specifically VMS 4.0 at this release).  The following operations are
+               performed:
+
+                    - The VMS user name is left-justified and shifted to all upper-
+                      case.  Any non-alphanumeric characters are replaced with
+                      underscores, and it is trimmed to a maximum of 12 characters.
+
+                    - The VMS full name is left-justified and trimmed to a maximum of
+                      31 characters.
+
+                    - The VMS account name is left-justified and shifted to all upper-
+                      case.  Any non-alphanumeric characters are removed, and it is
+                      trimmed to a maximum of 8 characters.
+
+                    - The VMS default login device name is left-justified and shifted
+                      to all uppercase.  Any non-alphanumeric characters, except "$"
+
+
+
+               November 1985                                                         MVUSRS-5
+
+
+
+
+
+
+
+                      and ":", are removed, and it is trimmed to a maximum of 15
+                      characters.
+
+                    - The VMS default login directory name is left-justified and
+                      shifted to all uppercase.  Any non-alphanumeric characters are
+                      removed.  Open and close square brackets are added, and it is
+                      trimmed to a maximum of 63 characters.
+
+                    - The VMS user identification code (UIC) is broken into two parts,
+                      the group number and the user number.  The group number is forced
+                      to be a valid octal number within the range 1 to 37776.  The user
+                      number is forced to be a valid octal number within the range 0 to
+                      1777776.  A comma is inserted to separate the two parts, and the
+                      entire UIC is enclosed in square brackets.
+
+                    - The VMS privileges code is determined from the user's privileges
+                      on the source TOPS system.  MVUSRS supports two levels of VMS
+                      privileges, MINIMUM and ALL.
+
+               MVUSRS then can optionally display the generated VMS user account
+               information, and allow the operator:
+
+                    -  to accept the information as generated;
+                    -  to modify it, one item at a time;
+                    -  to skip the account, generating no output to the COM file.;
+
+               Once the information is accepted, MVUSRS writes a sequence of DCL
+               command lines into the output file to perform the following functions:
+
+                    - Check to see if disk quota management is being done on the target
+                      VAX.  If so, run DISKQUOTA to set the user's permanent and
+                      overdraft quotas.
+
+                    - Create a first level directory for the user, and set its
+                      protection.
+
+                    - Copy a template LOGIN.COM file into the user's first level
+                      directory.
+
+                    - Run AUTHORIZE to add the user's account information to the User
+                      Authorization File (UAF).  This includes his user name, full
+                      name, default account name, default login device name, default
+                      login directory name (which is set to the user's first level
+                      directory name), user identification code (UIC), privileges,
+                      password, and the name of his default LOGIN.COM file.
+
+               MVUSRS then reads the next set of data from the input file and repeats
+               the process.  Processing continues until the end of the input file is
+               reached.
+
+
+               Installing the VMS Accounts
+               __________ ___ ___ ________
+
+               The operator then transports the VMS COM file generated by MVUSRS to the
+               target VAX.  The operator logs into the target VAX as a privileged user
+
+
+               November 1985                                                         MVUSRS-6
+
+
+
+
+
+
+
+               and invokes the COM file.  User accounts are then automatically
+               installed without further operator intervention.  If the operator has
+               chosen to have the VMS DCL commands displayed as they are executed, and
+               if he is logged in on a hardcopy terminal, a permanent hardcopy log of
+               the transactions is made for each user account.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                         MVUSRS-7
+
+
+
+
+
+
+
+               Moving TOPS-10 User Accounts
+               Moving TOPS-10 User Accounts
+               Moving TOPS-10 User Accounts
+               Moving TOPS-10 User Accounts
+               ______ _______ ____ ________
+
+
+
+               Extracting the User Account Information
+               __________ ___ ____ _______ ___________
+
+               The REACT utility is used to create an ASCII text file containing the
+               account information from the source TOPS-10 system.  Figure 1 shows a
+               typical session with REACT, where the default ACCT.SYS file is read, and
+               the L command is then used to list the account information out to a file
+               on DSKA: called ACCT.LST.  Input from the operator is shown underlined.
+               REACT also allows the use of some filter options with the L command, but
+               the REACT documentation should be consulted for the use of those
+               options.  Note also that the operator must be logged in to [1,2] to
+               perform this operation.  Figure 2 shows a fragment of an output file
+               from REACT.
+
+               At this point, if desired, the file output from REACT may be edited
+               using any standard ASCII text file editor (TECO, EMACS, etc.) to modify
+               or remove any user account information before running the MVUSRS
+               utility.  This might be for the purpose of removing account information
+               for accounts which should not be moved to the target VAX system.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                         MVUSRS-8
+
+
+
+
+
+
+
+
+
+               .R REACT
+                _______
+
+               For help type "H<CR>"
+
+               *R ACCT.SYS
+                __________
+               [449 out of 500 entries are used]
+
+               *L DSKA:ACCT.LST
+                _______________
+               List codes?Y
+                          _
+
+               *EX
+                __
+
+               EXIT
+               .
+
+
+                                       Figure 1.  Running REACT
+
+
+
+
+
+
+
+
+
+               Proj Prog Name Priv Code Times
+                    Core(Phys,,Virt)  IPCF(Send,,Recv.)  Profile          CUSP Chg
+                    Expires   Scd Type  ENQ-DEQ
+
+
+               30   34   AZEVEDO S.     000000000000   MYMYMY             777777777777
+                    511,,511 2,,5       017400001763   SETUP
+                    8 SEP 768 0    511
+
+               30   35   LAGER D.       000000000000   HISHIS             777777777777
+                    511,,511 2,,5       017400001763   SETUP
+                    8 SEP 768 0    511
+
+               30   300  ANDERSON D     000000000000   KFRMKG             777777777777
+                    511,,511 2,,5       017400001763   SETUP
+                    8 SEP 768 0    511
+
+               30   301  YOUNG S.       000000000000   SRLPST             777777777777
+                    511,,511 2,,5       017400001763   SETUP
+                    8 SEP 768 0    511
+
+               30   302  WILLIAMS D.    000000000000   RXLTFP             777777777777
+                    511,,511 2,,5       017400001763   SETUP
+                    8 SEP 768 0    511
+
+
+
+                                    Figure 2.  Typical output from REACT
+
+               November 1985                                                         MVUSRS-9
+
+
+
+
+
+
+
+               Running MVUSRS
+               _______ ______
+
+               Figure 3 shows how to start up MVUSRS.  Input from the operator is shown
+               underlined.  The utility displays a short introductory message, followed
+               by a series of questions used to set defaults for items needed by VMS
+               but not present in the TOPS-10 system, or where it is not appropriate to
+               use the TOPS-10 information.  In each case, if the item has a limited
+               number of allowed values (e.g. (YES,NO), (TOPS-10,TOPS-20)), these
+               values are shown in parentheses immediately following the question.  If
+               the item has already been assigned a value, that value is shown enclosed
+               in square brackets following the question.  Typing a return without
+               entering new data accepts the current value without change.
+
+               For TOPS-10, MVUSRS needs the following information:
+
+                    - Operating system : The operator must specify 1, or TOPS-10 or
+                         something similar.
+
+                    - Input file name : The operator must specify the name of the input
+                         file to be read.
+
+                    - Output file name : The operator may specify a name for the output
+                         VMS DCL COM file.  The default is MVUSRS.COM.
+
+                    - Output command verification:  The operator may choose whether or
+                         not to have the user account data displayed and allow
+                         correction before writing the DCL commands to the output file.
+                         If the user opts to not allow correction, he will be asked
+                         separately whether or not he would like to have the data
+                         displayed only before writing to the output file.
+
+                    - VMS command display : The operator may specify whether or not he
+                         wishes to have the DCL commands in the output file displayed
+                         by the VMS system as they are executed.  It is highly
+                         recommended that this be enabled, since the output will
+                         provide a complete log of transactions during the account
+                         installation procedure.
+
+                    - VMS default login device name : The operator may change the name
+                         of the default login device on the target VMS system.
+
+                    - Default permanent disk quota : The operator may change the
+                         default value for the VMS permanent disk quota.
+
+                    - Default overdraft disk quota : The operator may change the
+                         default value for the VMS overdraft disk quota.
+
+                    - Default account name : The operator may change the name of the
+                         default VMS account.
+
+                    - Default LOGIN.COM file name : The operator may change the name of
+                         the template LOGIN.COM file to be copied to the user's
+                         account.
+
+
+
+
+               November 1985                                                        MVUSRS-10
+
+
+
+
+
+
+
+               After the operator responds to the last question, MVUSRS displays the
+               current values.  The operator is then asked if they are correct.  If he
+               responds NO, then the series of questions is repeated, with the updated
+               values as defaults.  He will be asked again if they are correct.  This
+               cycle may be repeated as necessary to get the values set as desired.
+               Once the operator is satisfied with the values, he may respond YES, or
+               just type a return, and MVUSRS will begin reading user data from the
+               input file.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-11
+
+
+
+
+
+
+
+               .EX MVUSRS
+                _________
+               LINK:     Loading
+               [LNKXCT   MVUSRS execution]
+
+               MVUSRS :
+                 This utility takes user data from the TOPS-10/20
+                 operating systems, as well as input from the operator
+                 and generates a VMS .COM file which will install those
+                 users on a VAX system.
+
+
+               Which operating system?
+                 (TOPS-10,TOPS-20)  [] : 1
+                                         _
+               TOPS-10 input file name?
+                 [] : ACCT.LST
+                      ________
+               Output file name?
+                 [MVUSRS.COM] :
+               Allow verification of output commands before writing to MVUSRS.COM?
+                 (YES,NO)  [YES] :
+               Have VMS display commands and their output as they are executed?
+                 (YES,NO)  [YES] :
+               What will be the default login device on VMS?
+                 [SYS$USER:] :
+               What will be the default permanent disk quota on VMS?
+                 [1000 blocks] : 200
+                                 ___
+               What will be the default overdraft disk quota on VMS?
+                 [100 blocks] :
+               What will be the default account?
+                 [VMS] : TRAINING
+                         ________
+               What will be the default LOGIN.COM?
+                 [SYS$MANAGER:LGISAMPL.COM] :
+
+                                        Operating system : TOPS-10
+                                              Input file : TOPS10.DAT
+                             Output file (VMS .COM file) : MVUSRS.COM
+                   Display output before writing to file : YES
+                    Verify output before writing to file : YES
+               Have VMS display commands while executing : YES
+                                Default VMS login device : SYS$USER:
+                        Default VMS permanent disk quota : 200
+                        Default VMS overdraft disk quota : 100
+                                         Default account : TRAINING
+                     Default LOGIN.COM will be a copy of : SYS$MANAGER:LGISAMPL.COM
+
+               Is this correct?  (YES,NO)  [YES] :
+
+
+
+
+
+
+
+
+
+
+                                         Figure 3. Starting MVUSRS
+
+               November 1985                                                        MVUSRS-12
+
+
+
+
+
+
+
+               For each user record present in the input file, MVUSRS generates
+               corresponding VMS account information, as follows:
+
+                    - The VMS user idenfication code is generated from the TOPS-10
+                      project/programmer number.
+
+                    - The VMS full name and user name are generated from the TOPS-10
+                      user name.
+
+                    - The VMS privileges are determined from the TOPS-10 privilege
+                      bits.  If the TOPS-10 privilege bits are all off, the VMS account
+                      is given MINIMUM privileges.  If any TOPS-10 privilege bits are
+                      on, the VMS account is given ALL privileges.
+
+                    - The VMS password is generated from the TOPS-10 password.
+
+                    - The VMS default login directory name is generated from the
+                      TOPS-10 user name.
+
+               The other VMS information required is taken from the defaults set up in
+               the previous step.
+
+               After processing the user's record, the proposed values for the user's
+               VMS account are displayed (if this has been enabled).  The operator may
+               then accept them as generated, skip the record entirely and generate no
+               output for that user, or modify the generated values.  Figure 4 shows
+               how to skip a record.
+
+               Figure 5 shows how to modify the values for any of the items of the
+               user's record.  If the values are not accepted as correct, they are
+               listed, one at a time, and the operator is prompted for a correction.
+               Typing only a return signifies acceptance of the current value.
+               After the operator has been asked for new values for all the items, the
+               values are rechecked to make sure that VMS will accept them as legal and
+               valid.  Then the complete list is re-displayed, and the operator is
+               again asked if the values are correct.  This correction cycle may be
+               repeated as many times as necessary.
+
+               User records will continue to be processed until the end of the input
+               file is reached.  Figure 6 shows a fragment of an output file,
+               illustrating the DCL commands that were generated for an individual
+               user.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-13
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             User Name : LAGER_D_
+                             Full Name : LAGER D.
+                               Account : TRAINING
+                  Default Login Device : SYS$USER:
+               Default Login Directory : [LAGER]
+                                   UIC : [30,35]
+                            Privileges : MINIMUM
+                              Password : HISHIS
+                  Permanent Disk Quota : 200
+                  Overdraft Disk Quota : 100
+
+               SYS$USER:[LAGER]LOGIN.COM will be copied from : SYS$MANAGER:LGISAMPL.COM
+
+               Are these values correct?  (YES,NO,SKIP)  [YES] : S
+                                                                 _
+               Record skipped.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      Figure 3. Skipping a user record
+
+               November 1985                                                        MVUSRS-14
+
+
+
+
+
+
+
+
+
+
+
+                             User Name : WILLIAMS_D_
+                             Full Name : WILLIAMS D.
+                               Account : TRAINING
+                  Default Login Device : SYS$USER:
+               Default Login Directory : [WILLIAMS]
+                                   UIC : [30,302]
+                            Privileges : MINIMUM
+                              Password : RXLTFP
+                  Permanent Disk Quota : 200
+                  Overdraft Disk Quota : 100
+
+               SYS$USER:[WILLIAMS]LOGIN.COM will be copied from :
+               SYS$MANAGER:LGISAMPL.COM
+
+               Are these values correct?  (YES,NO,SKIP)  [YES] : N
+                                                                 _
+
+
+
+                                User Name : WILLIAMS_D_
+                               Correction : williams_d
+                                            __________
+                                Full Name : WILLIAMS D.
+                               Correction :
+                                  Account : TRAINING
+                               Correction : systems
+                                            _______
+                     Default Login Device : SYS$USER:
+                               Correction :
+                  Default Login Directory : [WILLIAMS]
+                               Correction :
+                                      UIC : [30,302]
+                               Correction : 77,302
+                                            ______
+                               Privileges : MINIMUM
+                 Correction (MINIMUM,ALL) : all
+                                            ___
+                                 Password : RXLTFP
+                               Correction :
+                     Permanent Disk Quota : 200
+                               Correction : 1000
+                                            ____
+                     Overdraft Disk Quota : 100
+                               Correction : 1000
+                                            ____
+
+               SYS$USER:[WILLIAMS]LOGIN.COM will be copied from :
+               SYS$MANAGER:LGISAMPL.COM
+                               Correction :
+
+
+
+
+
+
+
+
+
+                            Figure 5 (con't next page).  Modifying a user record
+
+               November 1985                                                        MVUSRS-15
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             User Name : WILLIAMS_D
+                             Full Name : WILLIAMS D.
+                               Account : SYSTEMS
+                  Default Login Device : SYS$USER:
+               Default Login Directory : [WILLIAMS]
+                                   UIC : [77,302]
+                            Privileges : ALL
+                              Password : RXLTFP
+                  Permanent Disk Quota : 1000
+                  Overdraft Disk Quota : 1000
+
+               SYS$USER:[WILLIAMS]LOGIN.COM will be copied from :
+               SYS$MANAGER:LGISAMPL.COM
+
+               Are these values correct?  (YES,NO,SKIP)  [YES] :
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                               Figure 5 (last page).  Modifying a user record
+
+               November 1985                                                        MVUSRS-16
+
+
+
+
+
+
+
+
+
+
+
+
+               $!
+               $!
+               $! Check to see if quota management is being done
+               $!
+               $  IF F$SEARCH("SYS$USER:[0,0]QUOTA.SYS") .EQS. "" THEN GOTO NQ004
+               $!
+               $! If so, add disk quota entries
+               $!
+               $  RUN SYS$SYSTEM:DISKQUOTA
+                  USE SYS$USER:
+                  ADD [77,302] /PERMQUOTA=1000 /OVERDRAFT=1000
+                  EXIT
+               $  NQ004:
+               $!
+               $! Create a first-level directory for the account
+               $!
+               $  CREATE/DIRECTORY /OWNER_UIC=[77,302] /PROTECTION=(S=RWE,O=RWE,G=RE,W) -
+                      SYS$USER:[WILLIAMS] /LOG
+               $!
+               $! If present, copy LOGIN.COM template to the account
+               $!
+               $  IF F$SEARCH("SYS$MANAGER:LGISAMPL.COM") .EQS. "" THEN  GOTO NF004
+               $  COPY SYS$MANAGER:LGISAMPL.COM -
+                    SYS$USER:[WILLIAMS]LOGIN.COM
+               $  SET FILE/OWNER_UIC=[77,302] SYS$USER:[WILLIAMS]LOGIN.COM
+               $  NF004:
+               $!
+               $! Add the account record to the UAF
+               $!
+               $  RUN SYS$SYSTEM:AUTHORIZE
+                    ADD WILLIAMS_D -
+                      /OWNER="WILLIAMS D." -
+                      /ACCOUNT=SYSTEMS -
+                      /DEVICE=SYS$USER: -
+                      /DIRECTORY=[WILLIAMS] -
+                      /UIC=[77,302] -
+                      /PRIV=ALL -
+                      /PASSWORD=RXLTFP -
+                      /LGICMD=SYS$USER:[WILLIAMS]LOGIN.COM
+                    EXIT
+               $!
+
+
+
+
+
+
+
+
+
+                                  Figure 6. Fragment of generated COM file
+
+               November 1985                                                        MVUSRS-17
+
+
+
+
+
+
+
+               Installing the VMS Accounts
+               __________ ___ ___ ________
+
+               The operator then transports the VMS COM file generated by MVUSRS to the
+               target VAX.  Since the COM file is an ASCII text file, this step can be
+               accomplished by any one of several methods, including by tape or DECnet
+               link.  Transport over telephone lines via modem is not recommended,
+               since the COM file tends to be fairly large.
+
+               Once the COM file is present on the target VAX, the operator logs into
+               the VAX as a privileged user.  He should check to make sure that the
+               template LOGIN.COM file which he requested to be copied into each user's
+               directory is in fact present.  MVUSRS puts commands into the output DCL
+               COM file to check for the presence of the template file before
+               attempting to copy it.  If the file is not present, the copy is not
+               done, and no error message is generated.  The operator then invokes the
+               COM file.  User accounts are then automatically installed without
+               further operator intervention.  If the operator has chosen to have the
+               VMS DCL commands displayed as they are executed, and if he is logged in
+               on a hardcopy terminal, a permanent hardcopy log of the transactions is
+               made for each user account.  Figure 7 shows the sequence of events on
+               the VMS system which occur for the installation of a typical user.
+
+
+
+
+               Note: The commands in the COM file are sorted by user rather than by
+                     operation.  Although this is somewhat less efficient at execution
+                     due to the number of times DISKQUOTA and AUTHORIZE must be
+                     invoked, it does help to minimize the number of user accounts
+                     which might be left in a state of partial installation, should the
+                     COM file need to be aborted for some reason.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-18
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               $ @mvusrs
+                 _______
+               $!
+               $! Set the default directory to run this from
+               $!
+               $  SET DEFAULT SYS$SYSTEM
+               $!
+               $!
+               $! Check to see if quota management is being done
+               $!
+               $  IF F$SEARCH("SYS$USER:[0,0]QUOTA.SYS") .EQS. "" THEN GOTO NQ004
+               $!
+               $! If so, add disk quota entries
+               $!
+               $  RUN SYS$SYSTEM:DISKQUOTA
+                  USE SYS$USER:
+                  ADD [77,302] /PERMQUOTA=1000 /OVERDRAFT=1000
+                  EXIT
+               $  NQ004:
+               $!
+               $! Create a first-level directory for the account
+               $!
+               $  CREATE/DIRECTORY /OWNER_UIC=[77,302] /PROTECTION=(S=RWE,O=RWE,G=RE,W) -
+                      SYS$USER:[WILLIAMS] /LOG
+               %CREATE-I-CREATED, DUA0:[WILLIAMS] created
+               $!
+               $! If present, copy LOGIN.COM template to the account
+               $!
+               $  IF F$SEARCH("SYS$MANAGER:LGISAMPL.COM") .EQS. "" THEN  GOTO NF004
+               $  NF004:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        Figure 7 (con't next page).  Installation of a typical user
+
+               November 1985                                                        MVUSRS-19
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               $!
+               $! Add the account record to the UAF
+               $!
+               $  RUN SYS$SYSTEM:AUTHORIZE
+                    ADD WILLIAMS_D -
+                      /OWNER="WILLIAMS D." -
+                      /ACCOUNT=SYSTEMS -
+                      /DEVICE=SYS$USER: -
+                      /DIRECTORY=[WILLIAMS] -
+                      /UIC=[77,302] -
+                      /PRIV=ALL -
+                      /PASSWORD=RXLTFP -
+                      /LGICMD=SYS$USER:[WILLIAMS]LOGIN.COM
+               %UAF-I-ADDMSG, user record successfully added
+               %UAF-I-RDBADDMSGU, identifier WILLIAMS_D value: [000077,000302] added to
+               RIGHTSLIST.DAT
+                    EXIT
+               %UAF-I-DONEMSG, system authorization file modified
+               %UAF-I-NAFNOMODS, no modifications made to network authorization file
+               %UAF-I-RDBDONEMSG, rights database modified
+               $!
+               $! Restore previous working environment.
+               $!
+               $  CLEANUP:
+               $  SET TERMINAL/ECHO
+               $  PROC_VER = F$VERIFY(PROC_VER,IMAGE_VER)
+               $
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           Figure 7 (last page).  Installation of a typical user
+
+               November 1985                                                        MVUSRS-20
+
+
+
+
+
+
+
+               Moving TOPS-20 User Accounts
+               Moving TOPS-20 User Accounts
+               Moving TOPS-20 User Accounts
+               Moving TOPS-20 User Accounts
+               ______ _______ ____ ________
+
+
+
+               Extracting the TOPS-20 User Information
+               __________ ___ _______ ____ ___________
+
+               The DLUSER utility is used to create an ASCII text file containing the
+               account information from the source TOPS-20 system.  Figure 8 shows a
+               typical session with DLUSER, where the directory information for the PS:
+               structure is read, and the DUMP command is then used to list the account
+               information out to a file called DLUSER.LST.  Input from the operator is
+               shown underlined.  Note that the operator must be sufficiently
+               privileged to perform this operation.  Figure 9 shows a fragment of an
+               output file from DLUSER.
+
+               At this point, if desired, the file output from DLUSER may be edited
+               using any standard ASCII text file editor (TECO, EMACS, etc.) to modify
+               or remove any user account information before running the MVUSRS
+               utility.  This might be for the purpose of removing account information
+               for accounts which should not be moved to the target VAX system.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-21
+
+
+
+
+
+
+
+               @dluser
+                ______
+               DLUSER>structure ps:
+                      _____________
+               DLUSER>dump dluser.lst
+                      _______________
+
+               DONE.
+               DLUSER>ex
+                      __
+               @
+
+
+                                      Figure 8.  Running DLUSER
+
+
+
+
+
+
+
+
+               Dump of all directories on: BLUE:
+
+               STR:<DIRECTORY-NAME>
+                PASSWORD
+                LOGGED IN QUOTA
+                CAPABILITIES
+                FILES ONLY, ALPHA ACCTS, REPEAT LMSG
+                LOGGED OUT QUOTA
+                DIRECTORY NUMBER
+                DEFAULT FILE PROTECTION
+                DIRECTORY PROTECTION
+                DEFAULT RETENTION SPECIFICATION
+                LAST LOGIN
+                USER GROUPS
+                DIRECTORY GROUPS
+                MAXIMUM SUBDIRECTORIES
+                CREATABLE USER GROUPS
+               DEFAULT DIRECTORY ACCOUNT
+
+               &BLUE:<WILLIAMS>
+                A000577767201211521505662
+                310
+                1000
+                200000000400
+                144
+                417
+                500000777702
+                500000777740
+                1
+                132442633513
+                302,0
+                0
+                0
+                0
+               TRAINING
+
+
+                                    Figure 9. Typical output from DLUSER
+
+               November 1985                                                        MVUSRS-22
+
+
+
+
+
+
+
+               Running MVUSRS
+               _______ ______
+
+               Figure 10 shows how to start up MVUSRS.  Input from the operator is
+               shown underlined.  The utility displays a short introductory message,
+               followed by a series of questions used to set defaults for items needed
+               by VMS but not present in the TOPS-20 system, or where it is not
+               appropriate to use the TOPS-20 information.  In each case, if the item
+               has a limited number of allowed values (e.g. (YES,NO), (TOPS-10,TOPS-
+               20)), these values are shown in parentheses immediately following the
+               question.  If the item has already been assigned a value, that value is
+               shown enclosed in square brackets following the question.  Typing a
+               return without entering new data accepts the current value without
+               change.
+
+               For TOPS-20, MVUSRS needs the following information:
+
+                    - Operating system : The operator must specify 2, or TOPS-20 or
+                         something similar.
+
+                    - Input file name : The operator must specify the name of the input
+                         file to be read.
+
+                    - Output file name : The operator may specify a name for the output
+                         VMS DCL COM file.  The default is MVUSRS.COM.
+
+                    - Output command verification:  The operator may choose whether or
+                         not to have the user account data displayed and allow
+                         correction before writing the DCL commands to the output file.
+                         If the user opts to not allow correction, he will be asked
+                         separately whether or not he would like to have the data
+                         displayed only before writing to the output file.
+
+                    - VMS command display : The operator may specify whether or not he
+                         wishes to have the DCL commands in the output file displayed
+                         by the VMS system as they are executed.  It is highly
+                         recommended that this be enabled, since the output will
+                         provide a complete log of transactions during the account
+                         installation procedure.
+
+                    - VMS default group number : The operator may change the default
+                         VMS group number.
+
+                    - Determination of VMS user number : The operator may choose to
+                         have the VMS user number generated from either the directory
+                         number of the user's TOPS-20 login directory, or from the
+                         first entry in the list of user groups for that directory.
+                         TOPS-20 requires the directory number to be unique, so this
+                         will generally produce a unique VMS user number.  Some sites
+                         which have converted from TOPS-10 to TOPS-20 may have used a
+                         user's TOPS-10 user number as the first entry in the list of
+                         user groups, and these may be unique from the TOPS-10 system.
+
+                    - VMS default login device name : The operator may change the name
+                         of the default login device on the target VMS system.
+
+
+
+               November 1985                                                        MVUSRS-23
+
+
+
+
+
+
+
+                    - Default permanent disk quota : The operator may change the
+                         default value for the VMS permanent disk quota.
+
+                    - Default overdraft disk quota : The operator may change the
+                         default value for the VMS overdraft disk quota.
+
+                    - Default account name : The operator may change the name of the
+                         default VMS account.
+
+                    - Default LOGIN.COM file name : The operator may change the name of
+                         the template LOGIN.COM file to be copied to the user's
+                         account.
+
+               After the operator responds to the last question, MVUSRS displays the
+               current values.  The operator is then asked if they are correct.  If he
+               responds NO, then the series of questions is repeated, with the updated
+               values as defaults.  He will be asked again if they are correct.  This
+               cycle may be repeated as necessary to get the values set as desired.
+               Once the operator is satisfied with the values, he may respond YES, or
+               just type a return, and MVUSRS will begin reading user data from the
+               input file.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-24
+
+
+
+
+
+
+
+               @ex mvusrs
+                _________
+               LINK:     Loading
+               [LNKXCT   MVUSRS execution]
+
+               MVUSRS :
+                 This utility takes user data from the TOPS-10/20
+                 operating systems, as well as input from the operator
+                 and generates a VMS .COM file which will install those
+                 users on a VAX system.
+
+
+               Which operating system?
+                 (TOPS-10,TOPS-20)  [] : 2
+                                         _
+               TOPS-20 input file name?
+                 [] : DLUSER.LST
+                      __________
+               Output file name?
+                 [MVUSRS.COM] :
+               Allow verification of output commands before writing to MVUSRS.COM?
+                 (YES,NO)  [YES] :
+               Have VMS display commands and their output as they are executed?
+                 (YES,NO)  [YES] :
+               What will be the default VMS group number?
+                 (1-37776(octal))  [100] : 50
+                                           __
+               From what should the VMS user number be determined?
+                 (DIRECTORY NUMBER,USER GROUP)  [DIRECTORY NUMBER] :
+               What will be the default login device on VMS?
+                 [SYS$USER:] :
+               What will be the default permanent disk quota on VMS?
+                 [1000 blocks] : 500
+                                 ___
+               What will be the default overdraft disk quota on VMS?
+                 [100 blocks] :50
+               What will be the default account?
+                 [VMS] : EE
+                         __
+               What will be the default LOGIN.COM?
+                 [SYS$MANAGER:LGISAMPL.COM] :
+
+                                        Operating system : TOPS-20
+                                              Input file : DLUSER.LST
+                             Output file (VMS .COM file) : MVUSRS.COM
+                   Display output before writing to file : YES
+                    Verify output before writing to file : YES
+               Have VMS display commands while executing : YES
+                                Default VMS group number : 50
+                 VMS user number will be determined from : DIRECTORY NUMBER
+                                Default VMS login device : SYS$USER:
+                        Default VMS permanent disk quota : 500
+                        Default VMS overdraft disk quota : 50
+                                         Default account : EE
+                     Default LOGIN.COM will be a copy of : SYS$MANAGER:LGISAMPL.COM
+
+               Is this correct?  (YES,NO)  [YES] :
+
+
+
+
+                                         Figure 10.  Running MVUSRS
+
+               November 1985                                                        MVUSRS-25
+
+
+
+
+
+
+
+               For each user record present in the input file, MVUSRS generates
+               corresponding VMS account information, as follows:
+
+                    - The VMS full name and user name are generated from the TOPS-20
+                      user name.
+
+                    - The VMS privileges are determined from the TOPS-10 privilege
+                      bits.  If the TOPS-20 privilege code is less than or equal to
+                      1000 octal, the VMS account is given MINIMUM privileges.  If the
+                      code is greater than 1000 octal, the VMS account is given ALL
+                      privileges.
+
+                    - The VMS user idenfication code is generated from the TOPS-20
+                      login directory number or from the first entry in the user groups
+                      list for that directory, as selected by the operator.
+
+                    - The VMS password is generated from the VMS user name.  This is
+                      because most TOPS-20 sites are probably using password
+                      encryption, making it impossible to recover the user's password.
+
+                    - The VMS default login directory name is generated from the
+                      TOPS-20 user name.
+
+               The other VMS information required is taken from the defaults set up in
+               the previous step.
+
+               After processing the user's record, the proposed values for the user's
+               VMS account are displayed (if this has been enabled).  The operator may
+               then accept them as generated, skip the record entirely and generate no
+               output for that user, or modify the generated values.  Figure 11 shows
+               how to skip a record.
+
+               Figure 12 shows how to modify the values for any of the items of the
+               user's record.  If the values are not accepted as correct, they are
+               listed, one at a time, and the operator is prompted for a correction.
+               Typing only a return signifies acceptance of the current value.
+               After the operator has been asked for new values for all the items, the
+               values are rechecked to make sure that VMS will accept them as legal and
+               valid.  Then the complete list is re-displayed, and the operator is
+               again asked if the values are correct.  This correction cycle may be
+               repeated as many times as necessary.
+
+               User records will continue to be processed until the end of the input
+               file is reached.  Figure 13 shows a fragment of an output file,
+               illustrating the DCL commands that were generated for an individual
+               user.
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-26
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             User Name : A_F_SMITH
+                             Full Name : A.F.SMITH
+                               Account : EE
+                  Default Login Device : SYS$USER:
+               Default Login Directory : [AFSMITH]
+                                   UIC : [50,152]
+                            Privileges : MINIMUM
+                              Password : A_F_SMITH
+                  Permanent Disk Quota : 500
+                  Overdraft Disk Quota : 50
+
+               SYS$USER:[AFSMITH]LOGIN.COM will be copied from :
+               SYS$MANAGER:LGISAMPL.COM
+
+               Are these values correct?  (YES,NO,SKIP)  [YES] : S
+                                                                 _
+               Record skipped.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     Figure 11. Skipping a user record
+
+               November 1985                                                        MVUSRS-27
+
+
+
+
+
+
+
+                             User Name : WILLIAMS
+                             Full Name : WILLIAMS
+                               Account : EE
+                  Default Login Device : SYS$USER:
+               Default Login Directory : [WILLIAMS]
+                                   UIC : [50,417]
+                            Privileges : MINIMUM
+                              Password : WILLIAMS
+                  Permanent Disk Quota : 500
+                  Overdraft Disk Quota : 50
+
+               SYS$USER:[WILLIAMS]LOGIN.COM will be copied from :
+               SYS$MANAGER:LGISAMPL.COM
+
+               Are these values correct?  (YES,NO,SKIP)  [YES] : N
+                                                                 _
+
+
+
+                                User Name : WILLIAMS
+                               Correction : d.williams
+                                            __________
+                                Full Name : WILLIAMS
+                               Correction : d.williams
+                                            __________
+                                  Account : EE
+                               Correction : systems
+                                            _______
+                     Default Login Device : SYS$USER:
+                               Correction :
+                  Default Login Directory : [WILLIAMS]
+                               Correction :
+                                      UIC : [50,417]
+                               Correction : 77,302
+                                            ______
+                               Privileges : MINIMUM
+                 Correction (MINIMUM,ALL) : all
+                                            ___
+                                 Password : WILLIAMS
+                               Correction :
+                     Permanent Disk Quota : 500
+                               Correction : 1000
+                                            ____
+                     Overdraft Disk Quota : 50
+                               Correction : 200
+                                            ___
+
+               SYS$USER:[WILLIAMS]LOGIN.COM will be copied from :
+               SYS$MANAGER:LGISAMPL.COM
+                               Correction :
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            Figure 12 (con't next page). Modifying a user record
+
+               November 1985                                                        MVUSRS-28
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             User Name : D_WILLIAMS
+                             Full Name : d.williams
+                               Account : SYSTEMS
+                  Default Login Device : SYS$USER:
+               Default Login Directory : [WILLIAMS]
+                                   UIC : [77,302]
+                            Privileges : ALL
+                              Password : WILLIAMS
+                  Permanent Disk Quota : 1000
+                  Overdraft Disk Quota : 200
+
+               SYS$USER:[WILLIAMS]LOGIN.COM will be copied from :
+               SYS$MANAGER:LGISAMPL.COM
+
+               Are these values correct?  (YES,NO,SKIP)  [YES] :
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                               Figure 12 (last page). Modifying a user record
+
+               November 1985                                                        MVUSRS-29
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               $!
+               $!
+               $! Check to see if quota management is being done
+               $!
+               $  IF F$SEARCH("SYS$USER:[0,0]QUOTA.SYS") .EQS. "" THEN GOTO NQ004
+               $!
+               $! If so, add disk quota entries
+               $!
+               $  RUN SYS$SYSTEM:DISKQUOTA
+                  USE SYS$USER:
+                  ADD [77,302] /PERMQUOTA=1000 /OVERDRAFT=200
+                  EXIT
+               $  NQ004:
+               $!
+               $! Create a first-level directory for the account
+               $!
+               $  CREATE/DIRECTORY /OWNER_UIC=[77,302] /PROTECTION=(S=RWE,O=RWE,G=RE,W) -
+                      SYS$USER:[WILLIAMS] /LOG
+               $!
+               $! If present, copy LOGIN.COM template to the account
+               $!
+               $  IF F$SEARCH("SYS$MANAGER:LGISAMPL.COM") .EQS. "" THEN  GOTO NF004
+               $  COPY SYS$MANAGER:LGISAMPL.COM -
+                    SYS$USER:[WILLIAMS]LOGIN.COM
+               $  SET FILE/OWNER_UIC=[77,302] SYS$USER:[WILLIAMS]LOGIN.COM
+               $  NF004:
+               $!
+               $! Add the account record to the UAF
+               $!
+               $  RUN SYS$SYSTEM:AUTHORIZE
+                    ADD D_WILLIAMS -
+                      /OWNER="d.williams" -
+                      /ACCOUNT=SYSTEMS -
+                      /DEVICE=SYS$USER: -
+                      /DIRECTORY=[WILLIAMS] -
+                      /UIC=[77,302] -
+                      /PRIV=ALL -
+                      /PASSWORD=WILLIAMS -
+                      /LGICMD=SYS$USER:[WILLIAMS]LOGIN.COM
+                    EXIT
+               $!
+
+
+
+
+
+
+
+                                 Figure 13. Fragment of generated COM file
+
+               November 1985                                                        MVUSRS-30
+
+
+
+
+
+
+
+               Installing the VMS Accounts
+               __________ ___ ___ ________
+
+               The operator then transports the VMS COM file generated by MVUSRS to the
+               target VAX.  Since the COM file is an ASCII text file, this step can be
+               accomplished by any one of several methods, including by tape or DECnet
+               link.  Transport over telephone lines via modem is not recommended,
+               since the COM file tends to be fairly large.
+
+               Once the COM file is present on the target VAX, the operator logs into
+               the VAX as a privileged user.  He should check to make sure that the
+               template LOGIN.COM file which he requested to be copied into each user's
+               directory is in fact present.  MVUSRS puts commands into the output DCL
+               COM file to check for the presence of the template file before
+               attempting to copy it.  If the file is not present, the copy is not
+               done, and no error message is generated.  The operator then invokes the
+               COM file.  User accounts are then automatically installed without
+               further operator intervention.  If the operator has chosen to have the
+               VMS DCL commands displayed as they are executed, and if he is logged in
+               on a hardcopy terminal, a permanent hardcopy log of the transactions is
+               made for each user account.  Figure 7 shows the sequence of events on
+               the VMS system which occur for the installation of a typical user.
+
+
+
+
+               Note: The commands in the COM file are sorted by user rather than by
+                     operation.  Although this is somewhat less efficient at execution
+                     due to the number of times DISKQUOTA and AUTHORIZE must be
+                     invoked, it does help to minimize the number of user accounts
+                     which might be left in a state of partial installation, should the
+                     COM file need to be aborted for some reason.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-31
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               $ @mvusrs
+                 _______
+               $!
+               $! Set the default directory to run this from
+               $!
+               $  SET DEFAULT SYS$SYSTEM
+               $!
+               $!
+               $! Check to see if quota management is being done
+               $!
+               $  IF F$SEARCH("SYS$USER:[0,0]QUOTA.SYS") .EQS. "" THEN GOTO NQ004
+               $!
+               $! If so, add disk quota entries
+               $!
+               $  RUN SYS$SYSTEM:DISKQUOTA
+                  USE SYS$USER:
+                  ADD [77,302] /PERMQUOTA=1000 /OVERDRAFT=200
+                  EXIT
+               $  NQ004:
+               $!
+               $! Create a first-level directory for the account
+               $!
+               $  CREATE/DIRECTORY /OWNER_UIC=[77,302] /PROTECTION=(S=RWE,O=RWE,G=RE,W) -
+                      SYS$USER:[WILLIAMS] /LOG
+               %CREATE-I-CREATED, DUA0:[WILLIAMS] created
+               $!
+               $! If present, copy LOGIN.COM template to the account
+               $!
+               $  IF F$SEARCH("SYS$MANAGER:LGISAMPL.COM") .EQS. "" THEN  GOTO NF004
+               $  NF004:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        Figure 14 (con't next page).  Installation of a typical user
+
+               November 1985                                                        MVUSRS-32
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               $!
+               $! Add the account record to the UAF
+               $!
+               $  RUN SYS$SYSTEM:AUTHORIZE
+                    ADD D_WILLIAMS -
+                      /OWNER="d.williams" -
+                      /ACCOUNT=SYSTEMS -
+                      /DEVICE=SYS$USER: -
+                      /DIRECTORY=[WILLIAMS] -
+                      /UIC=[77,302] -
+                      /PRIV=ALL -
+                      /PASSWORD=WILLIAMS -
+                      /LGICMD=SYS$USER:[WILLIAMS]LOGIN.COM
+               %UAF-I-ADDMSG, user record successfully added
+               %UAF-I-RDBADDMSGU, identifier D_WILLIAMS value: [000077,000302] added to
+               RIGHTSLIST.DAT
+                    EXIT
+               %UAF-I-DONEMSG, system authorization file modified
+               %UAF-I-NAFNOMODS, no modifications made to network authorization file
+               %UAF-I-RDBDONEMSG, rights database modified
+               $!
+               $! Restore previous working environment.
+               $!
+               $  CLEANUP:
+               $  SET TERMINAL/ECHO
+               $  PROC_VER = F$VERIFY(PROC_VER,IMAGE_VER)
+               $
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           Figure 14 (last page).  Installation of a typical user
+
+               November 1985                                                        MVUSRS-33
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    Appendix : MVUSRS Source Listing
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-34
+
+
+
+
+
+
+
+                       program MVUSRS
+               C
+               C       MVUSRS :
+               C       This utility takes user data from the TOPS-10/20
+               C       operating systems, as well as input from the operator
+               C       and generates a VMS .COM file which will install those
+               C       users on a VAX system.
+               C
+               C       Copyright 1985 by the Regents of the University of California.
+               C
+               C       Version 1.0, September, 1985.
+               C
+               C       Requisite software :
+               C         MVUSRS, version 1.0, is known to work with TOPS-10 Version 7.01
+               C         or earlier, TOPS-20 Version 5.1 or earlier, and VMS Version 4.0
+               C         or later.  Other versions may work, but have not been tested.
+               C         In particular, it is unlikely that MVUSRS, Version 1.0, will
+               C         work with versions of VMS prior to 4.0, since much use has been
+               C         made of the enhanced account information available in Version 4.0.
+               C
+               C       Written by Tom Brengle, Lawrence Livermore National Laboratory
+               C         Mailing address : P. O. Box 5511, L-630, Livermore, CA 94550
+               C         Telephone : (415) 422-1543 or FTS 532-1543
+               C         Net mail address : ARPAnet BRENGLE%LLL@LLL-MFE
+               C                            MFEnet  BRENGLE@LLL
+               C
+                       implicit integer (a-z)
+               C
+               C
+               C  Subroutines used :
+               C
+               C       Name            Function
+               C       ------          -----------------------------------------------
+               C       ANFIX           Fix-up an alphanumeric string
+               C       CHROCT          Convert an octal string to an integer
+               C       CKDEC           Check for valid decimal value
+               C       CKOCT           Check for valid octal value
+               C       LJUST           Left-justify a string
+               C       NXNBLK          Find the next non-blank character in a string
+               C       OCTCHR          Convert an integer to an octal string
+               C       OCTRNG          Range check an octal value
+               C       SLEN            Find the length of a string
+               C       UPCASE          Shift a string to all upper case
+               C
+               C
+               C  Variables used :
+               C
+               C       Name            Function
+               C       ------          -----------------------------------------------
+               C       ACCT            Holds the current VMS account name
+               C       DEFGN           Holds the default VMS group number
+               C       DEFOVR          Holds the VMS default overdraft disk quota
+               C       DEFPRM          Holds the VMS default permanent disk quota
+               C       DFACCT          Holds the VMS default account name
+               C       DFLGCM          Holds the VMS file specification for the default
+
+
+               November 1985                                                        MVUSRS-35
+
+
+
+
+
+
+
+               C                         login command file
+               C       DSPLAY          Flag to control display of generated output
+               C                         ("YES" or "NO")
+               C       DUMMY           Temporary storage for character strings
+               C       FULNAM          Holds the current VMS full name
+               C       GETUIC          Flag to control generation of VMS user number
+               C                         when current system is TOPS-20
+               C                         ("USER GROUP" or "DIRECTORY NUMBER")
+               C       GRP             Holds the current VMS group number
+               C       INFILE          Holds the name of the current input file
+               C       LGNCOM          Holds the VMS file specification for the current
+               C                         login command file
+               C       LOGDEV          Holds the name of the VMS default login device
+               C       OPSYS           Holds the name of the current operating system
+               C                         ("TOPS-10" or "TOPS-20")
+               C       OUTFIL          Holds the name of the current output file
+               C       OVRQTA          Holds the current VMS overdraft disk quota
+               C       PRIVS           Flag to control allocation of VMS privileges
+               C                         ("MINIMUM" or "ALL")
+               C       PRMQTA          Holds the current VMS permanent disk quota
+               C       PSWRD           Holds the current VMS user password
+               C       TAB             Holds the ASCII tab character
+               C       TEMP            Temporary storage for character strings
+               C       TEST            Temporary storage for character strings
+               C       UIC             Holds the current VMS user number and/or UIC
+               C       USRDEV          Holds the name of the current VMS login device
+               C       USRDIR          Holds the name of the current VMS login directory
+               C       USRNAM          Holds the current VMS user name
+               C       VERIFY          Flag to control verification of generated output
+               C                         ("YES" or "NO")
+               C       VMSVFY          Flag to control display of DCL command lines as
+               C                         they are executed on the target VMS system
+               C
+                       character ckdec*3, ckoct*3, octrng*10, test*10, dummy*80
+                       character temp*80, tab*1
+                       character opsys*7, infile*80, outfil*80
+                       character verify*3, dsplay*3, vmsvfy*3
+                       character defgn*5
+                       character logdev*80, defprm*10, defovr*10, dfacct*80, dflgcm*80
+                       character usrnam*20, fulnam*20, acct*20, getuic*20
+                       character usrdev*80, usrdir*20, grp*20, uic*20, privs*80
+                       character pswrd*80, prmqta*10, ovrqta*10, lgncom*80
+
+                       data outfil/'MVUSRS.COM'/
+                       data verify/'YES'/, dsplay/'YES'/, vmsvfy/'YES'/
+                       data defgn/'100'/, getuic/'DIRECTORY NUMBER'/
+                       data logdev/'SYS$USER:'/, defprm/'1000'/,defovr/'100'/
+                       data dfacct/'VMS'/
+                       data dflgcm/'SYS$MANAGER:LGISAMPL.COM'/
+                       data count/1/
+               C
+               C       The following single character constant is initialized by
+               C         direct assignment to make the code somewhat more readable.
+                       tab = char(9)
+               C
+
+
+               November 1985                                                        MVUSRS-36
+
+
+
+
+
+
+
+               C
+               C  Print out welcome message.
+               C
+                       write(5,fmt='/x,''MVUSRS :''
+                       1 /3x,''This utility takes user data from the TOPS-10/20'',
+                       2 /3x,''operating systems, as well as input from the operator'',
+                       3 /3x,''and generates a VMS .COM file which will install those'',
+                       4 /3x,''users on a VAX system.''')
+               C
+               C
+               C  Show the current values for the default data, then ask the
+               C    operator for any changes.
+               C
+               101     write(5,fmt='/')
+               C
+               C    Find out which operating system the operator is running from.
+               C
+               102     write(5,fmt='x,''Which operating system?'',
+                       1 /,3x,''(TOPS-10,TOPS-20)  ['',a,''] : '',$') opsys
+                       read(5,fmt='a') temp
+               C       If nothing entered, use default.
+                       if (slen(temp) .eq. 0) temp = opsys(1:slen(opsys))
+               C
+               C       If there isn't a "1" or "2" in the response, try again.
+                       if (index(temp,'1') .ne. 0 .or. index(temp,'2') .ne. 0) go to 103
+                       write(5,fmt='x,''Sorry, TOPS-10 or TOPS-20 must be specified.'',
+                       1 2x,''Please try again.''')
+                       go to 102
+               C
+               C       There is a "1" or "2" in the response.  Decode the response.
+               C
+               C       If a "1" but no "2", must be trying to say TOPS-10.
+               103     if (index(temp,'1') .ne. 0 .and. index(temp,'2') .eq. 0)
+                       1 then
+                           opsys = 'TOPS-10'
+               C
+               C       If a "2" but no "1", must be trying to say TOPS-20.
+                       else if (index(temp,'1') .eq. 0 .and. index(temp,'2') .ne. 0)
+                       1 then
+                           opsys = 'TOPS-20'
+               C
+               C       If there is a "1" and a "2", but "1" comes first, then TOPS-10.
+                       else if (index(temp,'1') .lt. index(temp,'2'))
+                       1 then
+                           opsys = 'TOPS-10'
+               C
+               C       Otherwise, TOPS-20.
+                       else
+                           opsys = 'TOPS-20'
+                       end if
+               C
+               C    Get input file name.
+               C
+               104     write(5,fmt='x,a,'' input file name?''
+                       1 /,3x,''['',a,''] : '',$')
+
+
+               November 1985                                                        MVUSRS-37
+
+
+
+
+
+
+
+                       1 opsys,infile(1:slen(infile))
+                       read(5,fmt='a') temp
+               C       if nothing was entered, use the default.
+                       if (slen(temp) .eq. 0) temp = infile(1:slen(infile))
+               C       Shift the response to all upper case.
+                       call upcase(temp)
+               C       Left-justify response.
+                       call ljust(temp)
+               C
+               C    Try to open the requested file.
+               C
+                       open(unit=20,access='seqin',dialog=temp,err=105)
+                       go to 106
+               C
+               C    Here if an error occured while trying to open file.
+               C
+               105     write(5,fmt='x,''Sorry, there was an error trying to open'',
+                       1 x,''that file.  Please try again.''')
+                       go to 104
+               C
+               C       Save the properly validated input.
+               106     infile = temp(1:slen(temp))
+               C
+               C    Get output file name.
+               C
+               107     write(5,fmt='x,''Output file name?'',
+                       1 /,3x,''['',a,''] : '',$')
+                       1 outfil(1:slen(outfil))
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = outfil(1:slen(outfil))
+               C       Shift the response to all upper case.
+                       call upcase(temp)
+               C       Left-justify response.
+                       call ljust(temp)
+               C       Install default .COM extension if none is supplied.
+                       if(index(temp,'.') .eq. 0) temp = temp(1:slen(temp)) // '.COM'
+               C
+               C    Try to open the requested file.
+               C
+                       open(unit=21,access='seqout',dialog=temp,err=108)
+                       go to 109
+               C
+               C    Here if an error occured while trying to open file.
+               C
+               108     write(5,fmt='x,''Sorry, there was an error trying to open'',
+                       1 x,''that file.  Please try again.''')
+                       go to 107
+               C
+               C       Save the properly validated response.
+               109     outfil = temp(1:slen(temp))
+               C
+               C    Find out if generated output should be verified before writing
+               C      into output file.
+               C
+
+
+               November 1985                                                        MVUSRS-38
+
+
+
+
+
+
+
+                       write(5,fmt='x,''Allow verification of output commands before'',
+                       1 x,''writing to '',a,''?'',
+                       2 /,3x,''(YES,NO)  ['',a,''] : '',$')
+                       3 outfil(1:slen(outfil)),verify(1:slen(verify))
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = verify(1:slen(verify))
+               C       Shift the response to all upper case.
+                       call upcase(temp)
+               C       If the input string contains "N", set switch to NO.
+                       if (index(temp,'N') .ne. 0)
+                       1 then
+                           verify = 'NO'
+                         else
+                           verify = 'YES'
+                       end if
+               C
+               C    Find out if generated output should be displayed before writing into
+               C      output file.  (Automatically set if verification is selected.)
+               C
+                       if (verify .eq. 'YES')
+                       1 then
+               C           VERIFY set to YES implies DSPLAY set to YES.
+                           dsplay = 'YES'
+                         else
+               C           If VERIFY is NO, ask if output commands should be displayed.
+                           write(5,fmt='x,''Display output commands before writing'',
+                       1     x,''to '',a,''?''
+                       2     /,3x,''(YES,NO)  ['',a,''] : '',$')
+                       3     outfil(1:slen(outfil)),dsplay(1:slen(dsplay))
+                           read(5,fmt='a') temp
+               C           If nothing was typed in, use the default.
+                           if (slen(temp) .eq. 0) temp = dsplay(1:slen(dsplay))
+               C           Shift response to all upper case.
+                           call upcase(temp)
+               C           If the input string contains "N", set switch to NO.
+                           if (index(temp,'N') .ne. 0)
+                       1     then
+                               dsplay = 'NO'
+                             else
+                               dsplay = 'YES'
+                           end if
+                       end if
+               C
+               C    Find out if the commands and their output should be displayed when
+               C    the output file is executed under VMS.
+               C
+                       write(5,fmt='x,''Have VMS display commands and their output'',
+                       1 x,''as they are executed?'',
+                       2 /,3x,''(YES,NO)  ['',a,''] : '',$')
+                       3 vmsvfy(1:slen(vmsvfy))
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = vmsvfy(1:slen(vmsvfy))
+               C       Shift response to all upper case.
+
+
+               November 1985                                                        MVUSRS-39
+
+
+
+
+
+
+
+                       call upcase(temp)
+               C       If the input string contains "N", set switch to NO.
+                       if (index(temp,'N') .ne. 0)
+                       1 then
+                           vmsvfy = 'NO'
+                         else
+                           vmsvfy = 'YES'
+                       end if
+               C
+               C    If TOPS-20, find out what the default group number should be.
+               C
+               110     if (opsys .eq. 'TOPS-20')
+                       1 then
+                           write(5,fmt='x,''What will be the default VMS group'',
+                       1     x,''number?'',
+                       2     /,3x,''(1-37776(octal))  ['',a,''] : '',$')
+                       3     defgn(1:slen(defgn))
+                           read(5,fmt='a') temp
+               C           If nothing was typed in, use the default.
+                           if (slen(temp) .eq. 0) temp = defgn(1:slen(defgn))
+               C           Left-justify response.
+                           call ljust(temp)
+
+                           if (ckoct(temp) .ne. 'OK')
+                       1     then
+                               write(5,fmt='x,''Sorry, that does not look like an'',
+                       1         x,''octal number.  Please try again.''')
+                               go to 110
+                           end if
+
+                           test = octrng(temp,"1,"37776,dummy)
+                           if (test .ne. 'OK')
+                       1     then
+                               if (test .eq. 'TOO HIGH')
+                       1         then
+                                   write(5,fmt='x,''Sorry, that number is too high.'',
+                       1             2x,''Please try again.''')
+                                   go to 110
+                                 else
+                                   write(5,fmt='x,''Sorry, that number is too low.'',
+                       1             2x,''Please try again.''')
+                                   go to 110
+                               end if
+                           end if
+               C
+               C           Save the new value.
+                           defgn = temp(1:slen(temp))
+
+                       end if
+               C
+               C    If TOPS-20, find out how the VMS user number should be determined.
+               C
+               111     if (opsys .eq. 'TOPS-20')
+                       1 then
+                           write(5,fmt='x,''From what should the VMS user number'',
+
+
+               November 1985                                                        MVUSRS-40
+
+
+
+
+
+
+
+                       1     x,''be determined?'',
+                       2     /,3x,''(DIRECTORY NUMBER,USER GROUP)  ['',a,''] : '',$')
+                       3     getuic(1:slen(getuic))
+                           read(5,fmt='a') temp
+               C           If nothing was typed in, use the default.
+                           if (slen(temp) .eq. 0) temp = getuic(1:slen(getuic))
+               C           Shift the response to all upper case.
+                           call upcase(temp)
+               C           Left-justify the response.
+                           call ljust(temp)
+               C           If the response begins with "US", set GETUIC to "USER GROUP",
+               C             otherwise, set it to "DIRECTORY NUMBER".
+                           if (temp(1:2) .eq. 'US')
+                       1     then
+                               getuic = 'USER GROUP'
+                             else
+                               getuic = 'DIRECTORY NUMBER'
+                           end if
+                       end if
+               C
+               C    Find out what the default login device on VMS is to be.
+               C
+                       write(5,fmt='x,''What will be the default login device on'',
+                       1 x,''VMS?'',
+                       2 /,3x,''['',a,''] : '',$')
+                       3 logdev(1:slen(logdev))
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = logdev(1:slen(logdev))
+               C       Shift the response to all upper case.
+                       call upcase(temp)
+               C       Left-justify response.
+                       call ljust(temp)
+               C       If not already present, append a ":" to make it look like
+               C         a device name.
+                       if (index(temp,':') .eq. 0) temp = temp(1:slen(temp)) // ':'
+               C       Save the new string.
+                       logdev = temp(1:slen(temp))
+               C
+               C    Find out what the default permanent quota should be.
+               C
+               112     write(5,fmt='x,''What will be the default permanent disk'',
+                       1 x,''quota on VMS?'',
+                       2 /,3x,''['',a,'' blocks] : '',$')
+                       3 defprm(1:slen(defprm))
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = defprm(1:slen(defprm))
+               C       Left-justify response.
+                       call ljust(temp)
+
+                       if (ckdec(temp) .eq. 'OK') go to 113
+
+                       write(5,fmt='x,''Sorry, that does not look like a decimal'',
+                       1 x,''number.  Please try again.''')
+
+
+               November 1985                                                        MVUSRS-41
+
+
+
+
+
+
+
+                       go to 112
+               C
+               C       Save the new value.
+               113     defprm = temp(1:slen(temp))
+               C
+               C    Find out what the default overdraft quota should be.
+               C
+               114     write(5,fmt='x,''What will be the default overdraft disk'',
+                       1 x,''quota on VMS?'',
+                       2 /,3x,''['',a,'' blocks] : '',$')
+                       3 defovr(1:slen(defovr))
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = defovr(1:slen(defovr))
+               C       Left-justify response.
+                       call ljust(temp)
+
+                       if (ckdec(temp) .eq. 'OK') go to 115
+
+                       write(5,fmt='x,''Sorry, that does not look like a decimal'',
+                       1 x,''number.  Please try again.''')
+                       go to 114
+               C
+               C       Save the new value.
+               115     defovr = temp(1:slen(temp))
+               C
+               C    Find out what the default account should be.
+               C
+                       write(5,fmt='x,''What will be the default account?'',
+                       1 /,3x,''['',a,''] : '',$')
+                       2 dfacct(1:slen(dfacct))
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = dfacct(1:slen(dfacct))
+               C       Shift the response to all upper case.
+                       call upcase(temp)
+               C       Left-justify response.
+                       call ljust(temp)
+               C       Save the new file specification.
+                       dfacct = temp(1:slen(temp))
+               C
+               C    Find out what the default LOGIN.COM should be.
+               C
+                       write(5,fmt='x,''What will be the default LOGIN.COM?'',
+                       1 /,3x,''['',a,''] : '',$')
+                       2 dflgcm(1:slen(dflgcm))
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = dflgcm(1:slen(dflgcm))
+               C       Shift the response to all upper case.
+                       call upcase(temp)
+               C       Left-justify response.
+                       call ljust(temp)
+               C       Save the new file specification.
+                       dflgcm = temp(1:slen(temp))
+
+
+               November 1985                                                        MVUSRS-42
+
+
+
+
+
+
+
+               C
+               C    Display the current default data.
+               C
+                       write(5,fmt=
+
+                       1 '/x,''                         Operating system : '',a')
+                       2 opsys
+                       write(5,fmt=
+                       1 ' x,''                               Input file : '',a')
+                       2 infile(1:slen(infile))
+                       write(5,fmt=
+                       1 ' x,''              Output file (VMS .COM file) : '',a')
+                       2 outfil(1:slen(outfil))
+                       write(5,fmt=
+                       1 ' x,''    Display output before writing to file : '',a')
+                       2 dsplay(1:slen(dsplay))
+                       write(5,fmt=
+                       1 ' x,''     Verify output before writing to file : '',a')
+                       2 verify(1:slen(verify))
+                       write(5,fmt=
+                       1 ' x,''Have VMS display commands while executing : '',a')
+                       2 vmsvfy(1:slen(vmsvfy))
+                       if (opsys .eq. 'TOPS-20')
+                       1 then
+                           write(5,fmt=
+                       1     ' x,''                 Default VMS group number : '',a')
+                       2     defgn(1:slen(defgn))
+                       end if
+                       if (opsys .eq. 'TOPS-20')
+                       1 then
+                           write(5,fmt=
+                       1     ' x,''  VMS user number will be determined from : '',a')
+                       2     getuic(1:slen(getuic))
+                       end if
+                       write(5,fmt=
+                       1 ' x,''                 Default VMS login device : '',a')
+                       2 logdev(1:slen(logdev))
+                       write(5,fmt=
+                       1 ' x,''         Default VMS permanent disk quota : '',a')
+                       2 defprm(1:slen(defprm))
+                       write(5,fmt=
+                       1 ' x,''         Default VMS overdraft disk quota : '',a')
+                       2 defovr(1:slen(defovr))
+                       write(5,fmt=
+                       1 ' x,''                          Default account : '',a')
+                       2 dfacct(1:slen(dfacct))
+                       write(5,fmt=
+                       1 ' x,''      Default LOGIN.COM will be a copy of : '',a')
+                       2 dflgcm(1:slen(dflgcm))
+               C
+               C    Offer the operator a chance to change the default data before
+               C      continuing.
+               C
+                       write(5,fmt='/x,''Is this correct?  (YES,NO)  [YES] : '',$')
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+
+
+               November 1985                                                        MVUSRS-43
+
+
+
+
+
+
+
+                       if (slen(temp) .eq. 0) temp = 'YES'
+               C       Shift response to all upper case.
+                       call upcase(temp)
+               C       If the input string contains "N", go back and get new input.
+                       if (index(temp,'N') .ne. 0) go to 101
+               C
+               C
+               C  Write out some initial DCL commands to the output file to handle
+               C    control-Y interrupts, warning errors, and to save the initial
+               C    process environment.  Also to check to make sure the operator
+               C    has the proper privileges enabled.
+               C
+                       write(21,fmt='''$!'',
+                       1 /,''$! Set up to handle control-y and warning messages.'',
+                       2 /,''$!   (Allows graceful exit)'',
+                       3 /,''$!'',
+                       4 /,''$  ON CONTROLY THEN GOTO CLEANUP'',
+                       5 /,''$  ON WARNING THEN GOTO CLEANUP'',
+                       6 /,''$!'',
+                       7 /,''$! Save current environment.'',
+                       8 /,''$!'',
+                       9 /,''$  OLDDIR = F$ENVIRONMENT("DEFAULT")'',
+                       1 /,''$  PREVPRIV = F$SETPRV("SYSPRV")'',
+                       2 /,''$  PROC_VER = F$ENVIRONMENT("VERIFY_PROCEDURE")'',
+                       3 /,''$  IMAGE_VER = F$ENVIRONMENT("VERIFY_IMAGE")'',
+                       4 /,''$!'',
+                       5 /,''$! Check to see if this user has enough privileges'',
+                       6 x,''to add users.'',
+                       7 /,''$!'',
+                       8 /,''$  IF .NOT. F$PRIVILEGE("SYSPRV") THEN GOTO NOPRIV''')
+               C
+               C    Write out SET VERIFY command if VMSVFY is set.
+               C
+                       if (vmsvfy .eq. 'YES')
+                       1 write(21,fmt='''$!'',
+                       2 /,''$! Set Verify to echo command lines and responses.'',
+                       3 /,''$!'',
+                       4 /,''$  SET VERIFY''')
+               C
+               C    Write out the SET DEFAULT command.
+               C
+                       write(21,fmt='''$!'',
+                       1 /,''$! Set the default directory to run this from'',
+                       2 /,''$!'',
+                       3 /,''$  SET DEFAULT SYS$SYSTEM''')
+               C
+               C
+               C  Begin processing user records from the input file.
+               C
+               200     continue
+               C
+               C    Process the next record.  Go to 500 on end of file.
+               C
+                       if (opsys .eq. 'TOPS-10')
+                       1 then
+
+
+               November 1985                                                        MVUSRS-44
+
+
+
+
+
+
+
+               C
+               C       Process a TOPS-10 user record.
+               C
+               C       The TOPS-10 record is expected to be in the following format:
+               C
+               C       Proj   Prog    Name            Priv            Password  Times
+               C              Core     IPCF           Profile         CUSP      Chg
+               C              Expires      Scd Type   ENQ-DEQ
+               C
+               C       Example :
+               C
+               C       30     3057    BRENGLE TOM     777777777777    GPHFRN    777777777777
+               C              511,,511 2,,5           017400001763    SETUP
+               C              8 Sep 768       0       511
+               C
+               C           Set up initial condition to allow following loop to execute.
+               C           Skip the first line of the input file.
+                           read(20,fmt='a',end=500) temp
+                           temp = temp(1:slen(temp)) // tab
+               C
+               C           Search input file for beginning of next TOPS-10 user record.
+               C           Find the next line that begins with a legal decimal number.
+                           do while (ckdec(temp(nxnblk(temp,1):(index(temp,tab) - 1)))
+                       1     .eq. 'NO')
+                             read(20,fmt='a',end=500) temp
+                           end do
+               C
+               C           The line in TEMP now contains user data in the following format:
+               C           Proj   Prog    Name        Priv            Password  Times
+               C
+               C           Extract the TOPS-10 project number to generate the VMS group
+               C             group number.
+                           left = nxnblk(temp(1:slen(temp)),1)
+                           right = index(temp(left:slen(temp)),tab) - 1
+                           grp = temp(left:right)
+               C
+               C           Extract the TOPS-10 programmer number and build the UIC.
+                           left = nxnblk(temp,right + 1)
+                           right = left + index(temp(left:slen(temp)),tab) - 2
+                           uic = temp(left:right)
+               C
+               C           Combine the UIC group into the UIC.
+                           uic = '[' // grp(1:slen(grp)) // ',' //
+                       1            uic(1:slen(uic)) // ']'
+               C
+               C           Extract the TOPS-10 user name and build the VMS full name
+               C             and user name.
+               C
+               C           Locate the beginning of the next field in the record by
+               C             finding the next non-blank character.
+                           left = nxnblk(temp,right + 1)
+               C           Locate the end of the next field by finding the next blank
+               C             (tab) character.
+                           right = left + index(temp(left:slen(temp)),tab) - 2
+               C           Use the entire field for the VMS full name.
+
+
+               November 1985                                                        MVUSRS-45
+
+
+
+
+
+
+
+                           fulnam = temp(left:right)
+               C           Use the full name as the user name.
+                           usrnam = fulnam(1:slen(fulnam))
+               C
+               C           Extract the TOPS-10 privilege bits and build the VMS
+               C             privilege string.
+                           left = nxnblk(temp,right + 1)
+                           right = left + index(temp(left:slen(temp)),tab) - 2
+                           privs = temp(left:right)
+                           if (privs .ne. '000000000000')
+                       1     then
+                               privs = 'ALL'
+                             else
+                               privs = 'MINIMUM'
+                           end if
+               C
+               C           Extract the TOP-10 password and make the VMS password.
+                           left = nxnblk(temp,right + 1)
+                           right = left + index(temp(left:slen(temp)),tab) - 2
+                           pswrd = temp(left:right)
+               C
+               C           The remaining two line of the user record,
+               C              Core     IPCF           Profile         CUSP      Chg
+               C              Expires      Scd Type   ENQ-DEQ
+               C           are not used.
+               C
+               C           Build the VMS default directory name from the TOPS-10 user name.
+                           usrdir = usrnam(1:min0((index(usrnam,' ') - 1),30))
+               C
+               C           Set up the default account.
+                           acct = dfacct(1:slen(dfacct))
+               C
+               C       End processing TOPS-10 user record.
+               C
+                         else
+               C
+               C       Process a TOPS-20 user record.
+               C
+               C       The TOPS-20 record is expected to be in the following format:
+               C
+               C       &STR:<DIRECTORY-NAME>
+               C        PASSWORD
+               C        LOGGED IN QUOTA
+               C        CAPABILITIES
+               C        FILES ONLY, ALPHA ACCTS, REPEAT LMSG
+               C        LOGGED OUT QUOTA
+               C        DIRECTORY NUMBER
+               C        DEFAULT FILE PROTECTION
+               C        DIRECTORY PROTECTION
+               C        DEFAULT RETENTION SPECIFICATION
+               C        LAST LOGIN
+               C        USER GROUPS
+               C        DIRECTORY GROUPS
+               C        MAXIMUM SUBDIRECTORIES
+               C        CREATABLE USER GROUPS
+
+
+               November 1985                                                        MVUSRS-46
+
+
+
+
+
+
+
+               C       DEFAULT DIRECTORY ACCOUNT
+               C
+               C       Example :
+               C
+               C       &BLUE:<BRENGLE>
+               C        A003543432547354571515734
+               C        377777000000
+               C        200000
+               C        200000000400
+               C        377777000000
+               C        25
+               C        500000777752
+               C        500000777740
+               C        1
+               C        132163456541
+               C        3057,0
+               C        0
+               C        12
+               C        0
+               C       M.T-C.USC.COMP
+               C
+               C           Set up initial condition to allow following loop to execute.
+                           read(20,fmt='a',end=500) temp
+                           temp = temp // tab
+               C
+               C           Process next TOPS-20 user record.
+               C           Find start of next user record.
+                           do while (temp(1:1) .ne. '&')
+               C             Find line containing "&STR:<DIRECTORY-NAME>"
+                             read(20,fmt='a',end=500) temp
+                           end do
+               C
+               C           The line in TEMP now contains user data in the following format:
+               C           &STR:<DIRECTORY-NAME>
+               C
+               C           Extract the TOPS-20 user name and build the VMS full name
+               C             and user name.
+                           left = index(temp,'<') + 1
+                           right = index(temp,'>') - 1
+               C           Use the entire field for the VMS full name.
+                           fulnam = temp(left:right)
+               C           Use the full name as the user name.
+                           usrnam = fulnam(1:slen(fulnam))
+               C
+               C           Read and discard line containing encrypted password.
+                           read(20,fmt='a',end=500) temp
+               C           Read and discard line containing logged in quota.
+                           read(20,fmt='a',end=500) temp
+               C           Read and discard line containing capabilities.
+                           read(20,fmt='a',end=500) temp
+               C
+               C           Extract the TOPS-20 privilege bits and set up the VMS
+               C             privilege string.
+                           left = nxnblk(temp(1:slen(temp)),1)
+                           right = slen(temp)
+
+
+               November 1985                                                        MVUSRS-47
+
+
+
+
+
+
+
+                           privs = temp(left:right)
+                           dummy = octrng(privs,"0,"777777,temp)
+                           val = chroct(temp)
+                           if (val .gt. "1000)
+                       1     then
+                               privs = 'ALL'
+                             else
+                               privs = 'MINIMUM'
+                           end if
+               C
+               C           Read and discard line containing "FILES ONLY",
+               C             "ALPHA ACCTS", "REPEAT LMSG".
+                           read(20,fmt='a',end=500) temp
+               C           Read and discard line containing logged out quota.
+                           read(20,fmt='a',end=500) temp
+               C           Read line containing directory number.
+                           read(20,fmt='a',end=500) temp
+               C
+               C           If GETUIC is set to "DIRECTORY NUMBER", generate the VMS user
+               C             number from the TOPS-20 directory number for this user's record.
+                           if (getuic .eq. 'DIRECTORY NUMBER')
+                       1     then
+                               left = nxnblk(temp,1)
+                               right = slen(temp)
+                               uic = temp(left:right)
+                           end if
+               C
+               C           Read and discard line containing default file protection.
+                           read(20,fmt='a',end=500) temp
+               C           Read and discard line containing directory protection.
+                           read(20,fmt='a',end=500) temp
+               C           Read and discard line containing default retention specification.
+                           read(20,fmt='a',end=500) temp
+               C           Read and discard line containing last login.
+                           read(20,fmt='a',end=500) temp
+               C           Read line containing user groups.
+                           read(20,fmt='a',end=500) temp
+               C
+               C           If GETUIC is set to "USER GROUP", generate the VMS user number
+               C             from the first item in the TOPS-20 USER-GROUPS list for this
+               C             user's record.
+                           if (getuic .eq. 'USER GROUP')
+                       1     then
+                               left = nxnblk(temp,1)
+                               if (index(temp,',') .ne. 0)
+                       1         then
+                                   right = index(temp,',') - 1
+                                 else
+                                   right = slen(temp)
+                               end if
+                               uic = temp(left:right)
+                           end if
+               C
+               C           Set up the default UIC group.
+                           grp = defgn(1:slen(defgn))
+
+
+               November 1985                                                        MVUSRS-48
+
+
+
+
+
+
+
+               C
+               C           Combine the UIC group into the UIC.
+                           uic = '[' // grp(1:slen(grp)) // ',' //
+                       1           uic(1:slen(uic)) // ']'
+               C
+               C           Generate a password for VMS from the VMS user name.
+                           pswrd = usrnam(1:slen(usrnam))
+               C
+               C           Build the VMS default directory name from the TOPS-20 user name.
+                           usrdir = usrnam(1:min0((index(usrnam,' ') - 1),30))
+               C
+               C           Set up the default account.
+                           acct = dfacct(1:slen(dfacct))
+               C
+               C       End processing TOPS-20 user record.
+               C
+                       end if
+               C
+               C    Set up remaining VMS defaults.
+               C
+               C       Build the VMS default login device.
+                       usrdev = logdev(1:slen(logdev))
+               C
+               C       Set up the default disk quotas.
+                       prmqta = defprm(1:slen(defprm))
+                       ovrqta = defovr(1:slen(defovr))
+               C
+               C       Set up the default login command file.
+                       lgncom = dflgcm(1:slen(dflgcm))
+               C
+               C
+               C  Make sure that the current data are legal as input to the VMS commands.
+               C    This code should be current for VMS 4.1.
+               C
+               300     continue
+               C
+               C       Legalize the user name.
+               C       Left-justify the string.
+                       call ljust(usrnam)
+               C       Shift it to all upper case.
+                       call upcase(usrnam)
+               C       Replace any non-alphanumeric characters with underscores.
+                       call anfix(usrnam,'NONE','_')
+               C       Trim to 12 characters or less in length.
+                       usrnam = usrnam(1:min0(slen(usrnam),12))
+               C
+               C       Legalize the full name.
+               C       Left-justify the string.
+                       call ljust(fulnam)
+               C       Trim to 31 characters or less in length.
+                       fulnam = fulnam(1:min0(slen(fulnam),31))
+               C
+               C       Legalize the account.
+               C       Left-justify the string.
+                       call ljust(acct)
+
+
+               November 1985                                                        MVUSRS-49
+
+
+
+
+
+
+
+               C       Shift it to all upper case.
+                       call upcase(acct)
+               C       Remove any non-alphanumeric characters.
+                       call anfix(acct,'NONE','NONE')
+               C       Trim to 8 characters or less in length.
+                       acct = acct(1:min0(slen(acct),8))
+               C
+               C       Legalize the default login device.
+               C       Left-justify the string.
+                       call ljust(usrdev)
+               C       Shift it to all upper case.
+                       call upcase(usrdev)
+               C       Remove any non-alphanumeric (except "$" and ":") characters.
+                       call anfix(usrdev,'$','NONE')
+               C       Trim to 15 characters or less in length.
+                       usrdev = usrdev(1:min0(slen(usrdev),15))
+               C       Append a ":".
+                       loc = min0((slen(usrdev) + 1),15)
+                       usrdev(loc:loc) = ':'
+               C
+               C       Legalize the default login directory.
+               C       Left-justify the string.
+                       call ljust(usrdir)
+               C       Shift it to all upper case.
+                       call upcase(usrdir)
+               C       Remove any non-alphanumeric characters.
+                       call anfix(usrdir,'NONE','NONE')
+               C       Insert leading open square bracket.
+                       temp = '[' // usrdir(1:slen(usrdir))
+               C       Trim to 63 characters or less in length and append close square
+               C         bracket.
+                       usrdir = temp(1:min0(slen(temp),62)) // ']'
+               C
+               C       Legalize the UIC.
+               C       First, locate and extract the group number.
+               C       Locate of the left bracket in the string.
+                       left = index(uic(1:slen(uic)),'[') + 1
+               C       Locate the comma to the right of the left bracket.
+                       comma = index(uic(left:slen(uic)),',') + left - 1
+                       if (comma .gt. left)
+                       1 then
+               C           If the comma is to the right of the left bracket, then the
+               C             last character of the group number should be to the left
+               C             of the comma.
+                           right = comma - 1
+                         else
+               C           Otherwise just use whatever character is pointed to by the
+               C             "LEFT" pointer.
+                           right = left
+                       end if
+                       grp = uic(left:right)
+               C       Now locate and extract the user number.
+               C       Start looking for the user number to the right of the comma.
+                       if (comma .gt. left) left = comma + 1
+               C       Locate the right bracket.
+
+
+               November 1985                                                        MVUSRS-50
+
+
+
+
+
+
+
+                       right = index(uic(left:slen(uic)),']') + left - 1
+                       if (right .gt. left)
+                       1 then
+               C           If the right bracket is found, the user number must end to
+               C             the left of it.
+                           right = right - 1
+                         else
+               C           Otherwise, the user number must end before the end of the string.
+                           right = slen(uic)
+                       end if
+                       uic = uic(left:right)
+               C       Force the group number to be within the allowed range.
+                       dummy = octrng(grp,"1,"37776,temp)
+                       grp = temp(1:min0(slen(temp),10))
+               C       Force the user number to be within the allowed range.
+                       dummy = octrng(uic,"0,"1777776,temp)
+                       uic = temp(1:min0(slen(temp),10))
+               C       Rebuild the UIC string and enclose it in square brackets.
+                       uic = '[' // grp(1:slen(grp)) // ',' // uic(1:slen(uic)) // ']'
+               C
+               C       Legalize the privileges code.
+               C       Set the privileges code to 'MINIMUM' unless it has been set to 'ALL'.
+                       if (privs .eq. 'ALL' .or. privs .eq. 'all')
+                       1 then
+                           privs = 'ALL'
+                         else
+                           privs = 'MINIMUM'
+                       end if
+               C
+               C       Legalize the password.
+               C       Left justify the string.
+                       call ljust(pswrd)
+               C       Shift it to all upper case.
+                       call upcase(pswrd)
+               C       Replace any non-alphanumeric (or dollar signs or underscores)
+               C         with underscores.
+                       call anfix(pswrd,'$_','_')
+               C       Trim to 31 characters or less in length.
+                       pswrd = pswrd(1:min0(slen(pswrd),31))
+               C
+               C
+               C  If DSPLAY is set to 'YES', display the constructed VMS user data.
+               C
+                       if (dsplay .eq. 'YES')
+                       1 then
+                           write(5,fmt='//')
+                           write(5,fmt='x,''              User Name : '',a')
+                       1     usrnam(1:slen(usrnam))
+                           write(5,fmt='x,''              Full Name : '',a')
+                       1     fulnam(1:slen(fulnam))
+                           write(5,fmt='x,''                Account : '',a')
+                       1     acct(1:slen(acct))
+                           write(5,fmt='x,''   Default Login Device : '',a')
+                       1     usrdev(1:slen(usrdev))
+                           write(5,fmt='x,''Default Login Directory : '',a,')
+
+
+               November 1985                                                        MVUSRS-51
+
+
+
+
+
+
+
+                       1     usrdir(1:slen(usrdir))
+                           write(5,fmt='x,''                    UIC : '',a')
+                       1     uic(1:slen(uic))
+                           write(5,fmt='x,''             Privileges : '',a')
+                       1     privs(1:slen(privs))
+                           write(5,fmt='x,''               Password : '',a')
+                       1     pswrd(1:slen(pswrd))
+                           write(5,fmt='x,''   Permanent Disk Quota : '',a')
+                       1     prmqta(1:slen(prmqta))
+                           write(5,fmt='x,''   Overdraft Disk Quota : '',a')
+                       1     ovrqta(1:slen(ovrqta))
+                           write(5,fmt='/x,a,a,''LOGIN.COM will be copied'',
+                       1     x,''from : '',a')
+                       2     usrdev(1:slen(usrdev)), usrdir(1:slen(usrdir)),
+                       3     lgncom(1:slen(lgncom))
+                       end if
+               C
+               C
+               C  If enabled, allow operator to modify the data for the current user.
+               C
+                       if (verify .eq. 'NO') go to 400
+               C
+               C    Check to see if user wants to modify the data, or if he wants to
+               C      skip the record altogether.
+               C
+                       write(5,fmt='/x,''Are these values correct?  (YES,NO,SKIP)'',
+                       1 2x,''[YES] : '',$')
+                       read(5,fmt='a') temp
+               C       If nothing was typed in, use the default.
+                       if (slen(temp) .eq. 0) temp = 'YES'
+               C       Shift response to all upper case.
+                       call upcase(temp)
+               C       If the input string contains "N", go request new data.
+                       if (index(temp,'N') .ne. 0) go to 350
+               C       If the input string contains "S" but not "Y",
+               C         skip to next input record.
+                       if (index(temp,'S') .ne. 0 .and. index(temp,'Y') .eq. 0)
+                       1 then
+                           write(5,fmt='x,''Record skipped.''')
+                           go to 200
+                       end if
+               C       If neither is specified, go write the output record.
+                       go to 400
+               C
+               C    If the operator wants to modify the current user's data, show him
+               C      the data, one item at a time, and prompt him for new data.
+               C
+               350     write(5,fmt='//')
+                       write(5,fmt='x,''                 User Name : '',a')
+                       1 usrnam(1:slen(usrnam))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) usrnam = temp(1:slen(temp))
+
+
+               November 1985                                                        MVUSRS-52
+
+
+
+
+
+
+
+               C
+                       write(5,fmt='x,''                 Full Name : '',a')
+                       1 fulnam(1:slen(fulnam))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) fulnam = temp(1:slen(temp))
+               C
+                       write(5,fmt='x,''                   Account : '',a')
+                       1 acct(1:slen(acct))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) acct = temp(1:slen(temp))
+               C
+                       write(5,fmt='x,''      Default Login Device : '',a')
+                       1 usrdev(1:slen(usrdev))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) usrdev = temp(1:slen(temp))
+               C
+                       write(5,fmt='x,''   Default Login Directory : '',a,')
+                       1 usrdir(1:slen(usrdir))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) usrdir = temp(1:slen(temp))
+               C
+                       write(5,fmt='x,''                       UIC : '',a')
+                       1 uic(1:slen(uic))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) uic = temp(1:slen(temp))
+               C
+                       write(5,fmt='x,''                Privileges : '',a')
+                       1 privs(1:slen(privs))
+                       write(5,fmt='x,''  Correction (MINIMUM,ALL) : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) privs = temp(1:slen(temp))
+               C
+                       write(5,fmt='x,''                  Password : '',a')
+                       1 pswrd(1:slen(pswrd))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+
+
+               November 1985                                                        MVUSRS-53
+
+
+
+
+
+
+
+                       if (slen(temp) .ne. 0) pswrd = temp(1:slen(temp))
+               C
+                       write(5,fmt='x,''      Permanent Disk Quota : '',a')
+                       1 prmqta(1:slen(prmqta))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) prmqta = temp(1:slen(temp))
+               C
+                       write(5,fmt='x,''      Overdraft Disk Quota : '',a')
+                       1 ovrqta(1:slen(ovrqta))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) ovrqta = temp(1:slen(temp))
+               C
+                       write(5,fmt='/x,a,a,''LOGIN.COM will be copied'',
+                       1 x,''from : '',a')
+                       2 usrdev(1:slen(usrdev)), usrdir(1:slen(usrdir)),
+                       3 lgncom(1:slen(lgncom))
+                       write(5,fmt='x,''                Correction : '',$')
+                       read(5,fmt='a') temp
+               C       Save the corrected information.  If nothing was typed in, use
+               C         the default.
+                       if (slen(temp) .ne. 0) lgncom = temp(1:slen(temp))
+               C
+               C       Take the modified data back and legalize it.
+                       go to 300
+               C
+               C
+               C  Write the DCL commands with the validated user data to the output file.
+               C
+               400     write(21,fmt='''$!'',
+                       1 /,''$!'',
+                       2 /,''$! Check to see if quota management is being done'',
+                       3 /,''$!'',
+                       4 /,''$  IF F$SEARCH("'',a,''[0,0]QUOTA.SYS")'',
+                       5 x,''.EQS. "" THEN GOTO NQ'',i3.3')
+                       6 usrdev(1:slen(usrdev)), count
+                       write(21,fmt='''$!'',
+                       1 /,''$! If so, add disk quota entries'',
+                       2 /,''$!''')
+                       write(21,fmt='''$  RUN SYS$SYSTEM:DISKQUOTA''')
+                       write(21,fmt='''   USE '',a') usrdev(1:slen(usrdev))
+                       write(21,fmt='''   ADD '',a,'' /PERMQUOTA='',a,
+                       1 '' /OVERDRAFT='',a')
+                       2 uic(1:slen(uic)), prmqta(1:slen(prmqta)),
+                       3 ovrqta(1:slen(ovrqta))
+                       write(21,fmt='''   EXIT''')
+                       write(21,fmt='''$  NQ'',i3.3,'':''') count
+               C
+                       write(21,fmt='''$!'',
+                       1 /,''$! Create a first-level directory for the account'',
+
+
+               November 1985                                                        MVUSRS-54
+
+
+
+
+
+
+
+                       2 /,''$!''')
+                       write(21,fmt='''$  CREATE/DIRECTORY /OWNER_UIC='',a,
+                       1 x,''/PROTECTION=(S=RWE,O=RWE,G=RE,W) -''')
+                       2 uic(1:slen(uic))
+                       write(21,fmt='''       '',a,a,'' /LOG''')
+                       1 usrdev(1:slen(usrdev)), usrdir(1:slen(usrdir))
+               C
+                       write(21,fmt='''$!'',
+                       1 /,''$! If present, copy LOGIN.COM template to the account'',
+                       2 /,''$!''')
+                       write(21,fmt='''$  IF F$SEARCH("'',a,''") .EQS. "" THEN'',
+                       1 x,'' GOTO NF'',i3.3')
+                       2 lgncom(1:slen(lgncom)), count
+                       write(21,fmt='''$  COPY '',a,'' -''')
+                       1 lgncom(1:slen(lgncom))
+                       write(21,fmt='''     '',a,a,''LOGIN.COM''')
+                       1 usrdev(1:slen(usrdev)), usrdir(1:slen(usrdir))
+                       write(21,fmt='''$  SET FILE/OWNER_UIC='',a,x,a,a,''LOGIN.COM''')
+                       1 uic(1:slen(uic)), usrdev(1:slen(usrdev)),
+                       2 usrdir(1:slen(usrdir))
+                       write(21,fmt='''$  NF'',i3.3,'':''') count
+               C
+                       write(21,fmt='''$!'',
+                       1 /,''$! Add the account record to the UAF'',
+                       2 /,''$!''')
+                       write(21,fmt='''$  RUN SYS$SYSTEM:AUTHORIZE''')
+                       write(21,fmt='''     ADD '',a,'' -''')
+                       1 usrnam(1:slen(usrnam))
+                       write(21,fmt='''       /OWNER="'',a,''" -''')
+                       1 fulnam(1:slen(fulnam))
+                       write(21,fmt='''       /ACCOUNT='',a,'' -''')
+                       1 acct(1:slen(acct))
+                       write(21,fmt='''       /DEVICE='',a,'' -''')
+                       1 usrdev(1:slen(usrdev))
+                       write(21,fmt='''       /DIRECTORY='',a,'' -''')
+                       1 usrdir(1:slen(usrdir))
+                       write(21,fmt='''       /UIC='',a,'' -''')
+                       1 uic(1:slen(uic))
+                       if (privs .eq. 'ALL')
+                       1 then
+                           write(21,fmt='''       /PRIV=ALL -''')
+                         else
+                           write(21,fmt='''       /PRIV=(TMPMBX,NETMBX) -''')
+                       end if
+                       write(21,fmt='''       /PASSWORD='',a,'' -''')
+                       1 pswrd(1:slen(pswrd))
+                       write(21,fmt='''       /LGICMD='',a,a,''LOGIN.COM''')
+                       1 usrdev(1:slen(usrdev)), usrdir(1:slen(usrdir))
+                       write(21,fmt='''     EXIT''')
+               C
+               C       Increment the record counter.
+                       count = count +1
+               C
+               C       Go back to get next user record.
+                       go to 200
+
+
+               November 1985                                                        MVUSRS-55
+
+
+
+
+
+
+
+               C
+               C
+               C  Write out final DCL commands to restore the VMS process environment.
+               C
+               500     write(21,fmt='''$!'',
+                       1 /,''$! Restore previous working environment.'',
+                       2 /,''$!'',
+                       3 /,''$  CLEANUP:'',
+                       4 /,''$  SET TERMINAL/ECHO'',
+                       5 /,''$  PROC_VER = F$VERIFY(PROC_VER,IMAGE_VER)'',
+                       6 /,''$  PREVPRIV = F$SETPRV(PREVPRIV)''')
+               C       The kluge on the next line is to allow sending out of a single quote.
+                       write(21,1000)
+               1000    format('$  SET DEFAULT ''OLDDIR''')
+                       write(21,fmt='''$  EXIT'',
+                       9 /,''$!'',
+                       1 /,''$! Come here in case proper privileges are not set.'',
+                       2 /,''$!'',
+                       3 /,''$  NOPRIV:'',
+                       4 /,''$  WRITE SYS$OUTPUT "You need SETPRV or SYSPRV'',
+                       5 x,''to run this procedure"'',
+                       6 /,''$  GOTO CLEANUP''')
+               C
+               C
+               C  Clean up and exit after processing last user record.
+               C
+                       count = count - 1
+                       write(5,fmt='x,i4,'' user records processed.''') count
+               C
+               C       Close the input and output files.
+                       close(unit=20)
+                       close(unit=21)
+
+                       call exit
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-56
+
+
+
+
+
+
+
+               C
+               C       ANFIX : This routine replaces any non-alphanumeric characters
+               C               in the string in the first argument, except for those
+               C               listed in the string in the second argument, with the
+               C               character supplied in the third argument.  If the third
+               C               argument is 'NONE', the non-matching characters are
+               C               removed and the string is shifted to fill the empty space.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C                 MCHLST ; Character variable.
+               C                 REPL ; Single character or 'NONE'.
+               C       Returns : CVAR ; Character.
+               C
+                       subroutine anfix(cvar,mchlst,repl)
+
+                       implicit integer (a-z)
+               C
+               C       Declare variable length character argument.
+                       character *(*) cvar, mchlst
+                       character repl*4
+               C
+               C       Check the length of the string.
+                       if (slen(cvar) .gt. 0)
+                       1 then
+               C
+               C           Set up dummy MCHLST if no match characters have been specified.
+               C             Putting an alphanumeric character in MCHLST allows the logic
+               C             to work correctly.
+                           if (mchlst .eq. 'NONE') mchlst = '0'
+               C
+               C           Initialize an output pointer in to the string.
+                           optr = 1
+               C
+               C           Loop over the length of the string in CVAR.
+                           do 1 i = 1,slen(cvar)
+               C
+               C             Check to see if it is a non-alphanumeric character and
+               C               not in the match character list.
+                             if ((llt(cvar(i:i),'0') .or.
+                       1       (lgt(cvar(i:i),'9') .and. llt(cvar(i:i),'A')) .or.
+                       2       (lgt(cvar(i:i),'Z') .and. llt(cvar(i:i),'a')) .or.
+                       3        lgt(cvar(i:i),'z')) .and.
+                       4       (index(mchlst(1:slen(mchlst)),cvar(i:i)) .eq. 0))
+                       1       then
+               C                 If non-alphanumeric, replace with character in REPL
+               C                   or remove and shift to fill space.
+                                 if (repl .ne. 'NONE')
+                       1           then
+               C                     Replace with the character in REPL.
+                                     cvar(optr:optr) = repl(1:1)
+               C                     Increment the output pointer.
+                                     optr = optr + 1
+                                   else
+               C                     Remove the character and fill the space. (This will
+               C                       happen automatically at this point because the
+
+
+               November 1985                                                        MVUSRS-57
+
+
+
+
+
+
+
+               C                       output pointer will not get incremented.)
+                                 end if
+                               else
+               C                 If alphanumeric, just copy it from the input location
+               C                   to the output location.
+                                 cvar(optr:optr) = cvar(i:i)
+               C                 Increment the output pointer.
+                                 optr = optr + 1
+                             end if
+
+               1           continue
+               C
+               C           Fill remainder of string from optr to slen(cvar) with blanks.
+                           do 2 i = optr, slen(cvar)
+
+                             cvar(i:i) = ' '
+
+               2           continue
+
+                       end if
+               C
+               C       Return with the modified string in CVAR.
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-58
+
+
+
+
+
+
+
+               C
+               C       CHROCT : This routine converts the string stored in CVAR to an
+               C                integer value after forcing it to be a legal octal number.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C       Returns : CHROCT ; Integer.
+               C
+                       integer function chroct(cvar)
+
+                       implicit integer (a-z)
+               C
+               C       Declare variable length character argument.
+                       character *(*) cvar
+                       character digit*1
+               C
+               C       Initialize the return value.
+                       chroct = 0
+               C
+               C       Loop over the number of characters in the input string.
+                       do 1 i = 1, slen(cvar)
+               C
+               C         Get the digit.
+                         digit = cvar(i:i)
+               C
+               C         If it is a legal octal digit, accumulate a new total.
+                         if (digit .ge. '0' .and. digit .le. '7')
+                       1   chroct = 8 * chroct + (ichar(digit) - 48)
+
+               1       continue
+               C
+               C       Return the accumulated value in CHROCT.
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-59
+
+
+
+
+
+
+
+               C
+               C       CKDEC : This routine checks a character variable to see
+               C               if it contains a valid decimal value.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C       Returns : CKDEC ; Character (OK,NO).
+               C
+                       character*3 function ckdec(cvar,val)
+
+                       implicit integer (a-z)
+               C
+               C       Declare variable length character argument.
+                       character *(*) cvar
+               C
+               C       Check the length of the string.
+                       if (slen(cvar) .gt. 0)
+                       1 then
+               C
+               C           If the length greater than zero, start the check for a number.
+                           ckdec = 'OK'
+               C
+               C           Loop over the length of the string in CVAR.
+                           do 1 i = 1,slen(cvar)
+               C
+               C             Check to see if it is a legal decimal digit.
+                             if (llt(cvar(i:i),'0') .or. lgt(cvar(i:i),'9'))
+                       1       then
+                                 ckdec = 'NO'
+                                 return
+                             end if
+
+               1           continue
+
+                         else
+               C
+               C           If the length is less than or equal to zero,
+               C             return CKDEC set to NO.
+                           ckdec = 'NO'
+                       end if
+               C
+               C       Return with the proper response in CKDEC.
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-60
+
+
+
+
+
+
+
+               C
+               C       CKOCT : This routine checks a character variable to see
+               C               if it contains a valid octal value.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C       Returns : CKOCT ; Character (OK,NO).
+               C
+                       character*3 function ckoct(cvar,val)
+
+                       implicit integer (a-z)
+               C
+               C       Declare variable length character argument.
+                       character *(*) cvar
+               C
+               C       Check the length of the string.
+                       if (slen(cvar) .gt. 0)
+                       1 then
+               C
+               C           If the length greater than zero, start the check for a number.
+                           ckoct = 'OK'
+               C
+               C           Loop over the length of the string in CVAR.
+                           do 1 i = 1,slen(cvar)
+               C
+               C             Check to see if it is a legal octal digit.
+                             if (llt(cvar(i:i),'0') .or. lgt(cvar(i:i),'7'))
+                       1       then
+                                 ckoct = 'NO'
+                                 return
+                             end if
+
+               1           continue
+
+                         else
+               C
+               C           If the length is less than or equal to zero,
+               C             return CKOCT set to NO.
+                           ckoct = 'NO'
+                       end if
+               C
+               C       Return with the proper response in CKOCT.
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-61
+
+
+
+
+
+
+
+               C
+               C       LJUST : This routine left-adjusts the string stored in CVAR.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C       Returns : CVAR ; Character variable.
+               C
+                       subroutine ljust(cvar)
+
+                       implicit integer (a-z)
+               C
+               C       Declare variable length character argument.
+                       character *(*) cvar
+               C
+               C       Don't do anything if the string length is zero.
+                       if (slen(cvar) .eq. 0) return
+               C
+               C       Determine the number of leading spaces.
+                       i = 1
+                       do 1 while (cvar(i:i) .eq. ' ' .and. i .le. slen(cvar))
+                         i = i + 1
+               1       continue
+
+                       cvar = cvar(i:slen(cvar))
+
+               C       Return with shifted string in CVAR.
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-62
+
+
+
+
+
+
+
+               C
+               C       NXNBLK : This routine searches the string stored in CVAR
+               C                beginning at ISTART for the first non-blank and
+               C                non-tab character.  The function returns the value
+               C                of the index for that character in NXNBLK.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C                 ISTART ; Integer.
+               C       Returns : NXNBLK ; Integer.
+               C
+                       integer function nxnblk(cvar,istart)
+
+                       implicit integer (a-z)
+
+               C       Declare variable length character argument.
+                       character *(*) cvar
+                       character tab*1
+
+                       tab = char(9)
+               C
+               C       Start search at ISTART.
+                       nxnblk = istart
+               C
+               C       Search through string.
+                       do while (nxnblk .le. slen(cvar))
+               C
+               C         Check for a blank or tab.
+                         if (cvar(nxnblk:nxnblk) .eq. ' ' .or.
+                       1   cvar(nxnblk:nxnblk) .eq. tab)
+                       1   then
+               C
+               C             If so, increment count and check next character.
+                             nxnblk = nxnblk + 1
+                           else
+               C
+               C             If not, search is finished; return.
+                             return
+                         end if
+                       end do
+               C
+               C       If index goes off end of string, return NXNBLK set to zero.
+                       nxnblk = 0
+
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-63
+
+
+
+
+
+
+
+               C
+               C       OCTCHR : This routine converts an integer value to a character
+               C                string value in octal notation.  This routine will work
+               C                with octal values up to ten octal digits.
+               C
+               C       Args:     NUM ; Integer.
+               C       Returns : OCTCHR ; Character.
+               C
+                       character*10 function octchr(num)
+
+                       implicit integer (a-z)
+
+                       character lzeros*3
+               C
+               C       Initialize a pointer into the output string.
+                       optr = 1
+               C
+               C       Check to see if the input argument is greater than zero.
+                       if (num .gt. 0)
+                       1 then
+               C
+               C           If so, then convert in to a character string.
+               C
+               C           Initialize a flag to be used to eliminate leading zeroes
+               C             in the output string.
+                           lzeros = 'YES'
+               C
+               C           Set up the divisor for the largest digit of the largest value
+               C             allowed for conversion.
+                           divsor = 8 ** 9
+               C
+               C           Loop over the possible digits.
+                           do 1 i = 1, 10
+               C
+               C             Divide the current remainder by the current divisor.
+                             digit = num / divsor
+               C
+               C             Generate the next divisor.
+                             divsor = divsor / 8
+               C
+               C             If the new digit would be a leading zero, do the next one.
+                             if (digit .eq. 0 .and. lzeros .eq. 'YES') go to 1
+               C
+               C             Clear the leading zeroes flag when the first non-zero
+               C               digit is found.
+                             lzeros = 'NO'
+               C
+               C             Subtract off the amount due to this divisor.
+                             num = num - (digit * divsor)
+               C
+               C             Convert digit to character and insert in output string.
+                             octchr(optr:optr) = char(digit + 48)
+               C
+               C             Increment output pointer.
+                             optr = optr + 1
+
+
+               November 1985                                                        MVUSRS-64
+
+
+
+
+
+
+
+
+               1           continue
+
+                         else
+               C
+               C           If the input value is not greater than zero, return zero
+               C             as the character value.
+                           octchr(optr:optr) = '0'
+               C
+               C           Increment the output pointer.
+                           optr = optr + 1
+                       end if
+               C
+               C       Pad the remainder of the output string with blanks.
+                       do 2 i = optr, 10
+                         octchr(i:i) = ' '
+               2       continue
+
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-65
+
+
+
+
+
+
+
+               C
+               C       OCTRNG : This routine processes a character variable to see
+               C                if it contains an octal value within a given range.
+               C                It also returns a character value forced to be octal
+               C                and within the range.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C                 LOWLIM ; Integer.
+               C                 HILIM ; Integer.
+               C       Returns : OCTRNG ; Character (OK,TOO LOW,TOO HIGH).
+               C                 FRCVAL ; Character.
+               C
+                       character*10 function octrng(cvar,lowlim,hilim,frcval)
+
+                       implicit integer (a-z)
+               C
+               C       Declare variable length character argument.
+                       character *(*) cvar
+                       character frcval*10, digit*1, octchr*10, lzeros*3
+               C
+               C       Check the length of the string.
+                       len = slen(cvar)
+                       if (len .gt. 0)
+                       1 then
+               C
+               C           Initialize a test result accumulation variable.
+                           test = 0
+               C
+               C           Initialize an output pointer into the output string.
+                           optr = 1
+               C
+               C           Initialize a flag to be used to eliminate leading zeroes
+               C             in the output string.
+                           lzeros = 'YES'
+               C
+               C           Loop over the length of the string in CVAR.
+                           do 1 i = 1, len
+               C
+               C             Get the next octal digit from the input string.
+                             digit = cvar(i:i)
+               C
+               C             Test to see if it is a valid octal digit.
+                             if (digit .ge. '0' .and. digit .le. '7')
+                       1       then
+               C
+               C               Accumulate a test result using the new octal digit.
+                               test = 8 * test + (ichar(digit) - 48)
+               C
+               C               Check to see if the accumulated value is still less than
+               C                 or equal to the high limit.
+                               if (test .le. hilim)
+                       1         then
+               C
+               C                   If so, try to add the new digit to the forced-in-range
+               C                     output string.
+
+
+               November 1985                                                        MVUSRS-66
+
+
+
+
+
+
+
+                                   if (optr .le. 10)
+                       1             then
+                                       if (digit .eq. '0' .and. lzeros .eq. 'YES')
+                       1                 then
+               C                           Throw away leading zero.
+                                         else
+                                           lzeros = 'NO'
+                                           frcval(optr:optr) = digit
+                                           optr = optr + 1
+                                       end if
+                                     else
+               C
+               C                       Otherwise, return that the value is too high.
+                                       octrng = 'TOO HIGH'
+                                       return
+                                   end if
+               C
+                                 else
+               C
+               C                   If not still in range, fill the remainder of the
+               C                     forced-in-range output value with blanks.  Then
+               C                     return that the value is too high.
+                                   do 2 j = optr, 10
+                                     frcval(j:j) = ' '
+               2                   continue
+                                   octrng = 'TOO HIGH'
+                                   return
+                               end if
+                             end if
+
+               1         continue
+               C
+               C         If the loop terminates normally, the accumulated value must be less
+               C           then the high limit.  Fill the remainder of the forced-in-range
+               C           value with blanks.
+                         do 3 i = optr, 10
+                           frcval(i:i) = ' '
+               3         continue
+               C
+               C         Test to see if the accumulated value is greater than or equal
+               C           to the lower limit.
+                         if (test .ge. lowlim)
+                       1   then
+               C
+               C             If so, then return that it is OK.
+                             octrng = 'OK'
+                             return
+                         end if
+                       end if
+               C
+               C       If the string length is zero, or if the accumulated value is less
+               C         than the lower limit, set the forced-in-range return value to
+               C         be the lower limit and return that it is too low.
+                       octrng = 'TOO LOW'
+                       frcval = octchr(lowlim)
+
+
+               November 1985                                                        MVUSRS-67
+
+
+
+
+
+
+
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-68
+
+
+
+
+
+
+
+               C
+               C       SLEN : This function returns the length of the string in CVAR
+               C              up to the first trailing space.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C       Returns : SLEN ; Integer.
+               C
+                       integer function slen (cvar)
+
+                       implicit integer (a-z)
+               C
+               C       Declare variable length character argument.
+                       character *(*) cvar
+               C
+               C       Set up to search character expression backwards from end
+               C         for first non-blank character.
+                       slen = len(cvar)
+
+               C       Do the search.  Stop on first non-blank character.
+                       do while (cvar(slen:slen) .eq. ' ' .and. slen .gt. 0)
+                         slen = slen - 1
+                       end do
+
+               C       Return with string length in SLEN.
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-69
+
+
+
+
+
+
+
+               C
+               C       UPCASE : This routine shifts the alphabetic characters of the
+               C                string stored in CVAR to upper case.
+               C
+               C       Args:     CVAR ; Arbitrary character variable.
+               C       Returns : CVAR ; Character variable.
+               C
+                       subroutine upcase(cvar)
+
+                       implicit integer (a-z)
+               C
+               C       Declare variable length character argument.
+                       character *(*) cvar
+               C
+               C       Don't do anything if the string length is zero.
+                       if (slen(cvar) .eq. 0) return
+               C
+               C       Loop over the length of the string in CVAR.
+                       do 1 i = 1,slen(cvar)
+               C
+               C         Change case if necessary.
+                         if (lge(cvar(i:i),'a') .and. lle(cvar(i:i),'z'))
+                       1   cvar(i:i) = char(ichar(cvar(i:i)) - 32)
+
+               1       continue
+
+               C       Return with shifted string in CVAR.
+                       return
+                       end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               November 1985                                                        MVUSRS-70
+
+
+  

@@ -1,0 +1,234 @@
+                                 SELECT
+                                 ======
+
+SELECT is a separately compiled SIMULA  CLASS  to  enable  searching  of
+texts or files applying BOOLEAN search criteria like
+
+"SWEDEN+DENMARK&-COPENHAGEN"
+
+meaning that you want to find all lines or records which contain  either
+the word "SWEDEN" or the word "DENMARK" but not the word "COPENHAGEN".
+
+SELECT contains procedures to
+
+a) Convert a text containing  such  a  BOOLEAN  search  formula  into  a
+formula tree suitable for fast searching.
+
+b) Procedures for applying such a formula tree to  a  text  or  part  or
+whole of a text array.
+
+The allowed operators in the formula are +(=OR),  &(=AND),  -(=NOT)  and
+the  left  and  right  parenthesises,  ( and ).  If parenthesises do not
+indicate otherwise, + is assumed to have the lowest  priority,  followed
+by &, - and the parenthesises.  These operator characters can be changed
+by the user.
+
+SELECT does not contain any input/output procedures.
+
+Accessible attributes of the CLASS select:
+
+
+BOOLEAN PROCEDURE BUILD_CONDITION
+
+          Translates a  text  string  like  "SWEDEN+DENMARK&-COPENHAGEN"
+          into a formula tree
+                                (OR)
+                           SWEDEN   (AND)
+                              DENMARK   (NOT)
+                                      COPENHAGEN
+
+          This tree can later  be  used  to  scan  a  text  through  the
+          procedures  LINE_SCAN  and  ARRAY_SCAN.   BUILD_CONDITION will
+          return FALSE if the input formula had bad  syntax,  e.g.  with
+          non-balancing  parenthesises.   In  that  case, an appropriate
+          error message is returned in the text SELECT_ERRMESS.
+
+          Parameters to BUILD_CONDITION:
+
+          REF (OPERATOR) TREE_TOP returns the formula tree.
+
+          TEXT SELECTOR contains the input formula text.  SELECTOR  need
+          not  contain  any  operators,  in which case it simply means a
+          search for that whole  text.   If  SELECTOR  ==  NOTEXT,  then
+          TREE_TOP  returns  NONE,  which  means  a formula matching all
+          scanned texts.
+
+          BOOLEAN CASESHIFT:  If TRUE, upper and lower  case  characters
+          will be regarded as identical.
+
+
+BOOLEAN PROCEDURE LINE_SCAN
+
+          sapplies a scanning formula to a TEXT.  Returns  TRUE  if  the
+          formula  is  satisfied  by  segments of the TEXT.  The formula
+          "SWEDEN+DENMARK&-COPENHAGEN" is for example TRUE for the  TEXT
+          "DENMARK  IS  A  EUROPEAN  COUNTRY"  but not TRUE for the TEXT
+          "COPENHAGEN IS THE CAPITAL OF DENMARK".
+
+          Parameters to LINE_SCAN:
+
+          REF  (OPERATOR)  TREE_TOP  is  a  formula-tree   produced   by
+          BUILD_CONDITION.   If  this  parameter is NONE, LINE_SCAN will
+          always return TRUE.
+
+          TEXT INLINE is the text to which the formula is to be applied.
+          If  TREE_TOP =/= NONE AND INLINE == NOTEXT, then FALSE will be
+          returned.
+
+
+BOOLEAN PROCEDURE ARRAY_SCAN
+
+          is similar to LINE_SCAN, but will apply the formula to several
+          lines of TEXT comprising part or the whole of a TEXT array.
+
+          Parameters to ARRAY_SCAN:
+
+          REF  (OPERATOR)  TREE_TOP   is   the   formula   produced   by
+          BUILD_CONDITION.
+
+          TEXT ARRAY LINES is the array  of  text  lines  to  which  the
+          formula is to be applied.
+
+          INTEGER I1, I2 are the lower and upper bound of the  lines  in
+          the  TEXT ARRAY to which the formula is to be applied.  I1 may
+          be larger than the absolute lower bound of the array,  and  I2
+          may be less than the absolute upper bound of the array, if you
+          only want to apply the formula to part of  the  lines  in  the
+          whole  array.   If  TREE_TOP  ==  NONE,  TRUE  will  always be
+          returned.  If TREE_TOP =/= NONE AND I2 < I1, then  FALSE  will
+          always be returned.
+
+
+PROCEDURE TREE_PRINT
+
+          will print a formula tree on SYSOUT in the format
+          (SWEDEN+(DENMARK&(-COPENHAGEN)))
+          i.e. fully parenthesized to show any  default  assumptions  of
+          operator  priorities.   Outimage  should be called immediately
+          after TREE_PRINT.
+
+          Parameters to TREE_PRINT:
+
+          REF (OPERATOR) TREE_TOP is the formula tree to be output.
+
+
+PROCEDURE SET_OPERATOR_CHARACTERS
+
+          will tell the package which  characters  are  to  be  used  as
+          delimiters  in  formulas  input to BUILD_CONDITION.  A default
+          assumption is made if SET_OPERATOR_CHARACTERS  is  not  called
+          from your program.
+
+          Parameters to SET_OPERATOR_CHARACTERS:
+
+          TEXT T:  This TEXT should always be of length  5  and  contain
+          the following five characters:
+
+                    Default Character
+                       +    OR
+                       &    AND
+                       -    NOT
+                       (    LEFT PARENTHESIS
+                       )    RIGHT PARENTHESIS
+
+
+TEXT SELECT_ERRMESS
+
+          If BUILDCONDITION finds a syntax error in  the  formula,  this
+          TEXT  will  return an appropriate error message.  You can thus
+          combine SELECT with SAFEIO and write e.g.:
+
+                  request("Give selection criteria:",
+                  NOTEXT,textinput(line1selector,
+                  buildcondition(condition,selector,caseshift)),
+                  selecterrmess,myhelp("SELECT"));
+
+
+CLASS OPERATOR
+
+          Is the qualification to be used when you declare formula  tree
+          variables in your program, e.g.:
+
+                    REF (OPERATOR) selector1, selector2;
+
+
+OPTIONS(/l); COMMENT demonstration example for SELECT;
+          COMMENT this program will list all lines in an input file
+          which satisfy a selection formula;
+          BEGIN
+            EXTERNAL TEXT PROCEDURE rest, upcase;
+            EXTERNAL TEXT PROCEDURE scanto, from, conc;
+            EXTERNAL CHARACTER PROCEDURE findtrigger;
+            EXTERNAL BOOLEAN PROCEDURE frontcompare, puttext;
+            EXTERNAL INTEGER PROCEDURE scanint, search;
+            EXTERNAL CLASS select;
+            select BEGIN
+              REF (operator) formula;
+              LINECOPY_BUFFER:- blanks(150);
+              ask_for_formula:
+              outtext("Input selection formula:"); breakoutimage;
+              inimage;
+              IF NOT build_condition(formula,
+              sysin.image.strip,TRUE) THEN
+              BEGIN outtext(select_errmess); GOTO ask_for_formula;
+              END;
+              tree_print(formula); outimage;
+              INSPECT NEW infile("Infile *") DO
+              BEGIN
+                open(blanks(150)); sysout.image:- image;
+                WHILE NOT endfile DO
+                BEGIN
+                  inimage;
+                  IF line_scan(formula,image.strip) THEN outimage;
+                END;
+                close;
+              END;
+            END;
+          END;
+
+
+EFFICIENCY CONSIDERATIONS:
+
+          You need not consider this section to make the select  package
+          work, only if you want to make your programs more efficient.
+
+          Scanning of non-significant texts takes time,  especially  for
+          complex  formulas requiring many scans of the text.  In such a
+          case you can often save time by  only  applying  LINE_SCAN  or
+          ARRAY_SCAN   to   those  parts  of  your  text  which  contain
+          information, e.g. by supressing non-significant  blanks.   The
+          simplest  case  of this is to strip your texts before scanning
+          them.
+
+          LINE_SCAN on a long text is more efficient than ARRAY_SCAN  on
+          several  shorter  texts,  especially  if  CASESHIFT  is  TRUE.
+          Sometimes, you can let your array elements be  subtexts  of  a
+          common main text, and apply LINE_SCAN on part or whole of this
+          main text  instead  of  ARRAY_SCAN  on  the  array.   However,
+          ARRAY_SCAN is faster than LINE_SCAN if the total length of the
+          scanned texts becomes  smaller,  e.g.  if  use  of  ARRAY_SCAN
+          allows  you to avoid scanning of blanks at the end of lines in
+          the text.
+
+
+
+     TEXT LINECOPY_BUFFER
+
+          LINECOPY_BUFFER is a text attribute to  select  used  to  keep
+          copies  of  the  texts to be scanned when caseshift = TRUE and
+          when the number of array elements to be scanned by  ARRAY_SCAN
+          is larger than 10.
+
+          Sometimes you  can  improve  efficiency  by  assigning  values
+          yourself  to  this  buffer.  Do not make assignments to it too
+          often.
+
+
+     TEXT LINE
+
+          If you want to write your own procedures similar to  LINE_SCAN
+          and  ARRAY_SCAN  you  need access to this attribute of SELECT,
+          which internally refers to the lines to be scanned.
+
+                          [END OF SELECT.HLP]
+ 

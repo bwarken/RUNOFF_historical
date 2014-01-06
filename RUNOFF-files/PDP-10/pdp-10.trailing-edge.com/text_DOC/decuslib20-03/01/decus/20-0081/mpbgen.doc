@@ -1,0 +1,444 @@
+
+
+
+
+
+                               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               DEC DATA CENTER MPB STANDARDS
+
+
+                       APRIL 12, 1973
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE   2
+SAMPLE MPB STREAM STEP
+
+
+                   SAMPLE MPB STREAM STEP
+.GOTO ST020
+;***********************************************************
+;
+;       AR 1    STEP 20         UPDATE
+; COMMENTS:
+;
+;***********************************************************
+ST020:: .CHKPNT ST010         ;(CHECKPOINT RESTARTS AT FILE RELOAD.)
+.PLEASE-AR 1-20 * (0999AR) STARTING ***NOT RESTARTABLE***$
+.PLEASE CONFIG:......$
+.ASSIGN DSKE:DSKLIB           ;LIBRARY STRUCTURE
+.ASSIGN DSKW:DSK1             ;INPUT AR 1-5 (AR0100.5AT) TABLE FILE
+.ASSIGN DSKW:LPT2             ;OUTPUT AR 1-20 (AR0102.0AP) AUDIT PRINT
+.ASSIGN DSK:DSK3              ;INPUT AR 1-20 (AR0102.0BT) SPEC CARD
+.ASSIGN DSKT:DSK4             ;SORT WORK
+.ASSIGN DSKT:DSK5             ;SORT WORK
+.ASSIGN DSKW:DSK6             ;SORT WORK
+.PLEASE-AR 1-20 * MOUNT AR 1-5(AR0100.5AT) ON ANY MTA.
+.MOUNT MTA:MTAA/VID:'AR 1-20;AR0100.5AT,INPUT'
+.MOUNT DSKAR:DSK7/VID:'I-O; AR 1-20 (AR0102.0CM)'
+.R PIP
+*/X_DSKLIB:0999AR.OVR[11,1]     ;SEGMENTED PROGRAM MODULE
+.OPERATOR $
+.R QUOLST
+.RUN DSKLIB:0999AR.SAV[11,1]
+;       TERMINAL RESPONSES TO PROGRAM, IF ANY.
+;       EACH RESPONSE SHOULD HAVE A COMMENT ON PRECEDING
+;       LINE INDICATING THE NATURE OF THE REQUEST.
+.NOOPERATOR
+.R QUOLST
+.PRINT AR0102.0AP/DISPOSE:RENAME/COPIES:3
+.DELETE AR0100.5AT
+.DISMOUNT DSKAR:
+.UNLOAD MTAA:
+.FINISH
+.PLEASE-AR 1-20 *  AR0102.0AP Q'ED.$
+.GOTO GD020
+%CERR:: .GOTO BD020
+%ERR:: .GOTO BD020
+BD020:: .CHKPNT BD020
+.PLEASE-AR 1-20 * FAILED-CHECK LOG; GOING TO ENDBD$
+.DISMOUNT DSK7:
+.UNLOAD MTAA:
+.DELETE *.TMP,AR0102.0BT,AR0100.4AT
+.FINISH
+.GOTO ENDBD
+%ERR:: .GOTO ENDBD
+%CERR:: .GOTO ENDBD
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE   3
+SAMPLE MPB STREAM STEP
+
+
+GD020:: .CHKPNT GD020
+.GOTO ST030
+;***********************************************************
+;
+;       AR 10   STEP 30         BACK UP MASTER FILE
+;
+;***********************************************************
+ETC.
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE   4
+JOB STEP AND FILE NAMING
+
+
+                  JOB STEP AND FILE NAMING
+
+
+
+DEC Data Center has used a deFacto standard in naming job steps  and
+files  produced  by  those  steps.   A  slight  modification of that
+standard will ease record keeping for the Production  Control  group
+of DEC Data Center.
+
+
+
+JOB STEP NAMING
+
+All job steps in the initial implementation of a system will  be  in
+increments  of  10.   For  example, a five-step Accounts Payable job
+would be designated AP 1-10, AP 1-20,...AP 1-50.   The  maximum  job
+step  number  is  999, or in the above example AP 1-999.  Subsequent
+job step additions would then be inserted between.  For example,  AP
+1-5, AP 1-7.
+
+
+
+FILE NAMING
+
+File names, except for table files, will reflect  the  System,  Job,
+Step,  Sequence Number and Type of file.  A filename is comprised of
+a six-character filename and a three-character extension; Using  the
+general character positions
+
+          123456.789
+
+The following information should be embedded:
+
+1-2  Two-character system name.
+
+3-4  Two-digit job number, zero fill.
+
+5-7  Three-digit step number, zero fill.
+
+ 8   Alphabetic sequence character to force  a  uniqueness  in  file
+     names from same job step.
+
+ 9   Alphabetic character indicating type of file:
+
+               C = Collection file
+               E = Error file
+               M = Master file
+               P = Print file
+               T = Transaction file
+
+The Accounts Payable example above having job  step  AP  1-10  might
+procude a print file with the name of AP0101.0AP.
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE   5
+MPB STEP OVERVIEW
+
+
+                     MPB STEP OVERVIEW
+
+
+
+Each step in an MPB  stream  will  be  comprised  of  the  following
+blocks:
+
+     INITIALIZE BLOCK
+
+     Branch to this step.
+     EYEBALL asterisk lines.
+     SYSTEM/JOB/STEP/FUNCTION information.
+     Step Label and Checkpointing the restart step.
+     PLEASE message to operator showing job number and step.
+
+
+
+     ASSIGN BLOCK
+
+     All physical devices used in this step are ASSIGNed.
+     MOUNT magtapes, DECtapes and special structures.
+
+
+
+     PRE-PROGRAM BLOCK
+
+     Bring in overlay files if necessary.
+     Bring in auxiliary files such as tables.
+     RUN QUOLST
+
+
+
+     PROGRAM BLOCK
+
+     Set "OPERATOR" character.
+     Run program.
+     Provide TTY responses.
+
+
+
+     POST-PROGRAM BLOCK
+
+     RUN QUOLST
+     PRINT files with proper disposition.
+     Request necessary actions from operator.
+
+
+
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE   6
+MPB STEP OVERVIEW
+
+
+     NORMAL STEP WRAP-UP BLOCK
+
+     Delete all unnecessary files.
+     Unload MTA's and dismount special structures.
+     Deassign all structures.
+     PLEASE message to operator if file was queued.
+     Branch to step end label.
+
+
+
+     ERROR-HANDLING BLOCK
+
+     %ERR and %CERR labels branching to error label for that step.
+     Delete all unnecessary files.
+     Unload or Dismount MTA's and special structures.
+     Deassign all other structures.
+     PLEASE message to operator indicating error and branch point.
+     Branch to "ENDBD" label, or next appropriete step label.
+     A %ERR:: and a %CERR:: branching to same point as above.
+
+
+
+     STEP END LABLEL
+
+     The label GDxxx.
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE   7
+GENERAL MPB STANDARDS
+
+
+                   GENERAL MPB STANDARDS
+
+ 1.  All job streams will have as the first two executable commands
+
+               a.  the appropriate 'PLEASE' command
+               b.  a GOTO command to the first step.
+
+ 2.  Every stream label will have up to five characters followed  by
+     two  colons, space and the appropriate checkpoint command.  The
+     following labels are standard in the indicated uses:
+
+          LABEL                        FUNCTION
+          -----                        --------
+
+          STxxx           First executable line in step xxx.
+
+          GDxxx           Step end label for step xxx.
+
+          BDxxx           Error handling block for step xxx.
+
+          ENDGD           Successful completion of Job Stream.  
+
+          ENDBD           Unsuccessful completion of Job Stream.
+
+     For example, a step label when the step  is  restartable  would
+     be:
+
+               ST010:: .CHKPNT ST010
+
+     If a step were not restartable as in an  in-place  update,  the
+     checkpoint should be for a file reload:
+
+               ST020:: .CHKPNT ST010
+
+     or for an error end to the stream for operator attention:
+
+               ST020:: .CHKPNT ENDBD
+
+ 3.  All PLEASE messages must be either from the  standard  list  or
+     accepted by the supervisor of computer operations.
+
+ 4.  Any files created in the call deck via CDRSTK must be  assigned
+     to device DSK:.
+
+ 5.  All assign and mount commands must include as ";" comments  the
+     following:
+
+               type (input, output, I/O)
+               job/step creating file
+               file label
+               short description
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE   8
+GENERAL MPB STANDARDS
+
+
+     For example:
+
+     .ASSIGN DSKW:DSK1   ;INPUT AR 1-10 (AR0101.0DT)
+                         ;INPUT TRANSACTIONS
+
+     .MOUNT MTA:MTAA/VID:'AR 1-20;AR0102.0AM;OUTPUT'
+                         ;UPDATED MASTER FILE
+
+     .ASSIGN DSKW:SRT1   ;SORT WORK FILE
+
+     .MOUNT DSKP:DSK0    ;INPUT EM 2-140 (EM0114.0AM)
+                         ;EMPLOYEE MASTER FILE
+
+ 7.  Logical disk names will have a numeric identifier; for example,
+     DSK1, DSK012.
+
+ 8.  Logical magtape names will have an alphabetic  identifier;  for
+     example, MTAA, MTAX.
+
+ 9.  All production programs and overlays will be run  from  DSKLIB:
+     [11,1].
+
+10.  All 'RUN' commands will be preceded by
+
+               .OPERATOR $
+
+     where  $  represents  a  dollar  sign.   The  first  executable
+     statement after a .RUN will be 
+
+               .NOOPERATOR.
+
+11.  TTY responses  to  programs  will  include  a  comment  in  the
+     preceding  line  indicating what the system program asked.  For
+     example
+
+               ;ENTER ALPHA FISCAL MONTH
+               *DECEMBER
+
+12.  All monitor level commands will have a period '.' in column  1.
+     All program responses will have an asterisk '*' in column 1.
+
+13.  All monitor  commands  must  be  completely  spelled  out.   No
+     abbreviations can be used.
+
+14.  All print spooler requests  must  have  /DISPOSE:RENAME  unless
+     conditions dictate otherwise.
+
+15.  All magtape will be "unloaded" via .UNLOAD in  both  the  error
+     handling block and the NORMAL STEP WRAP-UP BLOCK.
+
+16.  ".FINISH" will be used to deassign all devices at  the  end  of
+     each step.
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE   9
+GENERAL MPB STANDARDS
+
+
+17.  Each stream step will be self-contained in that  it  will  have
+     all the assignments necessary to execute the program(s) in that
+     step, and all deassign and deletes needed for that step.
+
+18.  Each MPB step will be numbered for the  job  step  that  it  is
+     executing.   For  example  AR 1-10 will have steps ST010, BD010
+     and GD010.
+
+19.  Non-standard devices shall be  assigned  and  deassigned  using
+     "MOUNT"  and  "DISMOUNT".  Examples of non-standard devices are
+     DECtape drives and disk packs that  are  not  normally  present
+     during production hours.
+
+20.  No run-time files will be located on SYS:.  Tables and  similar
+     files will be maintained on 11,1 with a protection of <111>.
+
+21.  All program responses imbedded in the MPB streams which must be
+     changed  with  each  run  must  be  figurative  in the original
+     stream.  For example, a date would  be  "mmddyy"  and  a  month
+     would be "mmmmmmmmm" in the original stream.
+
+22.  The "eyeball"  block  for  each  module  can  contain  comments
+     regarding special considerations for that module.
+
+23.  Updates to existing MPB streams must be made to a copy  of  the
+     stream which resides in the production library.
+
+DEC DATA CENTER MPB STANDARDS    APRIL 12, 1973     PAGE  10
+STANDARD 'PLEASE' COMMANDS
+
+
+                 STANDARD 'PLEASE' COMMANDS
+
+
+
+The following list of  'PLEASE'  commands  are  to  be  used
+exactly  as represented.  If any batch stream conditions are
+encountered which require other command strings, please  see
+the  supervisor  of  Computer  Operations for an appropriate
+addition to this list.  A command must appear on one line of
+67  characters.   (Some examples below have two lines due to
+margin constraints of this document).
+
+
+
+.PLEASE-AR 20 * CONFIG:DSKW:5K,DSKT:20K,DSKE:1K,MTA:2
+
+.PLEASE-AR 20 * STARTING.$
+
+.PLEASE-AR 20-10 * (0999AR) STARTING ***RESTARTABLE***$
+
+.PLEASE-AR 20-10 * (0999AR) STARTING ***NOT RESTARTABLE***$
+
+.PLEASE-AR 20-10 * MOUNT AR 19-12(AR1912.OAT) ON ANY MTA.
+
+.PLEASE-AR 20-10 * MOUNT SCRATCH  FOR  AR  20-20(AR2020.OAT)
+     ON ANY MTA.
+
+.PLEASE-AR 20-10 *  AR2010.PRT Q'ED.$
+
+.PLEASE-AR 20-10 * FAILED-CHECK LOG!  GOING TO ENDBD$
+
+.PLEASE-AR 20-10 * FAILED-CHECK LOG!  GOING BACK TO AR
+     20-10$
+
+.PLEASE-AR 20-10 * FAILED-CHECK LOG!  GOING AHEAD TO
+     AR 20-20$
+
+.PLEASE-AR 20 * JOB STREAM HAS FINISHED.$
+
+
+
+The DEC Data Center  organization  and  the  design  of  MPB
+Stream Standards are aimed at minimizing interaction between
+the application program  and  the  computer  operator.   One
+activity  that  must  remain in that realm is when a program
+reads or writes more than one file from a  tape  drive.   In
+that  case,  the  following  COBOL code or its equivalent in
+other languages should be used:
+
+DISPLAY "$-AR 20-10 * MOUNT AR 20-10(AR2010.0AT) ON DEVICE (CONT) 
+STOP  "$-AR 20-10 * MTAXXX IN PLACE OF AR 20-200(AR2020.0AT)".
+ 

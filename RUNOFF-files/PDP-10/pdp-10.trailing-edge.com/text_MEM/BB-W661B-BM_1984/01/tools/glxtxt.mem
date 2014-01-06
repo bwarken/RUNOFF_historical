@@ -1,0 +1,260 @@
+   MACROS AND PSEUDO-INSTRUCTIONS
+
+
+   2.17  $TEXT Pseudo-instruction
+
+   These pseudo-instructions  perform  various  utility  functions.   The
+   operations  are  in  many  cases  fairly complicated and although they
+   behave as pseudo-instructions they may in reality be subroutine calls.
+
+   The $TEXT pseudo-instruction provides a facility for formatting  ASCII
+   strings.   This  facility  includes  a mechanism which allows imbedded
+   variables in the strings which may be decoded into ASCII from a number
+   of internal forms (decimal, sixbit, date and time etc.).
+
+   The $TEXT instruction takes two arguments.  The first is  usually  the
+   address  of  a  subroutine  (called  the Text Output Routine) which is
+   called with each decoded character.  This allows the user the  ability
+   to  completely  control  the  destination  of the decoded string.  The
+   routine is called with the character in accumulator S1.   See  section
+   2.17.4  for  a description of the rules and conventions concerning the
+   Text Output Routine.  There is one $TEXT  subroutine  built  into  the
+   library  for  output to the job's terminal.  See the section on GLXTXT
+   subroutines for a description of this routine.
+
+   One of the arguments in the program's Initialization Block (IB) is the
+   name of a default $TEXT routine.  If $TEXT is called with a null first
+   argument, the routine specified in the IB is used.
+
+   Another alternative for the first argument to $TEXT is  an  expression
+   of  the  form  "<-1,,adr>".   On the $TEXT call this is converted to a
+   byte pointer of the form "POINT 7,adr" and each byte is deposited with
+   that byte-pointer.
+
+   The second argument to $TEXT is the string  to  decode.   The  overall
+   format of the call is:
+
+                     $TEXT(ROUTINE,<string to decode>)
+
+   The string to decode may simply be an ASCII string to print or it  may
+   be  a  complex  format  specification  using  imbedded  parameters  as
+   described in the following section.  An example  of  a  simple  string
+   would be:
+
+                   $TEXT(ROUTINE,<THIS IS A TEST STRING>)
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    2-18
+^L                                           MACROS AND PSEUDO-INSTRUCTIONS
+
+
+   2.17.1  Imbedded parameters and Qualifiers
+
+   Variable text may be imbedded in strings formed  using  $TEXT.   These
+   variables are indicated by using the action character, circumflex (^).
+   The circumflex indicates that the next character is a qualifier  which
+   specifies  the  type  of  parameter.  Most of the qualifiers act on an
+   argument.  Immediately following the qualifier are "loc" and "pos"  of
+   a  field  delimited  by  forward slashes.  The "loc" and "pos" are the
+   same as  described  in  the  section  on  data-structure  manipulation
+   instructions  with  the  addition  that  "loc" may also be an assembly
+   literal (i.e.  [expression]).  The argument for the qualifier  is  the
+   "word"  which would result from doing a LOAD pseudo-instruction on the
+   specified  field.   Note  that  the  "loc"  field  may  reference  all
+   accumulators  including S1, S2 and P in both the address field and the
+   index register field.
+
+   The legal qualifiers are:
+
+   A       Suppress the free CRLF at end of line *
+   B       The 'field' is the address of an object block ***
+   C       The argument is a universal date/time which is
+              printed as 'hh:mm:ss'  **
+   D       The argument is a signed decimal number
+   E       The argument is a GALAXY error code
+              (-1 for last error)
+   F       The 'field' is the address of a file-descriptor (FD) ***
+   H       The argument is a universal date/time which is
+              printed as 'dd-mmm-yy hh:mm:ss'  **
+   I       INDIRECT text.  The 'field' contains address of an ITEXT
+              macro.  See description of ITEXT below. ***
+   J       Type a linefeed
+   K       Type a vertical tab
+   L       Type a formfeed
+   M       Type a carriage-return
+   N       The argument is a network NODE name or number
+   O       The argument is an unsigned octal number
+   P       The argument is a user ID. (PPN or user name) **
+   Q       The argument is a byte pointer to an ASCIZ string ***
+   T       The field is the address of an ASCIZ string
+   U       The argument is a directory (PPN or directory name) **
+   V       The argument is a version number in standard format
+   W       The argument is six SIXBIT characters, trailing blanks
+              suppressed
+   0       Replace the free CRLF at end of line with a NULL *
+   1       The argument is an OBJECT-TYPE
+   5       The argument is 5 ASCII characters, left justified
+   6       The low-order 6 bits of the argument represent a SIXBIT
+              character
+   7       The low-order 7 bits of the argument represent an ASCII
+              character
+   ^      Type a circumflex (i.e. ^^ produces ^).
+
+
+
+                                    2-19
+^L   MACROS AND PSEUDO-INSTRUCTIONS
+
+
+   * These qualifiers may appear anywhere in the $TEXT call
+
+   ** If the argument to these is '-1', the current value of the
+   parameter is used.
+
+   *** Note that for the ^B and ^F qualifiers it is the 'field' rather
+   than the the 'argument' (i.e.  the contents of the field) that is
+   used.
+
+
+   Some examples of the use of qualifiers are:
+
+      ^D/@-1(P)/     ^O/CONTNT/     ^E/[ERFNF$]/     ^D/COPIES,777/
+
+   Some examples of $TEXT are:
+
+      $TEXT(TTYOUT,<This is line ^D/LINENO/ of page ^D/PAGENO/>)
+
+      $TEXT(,<?Error number ^O/T1/ - ^T/@MSGTAB(T1)/>)
+
+      $TEXT(<-1,,BLOCK>,<Store this message in location BLOCK>)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    2-20
+^L                                           MACROS AND PSEUDO-INSTRUCTIONS
+
+
+   2.17.2  Field Justification
+
+   The output generated by each $TEXT qualifier may  be  justified  in  a
+   fixed  length  field  and padded appropriately.  Each qualifier may be
+   augmented by 3 additional arguments:
+
+                              ^Dabc/LOCATION/
+
+   The three arguments a, b, and c specify the field-width, justification
+   and padding character as follows:
+
+         o  Field-width - is the width of the field in which to place the
+            output.   There  is  no  default  for  this  field  so  if  a
+            fixed-length  field  is  desired,  this  argument   must   be
+            specified.
+
+         o  Justification Specifier - This field is  a  single  character
+            which  must  be  one of R, L, or C for right, left, or center
+            respectively.   This  field  specifies  "justification"   not
+            "padding".   So,  R  means  Right Justified (or Left padded).
+            The default for this field is L for all qualifiers  except  O
+            and D which default to R.
+
+         o  Padding Character - This is any single character (except  for
+            "/")  which  is  used to pad the field to its desired length.
+            The default is a space in all cases.
+
+
+   For example:
+
+             $TEXT(,<^O6R0/[3]/ produces 000003>)
+
+             $TEXT(,< To get just the date use ^H9/[-1]/>)
+
+
+
+   2.17.3  ITEXT
+
+   Just as ^T can be used to include remote  ASCIZ  strings  in  a  $TEXT
+   call,  the  ^I qualifier can be used to include strings which are more
+   complex (i.e.  have imbedded parameters).  The argument to  an  ^I  is
+   the address of a block which is built by an ITEXT macro.  For example:
+
+            $TEXT(routine,<Error code ^O/T1/ - ^I/@MSGTAB(T1)/>)
+
+
+   MSGTAB:  [ITEXT(No privs at PC ^O/FOO/>)]
+
+   [ITEXT(Illegal function ^D/FCNBLK/>)]
+
+   Any qualifier can be used in an ITEXT including ^I,  so  they  may  be
+   nested.
+
+
+                                    2-21
+^L   MACROS AND PSEUDO-INSTRUCTIONS
+
+
+   2.17.4  Text Output Routine
+
+   The Text Output Routine (TOR) is the subroutine specified as the first
+   argument in a $TEXT call or as the default subroutine used by $TEXT as
+   specified in the program's Initialization Block.
+
+   This routine is called by the $TEXT processor with each  character  of
+   the  decoded  ASCII string.  The character is passed to the routine as
+   the low-order 7 bits of accumulator S1.
+
+   The Text Output Routine may use accumulators S1 and S2.   Accumulators
+   T1  through  T4,  P1  through  P4,  and  P  may not be used in the TOR
+   (without being saved) nor are their contents in any way meaningful  to
+   the  routine  (except  P  which  is  the  pushdown list pointer).  The
+   contents of accumulators 13, 14, 15, and 16 are guaranteed to  be  the
+   same  as they were upon execution of the $TEXT unless they are changed
+   by the Text Output Routine  in  which  case  their  contents  will  be
+   indeterminate for all subsequent calls to the TOR during the remainder
+   of the $TEXT execution.
+
+   The $TEXT Pseudo-instruction preserves 'all' accumulators,  hence  any
+   changes made to any accumulators by the TOR (or by the $TEXT processor
+   itself for that matter) will not be preserved (i.e.   the  instruction
+   following  the  $TEXT will always see the same accumulator contents as
+   did the $TEXT instruction.

@@ -1,0 +1,4598 @@
+
+
+
+          
+
+
+
+
+
+
+
+
+                     SCAN USER'S MANUAL                     SCAN USER'S MANUAL
+
+
+
+
+
+
+
+                        Reed Powell
+                  Digital Equipment Corp.
+          Western Region Software Operations Group
+                  Santa Clara, California
+
+                         11-June-79
+
+
+
+                       EDITION:  2.5                       EDITION:  2.5
+-OLS
+
+
+
+
+
+
+          This manual reflects the status of SCAN,
+          Version  7(11,541)  This  is  a modified
+          version of SCAN 7(541), which contains a
+          number  of  additions,  improvements and
+          corrections   installed    at    On-Line
+          Systems,   Inc.    ("OLS").    While  it
+          reflects the overall  operation  of  any
+          SCAN  release  from  7(541)  upwards, no
+          guarantee   is   made    as    to    the
+          applicability    or    correctness    of
+          statements made herein.
+
+
+          Ownership rights to the contents  remain          Ownership rights to the contents  remain
+          with  On-Line Systems, Inc., Pittsburgh,          with  On-Line Systems, Inc., Pittsburgh,
+          Pa.          Pa.
+
+
+
+                     Table of Contents                     Table of Contents
+
+ 1.  Introduction
+
+ 2.  Routine Call Definitions
+
+ 3.  The Command Scanners (Overview)
+
+ 4.  Defining Switches - "SWTCHS" Macro
+
+ 5.  The "DM" and "KEYS" Macros
+
+ 6.  Defining the "STORAGE" Field
+
+ 7.  Default Value Handling
+
+ 8.  File-Spec Scanning
+
+ 9.  ISCAN - Scanner Initialization
+
+10.  TSCAN - The Traditional Scanner
+
+11.  OSCAN - Options File Scanning
+
+12.  VSCAN - The Verb Form Scanner
+
+13.  PSCAN - The Partial Mode Scanner
+
+14.  Accessing SCAN
+
+15.  Example of Using SCAN
+
+16.  Using the Miscellaneous Routines
+
+17.  Appendices:
+
+      o  Notes on using SCAN
+      o  Notes on using WILD
+      o  DEC/OLS differences in SCAN and WILD
+      o  SCNMAC
+      o  $SCNDC
+      o  SWTCHS, DOSCAN, DM & KEYS Examples
+      o  LIST OF CUSPS & THE SCANNERS THEY USE
+
+
+
+18.  Index
+
+
+
+
+
+
+
+
+
+
+
+
+
+                         CHAPTER 1
+
+                        INTRODUCTION
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 1.1  INTRODUCTION
+
+      SCAN is a  library  of  well-written  routines  of  general
+ applicability  to  a wide variety of user programs.  Included in
+ SCAN are:  command scanners;  input and output routines for file
+ specifications,  numbers,  dates, strings and characters;  space
+ allocation;  data management;  universal date-time  conversions;
+ register  saving;  and indirect-file handling.  All routines are
+ written to  be  virtually  independent  of  the  main  program's
+ register conventions.  Only two constraints exist:
+
+    o  AC17 must be a stack pointer, with a stack depth  at  call
+       time of at least 15.
+
+    o  AC1  and  AC7  are  used  to  pass  arguments,  and  (when
+       applicable), return values.
+
+
+ All routines will preserve  any  registers  which  they  do  not
+ return a value in.
+
+      The default  character  input  and  output  method  is  via
+ TTCALLs,  but the user is free to specify the address of his own
+ routine if he so desires.  For character input,  the  same  rule
+ applies, but the user must always call an initialization routine
+ as well.  The routines described in chapter two  will  be  those
+ which are the most generally useful, and fall into the following
+ groupings:
+INTRODUCTION                                             Page 1-2
+
+
+        Initialization
+        Register Saving
+        Space Allocation
+        Output Routines - all
+        Input Routines - numbers, dates, file-specs, and words
+
+
+
+ The register mnemonics used will be those of SCAN, which are:
+
+
+ T1 - T4:  1-4 ("Temporaries")
+ P1 - P4:  5-10 ("Permanents")
+       P:  17 ("Stack Pointer")
+
+
+
+      All calls are via a PUSHJ, and  return  at  the  call+1  or
+ call+2.  SCAN is loaded in library search mode from (70001,1).
+
+      (See the section on "Accessing SCAN and its Macros".)
+
+
+
+
+
+
+
+
+
+
+
+
+                            CHAPTER 2
+
+                    ROUTINE CALL DEFINITIONS
+
+
+
+
+2.1  INITIALIZATION
+
+
+       .TYOCH - Use the address in T1  as  the  typeout  routine.
+               Returns the previous routine's address (if any) in
+               T1.
+
+       .ISCAN - Initialize for input.  T1  is  a  pointer  to  an
+               argument block:
+
+               T1/ LENGTH,, BLOCK
+
+               BLOCK:  Z
+               +1:  Z
+               +2:  INPUT ROUTINE,,OUTPUT ROUTINE
+               +3:  Z
+               +4:  Z
+               +5:  Z
+
+               If "Input Routine" or "Output Routine"  (or  both)
+               is zero, then TTCALL I/O (e.g.:  INCHWL or OUTCHR)
+               is used.  The chapter on  ".ISCAN"  describes  the
+               meanings  and  usages  of  the  other words in the
+               argument blocks.
+
+
+
+
+               -----------------------------------------------
+
+NOTE:  Those routine descriptions marked with an asterisk (*)  in
+          the  outer  left  hand  margin  are  not  a part of the
+          standard Digital supplied  SCAN.   These  routines  are
+          peculiar to the modified version of SCAN for which this
+          manual was written.
+ROUTINE CALL DEFINITIONS                                 Page 2-2
+REGISTER-SAVING                                         11 Jun 79
+
+
+ 2.2  REGISTER-SAVING
+
+
+       .SAVE1 - Save P1
+       .SAVE2 - Save P1-P2
+       .SAVE3 - Save P1-P3
+       .SAVE4 - Save P1-P4
+       *.SAV1T - Save T4       *
+       *.SAV2T - Save T3-T4       *
+       *.SAV3T - Save T2-T4       *
+       *.SAVET - Save T1-T4       *
+       .POPJ  - Non-skip return (do a POPJ)
+       .POPJ1 - Skip return
+       .PSH4T - Stack T1-T4
+       .POP4T - Unstack T1-T4
+
+ All of the .SAVxx routines automatically restore  the  registers
+ on  a  skip or non-skip return from the routine which called the
+ .SAVxx routine.
+
+
+
+
+
+
+
+ 2.3  SPACE
+
+ ALLOCATION
+
+      *.GTWDS - Allocate (upwards from .JBFF) the number of words      *
+               in  T1.   T1  is returned with the address, if the
+               allocation was successful, of the first word.  The
+               allocated  area  will be zeroed.  On a failure, T1
+               will  contain  the  negative   number   of   words
+               available.
+
+
+
+
+
+ 2.4  OUTPUT ROUTINES - TEXT
+
+
+       .TSIXN - Type T1 in SIXBIT.
+       .TSTRG - Type ASCIZ string which T1 points to.
+       .TXWWW - Type a wild octal word;  T1 contains the word, T2
+               contains the mask.
+       .TMOHW - Type a wild octal half word;  the word is  in  LH
+               of T1, the mask is in RH.
+
+
+ROUTINE CALL DEFINITIONS                                 Page 2-3
+OUTPUT ROUTINES - DATE/TIME                             11 Jun 79
+
+
+ 2.5  OUTPUT ROUTINES - DATE/TIME
+
+
+       .TDTTM - Type the date and  time  which  is  in  T1;   the
+               argument is in the Universal Date/Time format.
+       .TDATE - Type the date which is in T1;  the argument is in
+               the standard DEC format (a la DATE UUO).
+       .TDATN - Type the current date.
+       .TTIME - Type the time which is in T1;   the  argument  is
+               the  number  of  milliseconds  past midnight (a la
+               MSTIME UUO).
+       .TTIMN - Type the current time.
+
+
+
+
+
+ 2.6  OUTPUT ROUTINES - NUMBERS
+
+
+       .TDECW - Type T1 as a decimal number.
+       .TDEC2 - Type T1 as a decimal number  with  at  least  two
+               positions;  fill character is in T2.
+       .TOCTW - Type T1 as an octal number.
+       .TRDXW - Type T1 in the radix which is in T3.
+       .TXWDW - Type  T1  as  an  octal  number,  in  XWD  format
+               (LH,,RH)
+       .TVERW - Type T1 as a standard DEC version number.
+       .TCORW - Type T1 as a core size, in P, K, or Words.
+       .TBLOK - Type T1 as a file size, in Blocks or Words.
+       .TPPNW - Type T1 as a PPN.
+
+
+
+
+
+ 2.7  OUTPUT ROUTINES - FILE SPECIFICATIONS
+
+
+       .TOLEB - Type a file-spec.   T1  points  to  an  OPEN  UUO
+               block;   T2  points to an extended LOOKUP or ENTER
+               UUO block of at least four words.
+
+
+ROUTINE CALL DEFINITIONS                                 Page 2-4
+OUTPUT ROUTINES - CHARACTER                             11 Jun 79
+
+
+ 2.8  OUTPUT ROUTINES - CHARACTER
+
+
+       .TCHAR - Type T1 as an ASCII character.
+       .TFCHR - Type T2, using mnemonics  and  abbreviations  for
+               non-printing characters, and preceeding lower-case
+               characters with an apostrophe.
+       .TCRLF -
+       .TSPAC -
+       .TTABC - Type a horizonal tab.
+       .TCOLN - Type a colon.
+       .TASTR - Type an asterisk.
+       .TRBRK - Type a right bracket character.
+       .TCOMA - Type a comma.
+      *.T2CRL -      *
+      *.T4CRL - Type 1, 2 or 4 CRLF's, respectively      *
+      *.T2SPC -      *
+      *.T4SPC - Type 1, 2, or 4 spaces, respectively      *
+      *.TPLUS - Type a plus sign.      *
+      *.TSLSH - Type a slash character.      *
+      *.TAPOS - Type an apostrophe.      *
+      *.TCART - Type a caret (up arrow on some printers).      *
+      *.TRPAR - Type a right parenthesis.      *
+      *.TRANG - Type a right angle bracket      *
+      *.TLPAR - Type a left parenthesis.      *
+      *.TLBRK - Type a left bracket.      *
+      *.TLANG - Type a left angle bracket.      *
+      *.TAMPR - Type an ampersand.      *
+      *.TAROW - Type a left arrow (underscore on some printers).      *
+      *.TATSI - Type an at-cost sign.      *
+      *.TDASH - Type a dash.      *
+      *.TDOLR - Type a dollar sign.      *
+      *.TEQUL - Type an equal sign.      *
+      *.TEXCL - Type an exclamation mark.      *
+      *.TPCNT - Type a per cent sign.      *
+      *.TSEMI - Type a semi-colon.      *
+      *.TQUOT - Type a double-quote mark.      *
+      *.THASH - Type a hash mark ("#").      *
+      *.TBKSL - Type a back-slash character ("\").      *
+ROUTINE CALL DEFINITIONS                                 Page 2-5
+INPUT ROUTINES - INTRODUCTION                           11 Jun 79
+
+
+ 2.9  INPUT ROUTINES - INTRODUCTION
+
+      The input routines will  normally  leave  their  result  in
+ accumulator  "P3"  - which they use under the alias "N".  Single
+ character input routines will use "P4", under the alias "C".
+
+      Most routine descriptions given below will list two  names;
+ the  second one will often be the same as the first but with the
+ last character of the name changed to "C".  The  second  routine
+ entry  point is used when the next character in the input stream
+ is already in accumulator "CH" ("P4"), while the  first  routine
+ entry  point  is  used when the next character in the stream has
+ not yet been input.
+
+      This ability to  already  have  the  next  input  character
+ waiting  is  used  in  conjunction  with  the so called "re-eat"
+ facility of SCAN, which  allows  a  program  to  look-ahead  one
+ character.  The routine ".REEAT" is used to perform this, and is
+ described later in this chapter in  the  section  "MISCELLANEOUS
+ ROUTINES."
+
+      More information on this is  included  in  the  chapter  on
+ USING THE MISCELLANEOUS ROUTINES.
+ROUTINE CALL DEFINITIONS                                 Page 2-6
+INPUT ROUTINES - STRING AND NUMERIC                     11 Jun 79
+
+
+ 2.10  INPUT ROUTINES - STRING AND NUMERIC
+
+
+       .SIXSW, .SIXSC - Input a SIXBIT word into P3.
+       .OCTNW, .OCTNC - Input an octal number into P3.
+       .DECNW, .DECNC - Input a decimal number into P3.
+
+                       Optional suffixes for  decimal  and  octal
+                       input  are:   K,  M  and  G,  for the base
+                       raised to the  third,  sixth,  and  nineth
+                       power, respectively.
+
+       .NAMEW, .NAMEC - Input a possibly wild SIXBIT word;   word
+                       is in P3, mask is in "MASK".
+
+       .ASCQW, .ASCQC - Input a  possibly  quoted  ASCII  string.
+                       The  string  will  be  input into the area
+                       (inside  SCAN)  beginning  at  the  global
+                       symbol  ".NMUL",  and extending no further
+                       than the symbol ".NMUE".  Input terminates
+                       at  the  first non-alphanumeric character.
+                       Any characters  within  the  string  being
+                       typed,  but  which  cannot be fit into the
+                       buffer, is lost.  Since  the  symbols  are
+                       global,   they  are  accessable  from  the
+                       calling program, which should BLT them  to
+                       a safe place.
+
+       .SIXQW,  .SIXQC  -  This   functions   exactly   as   does
+                       .ASCQW/.ASCQC   above,   except  that  the
+                       characters are  stored  in  SIXBIT  rather
+                       than ASCII.
+
+       .SIXMW,  .SIXMC  -  This   functions   exactly   as   does
+                       .SIXQW/.SIXQC above, except that the input
+                       string cannot be quoted.
+
+
+
+
+
+
+ 2.11  INPUT ROUTINES - DATE/TIME
+
+
+
+                       [More  information  on  this  subject   is
+                       contained  in  the  later chapter on USING
+                       THE MISCELLANEOUS ROUTINES]
+
+       .DATIM, .DATIC - Input date-time into P3,  storing  it  in
+                       universal format.
+       .DATIP, .DATIQ - Input a date-time in the  past  into  P3,
+                       storing it in universal format.
+ROUTINE CALL DEFINITIONS                                 Page 2-7
+INPUT ROUTINES - DATE/TIME                              11 Jun 79
+
+
+       .DATIF, .DATIG - Input a date-time in the future into  P3,
+                       storing it in universal format.
+
+      Legal date-time formats, examples and explanations are:
+ROUTINE CALL DEFINITIONS                                 Page 2-8
+INPUT ROUTINES - DATE/TIME                              11 Jun 79
+
+
+                        FORMAT          EXAMPLE         EXPLANATION
+
+                       DATE-SPEC:
+                        day             WED             WEDNESDAY
+                        day offset      123D            123 days
+                                                        ago from now
+                        MM-DD           6-12            Jun. 12
+                        MM-DD-Y         6-12-6          Jun. 12, 1976
+                        MMM-DD-YY       JUN-12-76       June 12, 1976
+                        DD-MMM-YYYY     12-JUN-1976     June 12, 1976
+                        Mnemonic        YESTERDAY
+                                        TOMORROW
+                                        TODAY
+
+                       TIME-SPEC:
+                        HH              12              noon
+                        HH:MM           13:02           2 past 1 PM
+                        HH:MM:SS        1:02:37         37 secs past
+                                                        1:02 AM
+                        mnemonic        NOON
+                                        LOGIN
+
+
+                       DATE-TIME:
+                        date-spec:time-spec     JUN-12-76:13:02:37
+
+
+
+
+ 2.12  INPUT ROUTINES - VERSION NUMBER
+
+
+
+       .VERSW, .VERSC - Input a version number into P3.   Version
+                       number format is:
+
+
+                       NNMM(EE) where:
+
+                            NN is the major version, blank to 511
+                            MM is the minor version, blank to ZZ
+                            (EE) is the edit number,
+                              blank to 202,143
+
+
+
+ROUTINE CALL DEFINITIONS                                 Page 2-9
+INPUT ROUTINES - CORE & FILE SIZES                      11 Jun 79
+
+
+ 2.13  INPUT ROUTINES - CORE & FILE SIZES
+
+
+
+       .COREW, .COREC - Input a core size in words, pages, or  K;
+                       suffixes  are:   W  (default),  P  and  K,
+                       respectively.  Returns size, in words,  in
+                       P3.
+       .BLOKW, .BLOKC - Input a file size  in  words  or  blocks;
+                       suffixes  are:  W (default) or B.  Returns
+                       size in words in P3.
+
+
+
+
+
+
+ 2.14  INPUT ROUTINES - CHARACTERS
+
+
+
+       .TICAN -  Check  for  an  alphanumeric  character  in  P4.
+               Non-skips if not alphanumeric, skips if it is.
+       .TIMUC - Convert character in P4 to upper case, if  it  is
+               in lower case.
+       .TIAUC - Input a character into P4, handling  lower  case,
+               altmodes and all compressions.
+       .TIALT - Input a character, handling  altmodes  and  space
+               compression, into P4.
+       .TIGET - Gets a character into P4, with no equivalencing.
+
+
+               For .TIAUC and  .TIALT,  P4  is  returned  in  the
+               following format:
+
+               1-177:   actual character
+                   0:   end-of-line character
+                  -1:   altmode
+                  -2:   end-of-file
+                       (Control Z or EOF on indirect file)
+
+                The   following   are   Guide    Words    (pseudo
+               characters):
+
+                4000:   'AND'
+                4001:   'OR'
+                4002:   'NOT'
+                4003:   'TO'
+                4004:   'FROM'
+                4005:   'INPUT'
+                4006:   'OUTPUT'
+                4007:   'SOURCE'
+                4010:   'LIST'
+                4011:   'OBJECT'
+ROUTINE CALL DEFINITIONS                                Page 2-10
+Input:  Character, File Specifications                  11 Jun 79
+
+
+                    See "SYNTAX REPRESENTATIONS"  in  Chapter  8.
+               Also refer to Appendix D - "SCNMAC."
+
+
+
+
+
+
+ 2.15  INPUT ROUTINE - FILE SPECIFICATIONS
+
+
+
+       .FILIN - Input a file specification.  Details on its usage
+               is   the  subject  of  a  later  chapter  in  this
+               document.
+ROUTINE CALL DEFINITIONS                                Page 2-11
+MISCELLANEOUS ROUTINES                                  11 Jun 79
+
+
+ 2.16  MISCELLANEOUS ROUTINES
+
+
+       .RUNCM - Process a /RUN specification,  if  any  has  been
+               encountered.   No arguments are possible;  returns
+               only if no /RUN was ever seen on the line,  or  if
+               the  RUN  UUO failed.  Usually called right before
+               normal program termination  code.   More  on  this
+               routine  in  included  in a later chapter on USING
+               THE MISCELLANEOUS ROUTINES.
+
+
+       .MKPJN - Make a CCL job number.  Call with the job  number
+               (or  whatever) in T1.  Returns with SIXBIT form of
+               argument in (RH) of T1.  More information is in  a
+               later chapter on USING THE MISCELLANEOUS ROUTINES.
+
+
+       .LKNAM - Do a table search for  an  exact  or  abbreviated
+               match.   Call  with  SIXBIT  value  in  T2,  and a
+               pointer in T1 of the form:
+
+                   IOWD length, table-address
+
+
+                    Skip-returns if a match was found, with  (RH)
+               of  T1  pointing to the match, and (LH) of T1 zero
+               if it was abbreviated, or  negative  if  an  exact
+               match.   Non-skip returns if unsuccessful, with T1
+               negative if no match was  found,  or  positive  if
+               multiple  matches  were  found.   A  later chapter
+               (USING THE  MISCELLANEOUS  ROUTINES)  covers  this
+               routine in greater detail.
+
+
+      *.RAND - Generate a random number between  0  and  2**18-1,      *                                                   **
+               storing it in T1.
+      *.RANDM - Same as .RAND, but on call T1 contains the  upper      *
+               bound    on    the   result.    Method   used   is
+               "middle-squares."
+
+
+               [More information on the  following  routines  for
+               date  and  time  conversion is included in a later
+               chapter:  USING THE MISCELLANEOUS ROUTINES]
+
+       .CNTDT - Convert  universal  date/times  to  DEC  formats.
+               Call  with  universal form in T1, returns with DEC
+               date in T2, and MS in T1.
+       .GTNOW - Get current date and time, in  universal  format,
+               into T1.
+       .CNVDT - Convert DEC format date/time to universal format.
+               Call  with  time  in  T1,  stored as the number of
+               milliseconds past midnight (MSTIME UUO).  The date
+ROUTINE CALL DEFINITIONS                                Page 2-12
+MISCELLANEOUS ROUTINES                                  11 Jun 79
+
+
+               is  in T2, stored in the standard DEC format (DATE
+               UUO).  Returns universal form in T1 (or -1 if date
+               was beyond September 27, 2217).  Note that "Day 0"
+               was a Wednesday, and so (T1)/7 gives a day of week
+               index, with Wednesday being 0.
+
+
+ROUTINE CALL DEFINITIONS                                Page 2-13
+MISC:  Scan-Block Conversion, Input Back-Spacing        11 Jun 79
+
+
+       .STOPB - Convert a "scan-block" (see the later section  on
+               "FILE-SPEC   SCANNING")   to   OPEN  and  extended
+               LOOKUP/ENTER blocks.  Call with:
+
+                  T1/ length,,address of scan-block
+                  T2/       ,,address of OPEN block
+                  T3/ length,,address of LOOKUP block
+                  T4/       ,,address of PATH block (9 words)
+
+               Returns non-skip (error) if  any  wild-cards  were
+               seen    in    the    scan-block;    otherwise   it
+               skip-returns.
+
+
+       .REEAT - Cause the contents of P4 to be the next character
+               to  be read.  P4 will normally contain the current
+               character.  Call is simply
+
+                  MOVEI P4, char
+                  PUSHT P,.REEAT  
+
+               More information on this routine, and the  general
+               concept  of  positioning  input  from  the command
+               line, is covered in a later chapter on  USING  THE
+               MISCELLANEOUS ROUTINES.
+
+
+       .CLRBF - This routine will clear any  type  ahead  in  the
+               input  stream.  No arguments are passed, no values
+               returned, and control always comes to the  calling
+               point +1.
+
+       .GTWRD - Get a word from a list.  Call with:
+
+                    T1/ table address
+                    T2/ length of table
+
+               On return (always to Call +1), the values are:
+
+                    T1/ incremented by 1
+                    T2/ decremented by 1
+                    T3/ data from list, or 0 if at end
+
+               This routine is covered in greater  detail,  along
+               with  the  following  routine (.PTWRD), in a later
+               chapter on USING THE MISCELLANEOUS ROUTINES.
+       .PTWRD - Put a word into a list.  This is meant to be used
+               along  with .GTWRD, above.  Control always returns
+               to the call +1 location.  Calling sequence is:
+ROUTINE CALL DEFINITIONS                                Page 2-14
+MISC:  Scan-Block Conversion, Input Back-Spacing        11 Jun 79
+
+
+                    T1/ table address
+                    T2/ maximum table length
+                    T3/ data to be stored
+                    PUSHJ P,.PTWRD##
+                    T1/ incremented by 1
+                    T2/ decremented by 1
+                    T3/ old data from location stored into
+
+
+       .MKMSK - This routine makes a mask for its argument  word.
+               The  argument  must  be  SIXBIT  data.   The  mask
+               contains 1s where  the  argument  had  non-blanks.
+               Calling sequence is:
+
+                    MOVE T3,argument
+                    PUSHJ P,.MKMSK  -always returns here-
+                    T1/ mask for argument
+
+               More information on this routine is in the chapter
+               USING THE MISCELLANEOUS ROUTINES.
+
+
+       .TDIRB - This  routine  is  used  to  type  out  directory
+               blocks.   Three formats are accepted:  1) Extended
+               LOOKUP/ENTER blocks;   2)  PATH  blocks;   and  3)
+               "bi-words", which is an internal SCAN format.  The
+               calling sequence is:
+
+                    HRLI T1,code
+                    HRRI T1,address
+                    PUSHJ P,.TDIRB##
+                     -always returns here-
+
+                    where "code" is one of the following:
+
+                    1 if (RH) is address of LOOKUP/ENTER block
+                    2 if (RH) is a PATH block address
+                    3 if (RH) is address of "bi-words"
+
+               More information on .TDIRB is in the chapter USING
+               THE MISCELLANEOUS ROUTINES.
+
+
+       .ISLGI - This routine is used to test to determine if  the
+               calling  job is logged in.  No argument is passed.
+               The value returned is:
+
+                    PUSHJ P,.ISLGI##
+                     -here with T1=-1 if not logged in, or
+                                T1=1 if indeterminate
+                     -here if logged in (skip ret)
+
+
+
+
+
+
+
+
+
+
+
+
+                            CHAPTER 3
+
+                      THE COMMAND SCANNERS
+
+
+
+ 3.1  INTRODUCTION
+
+      This chapter will discuss the  types  of  command  scanners
+ provided  by  SCAN.   The  actual  details  of usage are covered
+ separately in later chapters on each scanner.   The  purpose  of
+ this  chapter is to present the concepts of command scanners and
+ switch types which are relevant to determining which scanner  is
+ best for various applications.
+
+
+
+ 3.2  OVERVIEW OF THE 4 SCANNERS
+
+      Within SCAN there are four basic Command Scanning routines,
+ and an initialization routine.  The four scanners all accept the
+ same  switch  formats;   their  only  differences  lie  in   the
+ structure of the command line itself.  The scanners are:
+
+
+
+
+ 3.2.1  TSCAN
+
+      This is the so-called "Traditional Scanner." Command  lines
+ are of the form:
+
+                      OUTPUT = INPUT
+                      OUTPUT = INPUT,INPUT, ...
+                           or
+                      INPUT
+
+ Users of this syntax are PIP and DIRECT.
+
+THE COMMAND SCANNERS                                     Page 3-2
+OVERVIEW OF THE 4 SCANNERS                              11 Jun 79
+
+
+ 3.2.2  VSCAN
+
+      This is the "Verb Form Scanner." Command lines look like:
+
+                      COMMAND-WORD /SWITCH/SWITCH
+                      COMMAND-WORD /SWITCH/SWITCH FILE-SPEC
+                           or
+                      COMMAND-WORD
+
+ DUMP and BACKUP programs are users of this format.
+
+
+
+
+ 3.2.3  OSCAN
+
+      This  is  the  "Option  File  Scanner."  This   scans   the
+ options-file SWITCH.INI for entries of the form:
+
+                      NAME /SWITCH/SWITCH
+                           or
+                      NAME:OPTION /SWITCH/SWITCH
+
+
+ Users of this feature include LOGIN, DIRECT,  BACKUP,  SOS,  and
+ ALKFIL.
+
+
+
+
+ 3.2.4  PSCAN
+
+      PSCAN is the "Partial Mode" Scanner.  Commands are  of  the
+ TSCAN  style,  but  only  part of the line is processed by SCAN.
+ Command lines might be of the format:
+
+                      mumble mumble /SWITCH /SWITCH
+
+ In this case, the "mumble mumble" portion of the  command  could
+ be parsed by the user program, and PSCAN would be used to do the
+ "/SWITCH" processing.  An example of a PSCAN user is CREDIR.
+
+
+THE COMMAND SCANNERS                                     Page 3-3
+SWITCH-FORMATS:                                         11 Jun 79
+
+
+ 3.3  SWITCH-FORMATS:
+
+
+
+      The general formats of a  switch  specification  are  quite
+ simple  -- which format a particular switch will require depends
+ on how it is defined in the SWTCHS Macro (described later).
+
+      The simplest switches are those which take no value  --  it
+ is their presence (or absence) which is important.  The presence
+ of the switch will cause SCAN to deposit a predefined value into
+ a predefined memory byte or word.  It is also possible for these
+ switches to  be,  in  effect,  three-way  rather  than  two-way.
+ Either  the  switch  is  absent,  present,  or present with "NO"
+ prefixed to it.  Examples of these types of switches are:
+
+      /FAST
+      /HELP
+      /MAP
+      /NOMAP
+
+
+
+      The second type of switch is one that  takes  a  value  (or
+ values) which must be part of a pre-defined list of legal values
+ for that switch.  The "value" of the switch is then the  numeric
+ index,  into  the table of legal values, of the value specified.
+ For example, if the legal values for "/MODE" were "ASCII, OCTAL,
+ SIXBIT, DECIMAL," then:
+
+      /MODE:OCTAL       value = 1
+      /MODE:DECIMAL     value = 3
+      /MODE             is illegal
+
+
+      A variation of this switch allows for defaults when:
+
+    o  The switch was not mentioned.
+    or
+    o  The switch was mentioned, but without an explicit value.
+
+
+
+      The third type of switch is one that takes a more  or  less
+ arbitrary  value.   This value can be anything the user desires.
+ SCAN is supplied with the name of a  routine  to  "pick-up"  the
+ value,  and  a  description of where and how to store the value.
+ If desired, a maximum value may be specified.  In addition,  the
+ comment  above  about  defaults  for  Type 2 switches also holds
+ here.  The switch may be defined to take only one value,  or  to
+ take   many   values.   Typical  values  are  numbers  and  file
+ specifications.  Examples are:
+THE COMMAND SCANNERS                                     Page 3-4
+Switch Formats                                          11 Jun 79
+
+
+      /WIDTH:75
+      /ABCD:(12,34,56,78)
+      /FILE:MYFIL.MAC[70001,1]
+
+ The three basic switch types can be summarized as:
+
+      TYPE 1 - no value
+      TYPE 2 - specific values only
+      TYPE 3 - arbitrary values
+
+
+
+
+
+
+
+ 3.4  FILE-SPECIFICATIONS
+
+
+      The format of  a  file  specification  for  SCAN  is  quite
+ general.   No ordering between the components is either expected
+ or necessary.  The basic parts of a file-spec are:
+
+
+  o  DEVICE:  1-3 SIXBIT characters followed by a colon.
+
+  o  FILENAME:  1-6 SIXBIT characters.
+
+  o  EXTENSION:  1-3 SIXBIT characters, preceeded by a period.
+
+  o  PPN:  A Project Number (1-377777 octal), a Programmer Number
+     (1-377777  octal)  and (optionally) an SFD specification, in
+     one of the following arrangements:
+
+        [PROJECT,PROGRAMMER]
+        [PROJECT,PROGRAMMER,sfd,sfd,...]
+        [,PROGRAMMER]               uses logged-in PROJECT
+        [,PROGRAMMER,sfd,sfd,...]         -dittoe-
+        [PROJECT,]                  uses logged-in PROGRAMMER
+        [PROJECT,,sfd,sfd,...]            -dittoe-
+        [,]                         uses logged-in PPN
+        [,,sfd,sfd,...]                  -dittoe-
+        [-]                         uses default path
+
+  o  SWITCHES:  Any of the switches described later as  "Internal
+     Scan Switches." (See "FILE-SPEC SCANNING.")
+
+THE COMMAND SCANNERS                                     Page 3-5
+DEFAULT VALUES FOR SWITCHES                             11 Jun 79
+
+
+ 3.5  DEFAULT VALUES FOR SWITCHES
+
+      When the user calls SCAN, he has the option of specifying a
+ set  of defaults for any of the above components.  SCAN will use
+ these defaults in the event that the user does not  specify  the
+ corresponding  component  of  the  specification.   More of this
+ topic is covered in detail in a later chapter -- "DEFAULT  VALUE
+ HANDLING."
+
+
+
+
+
+
+
+
+
+
+
+
+                            CHAPTER 4
+
+             DEFINING SWITCHES - THE "SWTCHS" MACRO
+
+
+
+
+
+
+
+4.1  DEFINING SWITCHES - "SWTCHS" MACRO
+
+     The purpose of this chapter is to cover the topic of  switch
+definition.  it is necessary for the user program to provide SCAN
+with information on the switches to  be  parsed.   This  includes
+data such as the switch name, the type of argument, if any, where
+to store the parsed values, and the like.  The definition process
+has been made relatively simple and painless by the use of macros
+supplied by SCNMAC.
+
+
+
+4.2  SWTCHS & DOSCAN -- USAGE
+
+     The properties of each switch to be scanned for are  defined
+via  a  set  of  MACROs  provided  by  SCAN.   There  is always a
+one-to-one  correspondence  between  a  switch  and   its   MACRO
+specification.   These  switch  MACROs  are all included within a
+user defined MACRO called "SWTCHS".  The definition of SWTCHS  is
+of the following simple form:
+
+
+
+          DEFINE SWTCHS <
+          macro-call .  .  .  .
+          macro-call .  .  .  .
+                 .
+                 .
+                 .
+          macro-call .  .  .  .
+          >;END OF SWTCHS MACRO
+
+
+DEFINING SWITCHES - THE "SWTCHS" MACRO                   Page 4-2
+SWTCHS & DOSCAN -- USAGE                                11 Jun 79
+
+
+     Once the switches are defined in SWTCHS, the scanning tables
+are  generated by calling the macro "DOSCAN".  The format of this
+call is:
+
+          DOSCAN (NAME)
+
+
+where "NAME" is a legal MACRO-10 label from 1-5 characters.   The
+tables  generated  for  use  by SCAN will have labels of the form
+"NAMEx," where "x" identifies the  specific  table.   The  tables
+involved are:
+
+
+
+    o  nameN - The table of switch names  (in  SIXBIT),  one  per
+       word.
+
+    o  nameD - The table of default values.
+
+    o  nameM - The table  of  routine  addresses  for  processing
+       switch values.
+
+    o  nameP - The table of pointers used for storing values.
+
+    o  nameL - This symbol's value is the length of each  of  the
+       above tables.
+
+
+
+
+ 4.3  SWTCHS -- DEFINITION
+
+      There are four switch defining macros (USED WITHIN  SWTCHS)
+ which    are   described   below:    SS   (Switch-Storage),   SN                                      SS    S      S           SN
+ (Switch-Name),  SL  (Switch-List),  and   SP   (Switch-Pointer).  S      N       SL   S      L             SP    S      P
+ fsyntax A "typical" switch-table definition might now look like:
+
+      DEFINE SWTCHS <
+      SS...
+      SN...
+      SL...
+      SP...
+      >
+      DOSCAN (TEST)
+
+
+ The switch macros and their parameters are:
+
+
+   1.  SS - This is for switches described above as "TYPE 1".  No
+       value  is  specified  on  the  command  line;   instead, a
+       pre-defined value is stored.  The SS format is:
+
+DEFINING SWITCHES - THE "SWTCHS" MACRO                   Page 4-3
+SWTCHS -- DEFINITION                                    11 Jun 79
+
+
+            SS NAME, STORAGE, VALUE, FLAGS
+
+       When the switch is encountered, VALUE will  be  placed  in
+       the    location   described   by   STORAGE.    FLAGS   are
+       scan-controlling flags  which  will  be  described  later.
+       STORAGE  may  be an address or a byte pointer.  Use of the
+       POINTR macro for defining  the  STORAGE  field  latter  is
+       described later.  An example of SS usage is:
+
+
+            SS MAP,MAPLOC,1,0
+
+       In this case, "1" is stored in MAPLOC if /MAP is  seen  on
+       the command line.
+
+   2.  SN - This is also for "TYPE  1"  switches,  in  the  cases
+       where  "NO"  may  be  prefixed to a switch's defined name.
+       The SN format is:
+
+
+            SN NAME, STORAGE, FLAGS
+
+
+            If the switch is encountered without the "NO" prefix,
+       STORAGE  takes  the  value  "1."  If  the  prefix  "NO" is
+       included, the value of STORAGE is then  "0."  STORAGE  and
+       FLAGS are as defined for SS.  For example:
+
+            SN INTERCHANGE,INTLOC,0
+
+       If /INTERCHANGE were define in this manner, then  whenever
+       /INTERCHANGE  appeared  on  the command line, "1" would be
+       stored in INTLOC (as would be the case with SS).  However,
+       if  /NOINTERCHANGE  were  seen  (which  would not be legal
+       using SS unless a seperate SS definition were made),  then
+       "0" would be put into INTLOC.
+
+   3.  SL - This is used to define "TYPE 2" switches;  those with
+       one  of  a  specific  set of values.  Associated with this
+       macro are two others --  "KEYS"  and  "DM"  --  which  are
+       called outside of SWTCHS.  The SL format is one of:              _______
+
+                 SL NAME,STORAGE,TABLE,DEFAULT,FLAGS
+                 SL NAME,PROCESSOR,TABLE,DEFAULT,FLAGS
+
+
+
+            STORAGE and FLAGS are as described  for  SS  formats.
+       PROCESSOR   is  used  to  specify  a  non-standard  (i.e.:
+       non-SIXBIT) input routine.   This  routine  is  then  also
+       responsible  for  storing  the  value  as well.  TABLE and
+       DEFAULT are names associated with the KEYS and DM  macros,
+       respectively.
+DEFINING SWITCHES - THE "SWTCHS" MACRO                   Page 4-4
+SWTCHS -- DEFINITION                                    11 Jun 79
+
+
+            The value placed in STORAGE will be  the  index  into
+       the  table of values generated by KEYS.  The format of the
+       MACRO-10 labels generated are  described  below  with  the
+       KEYS macro.  An example of the SL format is:
+
+                 SL PARITY,PARLOC,PARY,PAR,
+
+       This will be explained once the KEYS  and  DM  macros  are
+       described below.
+
+
+   4.  SP - This format is used with "TYPE  3"  switches;   those
+       which  take  an  arbitrary  value,  possibly  less  than a
+       predefined maximum.  The SP format is:
+
+                 SP NAME,STORAGE,PROCESSOR,DEFAULT,FLAGS
+
+            STORAGE and FLAGS are  as  described  above  for  SS.
+       PROCESSOR  is  the  address of the routine (either SCAN or
+       User-supplied) to "pick-up" the value.  This routine  must
+       leave  the  value in P3 if it wants SCAN to store it.  The
+       routine must return +1 for SCAN to store the value, or  +2
+       for  SCAN to not store the value.  DEFAULT is as described
+       for SL and may be null if no defaults (or  maximum  value)
+       are  desired.   Examples,  which will be explained in more
+       detail later, are:
+
+                 SP PROTECTION,PROTEC,.OCTNW##,,0
+                 SP PROTECTION,PROTEC,.OCTNW##,PRO,0
+
+
+
+
+      Each of these macros will uniquely identify and describe  a
+ switch in terms of the following characteristics:
+
+    o  Its name.
+    o  Where to place its value, if any (STORAGE).
+    o  How to read its value, if any (PROCESSOR).
+    o  What its legal values, if any, are (TABLE).
+    o  What its default and maximum values are, if any (DEFAULT).
+    o  The syntax in which it may or may not be used (FLAGS).
+
+
+
+
+
+ 4.4  SCAN - CONTROLLING FLAGS:
+
+      Each switch may have associated with it  a  combination  of
+ any  of the following flags.  These flags control how the switch
+ may be used in a command line.
+DEFINING SWITCHES - THE "SWTCHS" MACRO                   Page 4-5
+FS.??? Flags                                            11 Jun 79
+
+
+    o  FS.VRQ - A value is required.
+
+    o  FS.NFS - The switch is never part of a file-specification.
+       This switch should be meant as a global switch.
+
+    o  FS.LRG - The maximum and default values are 0  or  greater
+       than  2**17.   If set, and the maximum value (in DM macro)
+       is set, then 36-bit values for this switch  are  possible.
+       Otherwise, only 18-bit values are legal.
+
+    o  FS.NCM - This switch is not a command switch (for VSCAN).
+
+    o  FS.NUE - No user exit on this  switch.   This  means  that
+       /EXIT  and  ^Z  do  not  cause an exit via MONRET, as they
+       normally would.
+
+    o  FS.OBV - "OR bit values." This causes  the  value  of  the
+       switch  to  be  OR-ed  with  whatever  existing  value may
+       already have been stored.  Normally, the old value in  the
+       STORAGE  location  is  overwritten.   If this flag is set,
+       then SCAN will LDB the existing value, IOR in the value of
+       the  switch as just parsed, and then DPB the value back to
+       storage again.
+
+    o  FS.NOS - For the SN macro calls  only:   This  switch  may
+       take "NO" as a prefix.
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            CHAPTER 5
+
+                    THE "DM" & "KEYS" MACROS
+
+
+
+
+
+
+
+ 5.1  THE "DM" AND "KEYS" MACROS
+
+      These two scanning macros are those related to:  1) default
+ (and  maximum) values, and 2) values for "TYPE 2" (SL) switches.
+ These were mentioned above in the discussions of the SL  and  SP
+ macros, and will now be described in detail.
+
+
+
+ 5.2  DM -- MAXIMUM & DEFAULT VALUES
+
+      In order to supply SCAN with a set of default  and  maximum
+ values,  the  programmer supplies a 1-3 character name in the SL
+ or SP macro, in  the  field  DEFAULT.   After  SWTCHS  has  been
+ defined, DM is called for each switch referencing it.  A DM call
+ has the form:
+
+           DM (NAME,MAX,ABSENT,PRESENT)
+
+           where:
+
+           NAME     is the 1-3 character name in  the  SL  or  SP
+ PD.????
+                    call.
+           MAX      is the maximum value.
+           ABSENT   is the default value if the switch is not
+                    encountered.
+           PRESENT  is the default value if the switch is
+                    present, but without a value.
+
+      Each of these values is given a symbolic name, if the  name
+ already   is   defined,   then  the  existing  definition  takes
+ precedence over the DM argument.  The three symbol names are  of
+ the respective forms:
+
+      MX.NAME AD.NAME PD.NAME
+THE "DM" & "KEYS" MACROS                                 Page 5-2
+"DM"                                                    11 Jun 79
+
+
+ An example will clarify this somewhat.  Given the following:
+
+      DEFINE SWTCHS <
+      SP PROTECTION,PROTEC,.OCTNW##,PRO,0
+      >
+      DM (PRO,777,057,155)
+
+
+
+      This defines a switch  "/PROTEC"  whose  maximum  value  is
+ "777".   If  the  switch is not in the command line, THE PROGRAM
+ (not SCAN) may use the symbol AD.PRO for the value, which may be
+ "057."  If  only  "/PROTEC"  is  in the command string, then the
+ value stored BY SCAN will be that of PD.PRO, in this case "155".
+
+
+
+ 5.3  KEYS - KEYWORD DEFINITION
+
+      "TYPE  2"  (SL)  switches  always  take  a  value  from   a
+ predefined  list  of keywords.  These keywords must be made from
+ the SIXBIT characters, and are defined in the KEYS  macro.   The
+ SL  macro's  TABLE  field  is  then used as an argument to KEYS.
+ KEYS is called after SWTCHS is defined (just like DM  is).   The
+ call is of the form:
+
+           KEYS (NAME,WORD1,WORD2,...WORDn)
+
+           where:
+
+           NAME is the 1-4 character name from the SL call.
+           WORD1 is the first possible value.
+           WORD2 is the second possible value.
+           WORDn is the last possible value.
+
+
+
+      The table of values is given the  name  NAME.T  and  is  of
+ length  NAME.L.   Each possible value's position in the table is
+ the value of the symbol NAMExx, where "xx"  are  the  first  two
+ characters  of  the  value.   This  implies  that  if these SCAN
+ constructed symbols are  to  be  used  by  the  program  (not  a
+ necessity),  then all keywords must be unique in their first two
+ letters.
+
+      Once  again,  an  example  is  in  order.    Consider   the
+ following:
+
+           DEFINE SWTCHS <
+           SL PARITY,PARLOC,PARY,PAR
+           >
+           KEYS (PARY,EVEN,ODD,NONE)
+           DM (PAR,PARY.L,PARYNO,PARYOD)
+THE "DM" & "KEYS" MACROS                                 Page 5-3
+"KEYS"                                                  11 Jun 79
+
+
+      This generates a switch "PARITY" which takes as  a  "value"
+ of of the following keywords:
+
+           EVEN
+           ODD
+           NONE
+
+ The default is "NONE" if only "/PARITY" is seen in  the  command
+ without  an  explicit value.  If the "/PARITY" switch is missing
+ from the command line altogether, then the  default  value  (not
+ supplied  by SCAN) is "ODD".  The location "PARLOC" will receive
+ the "value" of the switch, which is determined by the  order  in
+ which the keywords are listed in the KEYS macro:
+
+           EVEN=0
+           ODD =1
+           NONE=2
+
+
+      The maximum value for such a switch is the VALUE  (not  the
+ contents)   of  the  symbol  "PARY.L"  (ie,  the  1-4  character
+ designater used in KEYS, with ".L" catenated to the right).
+
+      The elemets of the DM call specifying the defaults  may  be
+ the  symbolic  names constructed by the KEYS call, or the actual
+ values (as literals or non-SCAN defined  symbols)  values.   The
+ later  is normally undesireable, as it makes changing a switch's
+ characteristics difficult, but is used when the possible  values
+ (keywords)  cannot be unique in their first two letters.  If the
+ non-unique values are not to also be default or maximum  values,
+ then this poses no real problem (since the assembler will simply
+ use the latest definition it encounters).
+
+
+
+ 5.4  CONSTRUCTED SYMBOLS - SUMMARY
+
+      The previous sections has covered a number of symbols  used
+ by SCAN and its support code that are created by the SCAN macros
+ themselves.  To summarize them:
+
+  o  MX.???  - ???  is first arg to DM;  this is created by DM as
+     the maximum value for the switch
+  o  AD.???  - as above, but this is the absent default value for
+     the support program to use if it sees fit.
+  o  PD.???  - as above, but this is the  present  default  value
+     for the switch, used by SCAN.
+  o  ????.L - ????  is the first agr to KEYS;  this is created by
+     KEYS,  and  has  as  its  value  the  length of the table of
+     keywords created by KEYS for this switch.
+  o  ????.T - as above, but this is the address of the  table  of
+     keywords created by KEYS.
+THE "DM" & "KEYS" MACROS                                 Page 5-4
+CONSTRUCTED SYMBOLS - SUMMARY                           11 Jun 79
+
+
+  o  ????XX - as above, but this is the index into ????.T for the
+     keyword whose first 2 characters are XX.
+  o  ?????N - ?????  is the arg to DOSCAN (see previous chapter);
+     this is the table of switch names.
+  o  ?????D - as above, this is the table of default values
+  o  ?????M - as above, this is the table of  processor  routines
+     for the switch
+  o  ?????P - as above, this is  the  table  of  information  for
+     storing values.
+  o  ?????L - as above, this is the length of  the  other  tables
+     created by DOSCAN.
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            CHAPTER 6
+
+                  DEFINING THE "STORAGE" FIELD
+
+
+
+
+
+
+
+6.1  DEFINING THE "STORAGE" FIELD
+
+     All  of  the  Switch   macros   have   the   field   denoted
+"STORAGE."  This  field  can  have a number of formats, sometimes
+depending on the switch macro itself.  Each of the  formats  will
+be described here.
+
+
+
+6.2  THE POINTR MACRO
+
+     One of the principle uses of STORAGE is as a  byte  pointer.
+Because  of  this,  it  is useful to first mention the use of the
+POINTR macro, since it is quite often the method used  to  define
+the STORAGE field.
+
+     This macro is used to define a byte pointer, given:  1)  the
+definition  of  the  byte  in terms of a mask, and 2) the storage
+location containing the byte.   An  example  might  prove  useful
+here.  Suppose a word "Y" contains a byte "X," consisting of bits
+11 through 19.  The POINTR usage would then be:
+
+      X=177600000;  mask for bits 11-19
+      POINTR (Y,X)      
+
+
+ If "X" were changed to be some other byte, either in "Y"  or  in
+ some  other  location,  the  only  change needed would be to its
+ definition;  references to it via the  POINTR  macro  would  not
+ need changing
+DEFINING THE "STORAGE" FIELD                             Page 6-2
+STORAGE FIELD                                           11 Jun 79
+
+
+ 6.3  STORAGE FIELD
+
+      There are five formats for STORAGE:
+ 1.  Word Address.  (SN,SS,SP,SL)
+ 2.  Byte Address.  (SN,SS,SP,SL)
+ 3.  Pointer to multiple-value storage.  (SS,SP,SL)
+ 4.  Pointer to a file-specification storage area.  (SP)
+ 5.  Address of a routine to process keyword.  (SS,SP,SL)
+
+
+      For all formats except #1, STORAGE is in the  format  of  a
+ PDP-10 byte pointer, although it may not always be used as such.
+ The exact format definitions for the five types, in order are:
+
+  1.  (LH)=0
+      (RH)=word address;   value  is  MOVEMed  into  the  storage
+      address.
+
+  2.  Standard byte pointer format;   value  is  DPBed  into  the
+      storage field.
+
+  3.  The byte size field contains the number  of  words  in  the
+      storage  area, in the form (65-#words).  (RH) points to the
+      first word.
+
+  4.  This is implicit:  ".FILIN" will have  been  given  as  the
+      PROCESSOR.   (RH)  is  the address of the SCAN storage area
+      (see later discussion of SCAN blocks).  The length of  this
+      area  (see later discussion of SCAN blocks) is the value of
+      MX.NAME (from the DM call), which would otherwise  have  no
+      meaning in this context.
+
+  5.  Bits 0 through 11 in the "byte-pointer" being all 1s  means
+      that (RH) is the dispatch address of a processor which will
+      "pick-up" the keyword.e a dummy symbol to be  the  required
+      value,  The  easiest  method  of  specifying  such  a value
+      (getting both the size and position fields to be 1s) is  to
+      deine  a dummy symbol to be the required value, and to then
+      use that symbol in the STORAGE field.
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            CHAPTER 7
+
+                     DEFAULT VALUE HANDLING
+
+
+
+7.1  INTRODUCTION
+
+     In Chapter five ("THE 'DM' AND 'KEYS' MACROS"), the  concept
+of  specifying  default  values  for  the  various  switches  was
+introduced.  This chapter will cover the topic  in  more  detail.
+Both  SCAN-supplied  and  user-supplied  default  values  will be
+covered.  This is an  especially  important  area,  since  it  is
+something  many believe should be provided by SCAN directly, that
+the user program should not be forced to  become  involved  with.
+Because of this, it is also important to notice when the standard
+DEC SCAN is being referenced, and when the modified SCAN is being
+referenced.
+
+
+
+7.2  FILE SPEC DEFAULTS
+
+     The "DM"  macro  gives  the  user  the  ability  to  specify
+defaults,  but  the  user program must also do the enforcement of
+some of those defaults.   This  is  especially  true  of  default
+values  used when the switch is absent on the command line:  SCAN
+will not go through  the  tables  DOSCAN  produces  to  see  what
+switches  were not specified, to be able to apply the appropriate
+default values.  This entire area is one of the gaping  holes  in
+SCAN.
+
+
+
+7.3  ABSENT DEFAULTS VS PRESENT DEFAULTS
+
+     When the DM macro was introduced, the point  was  made  that
+two default values are allowable.  One is the default value to be
+used whenever the switch is absent from the command line  (absent
+default),  and the other is the default value to be used when the
+switch is given, but without an explicit value (present default).
+The arguments given to DM are in the following format:
+
+          DM    (ABBREV,MAX,ABSENT,PRESENT)
+
+          where:
+DEFAULT VALUE HANDLING                                   Page 7-2
+ABSENT DEFAULTS VS PRESENT DEFAULTS                     11 Jun 79
+
+
+          ABBREV is the 1-3 char name used
+                  in the SL or SP macro
+          MAX is the maximum value
+          PRESENT is the present default
+          ABSENT is the absent default
+
+          which generate the following symbols:
+
+          MX.ABBREV (maximum value)
+          PD.ABBREV (present default)
+          AD.ABBREV (absent default)
+
+
+
+     The generated symbols are  always  global,  and  will  never
+re-define  prior  values.   In other words, one can manually give
+values to some of  the  symbols  to  which  DM  normally  assigns
+values, then call DM, without having the manually assigned values
+destroyed.
+
+     This discussion leads one to expect that SCAN  will  perform
+the  following  functions when it is processing switches, or when
+it is applying default values (as in .APLST):
+
+      o  Range  check  values  to  be  sure   they   are   within
+         0<=MX.ABBREV
+
+      o  Give PD.ABBREV as the value when only /SWITCH is seen on
+         the command line
+
+      o  Give AD.ABBREV as the value when /SWITCH is not seen  on
+         the command line at all
+
+
+     However, only #1 and 2 are supported by SCAN at the  present
+time.   The  generation  of the AD.ABBREV symbols by DM is solely
+for use by the program which is  using  SCAN.   Such  support  is
+planned  for the next release of the modified DEC SCAN.  The text
+below will outline the steps necessary to support this in a  user
+program.  The envisioned support within the modified SCAN will be
+in one of two forms:
+
+      o  Additional code to .APLST,  so  that  all  switches  are
+         defaulted  whenever  file specifications are.  It is not
+         clear that this is the way to go, since it is  sometimes
+         desirable  to  seperate  the  handling  of file-spec and
+         non-file-spec  switches.   This  is  the   reason,   for
+         instence,  for  the  existence of the FS.NFS (Not a File
+         Switch) flag.
+
+      o  The inclusion  of  an  additional  routine,  which  will
+         default  the  user  switches.   This  is  the preferable
+         method, and (more than likely) the  one  which  will  be
+         used.
+DEFAULT VALUE HANDLING                                   Page 7-3
+IMPLEMENTING SUPPORT OF ABSENT DEFAULTS                 11 Jun 79
+
+
+7.4  IMPLEMENTING SUPPORT OF ABSENT DEFAULTS
+
+     This support consists of two distinct phases:  assembly time
+generation of necessary table(s), and execution time code to scan
+the SWTCHS tables (as well as the added  one(s)).   There  is  no
+real problem or difficulty in either of these.
+
+
+
+7.4.1  GENERATING TABLES AT COMPILE TIME
+
+     This task will be performed immediately after the usual call
+to DOSCAN, and will generate a table using the SWTCHS macro.  One
+must be careful to check to see if an absent default  has  indeed
+been  given for each switch.  Since the AD.ABBREV symbols are not
+used for any other purpose, the problem of determining whether or
+not  a switch is eligible for defaulting is conveniently avoided.
+One possible macro might be the following,  which  generates  the
+table "xxxxxA":
+
+          DEFINE DODFLT(NAME),<
+
+          DEFINE X($NAME,$PROC,$POINT,$DEFLT,$MAX,$FLAGS),<
+          IFNDEF AD.'$DEFLT,<
+          Z             ;$NAME - NO ABSENT DEFAULT
+          >
+
+          IFDEF AD.'$DEFLT,<
+          XWD   400000,AD.'$DEFLT       ;$NAME
+          >
+          > ;END OF DUMMY MACRO "X" FOR SWTCHS
+
+          NAME'A::
+          SWTCHS
+          > ;END OF DODFLT MACRO
+
+
+
+     The table "xxxxxA" is organized is such a  manner  that  the
+sign bit indicates whether or not an absent default is applicable
+for this position's switch.  When the sign bit is on,  the  right
+half  of  the same word is the absent default.  If it is off, the
+rest of word is ignored.
+
+
+
+7.4.2  EXECUTION TIME SUPPORT CODE
+
+     The other task to be performed is the writing of code to  be
+called  at about the same time .APLST is called, but AFTER .OSDFS
+is called to apply .OSCAN's default  values.   The  procedure  to
+follow is simple.  The following code gives a possible method.
+DEFAULT VALUE HANDLING                                   Page 7-4
+IMPLEMENTING SUPPORT OF ABSENT DEFAULTS                 11 Jun 79
+
+
+        .APLDF::HRLZI   T1,-xxxxxL
+        LOOP:   SKIPL   T2,xxxxxA(T1)
+                JRST    ENDLUP
+                MOVE    T3,xxxxxP(T1)
+
+        ;determine how to store value
+        ;see the code around SWDPBE in SCAN
+
+        ENDLUP: AOBJN   T1,LOOP
+
+        ;here with all absent defaults applied
+
+
+
+     As this example indicates, some thought needs to be given at
+the  point where the value in T2 is to be stored via the contents
+of T3.  T3 can take various  forms,  although  it  is  usually  a
+standard  byte  pointer.  The principle exception in this context
+is when the switch allows multiple  arguments,  and  the  STORAGE
+field in SWTCHS is used to specify the length and location of the
+area in which to store the values.  The other  exception  is  the
+case  where  a  full word is to be stored for the value, in which
+case the left half of the "pointer" is zero, and the  right  half
+is the location to store the value.
+
+     As the example  also  indicated,  the  method  for  properly
+handling  this  is in SCAN, in the routine SWDPBE, which is where
+all values for switches are stored.  In this code, P2 is pointing
+to a 4 word table containing the addresses of the tables produced
+by DOSCAN.  The offsets in this table are given the names:
+
+          SWN==0 (xxxxxN)
+          SWP==1 (xxxxxP)
+          SWM==2 (xxxxxM)
+          SWD==3 (xxxxxD)
+
+P1 is used to index  into  the  "xxxxx?"  tables  to  access  the
+entries  for  the  current command (ie:  xxxxxN(P1) is the SIXBIT
+name of the current command, etc.).   Knowing  this,  it  is  not
+difficult to follow the logic of the code.
+
+
+
+7.5  SUMMARY
+
+     The purpose of this chapter is  to  provide  information  on
+handling  default  values.   The defaults catagorized as "present
+defaults," which are used whenever the switch  is  specified  but
+its  value  is  not, are already handled completely by SCAN.  The
+other catagory - "absent defaults" - are not handled in  any  way
+be the current version of SCAN.  The method in which this will be
+implemented in a future version of  the  modified  DEC  SCAN  was
+presented.  In addition, the general method for implementing this
+in a user program was given.
+
+
+
+
+
+
+
+
+
+
+
+
+                            CHAPTER 8
+
+                   FILE-SPECIFICATION SCANNING
+
+
+
+
+
+
+ 8.1  FILE-SPEC SCANNING
+
+      An earlier section (The Command Scanners) gave  a  detailed
+ description of what a file-specification is.  What is of concern
+ here is the use of .FILIN, the  SCAN  routine  for  inputting  a
+ file-spec.
+
+
+
+ 8.2  SCAN BLOCKS
+
+ 8.2.1  DEFINITION
+
+      Crucial to this topic is a discussion of what is  called  a
+ "Scan-Block,"  which  is SCAN's internal (mostly) representation
+ of the information relevant to the file-spec which was  scanned.
+ Appendix  D  ("SCNMAC")  contains  the  exact definitions of the
+ words  and  bits  in  a  Scan-Block.   Generally  speaking,  the
+ information includes:
+
+    o  Device name.
+
+    o  Filename and its mask.
+
+    o  Extension and its mask.
+
+    o  PPN and its mask, along with any PATH information.
+
+    o  Selection criteria, based on switches encountered  (dates,
+       times, etc.).
+
+    o  Indications of the various switches' presence or absence.
+
+    o  Syntax representations.
+
+FILE-SPECIFICATION SCANNING                              Page 8-2
+Scan Blocks                                             11 Jun 79
+
+
+ 8.2.2  SCAN'S BUILT IN SWITCHES
+
+      The  switches  referred  to  were  mentioned   earlier   as
+ "Internal SCAN Switches."  These are mostly used to specify file
+ selection criteria, especially for use by WILD (see Appendix B).
+ The  exact  definitions are included in Appendix E as one of the
+ examples of Switch definitions.  Summarized, they are:
+
+
+
+ /ABEFORE
+ /ASINCE       - specify access-date-time criteria
+ /BEFORE
+ /SINCE        - specify creation-date-time criteria
+ /ERNONE
+ /OKNONE       - specify if no file-match is an error
+ /ERPROTECTION
+ /OKPROTECTION - specify if access-protection failure is an error
+ /ERSUPERSEDE
+ /OKSUPERSEDE  - specify if  it  is  an  error  to  overwrite  an
+                 existing file
+ /ESTIMATE     - specify an estimated file size
+ /EXIT         - go to monitor
+ /HELP         - type a help message /NOOPTION     -
+ /OPTION       - control the use of options file (see "OSCAN")
+ /PHYSICAL     - set the "physical only" bit on all OPENs.
+ /PROTECTION   - specify the protection of a file
+ /VERSION      - specify the version number of a file
+ /RUN          -
+ /RUNCORE      -
+ /RUNOFFSET    - control the running of a new program  when  done
+                 with this one (see "Routine Call Definitions.")
+
+
+
+ 8.2.3  SYNTAX REPRESENTATIONS
+
+      "Syntax Representations" refer to bits, used  primarily  by
+ WILD,  indicating  what special constructs were seen.  These are
+ made up of usages of what SCAN terms "Guide Words," which are in
+ a  sense  pseudo-characters.   The  legal Guide Words, and their
+ pseudo-character values, are:
+
+            'AND'  4000     'INPUT'  4005
+            'OR'   4001     'OUTPUT' 4006
+            'NOT'  4002     'SOURCE' 4007
+            'FROM' 4004     'LIST'   4010
+            'TO'   4003     'OBJECT' 4011
+
+ These are used to  express  inter-filename  relationships  in  a
+ command  string,  along  with  the concatenation operator -- the
+ plus sign.  Refer to "INPUT ROUTINES - CHARACTER" in Chapter  2,
+ and to Appendix D - "SCNMAC."
+FILE-SPECIFICATION SCANNING                              Page 8-3
+Built-in Switches; Guide Words                          11 Jun 79
+
+
+ 8.2.4  SCAN BLOCKS: SUMMARY
+
+      So much for Scan-Blocks.  It is important to  realize  that
+ they  exist, especially if any of the switches listed are of use
+ to the program, or if the user is interfacing with  WILD  (which
+ requires  Scan-Blocks  for  input).   The  .STOPB  routine  (see
+ "Routine Definitions") is used to convert these blocks  to  OPEN
+ and LOOKUP/ENTER blocks.
+
+
+
+
+ 8.3  F.EZER & P.EZER
+
+      The Scan-Block used by SCAN is located at the global symbol
+ "F.ZER",  and  extends  to  "F.EZER".  Associated with this is a
+ "default region," into which the user places his default values,
+ if  any,  before  calling  SCAN.  The definitions of the offsets
+ into those blocks are in SCNMAC, a listing of which is  included
+ in  the  appendices.   These  symbols  have  names of the format
+ ".FX???".  This area extends from "P.ZER" to ".EZER", and should
+ be  zeroed if no defaults exist.  To have these defaults applied
+ (after SCAN has returned), one issues the call:
+
+      PUSHJ P,.APLST##
+
+ to apply what SCAN calls  "sticky  defaults."  This  is  covered
+ future  in  a  following  Chapter,  "DEFAULT  AND  MAXIMUM VALUE
+ HANDLING."
+
+      Once the Scan block at F.ZER has had  the  user's  defaults
+ applied,  then  it remains to:  1) apply SCAN's defaults, and 2)
+ to move it to the user's area.  This is done  in  the  following
+ manner:
+
+      MOVEI T1, address ;user's Scan-Block address
+      MOVEI T2, length ;length of same
+      PUSHJ P,.GTSPC##
+
+
+ After this, the area of  F.ZER  can  then  be  reused  for  more
+ file-specs.
+
+
+
+ 8.4  .STOPB
+
+      Once the scan blocks were created  by  SCAN,  and  possibly
+ processed  by  WILD  (to  resolve  wild  card  expressions), the
+ problem remains of  doing  something  with  them.   The  TOPS-10
+ monitor   will   certainly  not  accept  them  to  specify  file
+ operations.  What needs to be done is to covert  from  the  SCAN
+ block  format  needed  during scanning, to the standard OPEN and
+ LOOKUP/ENTER block format needed during processing.  The routine
+FILE-SPECIFICATION SCANNING                              Page 8-4
+.STOPB                                                  11 Jun 79
+
+
+ whhich  performs  this  task  is  ".STOPB"  (Scan To OPen lookup
+ Block).  The call on .STOPB is of the format:
+
+           T1/  SCAN-block-len,,SCAN-block-address
+           T2/               0,,OPEN-block-address
+           T3/ LOOKUP-block-len,,LOOKUP-block-address
+           T4/               0,,PATH-block-address (9 words)
+
+           PUSHJ  P,.STOPB##
+                   -error- (wildcards not yet resolved)
+                   -ok- SCAN block is translated
+
+
+
+ 8.5  USING .FILIN
+
+      Now that all else  has  been  taken  care  of,  the  actual
+ scanning  of  file-specifications  is  simple  to  explain.  The
+ routine responsible for this is .FILIN, which is called  in  the
+ following manner:
+
+      PUSHJ P,.FILIN##
+
+ and returns with T1 containing:
+
+       0 if null expression
+      -1 if file spec typed
+       1 if only switches seen
+
+
+FILE-SPECIFICATION SCANNING                              Page 8-5
+SUMMARY OF FILE SPEC SCANNING                           11 Jun 79
+
+
+ 8.6  SUMMARY OF FILE SPEC SCANNING
+
+      Summarizing the file-spec scanning process,  we  have  seen
+ that the following sequence is the general method used:
+
+    o  Setup defaults in P.ZER area
+
+    o  Call .FILIN
+
+    o  Call .APLST
+
+    o  Call .GTSPC
+
+    o  Call WILD
+
+    o  Call .STOPB
+
+    o  Process LOOKUP/ENTER and OPEN blocks
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            CHAPTER 9
+
+                 .ISCAN - SCANNER INITIALIZAITON
+
+
+
+
+
+
+ 9.1  ISCAN - SCANNER INITIALIZATION
+
+      Before calling one of the command scanners  (or  any  input
+ routine),  it  is necessary to give SCAN a set of parameters and
+ other information describing how the user intends  to  go  about
+ doing  things.   In "ROUTINE CALL DEFINITIONS" a skeleton format
+ of an ISCAN call was  given,  which  is  sufficient  for  a  job
+ interested  in doing only simple TTCALL I/O, without any frills.
+ Here will be described in detail  all  of  the  various  options
+ available via ISCAN.
+
+
+
+ 9.2  INITIALIZATION CONCERNS
+
+      A number of procedures are  followed  by  SCAN  during  its
+ internal  initialization,  via  ISCAN.   These  tend  to revolve
+ around the one-time setting up of storage, for later  use.   The
+ specific functions, which are covered in detail in the following
+ paragraphs,  include:   Rescanning  the   command   line   which
+ initiated the program being run, determining how the program was
+ entered (CCL vs normal), what I/O routines to use, what indirect
+ files  (if  any) to use, etc.  Usually, many of these are not of
+ great concern, and are either omitted or defaulted to.
+
+
+
+ 9.3  RESCANNING THE COMMAND LINE
+
+      While ISCAN is not a scanner,  it  will  sometimes  process
+ part of the command line.  This occurs for programs which accept
+ input on the same line as the monitor line which activated them.
+ In these cases, ISCAN is given a list of the valid monitor level
+ commands to look for.  It then RESCANS  the  command  line,  and
+ positions  the  input  routines  to the end of that command.  On
+ return, T1 indicates whether a command was actually seen or  not
+ (see  call  description  below).   If  no  table  of commands is
+.ISCAN - SCANNER INITIALIZAITON                          Page 9-2
+RESCANNING THE COMMAND LINE                             11 Jun 79
+
+
+ supplied, ISCAN will not do a RESCAN.
+
+      One of the more common usages of this  feature  is  in  the
+ writing  of  a  program  which  is  to be invoked by a spsecific
+ monitor command.  When commands are added to the monitor, in the
+ module  COMCON,  their  dispatch  address  in COMTAB can be to a
+ routine which runs a program of the same name,, but starts it at
+ the  CCL entry point (see the following paragraphs).  This makes
+ it possible for a program MUMBLE to be invoked  by  commands  of
+ the format:
+
+           .MUMBLE /switch:value /switch:value ...
+
+ In this case, .ISCAN would be told to perform the rescan of  the
+ command  line,  in  order  to pick up the switches.  This is the
+ process used by programs such as DIRECT.
+
+
+
+ 9.4  CCL MODE
+
+      When a program is in what is usually termed "CCL mode,"  it
+ was  started  with  an  offset  other  than 0 added to its start
+ address.  In these cases, input usually comes  to  SCAN  from  a
+ "CCL   file."  In  this  case,  ISCAN  must  be  told:   1)  the
+ 3-character CCL name, and 2) the value of the  starting  offset.
+ If  not  in  CCL  mode,  then  ISCAN is given a zero word.  This
+ feature is most useful for programs (such as DIRECT)  which  can
+ be monitor commands.
+
+
+
+ 9.5  I/O ROUTINES
+
+      As was stated in the Introduction, SCAN defaults to  TTCALL
+ input  and  output.   If  the  user  wishes,  the address(es) of
+ special routine(s) for input or output may  be  given  to  SCAN.
+ Input  routines  must  leave  their  character  in  P4;   output
+ routines take theirs from T1.  Neither  may  destroy  any  other
+ accumulators.
+
+      If the program knows ahead of time that indirect file input
+ will  be  used, and the name of the file, then a Scan-Block form
+ of the specification is passed to ISCAN.  The .FXDEV  word  must
+ be non-zero for ISCAN to honor it.
+.ISCAN - SCANNER INITIALIZAITON                          Page 9-3
+PROGRAM TERMINATION                                     11 Jun 79
+
+
+ 9.6  PROGRAM TERMINATION
+
+      Sometimes, it is useful for a program to  always  be  given
+ control whenever SCAN would otherwise return to the monitor.  In
+ these cases, a "MONRET" ("MONitor RETurn") address is  given  to
+ ISCAN.   In  the absence of this, SCAN will simply issue an EXIT
+ UUO.
+
+
+
+ 9.7  COMMAND PROMPTING
+
+      Along  the  same  lines,  some  programs  have  their   own
+ prompting  schemes,  and  must supply ISCAN with the appropriate
+ address, which will later be PUSHJed to.  When it is called,  T1
+ will be set up as follows:
+
+      (RH) the normal prompt character:
+            "*" for first lines
+            "#" for continuation lines
+      (LH) 0 for first lines;
+            -1 for continuation lines
+
+ A "continuation line" is one following a line which ended with a
+ dash, which is SCAN's continuation character.
+
+
+
+ 9.8  FLAGS
+
+      This word specifies any  special  handling  required.   The
+ possible  flags  are described below, and are also listed in the
+ appendices for SCNMAC and $SCNDC.
+
+      FS.ICL - If set, whis will cause SCAN  to  "Ignore  Command
+ Line" handling.  In other words, if the command line is not in a
+ format SCAN understands (such as LOGIN), but  SCAN  is  used  to
+ handle  parts  of  it,  the  setting  of this bit causes SCAN to
+ ignore the fact that it is actually a command line.  The  RESCAN
+ will still be done, however.
+
+
+
+
+ 9.9  CALLING .ISCAN
+
+      This brings us now to an exact  description,  which  should
+ make  sense  in  the  light  of  the preceeding paragraphs.  The
+ calling format for .ISCAN is:
+.ISCAN - SCANNER INITIALIZAITON                          Page 9-4
+Argument Block Definition                               11 Jun 79
+
+
+      MOVE  T1, [length,,argblock-address].
+      PUSHJ P, .ISCAN##
+        -return-
+
+      T1 = index into table of monitor
+      commands, or -1 if none found
+
+
+ The argument  block  at  "argblock-address"  has  the  following
+ format:
+
+
+   BLOCK:
+   BLOCK + 0 = 0 or IOWD length, monitor-commands
+         + 1 = (RH) 0 or address of starting offset
+               (LH) 0 or SIXBIT CCL name
+         + 2 = (RH) 0 or address of output routine
+               (LH) 0 or address of input routine
+         + 3 = 0 or XWD length, indirect-Scan-Block
+         + 4 = (RH) 0 or address of MONRET routine
+               (LH) 0 or address of PROMPT routine
+         + 5 =      FLAGS
+ LENGTH==.-BLOCK
+
+
+
+
+
+
+
+
+
+
+
+
+                           CHAPTER 10
+
+                .TSCAN - THE TRADITIONAL SCANNER
+
+
+
+
+
+
+ 10.1  .TSCAN - THE TRADITIONAL SCANNER
+
+      The most common command formats are  those  with:   1)  one
+ output file-spec;  2) either one or more input-specs, or else no
+ input spec at all;  and 3) command  switches  somewhere  on  the
+ line.   This  is the type of command line which TSCAN processes.
+ As well as needing to know where  DOSCAN's  tables  are,  a  few
+ other issues come into play.
+
+
+
+ 10.2  /HELP
+
+      One of the built-in "Internal Switches" listed  above  (see
+ "File-Spec  Scanning")  was  /HELP.  It now becomes necessary to
+ tell SCAN how to find the "HELP file" to be typed.   Four  types
+ of help are possible.
+
+    o  None
+
+    o  Type a preset string
+
+    o  Call a prenamed routine
+
+    o  Call HELPER
+
+ It is necessary for the caller to tell TSCAN which of the  above
+ to use.
+
+
+
+ 10.3  POST PROCESSING OF SWITCHES
+
+      As a command line is processed, it is often  desirable  for
+ the  user  to  be  given  a  chance to clear out various storage
+ areas,  before  a  new  command  line  is  processed.   This  is
+ accomplished  by  passing  to  TSCAN the address of a routine to
+.TSCAN - THE TRADITIONAL SCANNER                        Page 10-2
+POST PROCESSING OF SWITCHES                             11 Jun 79
+
+
+ PUSHJ to at the end of each line.
+
+      Along the same lines, there is often data to be cleared  or
+ reset  as each file-spec is processed.  SCAN will zero its F.ZER
+ area, but the user may have other locations to worry about.   It
+ may  also  want to change the P.ZER default area.  To do so, the
+ user provides TSCAN with an address to PUSHJ to.
+
+
+
+ 10.4  SCAN BLOCK ALLOCATION
+
+      In the chapter on "FILE-SPEC SCANNING,"  it  was  indicated
+ that  SCAN  assembles its data within its own core (F.ZER) since
+ the command line may very well contain  many  file-specs.   This
+ means  that some method must exist for moving the Scan-Blocks to
+ a "safer" area.  Since the input and output streams may  require
+ different  handling,  the user provides TSCAN with the addresses
+ of two routines which will  allocate  space  for  a  Scan-Block.
+ These routines return the following information to SCAN:
+
+      T1 = address of Scan-Block area
+      T2 = length of Scan-Block area
+
+
+      The P.ZER area, as  was  mentioned  earlier,  contains  the
+ default  file-spec  values.  Often, information in one file-spec
+ on a command line is the default for a later file-spec  on  that
+ line.  Because of this, SCAN will "memorize" this information by
+ copying the F.ZER information into the P.ZER area.  If the  user
+ would  like control after this is done, an address to be PUSHJed
+ to is passed to TSCAN.  Also, whenever SCAN  applies  the  P.ZER
+ defaults,  the user may want to be called.  This is also done by
+ giving TSCAN the address to be PUSHJed to.  Finally, as the SCAN
+ of  a  line  is  commenced, the P.ZER area is cleared.  The user
+ will then be called, if it had previously given  TSCAN  such  an
+ address.
+
+
+
+ 10.5  STICKY DEFAULTS
+
+      A "sticky" default  is  what  SCAN  terms  general  globals
+ defaults  for  file  specifications.   These are applied by SCAN
+ when .APLST is called.  When .TSCAN is called, the user has  the
+ option  of specifying a special routine to call whenever SCAN is
+ going to apply sticky defaults.  The left half of word number  6
+ contains  the  addresses  of  the  routine  to  memorize  sticky
+ defaults for all files, and the address of the routine to  apply
+ these defaults to all succeeding file specifications:
+
+           XWD  MEMORIZE-ADDRESS, APPLY-DEFAULTS-ADDRESS
+
+ The other routine which may be specified it the routine to clear
+.TSCAN - THE TRADITIONAL SCANNER                        Page 10-3
+STICKY DEFAULTS                                         11 Jun 79
+
+
+ any  sticky  defaults  at  the end of a file-spec scan.  This is
+ given in the left half of word number 7:
+
+           XWD  CLEAR-DEFAULT-ADDRESS, flags If the user  program
+ has  not sticky switches of its own, then these fields should be
+ left zero.  Otherwise, whenever SCAN does its own sticky default
+ handling,  it will also can on the user's routine to process the
+ user's sticky defaults at the same time.
+
+
+
+ 10.6  SCAN CONTROLLING FLAGS
+
+      Although there  is  normally  only  one  output  file-spec,
+ sometimes  multiple  output  specs  are quite valid.  Also, many
+ programs do not care if a switch associated with one side of the
+ "="  actually  appeared  on the other side.  To allow either (or
+ both) of these special cases, flags are passed  to  TSCAN  which
+ control  the  scanning  process.  These flags are also listed in
+ Appendix D ("SCNMAC"):
+
+      FS.MOT - Multiple output file specifications allowed.
+      FS.MIO - Input and Output specifications may  be  mixed  on
+               the    command    line,    regardless   of   their
+               relationships position-wise to the "=" character.
+
+
+
+
+ 10.7  SWITCH PROCESSING
+
+      Finally, it is sometimes the case that the user wants to be
+ called whenever a switch value is to be stored, no matter how it
+ was defined in SWTCHS.  To do this,  TSCAN  is  pointed  at  the
+ routine  to do this.  When this routine is called, the following
+ are set up:
+
+          T1 = switch-value
+          T2 = pointer into switch tables
+
+ The routine, after doing what it may, non-skip returns  if  SCAN
+ should not store the value, or skip-returns if SCAN should store
+ it.  In either case, all accumulators are to be left intact.
+.TSCAN - THE TRADITIONAL SCANNER                        Page 10-4
+CALLING .TSCAN                                          11 Jun 79
+
+
+ 10.8  CALLING .TSCAN
+
+      To call TSCAN, one first sets up an argument block  of  the
+ following form:
+
+
+
+    BLOCK + 0 = IOWD xxxxxL, xxxxxN
+          + 1 = XWD xxxxxD, xxxxxM
+          + 2 = XWD 0, xxxxxP
+          + 3 = XWD help-type, help-address
+                ;  help-type = 0 if none
+                ;  = 1 if string
+                ;  = 2 if subroutine
+                ;if word = -1, use name in
+                ;system table, and call HELPER
+                ;if (LH) is greater than 77,
+                ;but word is not -1, then word
+                ;is the SIXBIT name to give HELPER.
+          + 4 = (LH) 0 or routine to clear all answers
+                (RH) 0 or routine to clear file answers
+          + 5 = (LH) routine to allocate input file area
+                (RH) routine to allocate output file area
+          + 6 = (LH) 0 or routine to memorize defaults
+                (RH) 0 or routine to apply defaults
+          + 7 = (LH) 0 or routine to clear defaults
+                (RH) flags:
+                1B18 multiple output specs are legal
+                1B19 switches may go anywhere on the line
+         + 10 = (LH) 0 (reserved for future)
+                (RH) 0 or routine to store switch values
+
+
+
+ When "0" is given as an argument, then that option will  not  be
+ used.  The "xxxxx" fields are from the DOSCAN argument.  To call
+ TSCAN:
+
+      MOVE T1, [LENGTH,, BLOCK]
+      PUSHJ P, .TSCAN##
+         -return- at end of line after
+                  something was typed
+
+
+
+
+ 10.9  STORAGE INITIALIZATION
+
+      When TSCAN returns, all of the switches and file-specs have
+ been  processed,  and all values stored.  All switch value cells
+ should have an initial value of -1.  This is because  SCAN  will
+ detect attempts to give a switch more than one value on the same
+ line.  Unless a user routine intervened, the first  value  would
+ be  lost.  If the user wants this -- multiple values -- then the
+.TSCAN - THE TRADITIONAL SCANNER                        Page 10-5
+STORAGE INITIALIZATION                                  11 Jun 79
+
+
+ switch must have a routine to do the  storing  itself.   In  any
+ event,  -1 was chosen as an unlikely switch value, and therefore
+ a reasonable initial value.
+
+ N.B.:  Read Appendix "A" ("Notes on Using SCAN")
+
+
+
+ 10.10  SUMMARY
+
+      This chapter has presented the use  of  SCAN's  most  often
+ used  scanner  -  .TSCAN.   Much  of  what  has  been covered is
+ relevant not only to .TSCAN, however,  but  also  to  the  other
+ scanners being discussed in the following chapters.
+
+
+
+
+
+
+
+
+
+
+
+
+                           CHAPTER 11
+
+                OSCAN - THE OPTIONS FILE SCANNER
+
+
+
+
+ 11.1  OSCAN - THE OPTIONS FILE SCANNER
+
+
+
+      It is often the case that a particular  application  has  a
+ set of defaults that change somewhat from user to user.  In this
+ case, it is not possible to define the defaults  via  DM,  since
+ each  user  has  his  own, but they all run the same program.  A
+ solution which is particularly  useful  is  called  an  "Options
+ File."  This  is  a  single  file,  under  the user's PPN, which
+ contains the default switch settings for that user.  Since  this
+ is  feasible  for  many  programs,  all  use  the same file, but
+ preface their particular lines of  defaults  with  their  names.
+ Finally, it is possible for one program to have multiple, named,
+ sets of defaults.
+
+
+
+
+ 11.2  FORMAT OF THE OPTIONS FILE
+
+      This "Options File" is  the  file  DSK:SWITCH.INI,  on  the
+ user's PPN.  Entries in SWITCH.INI are of the form:
+
+         Program /SWITCH/SWITCH...
+            or
+         PROGRAM:OPTION /SWITCH/SWITCH
+
+         where:
+
+         PROGRAM is the program name.
+         OPTION is the name of the set of defaults.  This used as
+                 the value to the /OPTION:  switch in the command
+                 line.
+         /SWITCH are the switches and their values.
+
+ Only switches are valid in the options file -- file-specs cannot
+ be included.
+OSCAN - THE OPTIONS FILE SCANNER                        Page 11-2
+FORMAT OF THE OPTIONS FILE                              11 Jun 79
+
+
+ 11.2.1  Options List
+
+      Only one calling parameter for OSCAN has not  been  covered
+ already  under "TSCAN" -- the name(s) of options to select.  The
+ program passes to OSCAN:  1) the pointer to a list of options to
+ be selected, or 2) the name to be selected, or 3) 0 to imply the
+ use of the program's name as the object of the selection.
+
+
+
+
+ 11.2.2  Argument Block
+
+ The argument block for OSCAN closely resembles that for TSCAN:
+
+
+
+    BLOCK + 0 = IOWD xxxxxL, xxxxxN
+          + 1 = XWD xxxxxD, xxxxxM
+          + 2 = XWD 0, xxxxxP
+          + 3 = HELP WORD
+          + 4 = OPTIONS WORD:
+                SIXBIT/NAME/    or
+                Z               or
+                XWD   LEN,  LIST
+ LENGTH==.-BLOCK
+
+
+
+      LIST:  SIXBIT/OPT1/
+             SIXBIT/OPT2/
+                .
+                .
+                .
+             SIXBIT/OPTn/
+      LEN==.-LIST
+
+
+
+
+
+
+ 11.2.3  CALLING .OSCAN
+
+      To call OSCAN:
+
+      MOVE T1, [LENGTH,,BLOCK]
+      PUSHJ P, .OSCAN##
+
+OSCAN - THE OPTIONS FILE SCANNER                        Page 11-3
+APPLYING DEFAULTS FOR .OSCAN                            11 Jun 79
+
+
+ 11.3  APPLYING DEFAULTS FOR .OSCAN
+
+      After OSCAN returns, it is usually necessary  to  have  the
+ switches  applied  to  any  file-specs which were scanned off by
+ TSCAN (or VSCAN).  This is  the  purpose  of  .OSDFS,  which  is
+ called in the following manner:
+
+      MOVEI T1, location of Scan-Block
+      MOVEI T2, length of Scan-Block
+      PUSHJ P, .OSDFS##
+
+ Once this has been done for any or all file-specs  desired,  the
+ scanning process is complete.
+
+
+
+
+
+
+
+
+
+
+
+
+                           CHAPTER 12
+
+                 .VSCAN - THE VERB FORM SCANNER
+
+
+
+
+
+
+ 12.1  VSCAN - THE VERB FORM SCANNER
+
+
+
+
+      In some applications, it is desirable to have  all  command
+ lines  begin  with  a  keyword  which indicates some function or
+ operation to be performed.  This is then followed on  succeeding
+ lines  by  related  commands  and file-specs.  In this case, the
+ function-word is referred to as a  "verb,"  and  the  associated
+ scanner is therefore a "verb form scanner," or ".VSCAN."
+
+      Normally, when VSCAN is used, the user enters his  switches
+ one-per-line.    Although   SCAN  views  these  as  switches  no
+ differently than it does with TSCAN, it appears to the user that
+ he  is  actually  inputting  commands;   this is especially true
+ since it is not necessary with VSCAN to include the  slash  that
+ normally  indicates  a switch.  In some applications, this lends
+ itself very well to user oriented dialogues.  While it would  be
+ possible  for  switches  to appear on the line with the "verbs,"
+ this would tend to contradict the philosophy behind using  VSCAN
+ in the first place.
+
+
+
+ 12.2  USING .VSCAN
+
+      From the  programmer's  point  of  view,  there  is  really
+ nothing new for VSCAN that was not also necessary for TSCAN.
+
+
+      The only new calling values in the argument block  are  the
+ addresses  and lengths of the default and permanent switch areas
+ for file-specs (a la P.ZER and F.ZER, respectively).
+.VSCAN - THE VERB FORM SCANNER                          Page 12-2
+USING .VSCAN                                            11 Jun 79
+
+
+ 12.2.1  Argument Block Format
+
+      The exact argument block format for VSCAN is:
+
+ BLOCK + 0 = IOWD xxxxxL, xxxxxN
+       + 1 = XWD xxxxxD, xxxxxM
+       + 2 = XWD 0, xxxxxP
+       + 3 = HELP WORD
+       + 4 = (LH) length of file-spec areas
+             (RH) address of permanent area
+       + 5 = (LH) 0 (reserved for future)
+             (RH) address of default area
+       + 6 = OPTION NAME, or 0 (to use program name)
+ LENGTH==.-BLOCK
+
+
+
+
+ 12.2.2  CALLING .VSCAN
+
+      The VSCAN call is:
+
+      MOVE T1, [LENGTH,,BLOCK]
+      PUSHJ P, .VSCAN##
+
+
+
+
+
+
+
+
+
+
+
+
+                           CHAPTER 13
+
+                  .PSCAN - THE PARTIAL SCANNER
+
+
+
+.PSCAN - THE PARTIAL SCANNER                            Page 13-2
+PSCAN & QSCAN - INTRODUCTION                            11 Jun 79
+
+
+13.1  PSCAN & QSCAN - INTRODUCTION
+
+     One of the drawbacks, in some applications, of having an all
+purpose  scanner  such  as  TSCAN  is  that it does not allow any
+flexability in the format of the  command  lines.   ALL  commands
+must  conform  to the sytax used by SCAN.  Usually, this presents
+no problem, since SCAN's syntax  is  in  itself  quite  flexable.
+However, when it is necessary for the format of a command line to
+be somewhat different, then another scanner is required.  This is
+the  usefulness  of the so called "Partial Scanner." This scanner
+tends to operate  as  a  co-operative  effort  between  the  user
+program  and  SCAN.  Part of the command line is processed by the
+program, and the remainder is processed by .PSCAN or .QSCAN.
+
+     The process is simple.  Either .PSCAN or .QSCAN is called to
+initialize  the scanning process, then the user program processes
+the command line to whatever extent it desires.
+
+     The routine which is normally called to handle  SCAN's  side
+of  the command line handling is ".FILIN", which will pick up any
+file specifications, as well as whatever switches it  encounters.
+This makes for a relatively simple scanning process:
+
+      o  Call .ISCAN to initialize everything
+
+      o  CALL .PSCAN  to  initialize  for  partial  scanning  (or
+         .QSCAN)
+
+      o  Call whatever input routines  are  appropriate  for  the
+         user's  portion  of  the  command  line (.SWDEC, .SWSIX,
+         etc.).
+
+      o  Call .FILIN to handle the rest of the command line
+
+      o  Process the SCAN-blocks, if any, which were generated by
+         .FILIN.
+
+      o  Process the data returned by the switches scanned off by
+         .FILIN
+
+
+
+
+13.2  PSCAN VS QSCAN
+
+     Throughout the discussion so far,  two  routines  have  been
+referred  to  as  the partial scanners -- .PSCAN & .QSCAN.  These
+operate in identical fashions, so far as use within a program  is
+concerned.   Their  only  difference lies in their scope.  .PSCAN
+sets up partial scanning on a  global  basis,  which  affects  as
+input lines.  .QSCAN, on the other hand, affects only the current
+line.  Other than this, they are used identically.
+.PSCAN - THE PARTIAL SCANNER                            Page 13-3
+SUMMARY                                                 11 Jun 79
+
+
+13.3  SUMMARY
+
+     The purpose of  this  chapter  has  been  to  introduce  the
+concept of a partial scanner, which is sometimes very well suited
+for a particular application.  In addition, instruction on  using
+the  two  routines  supplied  by  SCAN -- .PSCAN and .QSCAN -- to
+handle this type  of  scanning  has  been  given.   An  excellant
+example  on  the  use  of  partial  scanners  is the Digital CUSP
+CREDIR.  A part of this program, in fact, is included in a  later
+chapter as a guide in writing programs which interface with SCAN.
+
+
+
+
+
+
+
+
+
+
+
+
+                           CHAPTER 14
+
+                         ACCESSING SCAN
+
+
+
+
+
+
+ 14.1  ACCESSING SCAN
+
+ 14.1.1  ASSEMBLY TIME FILES
+
+      All of the MACROS, symbols and routine names referenced  in
+ this  document are a part of SCAN and its associated files.  The
+ following files are those used in the SCAN "system."
+
+  o  UUOSYM.UNV
+     MACTEN.UNV
+
+     These define symbols used in the DEC  reference  manuals  to
+     describe  UUOs  and their calling formats.  Also defined are
+     useful macros, such as:  POINTR, TXxx, MOVx, etc.
+
+     These are accessed by the MACRO-10 statement:
+
+               SEARCH UUOSYM,MACTEN
+
+  o  SCNMAC.UNV
+     $SCNDC.UNV
+
+     These files define macros and symbol definitions  for  SCAN.
+     SL, SN, SP, SS, DM, KEYS, DOSCAN, etc, are all defined here
+
+     SCNMAC and $SCNDC are accessed by the MACRO-10 statement:
+
+               SEARCH SCNMAC,$SCNDC
+
+ACCESSING SCAN                                          Page 14-2
+ACCESSING SCAN                                          11 Jun 79
+
+
+ 14.1.2  LINK-TIME FILES
+
+
+  o  SCAN.REL
+
+     This is SCAN itself.  Contains all  code  described  herein,
+     including  $SCNDC.   SCAN.REL  should  be  loaded in library
+     search mode.
+
+
+  o  HELPER.REL
+
+     This is a module for the /HELP switch, and is loaded as  any
+     other file.
+
+
+
+
+
+ 14.1.3  SOURCE FILES
+
+      Sources to SCAN, SCNMAC,  HELPER,  MACTEN  and  UUOSYM  are
+ currently distributed on the CUSP release tapes as:
+
+            SCAN.MAC
+            SCNMAC.MAC
+            HELPER.MAC
+            MACTEN.MAC
+            UUOSYM.MAC
+
+ Parts of $SCNDC and SCNMAC have been included  as  appendices  D
+ and E respectively.
+
+      The universal (.UNV) files for SCNMAC, $SCNDC,  MACTEN  and
+ UUOSYM are normally kept on ersatz device "UNV:." The .REL files
+ for SCAN, WILD, and HELPER are usually on device "REL:."
+
+
+
+
+ 14.1.4  SUMMARY
+
+      In summary, the following would normally  be  seen  at  the
+ start of a program using SCAN:
+
+        SEARCH COLS,C,SCNMAC,$SCNDC
+        .REQUEST REL:SCAN
+        .REQUEST REL:WILD
+        .REQUEST REL:HELPER
+ACCESSING SCAN                                          Page 14-3
+SEGMENT ALLOCATION                                      11 Jun 79
+
+
+ 14.2  SEGMENT ALLOCATION
+
+      All of the code in SCAN is high segment;  no .LOW file will
+ be  generated unless the user's program needs one.  As a general
+ rule, when using the standard DEC SCAN, if any  calling  routine
+ is  in  the  low-segment,  then  the  linked files should not be
+ protected as "execute only" (i.e.:  166).  This is because  SCAN
+ does  not  include PORTAL instructions at its entry points.  All
+ of the entries in the modified  version  of  SCAN,  however,  do
+ contain  PORTALs,  and  may  be  entered from low segments as an
+ execute only high segment.
+
+
+
+
+
+
+
+
+
+
+
+
+                           CHAPTER 15
+
+                      EXAMPLE OF USING SCAN
+
+
+
+EXAMPLE OF USING SCAN                                   Page 15-2
+INTRODUCTION                                            11 Jun 79
+
+
+15.1  INTRODUCTION
+
+     This chapter will present two  complete  examples  of  using
+SCAN  for  command  scanning.   It  will use much of the material
+presented in previous chapters.  The basic purpose in this is  to
+unite  the  concepts  and  routine  descriptions presented into a
+cohesive structure.
+
+     The first example chosen is from CREDIR, a Digital CUSP used
+to  create directories on TOPS-10 systems.  The scanners used are
+the Partial Mode scanners, .PSCAN & .QSCAN.
+
+     A second example, from a private program, will present a use
+of  .TSCAN,  which  is  by  far  the  most  popular  scanner.  By
+examining  closely  both  examples,  the  reader  should  gain  a
+detailed understanding of the use of SCAN.
+EXAMPLE OF USING SCAN                                   Page 15-3
+EXAMPLE:  CREDIR (.PSCAN/.OSCAN)                        11 Jun 79
+
+
+TITLE   CREDIR -- ROUTINE TO CREATE A DIRECTORY  %2(103)
+        SEARCH  C,SCNMAC        ;SET FOR UNIVERSALS
+        SUBTTL  INITIALIZATION
+
+CREDIR: TDZA    T1,T1           ;NOT CCL START
+        MOVEI   T1,1            ;CCL START
+        MOVEM   T1,OFFSET       ;STORE IT
+
+        RESET                   ;RESET ANY EXTERNAL I/O
+
+;NEXT GO INITIALIZE THE COMMAND SCANNER.  IN
+;PARTICULAR, LOOK FOR A COMMAND ON THE SAME LINE OR A CCL
+;FILE FULL OF COMMANDS.
+
+        MOVE    T1,[ 2,,[IOWD  1,['CREDIR']
+                        OFFSET,,'CRR']]
+        PUSHJ   P,.ISCAN##      ;INITIALIZE COMMAND SCANNER
+
+
+
+        SUBTTL  MAIN LOOP
+
+;EACH PASS, WHETHER SUCCESSFUL OR NOT, ALWAYS
+;ENDS BY RETURNING TO THE LABEL MAINLP.  THIS CAUSES THE
+;PROGRAM TO START OVER AGAIN.  IT CAN BE EXITED BY THE
+;USER BY EITHER A ^C OR A ^Z.  IF THE PROGRAM HAD BEEN
+;INVOKED BY  A COMMAND OR CCL CALL, THEN SCAN WILL
+;SIMULATE THE ^Z WHEN APPROPRIATE TO EXIT.
+
+MAINLP: PUSHJ   P,.RUNCM##      ;HANDLE /RUN IF SET
+
+        MOVE    T1,[ 4,,[IOWD SWTL,SWTN
+                         SWTD,,SWTM
+                         0,,SWTP
+                         -1     ]]
+        PUSHJ   P,.PSCAN##      ;INVOKE P-MODE SCANNER
+          OUTSTR [ASCIZ \Create directory: \]
+
+        CAMG    P4,[.CHEOF]     ;SEE IF EOF
+        JRST    [PUSHJ P,.ALDON##  ;YES--HANDLE NORMAL CASES
+                 CAMG  P4,[.CHEOF] ;THEN CHECK AGAIN
+                 PUSHJ P,.MNRET##  ;YES--RETURN TO MONITOR
+                 JRST  MAINLP]  ;THEN START OVER AGAIN
+EXAMPLE OF USING SCAN                                   Page 15-4
+EXAMPLE:  CREDIR (.PSCAN/.OSCAN)                        11 Jun 79
+
+
+;HAVING INITIALIZED THE COMMAND SCAN FOR THIS LINE,
+;NOW GET A FILE SPECIFICATION, WHICH MUST INCLUDE
+;THE STRUCTURE AND DIRECTORY AND EXCLUDE THE FILE NAME AND
+;EXTENSION.
+
+        PUSHJ   P,.FILIN##      ;GET FILE SPEC
+        JUMPN   T1,GETOPT       ;JUMP IF SOMETHING INPUT
+
+;HERE IF NOTHING TYPED BEFORE THE SEPARATOR.  THE ONLY
+;LEGAL CASES ARE /RUN AND INDIRECT.
+
+        CAIN    P4,"@"          ;SEE IF INDIRECT
+        PUSHJ   P,.GTIND##      ;YES--SETUP INDIRECT
+        JUMPLE  P4,MAINLP       ;IF END OF LINE, GO DO MORE
+        PJRST   E.ILSC##        ;OTHERWISE, GIVE ERROR
+
+;NOW CHECK OPTION FILE TO SEE IF ANY DEFAULT SWITCHES.
+
+GETOPT: JUMPG   P4,E.INCL##     ;ERROR IF MORE ON LINE
+        MOVEI   T1,SPEC         ;POINT TO SPEC AREA
+        MOVEI   T2,.FXLEN       ; ..
+        PUSHJ   P,.GTSPC##      ;COPY TO US
+
+        MOVE    T1,[ 4,,[IOWD SWTL,SWTN
+                         SWTD,,SWTM
+                         0,,SWTP
+                         -1     ]]
+        PUSHJ   P,.OSCAN##      ;HANDLE OPTION FILE
+        JRST    GOTSOM          ;THEN PROCEED
+EXAMPLE OF USING SCAN                                   Page 15-5
+EXAMPLE:  CREDIR (.PSCAN/.OSCAN)                        11 Jun 79
+
+
+;DEFINE SWITCH TABLE
+
+DEFINE  SWTCHS,<
+SP IN,QTAIN,.SWDEC##,QTA,FS.LRG
+SP NAME,SPLNAM,SIXQWW,NUL,
+SP OUT,QTAOUT,.SWDEC##,QTA,FS.LRG
+>
+
+DM NUL,1,0,0
+DM QTA,.INFIN,.INFIN,.INFIN
+
+        DOSCAN  (SWT)
+
+
+
+;ROUTINE TO INPUT ONE WORD IN SIXBIT POSSIBLY QUOTED
+
+SIXQWW: PUSHJ   P,.SIXQW##      ;GET STRING
+        MOVE    P3,.NMUL##      ;GET FIRST WORD
+        POPJ    P,              ;RETURN RESULT
+
+
+
+GOTSOM: SKIPE   T1,FLDIAL       ;SEE IF DIALOG
+        SKIPL   SPEC+.FXMOD     ;SEE IF DEVICE THIS TIME
+        SKIPA                   ;OK--DO NOTHING
+        MOVEM   T1,SPEC+.FXDEV  ;LAZY--DEFAULT HIS DEVICE
+;fall into other code not of interest in
+;this example case.
+EXAMPLE OF USING SCAN                                   Page 15-6
+EXAMPLE:  CREDIR (.PSCAN/.OSCAN)                        11 Jun 79
+
+
+GOTDIR: MOVX    T1,FX.PRO       ;GET PROTECTION MASK
+        TDNN    T1,SPEC+.FXMOM  ;SEE IF USER SET IT
+        SKIPN   FLDIAL          ;OR NOT IN DIALOG
+        JRST    GOTDR1          ;ALL OK--PROCEED
+
+        MOVE    T1,[ 4,,[0
+                         0
+                         0
+                         -1     ]]
+        PUSHJ   P,.QSCAN##      ;INVOKE P-MODE SCANNER
+          OUTSTR [ASCIZ \Protection: \]
+        PUSHJ   P,.OCTNW##      ;GET OCTAL VALUE
+        DPB     P3,[POINTR (SPEC+.FXMOD,FX.PRO)]
+        JUMPG   P4,E.INCL##     ;ERROR IF MORE ON LINE
+
+GOTDR1: SKIPGE  SPLNAM          ;SEE IF /NAME
+        SKIPN   FLDIAL          ;NO--SEE IF DIALOGUE
+        JRST    GOTDR2          ;YES--PROCEED
+        MOVE    T1,[ 4,,[0
+                         0
+                         0
+                         -1     ]]
+        PUSHJ   P,.QSCAN##      ;INVOKE P-MODE SCANNER
+          OUTSTR [ASCIZ \Name: \]
+        PUSHJ   P,SIXQWW        ;GET SIXBIT NAME
+        JUMPG   P4,E.INCL##     ;ERROR IF THAT'S NOT ALL
+        MOVEM   P3,SPLNAM       ;SET NAME
+
+GOTDR2: MOVS    T2,SPEC+.FXEXT  ;GET EXTENSION
+        TLC     T1,-1           ;MASK SHOULD BE -1
+        CAIE    T1,'UFD'        ;SEE IF UFD
+        CAIN    T1,'SFD'        ; OR SFD
+        SETZB   T1,SPEC+.FXEXT  ;YES--CLEAR OUT
+        SKIPN   SPEC+.FXNAM     ;SEE IF FILE NAME
+        SKIPE   SPEC+.FXEXT     ; OR EXTENSION
+        JRST    E$$FNI          ;YES--FILE NAME ILLEGAL
+
+        MOVEI   T1,SPEC         ;POINT TO SCANNED SPEC
+        MOVEI   T2,OPNBLK       ;POINT TO AN OPEN BLOCK
+        MOVEI   T3,ENTBLK       ;POINT TO AN ENTER BLOCK
+        PUSHJ   P,.STOPN##      ;CONVERT SCAN'S SPEC
+          JRST  E$$WCI          ;WILD CARDS ARE ILLEGAL
+        JRST    DEVOK           ;PROCEED
+
+;fall into code which does actual processing of directories,
+;etc., which is of no concern here as a SCAN example.
+EXAMPLE OF USING SCAN                                   Page 15-7
+TSCAN Example                                           11 Jun 79
+
+
+     The next example, of the use of TSCAN,  is  from  a  program
+written  to count the number of form-feeds in an arbitrary set of
+files.  No switches are used, but a dummy  SWTCHS  definition  is
+used  to  keep TSCAN happy.  The inclusion of additional switches
+would  be  trivial.   The  important  parts  to  watch  are   the
+interfacing  with  TSCAN,  and the processing of the SCAN blocks.
+The actual use of the converted OPEN and LOOKUP/ENTER  blocks  is
+left out.
+EXAMPLE OF USING SCAN                                   Page 15-8
+TSCAN Example                                           11 Jun 79
+
+
+TITLE   FINDFF - FIND NUMBER OF FORM-FEEDS IN GROUP OF FILES
+        .REQUEST SCAN
+        .REQUEST WILD
+        SEARCH  UUOSYM,SCNMAC,$SCNDC
+
+;*************************************************
+; INITIALIZATION ROUTINE
+;*************************************************
+FINDFF: RESET
+        MOVE    P,[IOWD PDLSIZ,PDL]
+        MOVEI   T1,1
+        MOVEM   T1,TOTFF        ;STARTS AT 1 PAGE (NO INITIAL FF)
+        MOVE    T1,[ISCLEN,,ISCBLK]
+        PUSHJ   P,.ISCAN##      ;INITIALIZE SCAN
+        PUSHJ   P,.TCRLF##
+        SETZM   WILDSW          ;INDICATE NO WILD SPEC IN FORCE
+
+;*************************************************
+; ROUTINE TO GET NEXT FILE SPECIFICATION FROM SCAN
+;*************************************************
+
+GETNAM: SKIPE   WILDSW          ;SKIP IF NO WILD SPEC IN FORCE
+        JRST    CALWLD          ;JUMP IF A WILD SPEC IS CURRENT
+
+GETSPC: MOVE    T1,[XWD P.ZER##,P.ZER##+1]
+        SETZM   P.ZER##
+        BLT     T1,P.EZER##     ;INIT DEFAULT REGION FOR .TSCAN
+        MOVE    T1,[TSCLEN,,TSCBLK];ARGUMENT BLOCK
+        PUSHJ   P,.TSCAN##      ;GET NEXT FILE SPECIFICATION 
+                                ;FROM INPUT SOURCE
+        SETOM   WILDSW          ;REMEMBER THAT A WILD 
+                                ;SPEC IS CURRENT
+        HLLZS   WLDBLK+3        ;CLEAR WILD'S POINTER
+        SETZ    0,              ;FIX WILD BUG WHICH CLOBBERS 0
+
+CALWLD: MOVEI   T1,[SCNBLK]     ;RESET SCAN BLOCK ADDRESS IN CASE
+        HRLM    T1,WLDBLK       ;WE ALREADY CALLED .LKWLD BEFORE,
+
+        MOVE    T1,[OPNBLK,,LKPBLK]
+        MOVEM   T1,WLDBLK+1     ;FIX WILD BUG WHICH CLOBBERS
+        MOVE    T1,[WLDLEN,,WLDBLK]     ;THIS WORD
+        PUSHJ   P,.LKWLD##      ;GET NEXT FILE NAME FROM WILD
+SPEC
+        JRST    GETSPC          ;HERE WHEN DONE WITH WILD SPEC
+        POPJ    P,
+EXAMPLE OF USING SCAN                                   Page 15-9
+TSCAN Example                                           11 Jun 79
+
+
+;*************************************************
+; PROMPT ROUTINE FOR GETFIL
+;*************************************************
+
+PROMPT: MOVEI   T1,[ASCIZ /FILE: /]
+        PUSHJ   P,.TSTRG##      ;TYPE STRING
+        POPJ    P,
+
+
+;*************************************************
+; ROUTINE TO ALLOCATE OUTPUT FILE SPACE FOR SCAN
+;*************************************************
+
+GETOUT: MOVE    T1,[XWD SCNBLK,SCNBLK+1]
+        SETZM   SCNBLK
+        BLT     T1,SCNBLK+SCNLEN-1
+        MOVEI   T1,SCNBLK
+        MOVEI   T2,SCNLEN
+        POPJ    P,
+EXAMPLE OF USING SCAN                                  Page 15-10
+TSCAN Example                                           11 Jun 79
+
+
+;***********************************************************
+; DEFINITIONS AND WORKAREAS NEEDED BY SCAN AND WILD
+;***********************************************************
+
+.HELPR==:.TCRLF##               ;ELIMINATE LINK10 DIAGNOSTIC
+
+ISCBLK: Z                       ;SCAN INITIALIZATION BLOCK
+        Z
+        Z                       ;DEFAULT TTY I/O ROUTINES ARE
+TTCALLS
+        Z
+        XWD     PROMPT,MONRET   ;PROMPT ROUTINE,,MONITOR RETURN
+                                ;ROUTINE
+        Z
+ISCLEN=.-ISCBLK
+
+SCNBLK: BLOCK   20              ;COPY SCAN BLOCK INTO HERE
+SCNLEN=.-SCNBLK
+
+WLDBLK: XWD     [SCNBLK],0      ;SCAN-BLOCK POINTER
+        XWD     OPNBLK,LKPBLK   ;OPEN AND LOOKUP BLOCKS
+        XWD     SCNLEN,LKPLEN   ;LENGTHS OF SCAN BLOCK 
+                                ;AND LOOKUP BLOCK
+        EXP     1B0             ;ALLOW ANY DEVICE
+        EXP     .POPJ##         ;NO ROUTINE TO CALL AT END OF UFD
+WLDLEN=.-WLDBLK
+
+DEFINE  SWTCHS<
+SP      FOO,FOOLOC,.SIXSW##,,,0 ;DUMMY SWITCH FOR .TSCAN
+>
+
+DOSCAN  (FOO)
+
+TSCBLK: IOWD    FOOL,FOON       ;ARGUMENT BLOCK FOR TSCAN
+        XWD     FOOD,FOOM
+        XWD     0,FOOD
+        Z
+        Z
+        XWD     GETOUT,GETOUT
+        Z
+        Z
+        Z
+TSCLEN=.-TSCBLK
+
+FOOLOC: Z
+
+
+
+
+
+
+
+
+
+
+
+
+                           CHAPTER 16
+
+                USING THE MISCELLANEOUS ROUTINES
+
+
+
+16.1  INTRODUCTION
+
+     The purpose of this chapter is to highlight the uses of some
+of  the  miscellaneous routines in SCAN.  These are routines that
+are not directly related to the task of scanning  command  lines,
+but  which  often  make  writing  programs  simpler.  The initial
+chapter, which listed the routines  in  SCAN,  gave  an  adequate
+description  of  the Input and Output routines, which will not be
+covered here.
+
+
+
+16.2   .LKNAM
+
+     This routine is used to perform the commonly needed task  of
+table  searching.   It is, in fact, the routine which the command
+scanners themselves use to lookup switch and command names.   The
+argument,   which  must  be  in  SIXBIT  (like  the  table  being
+searched), can be an abbreviation  of  an  entry  in  the  table.
+Exact  matches  will  always be found, even if they constitute an
+abbreviation for another command.  The lookup  attempt  into  the
+table  will  fail  for  one  of  two  reasons:   1)  no  match or
+abbreviation was found at all, or 2) more than one  abbreviation,
+and no exact match, was found.
+
+     The call on .LKNAM is as follows:
+
+          MOVE T1,[IOWD len,address]
+          MOVE T2,[SIXBIT/mumble/]
+          PUSHJ P,.LKNAM##
+           -here if failure-
+           -here if success-
+
+USING THE MISCELLANEOUS ROUTINES                        Page 16-2
+ .LKNAM                                                 11 Jun 79
+
+
+where:
+          len     is the length of the table
+          address is the address of the table
+          mumble  is the word being searched for
+
+On the failure return:
+
+          T1<0 if no match was found
+          T1>0 if multiple abbreviations were found
+
+On success return:
+
+          T1<0 if exact match was found
+          T1>0 if abbreviation was found
+          (RH) of T1 = address of table entry matched
+
+
+
+
+16.3  DATE AND TIME CONVERSION
+
+     Since the conversion between Universal Date/Time and the DEC
+standard  format is complex, a routine is provided within SCAN to
+perform this function.  The Universal format contains the date in
+the  left half, and the time in the right half.  The DEC standard
+Format contains the date (derived in a different manner)  in  one
+word,  and  the  time (also of a different derivation) in another
+unrelated word.  Three routines  are  provided  to  handle  these
+functions:
+
+      o   .CNTDT - convert from Universal to DEC
+
+      o   .CNVDT - convert from DEC to Universal
+
+      o   .GTNOW - get the current time in Universal format
+
+
+
+
+16.3.1   .CNTDT
+
+     To convert from universal format  to  DEC  format,  use  the
+following calling specification:
+
+          MOVE T1,universal date-time
+          PUSHJ P,.CNTDT##
+           -always returns here-
+
+USING THE MISCELLANEOUS ROUTINES                        Page 16-3
+DATE AND TIME CONVERSION                                11 Jun 79
+
+
+          with T1=time as MS past midnite
+           and T2=DEC format date
+
+
+
+16.3.2   .CNVDT
+
+     This routine converts from DEC format to  Universal  format.
+The calling sequence for it is:
+
+          MOVE T1,time
+          MOVE T2,date
+          PUSHJ P,.CNVDT##
+           -always returns here-
+
+where
+          "time" is the time in milleseconds past midnite
+          "date" is the date in DATE UUO format
+
+On return,
+
+          T1=Universal date/time, or
+          T1=-1 if arguments were past Sept.  27,2217
+
+An advantage of the Universal format is the  ease  of  converting
+from  date  to  day  of week.  The base for the Unviersal system,
+also referred to as the Astronomical Standard, was  a  Wednesday.
+Therefore, dividing the Universal date by seven yields a remainer
+that indicates the day of the week.  Zero would be  a  Wednesday,
+and the others fall in sequence.
+
+
+
+16.3.3   .GTNOW
+
+Since the only method of finding the current Universal  date/time
+from  the  monitor if via a GETTAB, life is made a little simpler
+by using this routine.  It takes no arguments, and simply returns
+the current date and time in universal format, in T1.
+
+
+
+16.4  MANIPULATING LISTS OF DATA
+
+     SCAN provides two routines useful when a list of  data  must
+be  manipulated  in a sequential fashion.  One routine is used to
+remove a data word from the list, another to place data into  the
+list.
+
+     The accumulator usage for these routines is a follows:
+
+      o  T1 is the current address in the list
+USING THE MISCELLANEOUS ROUTINES                        Page 16-4
+MANIPULATING LISTS OF DATA                              11 Jun 79
+
+
+      o  T2 is the number of words left in the list
+
+      o  T3 is the data being manipulated.
+
+
+     To place data  into  the  list,  .PTWRD  is  called  in  the
+following manner:
+
+          MOVE T1,address
+          MOVE T2,length
+          MOVE T3,datum
+          PUSHJ P,.PTWRD##
+           -always returns here-
+
+with
+
+          T1 incremented to the next list address
+          T2 decremented by 1
+          T3 contains the old data item
+
+
+     To remove an item from the  list,  .GTWRD  is  called  in  a
+similar fashion:
+
+          MOVE T1,address
+          MOVE T2,length
+          PUSHJ P,.GTWRD##
+           -always returns here-
+
+with
+
+          T1 incremented by 1 to the next location
+          T2 decremented by 1
+          T3 data item, or
+             zero if nothing left in list (T2<=0)
+
+Note that since the routines automatically update their pointers,
+the  setup need only be done for the first usage of the routines.
+After that, they can be called successively to  remove  arguments
+(or  whatever)  from  a  list,  and  to  place  return values (or
+whatever) into the list.
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX A
+
+                   NOTES ON USING THE SCANNERS
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDICES
+
+
+
+
+
+
+
+
+
+
+ A.  NOTES ON USING THE SCANNERS
+ B.  NOTES ON USING WILD
+ C.  DIFFERENCES BETWEEN DEC AND OLS
+     SCAN AND WILD
+ D.  SCNMAC - COMMAND SCANNER MACROS
+ E.  $SCNDC - COMMAND SCANNER DECLARATIONS
+ F.  EXAMPLE:  SCAN
+ G.  EXAMPLE:  ALKFIL
+ H.  LIST OF CUSPS AND THE SCANNERS WHICH
+     THEY USE
+NOTES ON USING THE SCANNERS                              Page A-2
+                                                        11 Jun 79
+
+
+  o  When supplying a user-written character input  routine,  the
+     character  must  be  returned  in  P4.  No other accumulator
+     should be altered.
+
+  o  When supplying  a  user-written  routine  for  processing  a
+     switch,  SCAN  will  call it via a PUSHJ, with P1 containing
+     the index into the tables generated by DOSCAN for the switch
+     being  processed.   If  it  is  desired  that SCAN store the
+     value, then the routine must leave the value in P3, and take
+     a  skip-return.   A non-skip return to SCAN is an indication
+     that SCAN should not store a value.
+
+  o  Initial values of  the  locations  into  which  SCAN  stores
+     switch values should be -1.
+
+  o  The maximum value handled by DM is 3777777;  the minimum  is
+     0.   If these are not suitable for a switch, then define the
+     appropriate symbols before calling DM.
+
+  o  SCAN will  generate  a  reference  to  the  external  symbol
+     ".HELPR".     This   is   normally   resolved   by   loading
+     REL:HELPER.REL, and is used for processing the /HELP switch.
+     However,  if  no  help  processing  is  to be done, then the
+     following is sufficient:
+
+                        .HELPR==:.TCRLF##
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX B
+
+                       NOTES ON USING WILD
+
+
+
+
+
+
+
+
+      For the most part, WILD is well documented in its  write-up
+ in  the  Software Notebooks.  However, there are a few things to
+ be aware of.
+
+   1.  WILD has a bug  which  clobbers  AC0  in  a  very  orderly
+       fashion;  try to keep your own AC0 safe.
+
+   2.  Because of the nature of #1, if multiple  top-level  calls
+       to  WILD  are  made  (i.e.:   multiple wild card specs not
+       scanned  off  together),  then  WILD,   after   completely
+       expanding  the  first spec, will forever after think it is
+       done.  This is because AC0 is  clobbered  to  a  file-spec
+       pointer,  later  to  something  else,  and then even later
+       looked at in the context  of  a  file-spec  pointer.   The
+       "fix"  is  a simple SETZ of AC0 before each top-level call
+       to .LKWLD is started.
+
+   3.  The documentation says that .LKWLD only needs to be  given
+       the  address  of  its argument block.  WRONG!  Like almost
+       all other code, it expects to see a  length  in  the  left
+       half of T1.
+
+   4.  For an unknown reason, WILD will, on occasion, write  into
+       part  of its argument block, usually to the OPEN block and
+       LOOKUP block pointers.  Beware.
+
+
+
+
+
+
+NOTES ON USING WILD                                      Page B-2
+                                                        11 Jun 79
+
+
+      The  following  subroutines  are  also  documented  in  the
+ Software  Notebooks,  but  are included here for added exposure.
+ To type a standard LOOKUP or ENTER error message, the  following
+ routines are quite useful:
+
+
+  o  To type out a message which  includes  the  filename,  error
+     code, etc.:
+
+          MOVEI T1, address of extended LOOKUP/ENTER block
+          MOVEI T2, length of LOOKUP block
+          MOVEI T3, address of SCAN block
+          PUSHJ P, E.LKEN##
+
+
+  o  To type out only the code  and  its  meaning  (no  filename,
+     etc.):
+
+          MOVE1 T1, error-code
+          PUSHJ P, .LKERR##
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX C
+
+                   CHANGES MADE TO SCAN & WILD
+
+
+
+
+
+
+
+
+             Differences In SCAN & WILD Between the
+                 Digital Equipment Corp. Version
+                               and
+                  On-Line Systems, Inc. Version
+
+
+
+
+
+
+      For the most part, no major changes have been made  to  the
+ DEC  released  versions.   Some  code  has  been  added, and the
+ characteristics of other code have been  slightly  altered.   In
+ particular:
+
+
+    o  Modules for Space Allocation and Random Number  Generation
+       have been added to SCAN.
+
+    o  The subroutine .TRDXW in  SCAN  has  been  fixed  to  work
+       correctly.   The  digits A,B,C,D,E,F,...  used to come out
+       one digit too high (B,C,D,E,F,G,...).
+
+    o  Code has been added to save any "T" accumulator into which
+       a  value  is  not  being returned.  (DEC clobbered the "T"
+       accumulators at will, since they were "temporarY").   This
+       makes it simpler to use SCAN with existing software, which
+       may  have  a  more  or  less  arbitrary  set  of  register
+       conventions.
+
+    o  A number of additional  single-character  output  routines
+       have  been  added.   These  perform the task of printing a
+       single special character, in the same way that  .TCOLN  is
+       used  to  easily  print  a  colon character.  The routines
+       which have been added are identifiable in the  list  given
+CHANGES MADE TO SCAN & WILD                              Page C-2
+                                                        11 Jun 79
+
+
+       earlier  (see  Chapter Two) by the asterisk in the outside
+       margin.
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX D
+
+                 SCNMAC:  COMMAND SCANNER MACROS
+
+
+
+
+
+
+
+
+      This is a listing of the contents of SCNMAC.MAC,  which  is
+ the  file  containing  most of the MACROS and parameters used by
+ SCAN's routines.  It is accessed by the
+
+           SEARCH SCNMAC
+
+ statement at the beginning of a program using SCAN.
+
+
+                 SCNMAC - COMMAND SCANNER MACROS
+
+
+
+        SUBTTL  COMMAND SCANNER MACROS %7(105) 25-AUG-74
+  
+  
+  ;MACRO DEFINITIONS OF GENERAL USE
+  
+  ;DEFAULTS
+  
+  ;DM ABBREVIATION,MAX,ADEFAULT,PDEFAULT
+  ;  DEFINES SYMBOLS MX.ABBREVIATION,
+  ;  AD.ABBREVIATION, AND PD.ABBREVIATION TO
+  ;  BE THE MAXIMUM ALLOWED VALUE, THE
+  ;  DEFAULT IF THE KEYWORD IS ABSENT, AND
+  ;  THE DEFAULT IF THE KEYWORD IS PRESENT
+  ;  RESPECTIVELY UNLESS THE CORRESPONDING
+  ;  SYMBOL IS ALREADY DEFINED.
+  
+  
+   DEFINE       DM(ABBR,MAX,ADEF,PDEF),<
+        ND      MX.'ABBR,MAX
+                ND      AD.'ABBR,ADEF
+                ND      PD.'ABBR,PDEF>
+  
+SCNMAC:  COMMAND SCANNER MACROS                          Page D-2
+                                                        11 Jun 79
+
+
+  
+  ;  KEYS (NAME,LIST) WILL DEFINE A LIST OF KEYS BY NAME NAME
+  ;     NAME CAN BE UP TO 4 CHARS.  (DEFINES NAME.T AND NAME.L)
+  ;     LIST IS SIXBIT NAMES SEPARATED BY COMMAS.
+  ;     DEFINES NAME CONCATENATED WITH START OF ITEM IN LIST
+  ;     AS INDEX IN LIST UNLESS THE ITEM BEGINS WITH "*"
+  
+  
+  
+  
+  
+    ;SWITCH SCANNING MACROS AND TABLES
+  
+  ;  SWTCHS IS THE MACRO LISTING ALL KNOWN
+  ;  SWITCHES.  IT INCLUDES THE NAME AND
+  ;  STORAGE LOCATION FOR VALUE TYPES, IT
+  ;  ALSO HAS THE MAX AND DEFAULT AND
+  ;  PROCESSOR FOR KEY-VALUE TYPES, IT POINTS
+  ;  TO THE KEYS AND HAS THE DEFAULT IF ANY
+  ;  FOR STAND-ALONE TYPES, IT HAS THE VALUE.   
+  ;WHEN THE SWITCH SCANNING TABLES ARE TO BE BUILT, INVOKE
+  ;THE MACRO DOSCAN WITH 5-CHAR ARGUMENT TO USE AS SYMBOL PREFIX
+  ;IT WILL DEFINE XXXXXN,L,P,M,D
+  
+  
+SCNMAC:  COMMAND SCANNER MACROS                          Page D-3
+                                                        11 Jun 79
+
+
+  ;  SL NAME,STORAGE,TABLE-NAME,DEFAULT,FLAGS
+  ;     DEFINES A LIST OF KEY-VALUES (SEE KEYS MACRO)
+  ;     DEFAULT IS THE ORDINAL OR 0 IF NO DEFAULT
+  ;     IF LH(STORAGE)=7777B11, STORAGE = ROUTINE TO PROCESS
+  ;
+  ;  SP NAME,STORAGE,PROCESSOR,ABBREVIATION,FLAGS
+  ;     DEFINES A VALUE PARAMETER WHOSE DEFAULTS
+  ;      ARE DEFINED AT THE BEGINNING OF THE PROGRAM
+  ;      BY "DM" USING THE SAME ABBREVIATION
+  ;     PROCESSOR IS THE JUMP ADDRESS IN SWITCH PROCESSING
+  ;      IT WILL BE CALLED WITH P1=SWITCH OFFSET IN TABLE
+  ;      AND P2=POINTER TO 4-WORD BLOCK OF
+  ;      INTERNAL OR EXTERNAL STUFF
+  ;     IF MAX=0 AND FS.LRG, THEN ANY VALUE CAN BE STORED
+  ;      ELSE, 0.LE.VALUE.LE.MAX
+  ;
+  ;     0.LE.MAX,DEFAULT.LT.2**17 UNLESS FS.LRG
+  ;
+  ;     IF MAX=0 AND NOT FS.LRG, THEN
+  ;     PROCESSOR IS AN IMMEDIATE ACTION
+  ;      WHICH WILL ALWAYS BE CALLED
+  ;      ELSE, PROCESSOR WILL BE CALLED ONLY IF ":"
+  ;
+  ;  SS NAME,STORAGE,VALUE,FLAGS
+  ;     DEFINES A STAND-ALONE PARAMETER
+  ;
+  ;     IN ALL CASES, STORAGE IS A BYTE POINTER.
+  ;      IF A FULL WORD, ONLY THE ADDRESS IS NEEDED
+  ;      IF A MULTIPLE WORD, THE BYTE SIZE IS 65-#WORDS
+  ;      (UP TO 28)
+  ;      IF A FILE SPECIFICATION, THE LENGTH IS HELD
+  ;      IN MX.ABBREVIATION
+  ;      IF POINTER IS 7777??,,??????  THEN RH(POINTER)
+  ;      IS DISPATCH ADDRESS OF PROCESSOR WHICH TAKES
+  ;      KEYWORD SWITCH VALUES
+  ;
+  ;  SN NAME,STORAGE,FLAGS
+  ;     DEFINES A STAND-ALONE PARAMETER WHICH TAKES VALUE
+  ;      1 IF /NAME, AND VALUE 0 IF /NONAME
+  
+  ;FLAGS WHICH CAN BE DEFINED IN SWITCH TABLE
+  >FS.NFS==1B0  ;THIS SWITCH IS NEVER PART OF A
+                ;FILE SPECIFICATION
+                ;  THIS SHOULD BE SET ON GLOBAL SWITCHES
+                ;  ** VERY IMPORTANT TO GET RIGHT **
+  >FS.LRG==1B1  ;THE MAX AND DEFAULT VALUES ARE 0 OR .GT.  2**17
+  >FS.NUE==1B2  ;NO USER EXIT ON THIS SWITCH
+  >FS.VRQ==1B3  ;VALUE REQUIRED
+  >FS.OBV==1B4  ;OR BIT VALUES TO RIGHT HALF
+  >FS.NOS==1B5  ;SWITCH TAKES "NO" PREFIX
+                ;(INTERNAL FOR SN MACRO ONLY)
+  >FS.NCM==1B6  ;SWITCH DOES NOT CONSTITUTE A COMMAND [102]
+                ;  (FOR /RUN, /OPTION, /EXIT)
+  
+SCNMAC:  COMMAND SCANNER MACROS                          Page D-4
+                                                        11 Jun 79
+
+
+  ;WORDS IN FILE SPEC AREA
+  .FXDEV==0     ;DEVICE (NON-ZERO IF ANY PART OF SPEC)
+  .FXNAM==1     ;NAME (NON-ZERO IF NAME PRESENT)
+  .FXNMM==2     ;NAME MASK
+  .FXEXT==3     ;EXTENSION,,EXTENSION MASK (NON-ZERO DOT PRESENT)
+  .FXMOD==4     ;MODIFIER WORD
+  .FXMOM==5     ;MODIFIER MASK
+  .FXDIR==6     ;DIRECTORY WORD (EACH HALF=0 IF DEFAULT;
+                ;SFD:0 IF END)
+  .FXDIM==7     ;DIRECTORY MASK
+  .FXBFR==22    ;/BEFORE
+  .FXSNC==23    ;/SINCE
+  .FXABF==24    ;/ABEFORE
+  .FXASN==25    ;/ASINCE
+  .FXFLI==26    ;FILE MIN SIZE (WORDS)
+  .FXFLM==27    ;FILE MAX SIZE (WORDS)
+  .FXEST==30    ;/ESTIMATE
+  .FXVER==31    ;/VERSION
+  
+  ;LENGTHS OF FILE SPEC AREA
+  .FXLEN==32    ;LENGTH OF ONE SPECIFICATION
+  .FXLND==6     ;LENGTH OF DIRECTORY (UFD+SFD'S)
+  
+  ;BYTES IN SCAN MOD WORD
+  FX.NDV==1B0   ;NULL DEVICE
+  FX.NUL==1B1   ;NULL EXTENSION
+  FX.DIR==1B2   ;DIRECTORY SPECIFIED (MOD=0 IF [-])
+  FX.PHY==1B3   ;/PHYSICAL
+  FX.NOM==1B4   ;/OKNONE
+  FX.DFX==1B5   ;DIRECTORY DOES NOT NEED FIX-UP BY WILD
+  FX.TRM==7B8   ;CODE FOR SPEC'S TERMINATION
+        .FXTRA==1       ;& (AND)
+        .FXTRO==2       ;!  (OR)
+        .FXTRN==3       ;- (NOT)
+        .FXTRC==4       ;+ (CONCATENATE)
+  FX.STR==1B9   ;/STRS
+  FX.PRT==1B10  ;/OKPROT
+  FX.SUP==1B11  ;/ERSUPERSEDE
+  
+  FX.DEN==7B23  ;/DENSITY       [105]
+  FX.PAR==1B24  ;/PARITY
+  FX.PRO==777B35        ;/PROTECTION
+  
+SCNMAC:  COMMAND SCANNER MACROS                          Page D-5
+                                                        11 Jun 79
+
+
+  ;SPECIAL CHARACTERS FOR SCAN
+  .CHALX==0     ;ALTMODE
+  .CHEOL==-1    ;END OF LINE
+  .CHEOF==-2    ;END OF FILE
+  
+  ;GUIDE WORDS (TURNED INTO PSEUDO CHARACTERS)
+  
+  .CHAND==4000  ;'AND'                                  [101]
+  .CHOR==04001  ;'OR'                                   [101]
+  .CHNOT==4002  ;'NOT'                                  [101]
+  .CHTO==04003  ;'TO'                                   [103]
+  .CHFRM==4004  ;'FROM'                                 [103]
+  .CHINP==4005  ;'INPUT'                                [103]
+  .CHOUT==4006  ;'OUTPUT'                               [103]
+  .CHSRC==4007  ;'SOURCE'                               [103]
+  .CHLST==4010  ;'LIST'                                 [103]
+  .CHOBJ==4011  ;'OBJECT'                               [103]
+  
+  
+  ;FLAGS FOR .ISCAN CALL
+  
+  FS.ICL==1B17  ;IGNORE SPECIAL COMMAND-LINE HANDLING
+  
+  ;FLAGS FOR .TSCAN CALL
+  
+  FS.MOT==1B18  ;MULTIPLE OUTPUT SPECS POSSIBLE
+  FS.MIO==1B19  ;MIXED INPUT AND OUTPUT SPECS
+  
+  ;FLAGS FOR .TDIRB CALL
+  
+  TS.DRW==0     ;SINGLE WORD
+  TS.DRP==1     ;PATH POINTER
+  TS.DRB==2     ;BIWORD (IE, SCAN SPEC FORMAT)
+  
+  ;VALUES FROM .VERBO
+  
+  JWW.CN==1B33  ;/VERBOS:CONTINUATION
+  JWW.FL==1B34  ;/VERBOS:FIRST
+  JWW.PR==1B35  ;/VERBOS:PREFIX
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX E
+
+              $SCNDC:  COMMAND SCANNER DECLARATIONS
+
+
+
+
+
+
+
+
+$SCNDC is a part of SCAN.MAC, which generates $SCNDC.UNV whenever
+SCAN is assembled.  It contains the definitions of some SCAN/WILD
+related symbols, and the accumulators, for use by programs  which
+must interface with SCAN & WILD.  It is accessed by the
+
+          SEARCH $SCNDC
+
+statement at the beginning of the program using SCAN or WILD.
+
+
+
+
+
+ 
+ 
+        UNIVERSAL $SCNDC -- DECLARATIONS FOR COMMAND SCANNER
+        SEARCH  C,SCNMAC        ;SEARCH PARAMETERS FOR THIS FILE
+ 
+ ;AC NAMES
+ 
+ T1=1           ;TEMPORARIES
+ T2=2
+ T3=3
+ T4=4
+ 
+ P1=5           ;PRESERVED ACS FOR CALLING ROUTINES
+ P2=6
+ P3=7
+ P4=10
+ 
+ P=17           ;PUSH-DOWN POINTER
+ 
+ 
+ DM MSG,77777,0,7       ;MESSAGE
+ DM PRO,777,0,277       ;PROTECTION
+$SCNDC:  COMMAND SCANNER DECLARATIONS                    Page E-2
+                                                        11 Jun 79
+
+
+ DM RNC,777777,0,0      ;RUN CORE
+ DM RUN,7,-1,1          ;RUN OFFSET
+ 
+ VRBADX==10             ;/MESSAGE:ADDRESS
+ 
+ PRGEND
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX F
+
+            EXAMPLES:  SCAN'S INTERNAL SWITCH TABLES
+
+
+
+
+
+
+
+
+It was mentioned at various points in  the  text  that  SCAN  has
+certain  switches built into it.  As might be expected, SCAN uses
+itself to process htese switches.  Therefore, it  is  interesting
+and  useful  to see just how SCAN defines its own switches, using
+the DOSCAN, SWTCHS, DM and KEYS macros.
+
+
+
+
+
+ 
+ 
+ 
+ 
+ ;HERE WE DEFINE STANDARD SWITCHES PROCESSED IN SCAN
+ 
+        DEFINE  SWTCHS,<
+ SP ABEFORE,F.ABF,.SWDTP,,FS.VRQ
+ SP ASINCE,F.ASN,.SWDTP,,FS.VRQ
+ SP BEFORE,F.BFR,.SWDTP,,FS.VRQ
+ SL DENSITY,<POINTR (F.MOD,FX.DEN)>,DENS,DENSIN
+ SS ERNONE,<POINTR (F.MOD,FX.NOM)>,0
+ SS ERPROTECTION,<POINTR (F.MOD,FX.PRT)>,0
+ SS ERSUPERSEDE,<POINTR (F.MOD,FX.SUP)>,1
+ SP ESTIMATE,F.EST,.BLOKW,,FS.VRQ
+ SP EXIT,N.DEV,SWEXIT,,FS.NFS!FS.NCM
+ SL *HELP,<-1,,.SWHLP>,HELP,HELPTEXT,FS.NFS!FS.NCM
+ SP LENGTH,F.FLM,SWLEN,,FS.VRQ
+ SL MESSAGE,<*F,.FLVRB##>,VRB,PD.MSG,FS.OBV!FS.NFS!FS.NCM
+ SS NOOPTION,OPTION,0,FS.NFS!FS.NCM
+ 
+ SS OKNONE,<POINTR (F.MOD,FX.NOM)>,1
+ SS OKPROTECTION,<POINTR (F.MOD,FX.PRT)>,1
+ SS OKSUPERSEDE,<POINTR (F.MOD,FX.SUP)>,0
+ SP OPTION,OPTION,.SWSIX,OPT,FS.NFS!FS.NCM
+EXAMPLES:  SCAN'S INTERNAL SWITCH TABLES                 Page F-2
+                                                        11 Jun 79
+
+
+ SL PARITY,<POINTR (F.MOD,FX.PAR)>,PAR,PARODD
+ SN PHYSICAL,<POINTR (F.MOD,FX.PHY)>
+ SP PROTECTION,<POINTR (F.MOD,FX.PRO)>,.SWOCT,PRO
+ SP RUN,N.ZER,.SWFIL,RNL,FS.NFS!FS.NCM!FS.VRQ
+ SP RUNCORE,N.CORE,.SWCOR,RNC,FS.LRG!FS.NFS!FS.NCM
+ SP RUNOFFSET,N.OFFS,.SWOCT,RUN,FS.NFS!FS.NCM
+ SP SINCE,F.SNC,.SWDTP,,FS.VRQ
+ SN STRS,<POINTR (F.MOD,FX.STR)>
+ SP TMPFILE,,SWTMP,,FS.VRQ!FS.NFS!FS.NCM
+ SP VERSION,F.VER,.VERSW,,FS.VRQ
+ >
+ 
+EXAMPLES:  SCAN'S INTERNAL SWITCH TABLES                 Page F-3
+                                                        11 Jun 79
+
+
+ ;NOW BUILD THE TABLES FROM THE SWTCHS MACRO
+        MX.OPT==1
+        PD.OPT==0
+        MX.RNL==N.EZER-N.ZER+1
+        PD.RNL==0
+ 
+ 
+        DOSCAN  (STSWT)
+ 
+ 
+ ;HERE WE BUILD THE KEYS
+ 
+ KEYS (DENS,<200,556,800,1600,6250,%%,$$,INSTALLATION>)
+ KEYS (HELP,<SWITCHES,TEXT>)
+ KEYS (PAR,<EVEN,ODD>)
+                                ;  --DUMMIES--          [321]
+ KEYS (VRB,<PREFIX,FIRST,CONTINUATION,$$,$%,%$,%%,ADDRESS>)
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX G
+
+                        EXAMPLES:  ALKFIL
+
+
+
+
+
+
+
+
+ALKFIL is a non-DEC program written to perform the tasks of  file
+space allocation.  It uses SCAN to process the command lines, and
+is a useful example of the various options available to the  SCAN
+& WILD user.
+
+
+
+
+
+ 
+ DEFINE SWTCHS<
+ SP     SIZE,FILSIZ,.DECNW##,FIL,FS.VRQ!FS.NCM          ;[#46]
+ SP     MINDRIVES,MINDRV,.DECNW##,MND,FS.VRQ!FS.NFS     ;[#51]
+ SP     MAXDRIVES,MAXDRV,.DECNW##,MND,FS.VRQ!FS.NFS     ;[#51]
+ SP     PARTITIONS,PARTNS,GETPRT##,PRT,FS.VRQ!FS.NFS
+ SP     REPEAT,RPTFCT,.DECNW##,RPT,FS.VRQ!FS.NFS        ;[#33]
+ SL     SPLIT,SPLIND,SPLT,,FS.VRQ!FS.NFS
+ SL     ALLOCATE,ALCIND,ALOC,,FS.VRQ!FS.NFS
+ SL     ADDRESSING,ADRIND,ADRS,,FS.VRQ!FS.NFS
+ SP     BUFSIZ,BUFSIZ,.DECNW##,BUFS,FS.VRQ!FS.NFS
+ SP     UNIT,UNINAM,GETUNI##,,FS.VRQ!FS.NFS             ;[#25]
+ SP     BLOCK,BLKNUM,GETBLK##,,FS.VRQ!FS.NFS            ;[#23]
+ SP     LBN,LBNNUM,GETLBN##,,FS.VRQ!FS.NFS              ;[#31]
+ SP     STATUS,STSOBJ,.SIXSW##,,FS.NFS                  ;[#25]
+ SS     STRSTS,<POINTR(F,F.STRS)>,1
+ SS     CREATE,<POINTR(F,F.CREA)>,1
+ SS     PREALLOC,<POINTR(F,F.PRAL)>,1
+ SS     COPY,<POINTR(F,F.COPY)>,1
+ SS     NOLOG,<POINTR(F,F.NLOG)>,1                      ;[#46]
+ SP     SPOOL,SPOOL,.SIXSW##,,FS.VRQ!FS.NFS             ;[#57]
+ SS     DEBUG,<POINTR(F,F.DEBG)>,1                      ;[#60]
+ >
+ 
+ 
+EXAMPLES:  ALKFIL                                        Page G-2
+                                                        11 Jun 79
+
+
+ ;EXPAND SWITCH TABLES FOR SCAN:
+ DOSCAN(SWIT)
+ 
+ 
+ ;DEFINE DEFAULTS AND KEY-LISTS
+ 
+ ;      NAME,MAX,ABSENT-DEFAULT,PRESENT-DEFAULT
+ DM     (MND,^D31,1,1)                          ;[#51]
+ DM     (MXD,^D32,32,32)                        ;[#51]
+ DM     (PRT,^D65,^D30,1)                       ;[#65]          
+;0 IMPLIES MINIMUM NEEDED
+ INTERNAL       MX.PRT,AD.PRT                   ;[#43] FOR USE
+                                                ;[#43] BY OTHER
+                                                ;[#43] MODULES
+ DM     (RPT,1,1,1)                             ;[#32]
+ DM     (BUF,^D100,^D25,^D5)                    ;[#52]
+ DM     (FIL,377777,^D1000,^D1000)              ;[#40]
+ 
+ 
+ ;******** IMPORTANT *********
+ ;IF THE ORDER OF ARGUMENTS TO THE KEYS MACRO
+ ;IS CHANGED, THEN THE CORRESPONDING $$XXX
+ ;TABLE MUST ALSO BE CHANGED.
+ 
+ KEYS   (SPLT,<BEST,LINEAR,PROMPT>)     ;[#61]
+ KEYS   (ALOC,<SPACE,PHYSICAL,LOGICAL,PROMPT>) ;[#60]
+ KEYS   (ADRS,<FIRST,PROMPT>)           ;[#22]
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX H
+
+                     CUSPS & THEIR SCANNERS
+
+
+
+
+
+
+
+
+Not all DEC programs use SCAN & WILD.  Most of  the  more  recent
+(from  about  1976 on) tend to use it, and some of the older ones
+use it.  Many of the remaining programs, especially the very  old
+CUSPS  (REACT,  SOUP,  etc.)  each have their own code to process
+their own (usually different) styles of commands.  The list  that
+follows indicates which DEC (and some non-DEC) programs use SCAN,
+and which use their own scanners.  It should proves useful  as  a
+source  of further information on using scan.  In particular, the
+module LNKSCN of LINK-10 is an excellant reference to  using  the
+switch-defining macros.
+
+
+
+
+
+CUSP            SCANNER         COMMENTS
+----------      ------------    -----------------------
+
+
+ALGOL           own
+BACKUP          SCAN            .VSCAN
+BASIC           own
+BATCON (MPB)    own
+BATCON (GALAXY) SCAN
+BLISS-10        own             Compiler fake's it (no SFDs)
+BOOT11          own
+CHANGE          own
+COBOL           own
+COMPIL          own
+CREDIR          SCAN            Uses .PSCAN
+CUSPS & THEIR SCANNERS                                   Page H-2
+                                                        11 Jun 79
+
+
+CUSP            SCANNER         COMMENTS
+----------      ------------    -----------------------
+
+
+CREF            own
+DAEMON          old SCAN        Has SCAN V2 built into it
+DIRECT          SCAN
+FILCOM          own
+FILEX           own
+FORTRAN-10      SCAN
+GALAXY          SCAN            All components
+HELP            SCAN
+INITIA          own             even simulates .OSCAN
+ISAM            own
+JQ              SCAN            (non-DEC)  uses .TSCAN
+KJOB (MPB)      own
+LIBARY          own
+LINED           own
+LINK-10         SCAN            Excellant example (LNKSCN)
+LOGIN           SCAN
+LOGOUT (MPB)    own
+LOGOUT (GALAXY) SCAN
+LPTSPL (MPB)    own             Same for other spoolers
+LPTSPL (GALAXY) SCAN            -dittoe-
+MACRO           own
+MAIL            own             (non-DEC) good job of faking it
+MAKLIB          SCAN
+OMOUNT          own
+OPSER           own
+PIP             own
+QUEUE (MPB)     SCAN            .TSCAN
+QUEUE (GALAXY)  SCAN            .TSCAN
+REACT           own
+RERUN           own
+RUNOFF          SCAN            .TSCAN
+SETSRC          own
+SORT-10         SCAN
+SOS             own
+SOUP            own
+SYSTAT          own
+TECO            own
+UMOUNT          own
+
+
+
+
+
+
+
+
+
+
+
+
+                           APPENDIX I
+
+                               INDEX
+
+
+
+                                                     Page Index-1
+                                                                 
+
+
+                              INDEX
+
+
+
+
+ $scndc . . . . . . . . . . . . . E-1
+ .aplst . . . . . . . . . . . . . 7-2
+ .ascqw . . . . . . . . . . . . . 2-6
+ .asqcq . . . . . . . . . . . . . 2-6
+ .blokc . . . . . . . . . . . . . 2-9
+ .blokw . . . . . . . . . . . . . 2-9
+ .ch??? symbols . . . . . . . . . D-5
+ .clrbf . . . . . . . . . . . . . 2-13
+ .cntdt . . . . . . . . . . . . . 2-11
+ .cnvdt . . . . . . . . . . . . . 2-11
+ .corec . . . . . . . . . . . . . 2-9
+ .corew . . . . . . . . . . . . . 2-9
+ .datic . . . . . . . . . . . . . 2-6
+ .datif . . . . . . . . . . . . . 2-7
+ .datig . . . . . . . . . . . . . 2-7
+ .datim . . . . . . . . . . . . . 2-6
+ .datip . . . . . . . . . . . . . 2-6
+ .datiq . . . . . . . . . . . . . 2-6
+ .decnc . . . . . . . . . . . . . 2-6
+ .decnw . . . . . . . . . . . . . 2-6
+ .filin . . . . . . . . . . . . . 2-10, 6-2
+ .fx??? offsets . . . . . . . . . D-4
+ .gtnow . . . . . . . . . . . . . 2-11
+ .gtwds . . . . . . . . . . . . . 2-2
+ .gtwrd . . . . . . . . . . . . . 2-13
+ .iscan . . . . . . . . . . . . . 2-1, 9-1, D-5
+ .iscan flags . . . . . . . . . . D-5
+ .islgi . . . . . . . . . . . . . 2-14
+ .lknam . . . . . . . . . . . . . 2-11, 16-1
+ .mkmsk . . . . . . . . . . . . . 2-14
+ .mkpjn . . . . . . . . . . . . . 2-11
+ .namec . . . . . . . . . . . . . 2-6
+ .namew . . . . . . . . . . . . . 2-6
+ .octnc . . . . . . . . . . . . . 2-6
+ .octnw . . . . . . . . . . . . . 2-6
+ .oscan . . . . . . . . . . . . . H-2
+ .pop4t . . . . . . . . . . . . . 2-2
+ .popj  . . . . . . . . . . . . . 2-2
+ .popj1 . . . . . . . . . . . . . 2-2
+ .pscan . . . . . . . . . . . . . 13-1, 15-3, H-1
+ .psh4t . . . . . . . . . . . . . 2-2
+ .ptwrd . . . . . . . . . . . . . 2-13
+ .qscan . . . . . . . . . . . . . 13-1, 15-3
+ .rand  . . . . . . . . . . . . . 2-11
+ .randm . . . . . . . . . . . . . 2-11
+ .reeat . . . . . . . . . . . . . 2-13
+ .runcm . . . . . . . . . . . . . 2-11
+ .savex . . . . . . . . . . . . . 2-2
+ .savxt . . . . . . . . . . . . . 2-2
+                                                     Page Index-2
+                                                                 
+
+
+ .sixmc . . . . . . . . . . . . . 2-6
+ .sixmw . . . . . . . . . . . . . 2-6
+ .sixqc . . . . . . . . . . . . . 2-6
+ .sixqw . . . . . . . . . . . . . 2-6
+ .sixsc . . . . . . . . . . . . . 2-6
+ .sixsw . . . . . . . . . . . . . 2-6
+ .stopb . . . . . . . . . . . . . 2-13, 8-3
+ .t2crl . . . . . . . . . . . . . 2-4
+ .t2spc . . . . . . . . . . . . . 2-4
+ .t4crl . . . . . . . . . . . . . 2-4
+ .t4spc . . . . . . . . . . . . . 2-4
+ .tampr . . . . . . . . . . . . . 2-4
+ .tapos . . . . . . . . . . . . . 2-4
+ .tarow . . . . . . . . . . . . . 2-4
+ .tastr . . . . . . . . . . . . . 2-4
+ .tatsi . . . . . . . . . . . . . 2-4
+ .tbksl . . . . . . . . . . . . . 2-4
+ .tblok . . . . . . . . . . . . . 2-3
+ .tcart . . . . . . . . . . . . . 2-4
+ .tchar . . . . . . . . . . . . . 2-4
+ .tcoln . . . . . . . . . . . . . 2-4
+ .tcoma . . . . . . . . . . . . . 2-4
+ .tcorw . . . . . . . . . . . . . 2-3
+ .tcrlf . . . . . . . . . . . . . 2-4
+ .tdash . . . . . . . . . . . . . 2-4
+ .tdate . . . . . . . . . . . . . 2-3
+ .tdatn . . . . . . . . . . . . . 2-3
+ .tdec2 . . . . . . . . . . . . . 2-3
+ .tdecw . . . . . . . . . . . . . 2-3
+ .tdirb . . . . . . . . . . . . . 2-14, D-5
+ .tdirb flags . . . . . . . . . . D-5
+ .tdolr . . . . . . . . . . . . . 2-4
+ .tdttm . . . . . . . . . . . . . 2-3
+ .tequl . . . . . . . . . . . . . 2-4
+ .texcl . . . . . . . . . . . . . 2-4
+ .tfchr . . . . . . . . . . . . . 2-4
+ .thash . . . . . . . . . . . . . 2-4
+ .tican . . . . . . . . . . . . . 2-9
+ .tlang . . . . . . . . . . . . . 2-4
+ .tlbrk . . . . . . . . . . . . . 2-4
+ .tlpar . . . . . . . . . . . . . 2-4
+ .tmohw . . . . . . . . . . . . . 2-2
+ .toctw . . . . . . . . . . . . . 2-3
+ .toleb . . . . . . . . . . . . . 2-3
+ .tpcnt . . . . . . . . . . . . . 2-4
+ .tplus . . . . . . . . . . . . . 2-4
+ .tppnw . . . . . . . . . . . . . 2-3
+ .tquot . . . . . . . . . . . . . 2-4
+ .trang . . . . . . . . . . . . . 2-4
+ .trbrk . . . . . . . . . . . . . 2-4
+ .trdxw . . . . . . . . . . . . . 2-3
+ .trpar . . . . . . . . . . . . . 2-4
+ .tscan . . . . . . . . . . . . . D-5, H-2
+ .tscan flags . . . . . . . . . . D-5
+                                                     Page Index-3
+                                                                 
+
+
+ .tsemi . . . . . . . . . . . . . 2-4
+ .tsixn . . . . . . . . . . . . . 2-2
+ .tslsh . . . . . . . . . . . . . 2-4
+ .tspac . . . . . . . . . . . . . 2-4
+ .tstrg . . . . . . . . . . . . . 2-2
+ .ttabc . . . . . . . . . . . . . 2-4
+ .ttime . . . . . . . . . . . . . 2-3
+ .ttimn . . . . . . . . . . . . . 2-3
+ .tverw . . . . . . . . . . . . . 2-3
+ .txwdw . . . . . . . . . . . . . 2-3
+ .txwww . . . . . . . . . . . . . 2-2
+ .tyoch . . . . . . . . . . . . . 2-1
+ .verbo . . . . . . . . . . . . . D-5
+ .verbo flags . . . . . . . . . . D-5
+ .versc . . . . . . . . . . . . . 2-8
+ .versw . . . . . . . . . . . . . 2-8
+ .vscan . . . . . . . . . . . . . H-1
+ /run switch processing . . . . . 2-11
+ ????.l . . . . . . . . . . . . . 5-3
+ ????.t . . . . . . . . . . . . . 5-3
+ ?????d . . . . . . . . . . . . . 5-4
+ ?????l . . . . . . . . . . . . . 5-4
+ ?????m . . . . . . . . . . . . . 5-4
+ ?????n . . . . . . . . . . . . . 5-4
+ ?????p . . . . . . . . . . . . . 5-4
+ ????xx . . . . . . . . . . . . . 5-4
+
+ Accumulator names  . . . . . . . E-1
+ Acessing scan  . . . . . . . . . 14-1
+ Ad.??? . . . . . . . . . . . . . 5-1, 5-3
+
+ Ccl job number . . . . . . . . . 2-11
+ Chaining execution . . . . . . . 2-11
+ Character checking . . . . . . . 2-9
+ Character input  . . . . . . . . 2-9, 2-13
+ Character output . . . . . . . . 2-4
+ Charater input - positioning . . 2-13
+ Clearing input buffers . . . . . 2-13
+ Command scanners . . . . . . . . 3-1
+ Conversion - scan blocks . . . . 2-13
+ Core sizes - inputting . . . . . 2-9
+ Core sizes - typing  . . . . . . 2-3
+ Credir . . . . . . . . . . . . . 3-2, 13-3, 15-3
+
+ Date conversion routines . . . . 2-11
+ Date/time  . . . . . . . . . . . 2-3, 2-6
+ Dec date/time - conversion . . . 2-11
+ Default values . . . . . . . . . 3-5
+ Defaults - absent  . . . . . . . 5-3
+ Defaults - present . . . . . . . 5-3
+ Defining default values  . . . . 5-1
+ Defining keywords for sl switches  5-2
+ Defining scanner tables  . . . . 4-1
+ Defining switch parameters . . . 4-1
+                                                     Page Index-4
+                                                                 
+
+
+ Defining switches  . . . . . . . 3-5
+ Defining the storage field . . . 6-1
+ Defining values for sl switches  5-1
+ Differences - dec/ols  . . . . . C-1
+ Dm macro . . . . . . . . . . . . 5-1, 14-1, D-1
+ Dm macro definition  . . . . . . D-1
+ Doscan macro . . . . . . . . . . 4-1 to 4-2, 5-4, 10-1, 10-4, 
+                                  14-1, 15-5, 15-10, A-2, D-2, 
+                                  F-3, G-2
+
+ Enter/lookup blocks  . . . . . . 2-14
+ Enter/lookup/open blocks - typing  2-3
+ Example - credir . . . . . . . . 15-3
+
+ File sizes - inputting . . . . . 2-9
+ File sizes - typing  . . . . . . 2-3
+ File specification format  . . . 3-4
+ File specification input . . . . 2-10
+ File specification inputting . . 2-10, 8-1
+ File specification output  . . . 2-3
+ Fs.??? flags . . . . . . . . . . 4-4, D-3
+ Fs.??? symbols . . . . . . . . . D-4
+ Fs.icl . . . . . . . . . . . . . 9-3, D-5
+ Fs.lrg . . . . . . . . . . . . . 4-5
+ Fs.mio . . . . . . . . . . . . . 10-3, D-5
+ Fs.mot . . . . . . . . . . . . . 10-3, D-5
+ Fs.ncm . . . . . . . . . . . . . 4-5
+ Fs.nfs . . . . . . . . . . . . . 4-5
+ Fs.nos . . . . . . . . . . . . . 4-5
+ Fs.nue . . . . . . . . . . . . . 4-5
+ Fs.obv . . . . . . . . . . . . . 4-5
+ Fs.vrq . . . . . . . . . . . . . 4-5
+
+ Guide words  . . . . . . . . . . 2-10, 8-2, D-5
+
+ Helper . . . . . . . . . . . . . 10-1, 10-4
+ Helper.  . . . . . . . . . . . . 10-4
+ Helper.rel . . . . . . . . . . . 14-2
+
+ Initialization . . . . . . . . . 2-1
+ Input line positioning . . . . . 2-13
+ Input routines . . . . . . . . . 2-6
+ Input routines - character . . . 2-13
+ Input routines - characters  . . 2-9
+ Input routines - clearing input buffers  2-13
+ Input routines - core & file sizes  2-9
+ Input routines - date/time . . . 2-6
+ Input routines - file specifications  2-10
+ Input routines - string and numeric  2-6
+ Input routines - version numbers  2-8
+ Inputting ascii strings  . . . . 2-6
+ Inputting core sizes . . . . . . 2-9
+ Inputting dates - future . . . . 2-7
+ Inputting dates - general  . . . 2-6
+                                                     Page Index-5
+                                                                 
+
+
+ Inputting dates - past . . . . . 2-6
+ Inputting dates - universal format  2-6
+ Inputting decimal numbers  . . . 2-6
+ Inputting file sizes . . . . . . 2-9
+ Inputting file specifications  . 8-1
+ Inputting file specificatons . . 2-10
+ Inputting numbers - decimal  . . 2-6
+ Inputting numbers - octal  . . . 2-6
+ Inputting octal numbers  . . . . 2-6
+ Inputting sixbit strings . . . . 2-6
+ Inputting sixbit words . . . . . 2-6
+ Inputting sixbit words - wild  . 2-6
+ Inputting version numbers  . . . 2-8
+ Inputting words/strings - ascii  2-6
+ Inputting words/strings - sixbit  2-6
+ Inputting words/strings - wild sixbit  2-6
+ Iscan  . . . . . . . . . . . . . 9-1
+ Iscan flags  . . . . . . . . . . D-5
+
+ Jww.cn . . . . . . . . . . . . . D-5
+ Jww.fl . . . . . . . . . . . . . D-5
+ Jww.pr . . . . . . . . . . . . . D-5
+
+ Keys keys  . . . . . . . . . . . 14-1
+ Keys macro . . . . . . . . . . . 5-1 to 5-2, D-2
+ Keys macro definition  . . . . . D-2
+ Keyword table - address  . . . . 5-3
+ Keyword table - entries  . . . . 5-4
+ Keyword table - length . . . . . 5-3
+
+ Lookup/enter blocks  . . . . . . 2-14
+ Lookup/open blocks - typing  . . 2-3
+
+ Macros - dm  . . . . . . . . . . 5-1, 14-1, D-1
+ Macros - doscan  . . . . . . . . 5-4, 10-1, 10-4, 14-1, 15-5, 
+                                  15-10, A-2, D-2, F-3, G-2
+ Macros - keys  . . . . . . . . . 5-1 to 5-2, 14-1, D-2
+ Macros - sl  . . . . . . . . . . 4-3, 6-2, 14-1, D-3
+ Macros - sn  . . . . . . . . . . 4-3, 6-2, 14-1, D-3
+ Macros - sp  . . . . . . . . . . 4-4, 6-2, 14-1
+ Macros - ss  . . . . . . . . . . 4-2, 6-2, 14-1, D-3
+ Macros - swtchs  . . . . . . . . D-2
+ Manipulating lists of data . . . 2-13
+ Masks  . . . . . . . . . . . . . 2-14
+ Miscellaneous routines . . . . . 2-11
+ Mx.??? . . . . . . . . . . . . . 5-3
+ Mx.????  . . . . . . . . . . . . 5-1
+
+ Numeric output . . . . . . . . . 2-3
+
+ Open/lookup blocks - typing  . . 2-3
+ Options scanner  . . . . . . . . 11-1
+ Oscan  . . . . . . . . . . . . . 3-2, 11-1, H-2
+ Output routines - core size  . . 2-3
+                                                     Page Index-6
+                                                                 
+
+
+ Output routines - date/time  . . 2-3
+ Output routines - file size  . . 2-3
+ Output routines - file specifications  2-3
+ Output routines - numeric output  2-3
+ Output routines - open/lookup block  2-3
+ Output routines - ppn  . . . . . 2-3
+ Output routines - text . . . . . 2-2
+
+ Partial scanner  . . . . . . . . 13-1
+ Pd.??? . . . . . . . . . . . . . 5-3
+ Pointr macro . . . . . . . . . . 6-1
+ Ppns - typing  . . . . . . . . . 2-3
+ Pscan  . . . . . . . . . . . . . 3-2, 13-1, 15-3, H-1
+
+ Qscan  . . . . . . . . . . . . . 13-1, 15-3
+
+ Random number generator  . . . . 2-11
+ Register mnemonics . . . . . . . 1-2, E-1
+ Register saving  . . . . . . . . 2-2
+ Register-saving  . . . . . . . . 2-2
+ Run uuo  . . . . . . . . . . . . 2-11
+
+ Scan block conversion  . . . . . 2-13
+ Scan blocks  . . . . . . . . . . 2-13 to 2-14, 6-2
+ Scan controlling flags . . . . . 4-4
+ Scan flags - fs.lrg  . . . . . . 4-5
+ Scan flags - fs.ncm  . . . . . . 4-5
+ Scan flags - fs.nfs  . . . . . . 4-5
+ Scan flags - fs.nos  . . . . . . 4-5
+ Scan flags - fs.nue  . . . . . . 4-5
+ Scan flags - fs.obv  . . . . . . 4-5
+ Scan flags - fs.vrq  . . . . . . 4-5
+ Scan switches - sl . . . . . . . 6-2
+ Scan switches - sn . . . . . . . 6-2
+ Scan switches - sp . . . . . . . 6-2
+ Scan switches - ss . . . . . . . 6-2
+ Scnmac . . . . . . . . . . . . . D-1
+ Sixbit masks . . . . . . . . . . 2-14
+ Sl . . . . . . . . . . . . . . . 14-1
+ Sl macro . . . . . . . . . . . . 4-3, 6-2, D-3
+ Sl macro definition  . . . . . . D-3
+ Sn . . . . . . . . . . . . . . . 14-1
+ Sn macro . . . . . . . . . . . . 4-3, 6-2, D-3
+ Sn macro definition  . . . . . . D-3
+ Sp . . . . . . . . . . . . . . . 14-1
+ Sp macro . . . . . . . . . . . . 4-4, 6-2
+ Space allocation . . . . . . . . 2-2
+ Ss . . . . . . . . . . . . . . . 14-1
+ Ss macro . . . . . . . . . . . . 4-2, 6-2, D-3
+ Ss macro definition  . . . . . . D-3
+ Storage field - file specification  6-2
+ Suffixes - decimal & octal input  2-6
+ Switch formats . . . . . . . . . 3-3
+ Switch tables - defaults . . . . 5-4
+                                                     Page Index-7
+                                                                 
+
+
+ Switch tables - length . . . . . 5-4
+ Switch tables - names  . . . . . 5-4
+ Switch tables - processors . . . 5-4
+ Switch tables - storage  . . . . 5-4
+ Switch types - sl  . . . . . . . 4-3
+ Switch types - sn  . . . . . . . 4-3
+ Switch types - sp  . . . . . . . 4-4
+ Switch types - ss  . . . . . . . 4-2
+ Swtchs macro . . . . . . . . . . 3-5, D-2
+ Swtchs macro - definition  . . . 4-2
+ Swtchs macro - usage . . . . . . 4-1
+ Swtchs macro definition  . . . . D-2
+
+ Table searching  . . . . . . . . 2-11
+ Testing for logged-in jobs . . . 2-14
+ Traditional scanner  . . . . . . 10-1
+ Ts.drb . . . . . . . . . . . . . D-5
+ Ts.drp . . . . . . . . . . . . . D-5
+ Ts.drw . . . . . . . . . . . . . D-5
+ Tscan  . . . . . . . . . . . . . 3-1, 10-1, H-2
+ Tscan flags  . . . . . . . . . . D-5
+ Typing directory information . . 2-14
+ Typing lookup/enter blocks . . . 2-14
+ Typing open/lookup blocks  . . . 2-3
+ Typing path blocks . . . . . . . 2-14
+ Typing ppns  . . . . . . . . . . 2-3
+ Typing scan blocks . . . . . . . 2-14
+
+ Universal date/time - conversion  2-11
+ Universal date/time - current  . 2-11
+ Unversal date/time input . . . . 2-6
+ Using the miscellaneous routines  2-11, 2-13 to 2-14
+ Using the miscellaneous routines.  2-11, 2-14
+ Using wild . . . . . . . . . . . B-1
+
+ Verb form scanner  . . . . . . . 12-1
+ Version numbers - inputting  . . 2-8
+ Version numbers - typing . . . . 2-3
+ Vscan  . . . . . . . . . . . . . 3-2, 12-1, H-1
+
+ Wild . . . . . . . . . . . . . . 8-2 to 8-3, 8-5
+

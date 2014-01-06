@@ -1,0 +1,1678 @@
+SIMULA.DOC -- Changes from version 3(120) to version 4A(310)
+July 1978
+
+Copyright (C) 1975,1976,1977,1978
+Swedish Defence Research Institute, Stockholm, Sweden
+
+1.0	SUMMARY
+
+1.1	This  release  introduces  some  new  features  and  includes
+	corrections  to  all  but  a few known bugs or problems. This
+	version has no new deficiences and fully replaces version 3.
+
+1.2	SIMULA  is  documented in the SIMULA Language Handbook, parts
+	I, II and III, available from the  Swedish  Defence  Research
+	Institute  (FOA),  S-104  50 Stockholm 80, Sweden.        The
+	handbooks are also available  on  the  distribution  tape  in
+	RUNOFF format.
+
+1.3	The distributed version of SIMULA is developed  for  a  KI-10
+	processor.         It  will  also  run  on a KL-10 processor.
+	A KA-10 version is available from the University  of  Western
+	Ontario,  Computing  Center,  London  72, CANADA.        This
+	version  is  however  currently  not  quite   up   to   date.
+	SIMULA  runs  on all supported monitors starting with 5.06. A
+	few library procedures rely on UUO's available only  on  5.07
+	or 6.01 and upwards.
+
+1.5	The  following standard system file must be used when setting
+	up SIMULA:
+
+ 	HELPER.REL
+
+1.6	User information may be found in section 2.0 EXTERNAL CHANGES
+	and section 3.0 KNOWN BUGS AND DEFICIENCES.
+2.0	EXTERNAL CHANGES.
+
+2.1	Changes from 3A(206) to 4A(310): - A number of "Illegal memory
+	reference" errors have been corrected, mostly occurring in
+	large programs.
+	- SIMDDT:  The DISPLAY, USE and @  (indirect  command  file)
+	commands  can  now  be  used  in  almost any situation, e.g.
+	following ^C-REENTER.  The syntax of the DISPLAY command  is
+	more convenient.  Control characters like form feed (^L) are
+	displayed in "arrow mode".
+	If a program has turned off  echoing  of  input  characters,
+	SIMDDT will turn on the echo while it is active.
+	INSPECT/START repeats the reason for entering SIMDDT.
+	- Random Drawing:  NORMAL and POISSON  now  give  antithetic
+	drawings,  e.g.  Normal(a,b,u1)+Normal(a,b,u2) = 2*a if u2 =
+	-u1 initially.  Only the used random  drawing  routines  are
+	loaded from SIMLIB.REL.
+	An error in the Normal distribution has been corrected.
+	- New RTS high segment and SIMDDT file names: SIMR41, SIMR42,
+	SIMDD4.   The  old  files  (SIMR21,  SIMR22, SIMDDT) must be
+	retained if old .SAV or .EXE files from SIMULA programs  are
+	to  be  run.   Reloading is recommended to take advantage of
+	the new features  and  corrections.   Recompilation  is  not
+	necessary but is recommended.
+	- Extension .SIM is now tried first if no extension is given
+	when  running the SIMULA compiler directly via the R command.
+	Previously, a null extension was tried first.
+	-  Compiler  and run time system, as well as SIMULA programs,
+	can now be run with protection <666> (execute only).
+	-  Lines  starting with "%" (percent sign) are ignored by the
+	SIMULA compiler in anticipation of changed syntax of  OPTIONS
+	statement.   Also   makes  it  easy  to  insert  preprocessor
+	directives in source code.
+	-  The  SIMULA  RTS  now  accepts  special  characters in the
+	"FILE.EXT"  part  of  a  file  specification.   The   special
+	characters  are  coded  in  octal  sixbit,  preceded by a "#"
+	character. The whole or part of FILE and/or  EXT  can  be  so
+	specified.  See  PIP, which has the same convention. Example:
+	"#000100000200.UFD[1,1]" is the directory of [100,200].
+	-  Default  LINESPERPAGE(-1)  for  Sysout  if  it  is  on the
+	terminal. No free page skips.
+	-  PTY  (subjob)  control available in LIBSIM. See SIMLH3.MAN
+	and LIBSIM.HLP. Not fully checked out!!!
+	- SIMDDT: INPUT t:-u now works (texts).
+
+	- SIMRTS: It is now possible to load a SIMULA program in  the
+	high  segment, leaving room for more data in the low segment.
+	Loading is done according to the following example ('A stands
+        for the	name of the program):
+
+	.R LINK
+	*/SYMSEG:NONE	;Avoid local symbols
+	*'A.MAP/MAP	;Not necessary, but may be useful
+	*SYS:SIMLIB/INCLUDE:(OCSP) ;(1) Must be in low segment
+	*/SEGMENT:HIGH REL:SIMHGH ;Must be first in high segment
+	*/SEGMENT:HIGH 'A	;(2) Your REL files here
+	*/SEGMENT:HIGH SYS:LIBSIM/SEARCH ;Any LIBSIM modules here
+	*/SEGMENT:HIGH SYS:SIMLIB/SEARCH,REL:HELPER/SEARCH
+	*/G
+	.SAVE 'A
+
+	Notes:
+	(1) If the main program is loaded in the  high  segment,  the
+        high  segment  will  NOT be write-protected. Otherwise, it is
+        not possible to change the high segment. In that case, SIMLIB
+        library  modules such as ALOG. which are not reentrant should
+        be loaded explicitly in the low segment, also  other  modules
+        which  are  changed  during a run. It will not be possible to
+        set SIMDDT breakpoints in  a  write-protected  high  segment.
+        Protection    may    be    set    off    via   SETUWP   (E.g.
+        XCALLI(8R36,0,TRUE,-1), see SIMLH3.MAN, LIBSIM.HLP).  If  the
+        LIBSIM  procedures  SAVE,  RUN or FREEZE should be used, load
+        them in the low segment (FREEZE must be in  same  segment  as
+        SAVE).
+	(2) If you want to put most  of  your  program  in  the  high
+        segment,  but not the main program, just make the bulk of the
+        program an external class and use it as prefix  to  the  main
+        program  which can be simply: BEGIN <external decl>; EXTERNAL
+        CLASS mainprg; mainprg BEGIN END END;
+	The  main program itself can then be loaded either in the low
+        or the high segment.
+	- All SIMDDT I/O can be directed to another terminal:
+	Just give the SIMDDT commands
+		*USE TTYxx:
+		*@TTYxx:
+	where xx is the tty number of an available tty connected to
+	the system (directly or via modem).
+	The SIMDDT commands and SIMDDT output will not interfere with
+	your controlling terminal. Useful if you are testing special
+	display terminal handling.
+
+	Edits 301 - 310:
+	SIMULA  compiler  -  Less  frequent  changes  in  ATR  files.
+        Addition of a FOR loop and similar changes no  longer  affect
+        ATR file.
+	SIMDDT/SIMRTS - Open USE, DISPLAY and indirect command  files
+        at  EXIT  no  longer give error message. Closed automatically
+        like SYSIN and SYSOUT. If  the  USE  file  and  the  indirect
+        command  file  both are another TTY than the controlling one,
+        direct ALL SIMDDT output ordinarily sent to  the  controlling
+        TTY  to  the  other  TTY  instead, thus completely separating
+        debugging i/o  from  program  i/o.  Allow  digit  immediately
+        following SIMDDT command, as in D100 (=DISPLAY 100).
+	TOPS-20 SIMULA corrections, mainly file spec handling.
+	REL files no longer contain type 17 loader blocks, only ASCIZ
+        command strings.
+	LIBSIM: Some corrections, e g to RENAME.MAC.
+2.2	Changes from version 3 to 3A:
+
+	- Much better performance if a SIMULA program goes virtual.
+	- SIMULA can now be run under a default path different  from
+	the  UFD.  The path may contain SFD-s (sub-file directories)
+	to an installation-dependent  level (at  most  6,  including
+	the  ppn).   See  the  SETSRC  program and the MONITOR CALLS
+	manual.
+	- Better ARCTAN in double precision adapted from  new  DATAN
+	for FORTRAN.
+	- An error in NORMAL and POISSON is corrected.
+	- Full path specifications  are  now  allowed  on  all  file
+	specifications  handled  by  the  compiler  -  REL file, ATR
+	files, LST and source files, and the file  spec  in  the  /R
+	switch.
+	Example:   Assume  that  your  UFD   is   [12,34]   .COMPILE
+	x.sim[,,a,b]  will make SIMULA compile the file x.sim in the
+	path [12,34,a,b] and place the REL file on your own  default
+	path, which may be different from the UFD.
+	- The search for  ATR  modules  in  the  compiler  has  been
+	optimized, avoiding excessive I/O operations by reading each
+	library only once.
+	-   When   compiling   a   global   procedure    or    class
+	[OPTIONS(/E ...)],  a  matching  ATR  module  is  looked  up
+	according to the search list set by the SEARCH switch to the
+	compiler.   If  a  matching  module is found in a library, a
+	copy is made to the same area as the REL file, so  that  ATR
+	and  REL  files  nearly  always are in corresponding places,
+	even if no changes are made in  the  ATR  information.   One
+	backup  level  of  ATR  modules is maintained - the old file
+	gets the new extension QTR.  This makes it easier to "change
+	your mind" if you find that your last change was not useful,
+	and you want to recover the old version.
+	- The HIDDEN PROTECTED feature is somewhat changed from  the
+	release  3 implementation - if the PROTECTED identifier x is
+	declared in several subclasses, HIDDEN x will hide only  the
+	innermost  visible  x,  which  then becomes invisible to the
+	next inner level, where the next outer x can be hidden, etc.
+	- It is now  possible  to  access  the  procedure  value  in
+	SIMDDT.
+
+			     [End of 3A changes]
+
+2.3	Changes introduced in version 3:
+
+	- The HIDDEN PROTECTED feature has been implemented.
+	- New facilities have been  added  to  SIMDDT.   It  is  now
+	possible  to  continue  processing  after  some errors.  The
+	CLOSE, NOPROCEED  and  @  commands  have  been  added.   The
+	NOARRAY  command  has been removed but the switches /-ARRAY,
+	/-TEXT and /-GC may be used to reduce the output.  THIS  and
+	QUA  are accepted in an identification.  Complete blocks can
+	be output with the *  feature.    ^C-REENTER  will  end  the
+	processing  of  the  current  SIMDDT command.  The VARIABLES
+	command will also output TYPE PROCEDURE values.  Any control
+	character  x  in  a  TEXT  variable is replaced by ^<letter>
+	(e.g. ^L for formfeed, Char(14))  when  SIMDDT  outputs  the
+	variable value.
+	At end of execution only the  SYSIN  and  SYSOUT  files  are
+	closed  automatically.   An  error  message will be given if
+	other files are open.  The new SIMDDT command CLOSE  may  be
+	used to close the files.
+	- Changed syntax of text constants:  Long text constants can
+	now  be  written in several parts, which may be separated by
+	spaces, tabs or line control characters.  Example:
+	    t:-Copy("first part" "second part"
+	     "third part");
+
+			[End of release 3 information]
+
+2.4	Release 2 information:
+
+	- ATR files as  well  as  REL files  generated  by  the  new
+	version  can  be  members of a library (see /FUDGE switch to
+	COMPIL, FUDGE  command  and  FUDGE2  program).   Loading  of
+	SIMULA  programs  has  been simplified.  If some conventions
+	are observed, only the main program name need  be  mentioned
+	once  external  classes and/or procedures have been compiled
+	and possibly put into libraries.
+	LIBSIM.REL  and  LIBSIM.ATR on SYS: contain  useful  classes
+	and  procedures.   ATR  files are automatically looked up in
+	SYS:LIBSIM.ATR if not found on your  own  area  as  separate
+	files  or  in  a  library  (default LIBSIM.ATR).  LINK-10 is
+	directed to look up the REL-file in the corresponding  place
+	(extension ATR replaced by REL).
+	See /SEARCH switch in SIMCOM.HLP.
+	Old SIMULA files referring to ATR  files  on  SYS:   ([1,4])
+	should  be  edited  not to contain any such reference, since
+	SYS:libsim.atr will be searched in the normal case.
+	Warning!  Old REL files are still valid, but old  SAV  files
+	can  only  be run as long as the old runtime system segments
+	SIMRT1.SHR and SIMRT2.SHR are available  on  the  SYS  area.
+	SIMDD1.ABS may also be needed by such programs.
+	The new runtime system segments are  called  SIMR21.SHR  and
+	SIMR22.SHR.
+	New facilities  have  been  added  to  SIMDDT.   It  is  now
+	possible   to   display  lines  in  the  source  code  while
+	debugging.
+	New SIMDDT commands:   DISPLAY  and  INSPECT.   For  further
+	information do .HELP SIMDDT.
+
+	               [End of release 2 information.]
+3.0	KNOWN BUGS AND DEFICIENCIES
+
+Compiler errors:
+
+	-  OPTIONS(/A);  a[1]:=a[n]; OPTIONS(/-A); will unfortunately
+	NOT check the array bounds [1:n]  of  a,  since  the  lexical
+	scanner  is  ahead  of  syntax  analysis  and  turns  off the
+	checking before it can be applied. This is remedied by simply
+	adding another ; after the assignment - a[1]:=a[n];; OPT... A
+	similar argument applies to the Q switch.
+
+	- A virtual match may be "lost"  in  circumstances  like  the
+	following (E223):
+
+A.SIM:	OPTIONS(/E); CLASS a; VIRTUAL:PROCEDURE vp;
+	BEGIN vp END;
+B.SIM:	OPTIONS(/E); EXTERNAL CLASS a;
+	a CLASS b; BEGIN PROCEDURE vp;; END;
+MP.SIM:	OPTIONS(/S:"AB"); EXTERNAL CLASS a,b;
+	b BEGIN END;
+AB.ATR:	This ATR library contains attribute modules for classes a and
+	b in REVERSE order.
+AB.REL:	Contains object code for classes a and b.
+
+	When compiling MP.SIM, no match for vp will be found, leading
+	to  a  run  time error.  This occurs since the compiler reads
+	attribute files as they are found  in  the  attribute  files,
+	i.e.   first any separate ATR files (not libraries) are read,
+	then modules from the libraries in the search  list,  in  the
+	order  in  which  they  occur  in  the  libraries.   When the
+	attributes of b are input, no reference to vp  has  yet  been
+	seen,  so  the  declaration  is  omitted from the declaration
+	structure sent to pass 2 of the compiler. This "optimization"
+	works for anything but virtual quantities. The problem occurs
+	only when virtual quantities  are  involved  in  an  external
+	prefix  chain,  and  only when the classes are treated in the
+	wrong order. If the ATR files for a and  b  are  separate  or
+	occur  in  the  correct order, no problem arises. The problem
+	also vanishes if there is a reference to a  virtual  quantity
+	in  each  class where a match is declared. This reference may
+	be of the form IF FALSE THEN vp; to avoid execution of vp.
+
+	- A missing  NEW  before  <class-identifier>  is  not  always
+	diagnosed and may lead to an obscure run time error. Example:
+	CLASS a(i); INTEGER i; ...;  a(17);
+	The  erroneous  statement  "a(17)" is treated as if it were a
+	procedure call, and no message is issued by the compiler.  If
+	the  class  has no parameter, an error message is issued, but
+	it is misleading.    The  error  is  diagnosed  correctly  if
+	a(...) is used in an expression, not as a statement.
+
+	- Bad error  message  in  a  case  like:
+	BEGIN  ...
+	  BEGIN  EXTERNAL PROCEDURE ep; ... END;
+	    ...
+	  BEGIN  EXTERNAL PROCEDURE ep; ... END;
+	  ...
+	END;
+	The second EXTERNAL specification for ep leads  to  an  error
+	message: FILE NOT FOUND EP.ATR
+	Remedy:
+	Move EXTERNAL spec outside both blocks (to outer level).
+
+	Run time errors:
+
+	- If a terminal other than the controlling tty  is  used  for
+	SIMULA  i/o,  a  ^C on the terminal leads to the error ZYQ054
+	TRANSFER FAILURE. Do not use ^C in those circumstances.
+
+	- If the run  time  system  is  asking  for  additional  file
+	information  to be able to access a file, an altmode (escape,
+	Char(27)) will  cause  SIMDDT  to  be  invoked.  Do  NOT  set
+	breakpoints  ([STOP]  AT  ...)  in this case. Run time errors
+	will result when you proceed from SIMDDT.
+
+	- ^C-REENTER with  executable  files  saved  via  the  LIBSIM
+	procedures  SAVE or FREEZE will not work with new releases if
+	they were saved before release 4(300).
+4.0	Details of changes - version 3 to version 4:
+
+4.1	Recent changes following release 4(300):
+
+[301]		Pass3:M3.MAC<M3ATR>
+		Ignore ZHBSZD when comparing new and old  ATR  files.
+		No new ATR file need be created just because the size
+		of the display vector changes, e g because of  a  new
+		subblock, inspection, FOR loop or thunk save area.
+
+[302]		SIMRTS:IO.MAC<IOCLA>  -  Handle  SIMDDT   USE   file,
+		indirect  command  file  (@ command) and DISPLAY file
+		like SYSIN and SYSOUT, i e allow them to be  open  at
+		program  exit  and  close  them automatically without
+		error messages.
+
+		-   IO.MAC<.IOCL>  -  Correct  an  error  leading  to
+		premature RELEASE of a TTY channel when  it  is  used
+		for  both  an Infile and an Outfile. This led to "I/O
+		to unassigned channel".
+
+		- OCIN.MAC<SYSIN/SYSOUT initialization>  -  Change  a
+		test  to  allow  SYSIN  to be assigned to another TTY
+		than the controlling one. Note  however  that  ASSIGN
+		TTYn SYSIN and ASSIGN TTYn SYSOUT will not work, only
+		the last ASSIGN remains in effect. A  common  logical
+		name  for  both  SYSIN  and  SYSOUT  device  would be
+		needed.
+
+		SIMDDT:SIMDS9.MAC<DSCMI> - If  the  indirect  command
+		file (@ command) is a TTY, output the prompter (*) on
+		that TTY.
+
+		- SIMDS2.MAC<DSOxx> - If the  file  given  in  a  USE
+		command  refers  to  a  TTY  device  other  than  the
+		controlling TTY, direct  all  "TTY"  output  to  that
+		terminal,  and  none  to the controlling TTY, even if
+		output to both TTY and USE  file  is  requested.  The
+		procedure  DSOTTC  checks for that case and is called
+		from several of the DSOxx routines.
+
+[303]	(E250)	SIMRTS: TX.MAC<TXGR> - Move label TXGR4: so that sign
+		of  number  is  not lost if Lowten character is found
+		but no exponent part follows, not even a sign.
+
+[304]		SIMDS1.MAC (MDSGIK  def),  SIMDS2.MAC<DSTCL,  DSGIK>,
+		SIMDS9.MAC<DSCM>:   Allow   digit  immediately  after
+		SIMDDT command keyword (no space  necessary).  SIMDDT
+		command keywords do not contain digits.
+
+[305]		Changes for TOPS-20 SIMULA v4 to work.
+		OCSP.MAC Do not check for zero hiseg name in TOPS-20
+		version.
+		OCIN.MAC Some corrections: GETSPEC, OCINGD  (save X3
+		also)
+		Dummy argument for L4 macro before "]".
+		OCIO.MAC <IOTYSP>: Use PPNST%, not DIRST (TOPS20 only).
+		V1B.MAC - Rewrite PPNST., DIRST. to use SOUT and BOUT.
+
+[306]		Correct error with ASCIZ commands in REL file:
+		LOWSEG.MAC  Add variables YO1ASB (2 words), YO1ASC to
+		keep track of ASCIZ strings in REL file.
+		O1.MAC<O1RLOP>  Clear  bookkeeping  words  for  ASCIZ
+		strings.
+		O1.MAC<O1SFDC>  Do  not  rely  on YSFDN when copying,
+		count!
+		<O1RLRQ>  No  request  block  (type  17),  only ASCIZ
+		strings.
+		<O1RLOA>  If  the currently last word in the REL file
+		buffer is the last word of a command string,  restart
+		there,  adding a comma and putting the current string
+		immediately after.
+
+[307]		LIBSIM - FREEZE.MAC<.ZYLSJ>: Save hiseg  lookup  data
+		only once to avoid problems on repeated calls.
+		INLINE.SIM: Change to conform with specification.
+		FORSIM.SIM: Add entry "FIN.".
+
+[310]	(E254)	LIBSIM - RENAME.MAC: Update channel  table  correctly
+		so  that  Close (IOCL) will release the proper entry.
+		Also correct an erroneous zeroing of  YIOCHT(0),  and
+		clear buffer header pointers before dummy Open.
+4.2	Changes from 3(120) to 4(300):
+
+	These changes include adaption to DECsystem-20: Edit [225]
+
+[120]	(E133)	SU <.SUCA, .SUHO> Cancel(x), where x.Idle  EQV  TRUE,
+		was  not  implemented  according  to the Common Base,
+		which implies no action in that  case  (EVENT==NONE).
+		Correction:  If zpszev  =  0,  return  directly.  For
+		safety reasons the same modification was made in SUHO
+		(Hold).
+
+[121]	(E135)	TXBL  <TXVA>:  Check  for  too  long  RHS  same   for
+		LHS==NOTEXT  as  for other LHS values. The stack must
+		be balanced when continuing.
+
+[122]	(E137)	OCEP  <.FORER>:  Load  X0,  not X2 with error UUO for
+		faked APR error in FORTRAN subroutine, e.g. the error
+		occurring for EXP(89) - faked overflow.
+
+[123]	(E142)	OCEP <.OCUU>:   SETOFF SWNOGC(XLOW)  when  PROCEEDing
+		from SIMDDT after an error with recovery specified.
+
+[124]	(E149)	LIBSIM:  UPCASE.MAC, LOWCASE.MAC - t.Setpos(1) before
+		assignment  to  function  result.  Change   also   in
+		SLH35.RNM.
+
+[125]	(E150)	LIBSIM:  SEARCH.MAC - Extend byte pointer table  ptab
+		to include one more item.  Failed when config started
+		with last character of a word.
+
+[126]	(E152)	LIBSIM:  INPUT.MAC  -  Correct  handling  of TEXT and
+		ARRAY attrib. Also change  end-of-file  treatment  to
+		avoid error messages.
+		LIBSIM: OUTPUT.MAC - Ensure  correct  word  count  by
+		modifying  the  byte  pointer  to  point to last word
+		written.
+
+[127]	(E154)	SIMULA.SHR:    SYS1.MAC    -    Simulate    PROTECTED
+		specifications   for   attributes   of   SIMSET   and
+		SIMULATION:
+		LINKAGE, LINK, HEAD, PROCESS,  CURRENT,  TIME,  HOLD,
+		PASSIVATE, WAIT, CANCEL, ACCUM, MAIN.
+		Thus they can be HIDDEN in subclasses.
+
+[130]	(E159)	LIBSIM: INPUT.MAC - Catch illegal parameters, such as
+		constants, and give error messages.
+		LIBSIM: OUTPUT.MAC - ZDFLIM calculation corrected.
+
+[131]	(E160)	SIMRTS: PH <PHFT> - Handle text procedure correctly.
+
+[132]	(E148)	CA <SWEND> Declaration stack reset to the same  value
+		as at entry of OR<SWITC>.
+
+[133]	(E141)	ORRK <ORRP,ORRPIV> Allow the value of a parameterless
+		system  procedure  to  be  passed as a parameter to a
+		formal or virtual procedure.
+
+[134]	(E119)	OR<OREN>  ORRK<ORTY> Check if identifier after NEW is
+		a CLASS even if it has parameters.
+
+[135]	(E161)	LIBSIM:FREEZE.MAC - Save LINESPERPAGE and SPACING for
+		Sysout over CLOSE and OPEN.
+
+[136]	(E100)	CARL,CA<CADS>  Make  doubly declared class attributes
+		undefined as is done in blocks.
+
+[137]	(E170)	LIBSIM:SAVE.MAC -
+		1) Change test for size of buffer area.
+		2)  Return  with  function value = -1 if some file is
+		not closed.
+
+[140]		O2SA <O2GVIN>
+		CA   <CAEBVM,CAUNPR>
+		SIMMAC<ZQUUSE>
+		Implement new variant of [NOT] HIDDEN.
+
+[141]	(E177)	OCEP <.FORER>: Handle simulated underflow (as in EXP)
+		like real underflow.
+
+[142]	(E180)	LIBSIM:CONC.MAC - Handle parameter-less function proc
+		correctly.
+
+[143]		LIBSIM:insinglechar  - error corrected for input from
+		DSK.
+
+[144]		Affects  SIMMC1,  LOWSEG, DP, O1, SD, SR, I1, LC, LS,
+		CA, E3, T3, I3
+		1) Optimize ATR file handling in PASS 1.
+		2)  Introduce  full  SFD  path specifications for all
+		files treated by SIMULA -  REL,  LST,  SIM,  ATR  (in
+		external decl), /S switch, /R switch.
+		SFD paths for files to be loaded are written as ASCIZ
+		strings       in       the       REL      file      -
+		"dev:file[proj,prog,sfd1,...]/SEARCH".
+		3)  Use /SEARCH list also for the ATR module produced
+		with OPTIONS(/E).
+		4)  If the matching ATR module is found in a library,
+		copy it as a separate ATR file to the  same  area  as
+		the  REL  file.  If an old ATR module existed, change
+		its extension to QTR,  after  deleting  any  old  QTR
+		file.  This  leaves  one  backup  with the old unique
+		identifiers which can be used if the  changed  module
+		was not satisfactory.
+		5) In the RTS, module IONF: .IOLOK/.IOENT - Save  SFD
+		pointer  over  LOOKUP/ENTER and restore it afterwards
+		in any case. This makes it possible to REOPEN a  file
+		defined with an SFD path.
+		OCIN <GETSPEC> Allow missing fields like  [,4],  [,],
+		[13,]. Supply missing information from UFD (logged-in
+		ppn). Allow the notation [-] for the default path.
+		OCIO <.IOTYSP> - If default path, type [-], not [,].
+
+[145]	(E???)	SIMLIB: PHPT.MAC<PHPTSR,PHPTGR> Save and restore ac's
+		correctly  when  passing  text  or  array by value to
+		formal, virtual etc procedure.
+
+[146]	(E184)	CGRK   <.QUAL>   Fetch   qualification  from  correct
+		location if ARRAY.
+
+[147]	(E140,E171,E176)  O2RK  <O2IC2Z>  No  zero fill of IC2 buffer
+		when it is already full.
+
+[150]	(E186)	LIBSIM:PACK.MAC   -   Save  XPBYP=XUTYP  over  PUSPV.
+		Spurious errors when "type" changed in PUPI.
+
+[151]	(E106)	SIMDDT (SIMDS7, DSNI and DSLPR) 
+		SYSIN and SYSOUT now visible from external module.
+		The  PROCESS,  LINK  and HEAD classes can now be used
+		after QUA in a SIMDDT identifier.
+
+[152]	(E120)	SIMDDT (DSVA) A switch prototype has no symbol table.
+
+
+[153]	(E126)	SIMDDT  (DSDP)  HELP  command  corrected.  Old  input
+		zeroed.
+
+[154]	(E138)	Also  (E145)  and  (E175).  SIMDDT  (DSGL,  DSPCL and
+		DSPVS) If no line that corresponds to  the  interrupt
+		is  found  SIMDDT  will  now  assume that the current
+		module is MAIN. Several tests for this case have been
+		added.
+		OUTPUT * will now display the current block  even  if
+		it is not found in any line number table.
+
+[155]	(E139)	SIMDDT (DSDP) A  line  number  with  more  than  five
+		digits  will  now  be  cut  in the same way as by the
+		compiler.
+
+[156]	(E143)	SIMDDT  (DSBP  and SIMDS1) Control C REENTER commands
+		which occur  when  SIMDDT  is  processing  breakpoint
+		command  code  will now cause SIMDDT to stop and give
+		control to the user.
+
+
+[157]	(E147)	SIMDDT  (SIMDS7)  Processor flags are not restored by
+		SIMDDT after a breakpoint has been handled.  This  is
+		not  needed  but  it  was  done  in  an erroneous way
+		before.
+
+
+[160]	(E157)	SIMDDT  (DSINE  and  DSPR)  The  error  ZYQ212 is now
+		treated specially in SIMDDT. It  makes  SIMDDT  enter
+		debug mode and allow all commands.
+
+[161]	(E163)	PHPT <CHECK SAMETYPE> Do not destroy AC0.
+
+[162]		Make  sure  internal  compiler  files are found where
+		they should be, i e on the default path  (zero  ppn),
+		which  is  not always equivalent to the logged-in ppn
+		(UFD).
+		O1<O1OPIC,O1OPLS,O1RLOP  etc> ppn reset to zero after
+		ENTER on temporary files, reset to given path for REL
+		file.
+		O2SA same for IC2.
+		O3 <O3ATR> Reset YELATR+3 before lookup.
+		Final REL and LST file names from the start (no TMP).
+		Close REL file without creating a new REL file if not
+		wanted.
+		NUL: device for REL file if no file spec given, but =
+		given. This makes the /NOBINARY switch to COMPIL work
+		for SIMULA.
+
+[163]	(E79)	SIMDDT  (DSPLE) SIMDDT now checks if the current line
+		number and the XCB pointer  are  consistent.  If  not
+		SIMDDT  checks  if the calling block is ok, otherwise
+		it terminates the processing.
+
+[164]	(E130)	LS pass 1.  Check first character after " " in string
+		processing.
+
+[165]		LIBSIM:FREEZE.MAC   -   Take   core  allocation  from
+		.JBCOR<LH> in .ZYLRJ.
+
+[166]	-	SIMDDT changed to allow output and input  of  a  type
+		procedure  value. (DSNI, DSPI, DSLV,DSAT, DSIP, DSCM,
+		DSCSQU, DSPV, SIMDS1 and SIMDS7 changed)
+
+
+[167]	(E181)	IONF<SETUPFILE>  Treat  NUL:  as  device without file
+		name.
+
+[170]	(E173)	E3	<E3ERR> error  message  before  first  source
+		code line.
+
+[171]	(E124)	LC main <CR><LF> after <FF> in line numbered file
+
+[172]		SIMMAC <SWAPPA> In SYS version, try to get  passes  2
+		and  3  from  same  area  as  pass  1, otherwise SYS:
+		Affects  modules   I1,T1,I2,O2SA,I3,T3,   which   use
+		SWAPPA.
+
+[173]		EX <EXQC> Zero line number (X5) for error message  in
+		case no matching declaration exists.
+
+[174]	(E113)	CGOB	<CGAS>
+		OR	<DENOT.,DEQ.,NDEQ.>
+		ORRK	<ORDT,ORRPPP,ORRPIV,ORTXCH>
+		Restrict usage of conditional text constant.
+
+[175]	(E185)	SA
+		Improved performance of storage control when job goes
+		virtual.
+		- Save X3 in .SACL
+		- Print number of page faults between and during GC:s
+		(only niw faults recorded) when program ends.
+		-  At start of GC, save number of niw faults in YSABH
+		and number of niw faults  since  last  GC  in  YSASW.
+		GETTAB  [13,113] used. Cumulative count of niw faults
+		updated in left half of YSAIBP.
+		-  .SAGI  (initialization) Job's cumulative niw fault
+		count to YSABH.
+		-  SANP1  If  first CORE fails, check if job is going
+		virtual, and if it does, subtract space (1K) for PFH.
+		GETTAB [-1,,102] used.
+		- SANP If job is virtual,  determine  number  of  niw
+		faults  between last two GC:s (from YSASW) and change
+		YSAL by 2K*SIGN(tgc-tswap*(nb+2*ng). Here
+		nb	niw faults before last GC;
+		ng	niw faults during last GC;
+		tswap	time  (ms  cpu)  accounted  for  a  page swap
+		(currently ^d20);
+		tgc	time spent in this GC.
+		However, if YSAL becomes less than  minimal  quantity
+		needed, the latter is passed to SANP1.
+		- SANP If job is not virtual, but the  new  estimated
+		optimal YSAL value will make it virtual, make the new
+		YSAL  value  so  that  the  job  just  goes   virtual
+		(YSAL=min(physlim+qpolmi,virtlim)-YSAHSZ-sizeofPFH).
+		GETTAB  [-1,,102]  is  used  to  find  out   physical
+		limit/guideline.
+
+[176]	(E72)	DP	<DPEXCR,DPSYS>
+		CA	<BPROG.>
+		Allow  externals  to have same name as system-defined
+		classes and procedures.
+
+[177]	(E182)	OCIN	(SYSOUT object setup)
+		Check  if  SYSIN is on same in-out device (normally a
+		terminal).  Use same channel as  SYSIN  if  so,  with
+		both output and input buffers.
+		OCIN	(LOOKUP on specification file)
+		Copy  lookup  information  to buffer before LOOKUP in
+		order  not  to  destroy  it.   Program  can  then  be
+		restarted by START correctly.
+
+[200]		IO	<IOCL>
+		If the tty infile has ENDFILE TRUE, do an OPEN UUO to
+		allow  continuation  after SIMULA Close and following
+		Open.
+
+[201]		OCIO <GETCHANNEL> Return -1 if no  channel  available
+		and ZFIFND bit set.
+		IONF  <SETUPFILE>  Do  not  clear   file   name   for
+		non-directory  dev.  Gives  correct  spooled name for
+		LPT:, CDP: etc.
+
+[202]		I1, LC, SD, CGRK, SU.MAC: Avoid 6-character names  in
+		parameters  to  SAVE macro - MACRO v.50 bug. Found by
+		Ken Roberts, UWO.
+
+[203]		LOWSEG.MAC -  Use  LOC  instead  of  RELOC  in  debug
+		version. Due to Ken Roberts, UWO.
+
+[204]		T3.MAC <T3ID> New secondary entry to T3I. Called from
+		T3R to delete IC2 file for Macro/Fortran headings.
+
+[205]		RD <.RDER,.RDNE,.RDNO,.RDPO>
+		Modify  calls to mathematical routines. This corrects
+		an error in NORMAL and POISSON, which call SQRT.  The
+		earlier  version  allowed the parameter to SQRT to be
+		changed within SQRT, leading to erroneus  values  for
+		the  variance  of the NORMAL distribution (about half
+		of correct value), and  similar  error  for  POISSON.
+		This  applies  to  SIMLIB libraries which contain the
+		new improved SQRT from the start of 1976.
+
+[206]		LIBSIM:SAVE.MAC - Correct return if save  file  could
+		not be opened/entered.
+		LIBSIM:SAVE, RUN - Avoid messages.
+
+[207]	(E127)	OCIO <.OCIND> (LINKBUFF)
+		Use  bit  in  buffer ring is now set to 0 with SETOFF
+		ZBUUSE to permit reusage of buffer area.
+
+[210]		DP <DPEXT> Do NOT set ZQUSYS bit for QUICK proc.
+		CGSA  <ZID.>  Error message ERROR1 15 - test also for
+		ZHBMQI.
+		SIMLH2.MAN,  SIMERR.ERR  -  SIM347 message changed to
+		show QUICK.
+
+[211]	(E194)	LIBSIM:PACK.MAC<PUPI> Correct  initialization  of  XB
+		(due to Mark Legg, Flinders Univ, S Austr).
+
+[212]	(E225)	SIMP2: CGPA.MAC<CGNN> - Correction of code generation
+		for passing a NAME parameter on to a formal parameter
+		which  is  also  specified  NAME.  The  top ac number
+		should be in the offset field  of  the  byte  pointer
+		used, not the index field.
+
+[213]	(E224)	SIMDDT - SIMDS9.MAC<DSAT>.
+		Wrong info stacked when calling DSRLBA at L1()  after
+		getting an incorrect line identification in [STOP] AT
+		command. If this is the first such  command,  no  ZBR
+		has  been  allocated,  so  should not be removed. Now
+		indicated by checking  YDST3  for  zero  (set  before
+		trying to read line id).
+
+[214]	(E220)	Pass  2  - CARL.MAC<CARLVI>.  Check for qualif YUNDEC
+		and accept  as  correct  (error  msg  for  undeclared
+		qualif already issued).
+
+[215]	(E222)	Pass  1  -  DP.MAC<DPMAP>.   Make sure whole map (ZMP
+		record) is zero for EXTERN:CODE.  ZMPDTX  was  always
+		2,  which  gave errors on g.c.  inside CODE procedure
+		(probably very rarely, no specific instance found).
+
+[216]	(E217)	Pass 2 - OR.MAC<ORCPR>.  Check for  type  REF  before
+		checking any qualtion.
+
+[217]		SIMMAC.MAC, Compiler pass 1:
+		Take version number from  .JBVER  and  edit  it  into
+		heading  rather  than  define  it  explicitly  in the
+		VERLST macro.
+		SIMMAC.MAC:  Move VERLST, $HDVER and $HDV10 macros to
+		E3.MAC.
+		E3.MAC: Also add the new routines E3NOUT and E3PVER.
+
+[220]		Modification  of  [162] to make it really work. If ^Z
+		ends a command line, treat it as end of
+		line,  obey  the  command  and  then  EXIT to monitor
+		level. Affects I1, T3 and SIMMAC (YSWCZ definition).
+
+[221]		In  all  universal  files  (SIMMAC.MAC  etc),  insert
+		.DIRECTIVE  .NOBIN  to  avoid creation of a REL file.
+		This is only done  if  the  .directive  pseudo-op  is
+		defined  -  implies  at  least  version  50 of MACRO.
+		Define RET and XEC by OPDEF. They are  shorter  forms
+		of RETURN and EXEC with no overhead.
+
+[222]		O3.MAC:  Make  sure  ATR file gets correct protection
+		and creation date: Same  prot  as  old  separate  ATR
+		file,  same date and std prot if copied from library,
+		std prot and new creation date if all new.
+
+[223]		Use PUTREL instead of GENABS in  O1RLAS  (O1.MAC)  to
+		avoid  automatic  generation  of  relocation  word in
+		ASCIZ string.
+
+[224]		Output of messages in mixed case in OCIN, IONF.
+
+[225]		Adaption to DECsystem-20 (TOPS-20)
+		==================================
+		The  following  changes  have  been  made   to   date
+		(12-Dec-76):
+		The file handling for external  attribute  files  has
+		been changed to use GTJFN, OPENF, PMAP, CLOSF instead
+		of TOPS-10 UUO's like IN, OPEN,  LOOKUP,  CLOSE.  The
+		DEC-10 version is unchanged.
+		All three  passes  of  the  compiler  now  reside  in
+		(virtual)  core  simultaneously,  i  e  no overlay is
+		used.  This means that the SWAPPA (swap  pass)  macro
+		is  no longer used. Instead, a direct jump is made to
+		the  starting  location  of  the  next  pass  to   be
+		executed.
+		The one segment version of SIMRTS is used.
+		All  executable  files  are  EXE files, not SAV, SHR,
+		HGH, LOW.
+		At  this stage, it was not possible to convert SIMULA
+		to work entirely without monitor UUO's. In  order  to
+		provide  a limited possibility of specifying files in
+		TOPS-20 fashion, the file specifications may  contain
+		a directory name instead of a directory path, thus:
+			dev:<directory-name>file.typ
+		The   directory   name   is  translated  to  the  ppn
+		specification  [4,directory-number],  which  is  then
+		used  for  normal  LOOKUP and/or ENTER operations. In
+		the case of the external attribute files, the  lookup
+		block  is  translated to a file spec string in YFILSP
+		(new area in LOWSEG), which is then translated  to  a
+		JFN  by  the  GTJFN  JSYS.  No  recognition  input is
+		possible, the specification must be complete.
+		The attribute files are input by PMAP calls. The high
+		end of the compiler is used for a PMAP buffer,  which
+		simulates  a  normal  disk  buffer but is longer. The
+		current index block is always  placed  in  the  first
+		page  of the PMAP buffer, and the following pages are
+		used for the modules. O1EXCL unmaps all pages  before
+		closing  a file. Command input to the compiler is now
+		handled  almost  exclusively  by  Pass  1   routines,
+		eliminating  some  duplicated code between the I1 and
+		T3 modules. YPASSNO is a global location which  shows
+		the  current  pass  number  to prevent loops in error
+		processing when the same routine is used in more than
+		one pass.
+		Changed modules:
+		I1.MAC,    O1.MAC,    T3.MAC,   I3.MAC,   LOWSEG.MAC,
+		SIMMAC.MAC, T1.MAC, O2SA.MAC.
+
+[226]	(E195)	Compiler pass 3: M3.MAC<M3ATR> - Do not  keep  header
+		word  from  old  ATR module - must be zero for SIMULA
+		procedure, is non-zero for MACRO-10 or FORTRAN.
+
+[227]	(E196)	LIBSIM:OUTPUT.MAC<PUTREF> (also for PUTSIZ) -
+		1) No output if map address = 0.
+		2) Output -1 to stand for map in this case.
+		3)  Prevent  output  loop  by  moving  loop start for
+		prefix chain so a new prototype address is used  each
+		time.
+		LIBSIM:INPUT.MAC<GETREF>  -  Change  to   allow   for
+		changed format of objects (no extraneous output if no
+		map).  The format may have to be redesigned later  to
+		compress data more.
+
+[230]	(E199)	SIMRTS:IO.MAC  -  Deallocate unwritten Outfile blocks
+		if they have not been requested initially by /SIZE:n.
+		<.IOCL>:   Check  number  of  blocks (ZOFBLK) against
+		ZXBLEN. Deallocate if ZOFBLK > ZXBLEN or ZXBLEN <= 5.
+		<.IONB>:   Always  update  ZOFBLK  on  output  for an
+		Outfile  to keep track of number of blocks.  This was
+		only done if ZOFLIM was set before.
+
+[231]	(E197)	SIMLIB:SANE.MAC (NEW Eventnotice) - Prevent premature
+		deallocation  of  a  newly  allocated  ZER  record by
+		setting YSADEA(XLOW) = YSATOP(XLOW).  This means that
+		an  activation statement executed (indirectly) inside
+		a procedure may  destroy  the  stack  nature  of  the
+		storage   pool,  if  a  new  ZER  record  has  to  be
+		allocated. Each ZER record holds up to 63 notices  in
+		the  present  setup.  The  error  gave  a  number  of
+		"Illegal memory  reference"     diagnostics  for  big
+		Simulation programs.
+
+[232]	(E209)	SIMLIB:RD.MAC<.RDHO>   (Histo(A,B,X,U))   -   Prevent
+		writing outside the array A  in  cases  like  A[0:1],
+		B[0:0], where X > B[0,0] (the only element).
+
+[233]	(E210)	Compiler  pass  2:CGRK.MAC<CGQU> - Force run time QUA
+		check in the case NONE QUA c, c any  class  id.  Will
+		give  "OBJECT  NONE"  at run time. CB specifies a run
+		time error, not a compile time error. The assumptions
+		about  internal  representation  of  "x" in "x QUA c"
+		were not valid when x is  a  manifest  NONE,  i  e  a
+		constant.
+
+[234]	(E211)	LIBSIM:WRITE.MAC  -  To  prevent  SIMDDT malfunction,
+		make SIMDDT believe any error  message  within  WRITE
+		was  issued  at  the  point  of  call  to  WRITE, i e
+		substitute caller block (ZDRZBI) for XCB, ZDRARE  for
+		program address.
+
+[235]	(E212)	LIBSIM:SAVE.MAC<copytobuffer>  - Modified code at end
+		of internal buffer when only two words  remain.  Just
+		output  one  word  if  only one word is to be copied.
+		Some .SAV files had a  superfluous  zero  word  which
+		prevented loading.
+
+[236]	(E213)	SIMRTS:IO.MAC<.IOLT>  (Locate) - Add code to test for
+		file open (ZFIOPN flag). Error  according  to  CB  if
+		file   is   not  open.  Since  ZDFEND  was  reset,  a
+		subsequent test on end of file did not find an error,
+		and Inimage went wild sometimes.
+
+[237]	(E191)	SIMDDT:SIMDS3.MAC<DSEVTIME>  -  Set  YDSERE only when
+		YDSOCOM is on. Prevents  switching  output  from  USE
+		file  to  TTY in ALL, VAR or OUTPUT * commands. Error
+		message  as  appropriate  on  explicit  reference  to
+		x.Evtime, where x is not in SQS.
+
+[240]	(E214)	SIMRTS:PH.MAC<ENTERTHUNK,PROCVALUE>,
+		SIMLIB:PHPT.MAC<THUNKENTER,PROCVALUE> -
+		Make  left  halves of ZTSRAD and ZTSRSR zero.  GC was
+		confused by a left half =  312000  (normal  processor
+		flags)  which  it  treated  as  a  block address when
+		scanning a display vector (ZDR  record).   The  error
+		occurred only in big programs where the data exceeded
+		address 312000 (octal).
+
+[241]	(E215)	SIMRTS:OCEP.MAC<OCEX> - Restore  only  AC0-AC14  from
+		YUUOAC(XLOW).  SIMDDT  restores  XCB  (AC15) and XIAC
+		(AC16)   with    correct    relocation,    if    any.
+		YUUOAC+XCB(XLOW)   is   not   relocated.   This  gave
+		unpredictable errors before correction.
+
+[242]		SIMDDT changes:
+		1)  Allow DISPLAY, USE and @ (indirect file) commands
+		even if garbage collection cannot be performed (error
+		or  REENTER).  This  is  done  by modifying DSCF.  If
+		garbage collection cannot be  performed  (checked  by
+		DSCHGC),  DSCF  checks if enough free core remains in
+		the pool or can be allocated by a CORE UUO to allow a
+		file object with at least one buffer to be allocated.
+		The RTS is told NOT to allocate buffers with the file
+		in  normal fashion.  Buffers are allocated by the new
+		routine DSCFAB and linked by DSCFLB. The  address  of
+		the file is marked as special by -1 in the left half.
+		Such special files are always closed at PROCEED exit,
+		and   the   address   is  cleared  to  allow  garbage
+		collection later. USE and "@" files can thus  not  be
+		used over SIMDDT exit and entry.
+
+		2)  The  line  number  format  for  DISPLAY  has been
+		relaxed. The currently next line can be denoted by  a
+		dot  (.), the first line by ^, a large line number by
+		*. DISPLAY ^:* thus means display  the  entire  file.
+		Colon (:) is used to separate line designations for a
+		line interval (- is still valid). The first  line  no
+		may be omitted, meaning next line (same as .).
+		The notation DISPLAY <line ident>,<number  of  lines>
+		is allowed as an alternative way of specifying a line
+		interval.  If only the command DISPLAY is given  with
+		no  line  numbers,  DISPLAY  .,10 is implied, i e the
+		next 10 lines of the current module.
+		Also  DISPLAY  <module>:   or  DISPLAY  <module>  are
+		allowed forms, meaning  DISPLAY  <module>:.,10  where
+		.=0 if this is not the current module.
+		Examples: D,5 == DISPLAY .,5
+			D:100 == DISPLAY .:100
+			D INLINE == DISPLAY INLINE:.,10
+			D == DISPLAY .,10
+
+		Affected subroutines: DSGL, DSGLEL(new), DSDP.
+
+		3)  Introduce the switch /START:<octal number> on the
+		ALL  and  VARIABLES  commands.  If  the   number   is
+		negative,  the  value  of YSATOP(XLOW) is added. Only
+		blocks starting at addresses greater than that number
+		are dumped.
+		Example: ALL/START:35000
+		Affected routines: DSVAK, DSIOCT(new), DSVA.
+
+		4) INSPECT/START now repeats the SIMDDT message given
+		at an error entry or at REENTER.  This is useful with
+		display terminals.
+		Affected  routine:    DSPC  (DSPCSP  new  entry  from
+		PROCEED,  DSPCSM  called at end of DSPCST sequence to
+		repeat msg via new entries DSINRM and DSINEM), DSIN.
+
+		5) Other small changes: Let altmode finish a  command
+		line, etc.
+
+		6)  In  .OCSW,  use YACSAV instead of YUUOAC to avoid
+		conflicting use (in OCSP<OCRE> and OCEP<OCUU>)
+
+		7) Set TTY channel status to normal if  changed  e.g.
+		to  prevent  monitor echoing. SIMDDT commands will be
+		echoed.  Channel status is restored at PROCEED.
+
+		8) If Sysout is the terminal and the  buffer  is  not
+		empty, force it out followed by crlf to aid debugging
+		of certain programs.
+
+[243]	(E229)	SIMLIB: RD.MAC -
+		1)    Make    NORMAL    (.RDNO)   return   antithetic
+		pseudo-random number for complement of random seed:
+		u1:=Inint;  u2:=-u1; x:=Normal(a,b,u1)+Normal(a,b,u2)
+		will now yield x=2*a. The distribution is unchanged.
+		2)  Split  RD.MAC  into  several  modules  via PRGEND
+		pseudo-ops. Common definitions moved to RDINIT  macro
+		in SIMRPA.MAC.
+
+		SIMRPA.MAC:   RDINIT  macro  added for Random Drawing
+		definitions.
+
+[244]		1) Adjustment of SFD pointer in lookup blocks  -  The
+		ppn  field  of a file object or extended lookup block
+		may contain an SFD pointer instead  of  a  ppn.  This
+		pointer  addresses  the  first  word  of a ZYS block,
+		which contains the PATH block. In order  to  use  the
+		information  for  lookup,  2  has to be added to that
+		pointer.
+		- Changes: LIBSIM:RUN.MAC - add 2 to xppn if SFD ptr.
+
+		2)  Make  it possible to override explicit ppn by [-]
+		(default   path) -
+		OCIN.MAC<GETSPEC> -
+		SETOM  OFFSET(ZFDPRG)(XTAC) if [-] specified.
+		IONF.MAC<.IOLOK>  -  Change   -1   to   zero   before
+		lookup/enter. (-1 works as default path also.)
+
+		3)  IONF.MAC<.IOCF>: Set up extended lookup block for
+		all  DSK  files,  including  Infile  and   Printfile.
+		Include .RBDEV in block.
+
+		4)  OCIN.MAC<GETSPEC>:  Use DEVPPN to fill in missing
+		fields in ppn, e g in LIB:X.MAC[,,A], where ppn  will
+		be taken from the LIB device specified via SETSRC.
+
+		5)  IONF.MAC<.IOLOK/.IOENT>  - make sure ppn field is
+		reset after LOOKUP/ENTER. Modification of [144].
+
+		6) SIMRPA.MAC - define YDPATH  in  static  area,  not
+		used yet.
+
+[245]	(E216)	SIMDDT  <DSAT>  No  breakpoint  on MOVEM XWAC1,d(XCB)
+		instruction generated for DO in INSPECT .... WHEN ...
+		DO
+		The next line is used instead. SIMDDT cannot preserve
+		XWAC1  properly,  especially  in  the case of garbage
+		collection.
+
+[246]		I1.MAC <I1FN,I1COM>:   Handle  <filespec>!   RUN  the
+		program specified.
+		T3.MAC <T3>: Let I1COM handle RUN  of  next  CUSP  in
+		DEC20   version.   Allow   "RUN  command"  also  from
+		terminal.
+
+[247]		SIMMAC.MAC  and  all  modules  invoking  the  MACINIT
+		macro:  Include  SEARCH UUOSYM in MACINIT definition,
+		thus preparing for a version  of  MACRO  without  UUO
+		symbols   predefined.   In  TOPS-20  version,  SEARCH
+		MONSYM.
+
+[250]		O1.MAC<O1RL,O1SCOP> Make output of source file lookup
+		info to REL file work properly - Output creation time
+		and date.
+
+[251]	(E227)	SIMP2:  CGSA.MAC<ZNS.> -  Do  not  use  the  absolute
+		address  in  Xtop+1, just keep the dynamic address in
+		Xtop, to be made absolute on demand (call to  PUTINT,
+		GETINT &c).
+
+[252]	(E228)	SIMRTS:   IO.MAC<.IOOP>  -  Restore  XWAC2,XWAC3 from
+		IMG(XWAC1) in case of garbage collection  in  REOPEN.
+		XWAC2  was  not  relocated  before TXVA call to blank
+		image.
+
+[253]		SIMRTS: OCSP.MAC, SIMRTS.MAC -
+		Change  hiseg  names for version 4 (mainly because of
+		edit 242):
+		SIMR2?.*  changed  to  SIMR4?.*,  SIMRTS  changed  to
+		SIMR40.
+		SIMDDT.ABS -> SIMDD4.ABS
+
+[254]		SIMRTS:     CS.MAC<.CSSW>   -   Clear   YOBJAD(XLOW),
+		YOBJAD+1(XLOW) after use to avoid confusion.
+
+[255]		SIMMAC.MAC:  Introduce EDIT(n) macro, to be  used  in
+		edited   modules  for  marking  edits  and  obtaining
+		crossreferences of changes.
+
+[256]		Pass 1: I1.MAC<I1FN,I1SC> - If no extension was given
+		(no  dot either) assume .SIM for source files.  Empty
+		extension (dot only) is marked  by  0,,77777  in  ext
+		word of lookup info.
+
+[257]		SIMRTS:      CS.MAC<CSEP>:     Deallocate  also  when
+		intermediate results  exist  (acs).  Somewhat  faster
+		code.
+		<CSEN>:  New entry point .CSENP for entry from  CSSN,
+		CSSW.
+		<CSSN,CSSW>:  Quicker  display  copy,  BRANCH  .CSENP
+		instead
+		of .CSEN.
+
+[260]		SIMULA:  I1.MAC, T1.MAC,  I2.MAC,  O2SA.MAC,  I3.MAC,
+		T3.MAC,  SIMMAC.MAC  - Make it possible to run SIMULA
+		compiler in concealed  mode  (protection  6,  execute
+		only).
+		Transfer vector introduced in each pass:
+		400011 is the normal PORTAL, 400010 is used in Pass 3
+		via reenter from other passes  (in  trace  mode).  In
+		Pass 1, 400010 is entry point from Pass 3. In Pass 2,
+		400010 is equivalent to 400011.
+		Note  that  the  modules I1, I2 and I3 must be loaded
+		first in each pass!
+
+		SIMRTS: SIMRTS.MAC. Make all JRST instr's in transfer
+		vector  PORTAL  instructions.  Also insert PORTAL .+1
+		after JSR @YOCGS(XLOW).
+
+[261]		SIMRTS: OCIN.MAC -
+		1)  Disallow  calling  SIMDDT  via  ALTMODE  in  file
+		dialogue until YDSLOAD(XLOW) has been set  up,  which
+		means that the RTS is set up to handle SIMDDT.
+
+		2)  Adjust  stack properly when specification file is
+		exhausted (READSPEC).
+
+		3) Do not modify ZSW (RUNSWITCHES)  block  on  lookup
+		error (.OCIN).
+
+[262]		SIMULA Pass 1:
+		LC.MAC<LC> - Improve line no tests.
+		LS.MAC<LS at LSL> - Skip line starting with %
+
+[263]		SIMRTS: OCIO.MAC<GETNAME/GETREST>
+		Allow octal spec in file names a la PIP.
+		Example: #000013000134.UFD[1,1] specifies an UFD file
+		for  [13,134].  SFD's  in  a  path  may  not  be   so
+		specified, however.
+
+[264]	(E238)	SIMLIB:PHPT.MAC<PHREFERENCE>  Check for NOTEXT before
+		issuing error message.
+
+[265]	(E240)	SIMRTS<.SAGC> Avoid dangerous BLT to save AC's
+
+[266]		SIMRTS:IO.MAC<.IOOP> Linesperpage(-1) for TTY:Sysout
+
+[267]		Modifications to handle PTY: in SIMRTS -
+		IO.MAC<.IOCL>.
+
+[270]	(E241)	SIMP2:CGCW.MAC<CGSYC>  -  Clear any ZNO pointer in LH
+		of @YTAC  after  incrementing  for  extra  ac  in  IO
+		routine  (e g Outtext). Spurious relocation of second
+		ac lead to Ill Mem Ref.
+
+[271]	(E242)	SIMRTS:OCEP.MAC<.OCTR> Prevent loop  leading  to  pdl
+		overflow.
+		SIMP2:  O2.MAC<O2AF> - Fatal error if  no  more  free
+		fixups are available.
+
+[272]	(E243)	SIMDDT:SIMDS9.MAC<DSIP>  Allow  :-  for text in INPUT
+		command.
+
+[273]		SIMRPA.MAC<STATIC area>, SA.MAC<SAGC PHASE2>:
+		Do   not   move   storage   pool   below  address  in
+		YSAFRZ(XLOW),  i  e  freeze  core  below  that  point
+		(contents  may  be  changed, but no referenced blocks
+		are  moved  to  lower  addresses).  This   simplifies
+		communication with FORTRAN subroutines.
+		*** NOT  yet  implemented  fully  -  leave  for  next
+		release ***
+
+[274]		SIMR42:IONF.MAC<REOPEN(.OCINK)>  - Reset YOBJAD(XLOW)
+		before exit. Gave error in G C.
+
+[275]	(E244)	SIMULA pass 2: EX.MAC<EXAT> - SUBI 1 => SUBI X3,1  to
+		give  correct number of ac's needed for QUICK TEXT or
+		LONG REAL procedure.
+		Pass 3: E3.MAC:
+			E3PPN: Use "OUTINT" (E3PNOU in TOPS-10,
+				NOUT in TOPS-20)
+			E3PNOU: Save X4 (instead of in E3PVER).
+
+[276]		SIMRTS:SA.MAC<.SAGC,SANP1> -
+		Put limit on CORE request at  377777  octal.  TOPS-20
+		problem, could be a TOPS-10 problem if very much real
+		core is made available to a job.
+		Do not output page fault counts - based on  erroneous
+		assumptions.
+
+[277]		SIMLIB:OCSP.MAC -
+		If program is loaded in high segment with SIMRTS, use
+		SETUWP to avoid traps on legitimate stores in  hiseg.
+		Do  not  load  hiseg from EXE file then.  SIMHGH.REL,
+		containing the RTS modules normally placed in  hiseg,
+		is created for this purpose.
+		LIBSIM:FREEZE.MAC -
+		Load high segment from program file if program loaded
+		in hiseg. Affects SAVE.MAC also.
+
+[300]		SIMDDT:
+		SIMDS1.MAC - Define %DSVER=:VERRTS for SUTABS.
+		SIMDS9.MAC<DSUS> - Linesperpage(-1) for USE file.
+		SIMMAC.MAC<RTSYMBOLS>  Introduce  OCLD   for   SIMDDT
+		loading.
+		SIMRTS.MAC - OCLD added to transfer vector.
+		OCEP.MAC<.OCEI> Replace .OCLD by OCLD as value of
+		YDSLOAD(XLOW).
+5.0	CHANGES ----- RELEASE 3, 18-Dec-75
+
+[40]		CA,CARL,DP,EX,M2,OR,ORRK,P1DUMP,SD,SIMMAC,SR
+		Introduce the HIDDEN PROTECTED facility.
+
+
+[41]		The SIMULA system has been upgraded.
+		New features have been added to SIMDDT and it is now
+		possible to continue processing after some errors.
+		The CLOSE, NOPROCEED and @ commands have been added.
+		The NOARRAY command has been removed but it is now
+		possible to specify  the switches /-ARRAY, /-TEXT and
+		/-GC in all output commands.
+		THIS and QUA are accepted in an identification.
+		Complete blocks can be output with the * feature.
+		^C REENTER will end the processing of the current
+		SIMDDT command.
+		The VARIABLES command will also give the TYPE PROCEDURE
+		values.
+		All special characters in a TEXT variable are replaced by
+		^ capital letter.
+		At end of execution only SYSIN and SYSOUT are closed.
+		An error will be generated if some other files are
+		open and the user may close them with a SIMDDT command.
+		Modules changed: all SIMDDT modules, OCEP and all modules
+		which contain a RTS error call for which
+		continuation is now possible.
+
+[42]	(E64)	M3 <M3ATR>  Disregard ZHELEN when looking for ATR file
+		differences.
+
+[43]	(E63)	Fixup handling changed to avoid forward references.
+		Modules O2, O2RK, M3, I2 and LOWSEG changed.
+
+[44]	(E75)	IO module routine .IOBO changed to handle 
+		BREAKOUTIMAGE on non TTY device.
+
+[45]	(E50)	Modules O1 and E3 corrected to give some terminating
+		errors both on the TTY and the listing.
+
+[46]	(E71)	Module LC corrected to handle a line with 
+		a line number and less than 5 characters.
+
+[47]	(E59)	Module CGPA routine .NEW changed to detect generation 
+		of object with SIMSET or SIMULATION  via NEW.
+
+[50]	(E80)	CS <CSRA> Work ac's were destroyed by a BLT. Ac's
+		reassigned.
+
+[51]	(E70)	SIMDDT routine DSPV changed to give correct start position
+		of a subtext  variable.
+
+[52]	(E87)	SIMDDT routine DSBP changed to handle text relations in
+		a breakpoint command correctly.
+
+[53]	(E82)	TX module changed to give correct value of GETREAL
+		when the text is e.g. 5.E .
+
+[54]	(E86)	TX module changed to give correct value of OUTFIX
+		in the interval 0.5 to 1-e.
+
+[55]	(E89)	SIMDDT routine DSRUC corrected to handle a terminated block
+		in the operating chain.
+
+[56]	(E99)	CGSA <.RP>  X.A[i], when passed by name, gave error for A a
+		REF ARRAY. Corr: Copy ZIDZDE(XP1) to ZNNZQU(XCUR).
+
+[57]		TXBL <TXST>  Strip corrected for the case of a blank subtext
+		of length 1-4 starting after first pos of its main text and
+		contained in the first word (also blank).
+
+[60]	(E73)	O1 <O1EXRQ>  Do not output more than one request block (type 17)
+		for the same REL file library. Missing index ac inserted.
+
+[61]		IO, IONF, OCIO, OCIN, OCEP
+		Add bit switch ZFIFND to file object format. When set, errors
+		found when handling NEW ...file(...) do not lead to error
+		messages, but are flagged to the calling routine instead.
+		Makes implementation of utility procedures FINDINFILE,
+		FINDDIRECTFILE, SCRATCHFILE etc possible.
+		At the same time, tests on several flag bits were partly
+		optimized by keeping the flags in an ac as long as possible.
+
+		OCIO <TYPESPEC>  Better output of file definition on errors.
+
+[62]		OCEP <OCEP,OCTR>, SIMRPA 
+		%ZYQUFL message introduced. Displays
+		the underflow count YOCUFL if non-zero. Increased by one in OCTR
+		on each floating point underflow.
+
+[63]		IO, SIMMCR, SIMRTS (SIMRT1, SIMRT2)
+		Modifications to enable implementation of binary IO
+		(INPUT, OUTPUT). Slight changes in operation and partial
+		reorganization of common routines. Adding entries to RTSYMBOLS
+		(hiseg transfer vector): IOCB, IOCS, IONB, IORB, IOERF.
+		SIMRTS: Save status of channel 0 (if active) over a hiseg swap.
+
+[64]		CGPA <CGPN,CGZAP>  Simplified transmission of array by name.
+		Motivated by QUICK procedures.
+ 		PH <PHFM>  Handling of simple (nothunk) array parameter descr.
+		corrected.
+
+[65]	(E101)	CGSA <.DOT,ZID.> In a remote procedure reference like X.p, take
+		ZDBZBI from display at level ZHEDLV of qual(X) if qual(X) is
+		inspected, otherwise at level ZHBSBL of p. This avoids
+		interrupts but may allow "transplantation".
+		The corresponding modification is made in ZID. for a connected
+		procedure call: INSPECT X DO .... p ...
+
+[66]		TX <TXGI,TXGF,TXGR> Changes to avoid error messages in error
+		situations if XTAC left half is non-zero. Used by utility
+		procedures scanXXX, checkXXX, where XXX =int/frac/real.
+
+[67]		OCIN <OCINHELP> /H switch at run time handled by SYS:HELPER.REL.
+		Channel 0 handled as in OCSW.
+
+[70]	(E97)	TX <TXGR> Corrected deediting of expressions like ".5E".
+
+[71]	(E98)	Module O1 routine O1RLC modified to correct REL file.
+
+[72]	(E78)	Module SA<SAGC> PHASE 4.
+		Too much time spent in GC when file opened during processing
+		and many records exist.
+		Create backward link of records when moving towards top.
+
+[73]	(E102)	CGPA <CGPA.1> Supply correct ZNO pointer in YACTAB for name
+		parameter to QUICK procedure. ACS was incorrectly relocated.
+
+[74]	(E103)	PHPT: Check next word in ZAP list on finding zero word. May
+		be descriptor for an explicit NONE.
+
+[75]	(E104)	I1 <I1SWFN> YI1RSW turned off to avoid error on concatenation
+		of source files. Recovery corrected for error in file spec
+		in /R or /S switch.
+
+[76]		IO <.IOFD> XWAC6 also saved.
+
+[77]	(E105)	CP <CPCA,CPRS> Test for detached state simplified. Error in
+		CALL procedure (CPCA) corrected (did not work from detached
+		caller).
+
+[100]	(E116)	PHPT  Introduce check for too many parameters to NOCHECK
+		MACRO-10 procedure. Issue ZYQ106 if too many actual parameters.
+
+[101]		LS <LSXTXT> Implement new handling of text constants.
+		They may now be written in several parts, separated by spaces,
+		tabs, and new line, thus "<part 1>"<sep>"<part 2>" is equivalent
+		to "<part 1><part 2>", where <sep> is space, tab, CR, LF, VT, FF
+		or any combination of those.
+
+[102]	(E114)	SIMDDT <DSPB,DSBP,DSAT>
+		Breakpoints with relational operators did not work if
+		SIMDDT was moved. The relative address of a keyword is now used.
+
+[103]	(E111)	PH <PHTR> Check for inconsistent return from thunk. Give RFAIL
+		if block address from thunk save area (ZTSZBI) is zero.
+		Operating chain is probably incorrect.
+
+[104]		SIMMAC,SIMMC1-3,SIMMCR,SIMRPA,DM,E3,I3,M3,O3,SIMXRF,T3:
+		New definition of CTITLE, RTITLE. CUNIV and RUNIV replace
+		them in UNIVERSAL files. This makes it possible to use 
+		MACRO v.50 for all but a few MAC files of the SIMULA system.
+		In SIMMC3, several macros are lumped together as P3INIT, which
+		is invoked in the prologue of every Pass 3 module and in DM.MAC.
+		ZDM is removed from ZDM field definitions and instead used as
+		explicit offset in field references. MACRO v.50 could not
+		handle the earlier definition. The following modules produce a
+		loop in v.50: SU,OCIN,I1,LC,SD,CGRK. v.47 has to be used for
+		those at present (Feb 1976).
+		Note that the universal file name of SIMMC3 is now SIMMC3.UNV!
+		Note also that RTITLE does not work, apparently, in v.50 if
+		SIMMAC is not searched before other universal files!
+
+[105]		Changes to enable coding of other types of I/O in MACRO-10
+		procedures but still use the SIMULA file definition facilities.
+		IO <IOFI%D> Do not set data mode if already set. Makes it possible
+		to have other modes than ASCII line mode.
+		SIMRPA, IONF <.IOCF,.IOCOM>: New bits:
+		ZFIBNW (buffers not wanted), ZFINLE (no lookup/enter)
+		to suppress buffer allocation and lookup/enter respectively.
+		SIMMCR <RTSYMBOLS>: IOCLA available to external MACRO-10
+		proc via transfer vector.
+
+[106]	(E110)	O2 <O2DFOUT>
+		Check for buffer overflow (IC2 block item 2) corrected.
+
+[107]	(E115)	TX <.TXPX> Outfix corrected for numbers [0.5,1-e]
+		with no decimals
+
+[110]	(E90)	RD <.RDRA,.RDUN> RANDINT and UNIFORM corrected. Check for 
+		max length of interval
+
+[111]	(E118)	CGPA <.NEW> If class AND its declaring block are both
+		visible by inspection, use DLV of declaring block,
+		otherwise SBL of class.
+
+[112]	(E75)	IO <.IOBO> Modify [44]: Subtract one from number of line feeds
+		either when Breakoutimage was called last or when file is a TTY.
+		This gives the (desired?) effect that a series of Break-
+		outimage calls will create a long record on a file,
+		but Eject will have a reasonable effect.
+		<IOCL>: Do not output extra line feed when closing after
+		Breakoutimage call.
+
+[113]	(E123)	IOED <IOIT> INTEXT gave pos=length+1 instead of 1.
+		This is a mistake in the Common Base document.
+		Pos is now consistently 1 for all standard procedures
+		yielding text values: (Blanks, Copy, Strip, Sub, Main,
+		Intext).
+
+[114]	(E121)	IONF <.IOCF,.IOCOM> When another file is opened on a TTY channel,
+	(E122)	the new open destroys the buffer header for the companion file.
+		Corrected after allocating the new buffers. In .IOCOM, save
+		some effort by checking if there was really an old file on the
+		channel.
+
+[115]	(E128)	PH <.PHFT> Allow NOTEXT as actual parameter since t:-NOTEXT
+		should be legal by the copy rule for NAME parameters.
+
+[116]	(129)	O2SA <O2SM> Do not output HIDDEN specifications in the
+		symbol table.
+
+[117]	(E132)	PHPT: Array parameters to formal, virtual or nocheck MACRO-10
+		procedures were treated incorrectly in the simple case when the
+		ZAP (actual parameter descriptor) did not specify a thunk.
+		Result of edit [64]. Correction in PHVALUE and PHREFERENCE.
+
+5.1	EARLIER CHANGES
+
+
+PASS 1:
+
+[1]	O1, O1RL
+	SD, SDZQU	Output ENTRY block in REL file
+			for EXTERNAL CLASS or PROCEDURE
+[2]	LOWSEG
+	I1, I1REST	Remove use of YVER
+[3]	LOWSEG		Introduce YRELBL REL file buffer count
+	O1, O1REL	Let 2 REL file buffers stay in core
+--------RELEASE 1C(31006)  750220
+[4]	SD
+	I1
+	SIMMC1		Introduce /EXTERN: QUICK and the switch YSWEMQ
+			Allow missing ] in PPN
+[5]	I1, YI1TMP	Read ^O200 words from TMPCOR
+[6]	LC, LCMOVE	Return if XLCLEN=0 after a new source file is opened
+[7]	SR, CONSTANTS	Define MAXIDX to ^O12 = 10 = max number of array subsc.
+[10]	I1, SIMULA	Introduce PORTAL (GOTO 1, ) to allow concealed mode
+[11]	SP		Initialize YC1DC area
+[12]	SD, SDBEG
+	    SDEXT	Test if EBL less than QMAXDIS and give new error msg.
+[13]	O1
+	DP
+	D1
+	I1
+	SD
+	SP
+	SR
+	LOWSEG
+	SIMMC1		ATR library implementation
+			/SEARCH switch added
+[14]			New SIMDDT facilities
+	SYS1		Macro def of SC moved to SIMMAC
+	LC
+	LS, Z1CH	Remove <CR> as end of line character
+	I1, I1REST	Fill with <LF> in YLCLBE
+[15]	LS, LSN		Remove rounding when lreal converted to real
+			(to be compatible with RTS)
+[16]	O1, O1REL	Modify output of two first buffers
+[17]	O1, O1SETB	SAVE X2
+[20]	O1, O1EX	Better error messages for errors when reading ATR files
+[21]	I1, I1SRTH	Use HELPER.REL for reading SIMCOM.HLP (/H switch)
+--------RELEASE 2(0)
+
+PASS 2:
+
+[1]	CGPA, CGNQ	Use ZNNZQU if ZNN node
+	CGSA, .DOT	Copy ZNSZQU to ZNNZQU
+[2]	O2RK, O2IC2T	Output tentative fixup if present on calling O2DFTE
+	O2,O2DFTE	Add the new routine O2DFTE
+[3]	OR, NEW.	Loop on ZHBZHB to check parameters in the prefix link
+[4]	O2RK, O2REL	See PASS 1 [3]
+[5]	ORRK, ORCC
+	CGRK, .POW	The check for the POW operator is changed
+[6]	CA, BBLK.	Call O2DFTE to output tentative fixup if present
+[7]	Introduces QUICK procedures
+[10]	CGOB, CGASTX	Check on text procedure id. at text val. assignm.
+--------RELEASE 1C(31006)  750220
+[11]	CGSA, .FORST	Step ID until XX corrected
+[12]	ORRK, ORCCRE	Error in edit [5]  ZCNTYP should be ZCNVAL
+[13]	CA, CAEB	Use GENABS to output ZSD pointer when =0
+[14]	CGIW, CGG	CAILE instead of CAIL to test if WARNING 1,...
+	CGIW, CGIACT
+	      CGPD	Make a routine CGIACT of the code in CGPD to initialize
+			 YACTAB, YTAC and add initialization of YCGXAC
+	CGSA, .ADEC	Call the routine CGIACT to reinitiate YACTAB after
+			 EXEC  CSNA is generated
+			Reserve ac's in pairs (GETAC2) and do it before COMPVAL
+			 is executed to avoid reserving more ac's than needed
+	CGSA, CGPU	Use CGIACT
+	I2, I2EN	Use CGIACT
+[15]	O2SA, O2EX	Initialize LH of YBHATR to buffer length -1
+[16]	I2		See PASS1 [10]
+[17]	CA, CAEB	Correct fixup no for high seg prototypes
+				(IOIN, (IOFI), IOOU, IOPF, IODF )
+[20]	CGSA, ZCN.	WARNING 2,REDUNDANT BOOLEAN CONST.  removed
+[21]			Not used
+[22]			New SIMDDT facilities
+	O2SA, O2SM	Set ZSDSPI for SYSIN and SYSOUT
+			Copy only ZQUTMK to ZSDTMK
+[23]	O2SA, O2ATR	Save X0 too
+[24]	CGPA, .PCALL	Generate PUSHJ XPDP,CSSW0 for formal and virtual
+			 procedure calls without parameters
+[25]	CGRK, .POW	SETZM  YLXIAC   ;Forget old block address
+[26]	CGSA, ZCN.	Zero left half if ref constant (NONE)
+			Qualification for testing lies in left half
+[27]	O2RK, O2REL	See P1[16]
+[30]	OR, CVBE. CVDE.	Exec CAUSTD Reserve space for FOR return addresses
+	CA, FORDO.	Remove EXEC CAUSTD
+[31]	CGPA, CGPN	Test on ZNS-node before test on MODE=NAME
+[32]	CGSA, .FORST	Stack X6 with type info.
+[33]	CGSA, .FORST	Let zero increment give an infinite loop.
+[34]	CGPA, .PCALL	Correct QUICK proc handling. See [7]
+[35]	ORRK, ORRPPP	Disallow different types for actual/formal proc
+[36]	CARL, CARLVI	Change an instruction to implement correct virtual match
+			for REF procedures
+--------RELEASE 2(0)
+
+PASS 3:
+
+[1]	T3, T3E		To output T3MERR on list file.
+[2]	O3, O3WATR	Copy old ATR file protection.
+[3]	T3, NEWNAME	Correct DATE 75 error. Wrong creation date REL file
+--------RELEASE 1C(3)  750113
+[4]	E3, E3PAGH	DATE 75 error. A ) in list header
+[5]	E3, E3PAGH	DATE 75 error. Wrong creation date given in list header
+[6]	M3, Main loop	See PASS 1 [3]
+	T3, T3I		See PASS 1 [3]
+--------RELEASE 1C(31006)  750220
+[7]	E3, E3		Start with 0 in YE3PGN
+	    E3LICP	Update main page number
+	    E3LICS	Do not call E3PAGE but zero YE3PNO to let next line
+			 generate new page
+			Update main page number by setting secondary 
+			 page number to -1
+			These changes will correct page number setting
+[10]	O3, O3ATR	Call T3A to delete nnnATR.TMP
+	T3, T3A		Include T3A to delete nnnATR.TMP
+[11]	I3		See PASS 1 [10]
+[12]	O3
+	SIMDIR		ATR file library.  See PASS 1 [13]
+[13]	SIMXRF		Hash on the first 11 bits to sort $,#,@ more correctly
+[14]	I3, I3LS3	Zero LOW DATE and TIME in LS3 ENTER block (DATE 75)
+[15]			New SIMDDT facilities
+	O3, O3TYP	Remove <CR> as end of line character
+[16]	M3		Remove some code (See P1[16])
+[17]	M3 <M3IQ,M3IQOUT,M3>, SIMMAC, LOWSEG
+			Save IQ buffers temporarily
+[20]	M3 <M3>, I3 <I3E> Avoid destroying LIBSIM.ATR when creating a new ATR
+			file corresponding to a module in LIBSIM.ATR
+[21]	O3 <O3ERR>	Save X1 over LD instr
+[22]	T3 <T3E>	Check for NEWATR instead of NEWUNR for message
+			"NEW ATR FILE GENERATED". Output previous message
+			in two parts, the second one only if recompilation
+			is necessary (NEWUNR set).
+
+SIMRTS:
+
+[1]	IOED, IOIT	Skip return must be used
+[2]	TX, TXFD	Too long loop for numbers less E-38
+[3]	OCIN, .OCINB	Enter a blank extension
+	IONF, .OCINA	Use WSF instead of SF  to store extension
+[4]	TX, TXBD	Do not output leading zeroes if arg in X0 = 0
+	TX, TXPX	Output 0 instead of NULLS at end of string
+[5]	IO, READBLOCK, CLOSE, OPEN, OUTIMAGE, PUTOUT
+			Use global word count ZDFWCT instead of ZBUWCT
+			to count words in buffer for directfiles
+[6]	TX, .TXDA	Test on NOTEXT and output zeroes in ZTT-record
+[7]	TX, TXFD	Neg arg in XWAC3-4 is changed to most pos arg
+[10]	IONF, IONFCA	Make a subroutine of the code checking how
+			/ACCESS:APPEND is used
+[11]	SA, SAGCLE, SAGCN3, SAGCSP
+			Debug version test on dispatch table limit
+			used QZYS instead of QZXB
+[12]	SS, LINKAGE	Add PREV to the symbol table
+--------RELEASE 1C(11)  750220
+[13]	CS, CSCA	Allow optional AC map as inline parameter
+[14]	IO, IOGC	Ignore ^Z if TTY input
+[15]	IO, .IOCL	If TTY file zero appropriate half in YIOCHT
+			Use X1 to determine CLOSE argument
+			CLOSE only in or out side (both for directfile)
+			Zero only appropriate side in YIOCHT
+			Release TTYn only if no more file on TTYn is open
+	    .IOCLA	Let YIOCHT be scanned twice to let two TTY files on
+			 the same device be closed and released correctly
+			Remove special treatment of SYSOUT
+	IONF, .IOCOM	Test device fully first and ask for filename only for
+			 directory devices
+			Perform the dummy open with a 0 in the 3:rd word of 
+			 the argument block
+			Put the file object reference in the correct half
+			 of YIOCHT for TTY files
+			Initiate the buffer header for TTY files
+			Perform a RELEASE of new channel if dev. TTYn already
+			 assigned
+			Check if TTYn already assigned for input or output
+			 respectively and give an error
+			Treat NUL: as DSK:
+[16]	IO, .IOOG	Test on SPACING(0) on TTY-files before <LF> is appended
+			Append <LF> before <FF> in non-TTY-files
+			Append one <LF> less than ZPFLIN indicates
+			 after <FF> in non-TTY-files
+[17]			Not used
+[20]	OCEP, .OCLD	Set X3 to 1 to let .SAGC be called only once
+[21]	OCSP, STOP.	STOP. := FOREX  inserted to take care of STOP statement
+			 in FORTRAN subroutines
+[22]			New SIMDDT facilities
+	SU, SUPS
+	    SUSI
+	SS, SSLG
+	    SSHD
+	IO, IOFI
+	    IOIN
+	    IOOU
+	    IOPF
+	    IODF	Add second parameter to DZSD calls
+[23]	CS, CSSW0	New entry to give an error msg. if parameters missing
+[24]	IO		Image always transferred from/to buffer completely
+			  (no strip)
+[25]	PH, .PHFS	XIAC (X16) saved over .PHFS to avoid addressing problems
+[26]	CP, .CPRS	Update YSADEA to YSATOP ( not XCB )
+[27]	PH, PHTR
+	PHPT, PHPTXT	Zero dynamic ref in thunk save area
+[30]	PHPT, PHPTLV	Avoid ABSADDR for label, procedure or switch
+[31]	CS, CSCA	Return array address in top ac as given by inline
+			parameter  XWD n,address map  if present. Top ac
+			is XWAC1+n. Default top ac is XWAC1.
+[32]	OCIN, OCINSW	Recognize space and horizontal tab as switch delimiter
+[33]	IO, IOIG	Correction for handling of empty image straddling
+			buffer end. Also correct EOF image.
+[34]	PHPT, PHNAME	Disallow passing type proc by name corresponding to
+			a formal procedure of different type.
+--------RELEASE 2(0)
+
+SIMDDT:
+[1]	SIMDS3, DSPV	Zero LH if ref quantity
+		DSVIV		-"-
+		DSLV	Use only RH for array addresses
+[2]			New SIMDDT facilities
+			The DISPLAY and INSPECT commands have been added.
+			Some standard procedures may be referenced.
+	SIMDS1
+	SIMEDS		Add two new error messages
+			 QMIPPR=556 Assignm. to syst. proc. not possible
+			 QMNINM=557 Text attr. is not MAIN
+	SIMEDS		Error msg's 562 and 565 changed
+	SIMDS1		MTXMN defined as EXEC TXMN
+		DSZSDM	ZSD entry for text.MAIN created
+	SIMDS3,	DSNI	Handle text.MAIN
+		DSCT	Check for standard procedures
+		DSLV		-"-		and call DSSPV
+			Handle text.MAIN
+		DSSPV	New routine to handle standard procedures
+	SIMDS9,	DSIP	Check if input to standard procedures
+		DSVA	Check for standard procedures and call DSSPV
+	SIMDS1		QZYQLN = 217
+	SIMEDS		Old errors ZYQ175-177 converted to ZYQ215-217
+			New errors ZYQ044,173-176,214
+[2R]	SIMDS1, DSINC1	Test if an address in SIMDDT stack points into OLD
+			SIMDDT area.
+
+
+COMMON PARTS:
+[3 10 06]	DM	Never replace the first 10 error messages
+			Do not let E messages from pass 1 be replaced by 
+			 E messages from later pass
+[12 20 11]	SIMMC2
+		SIMMAC	Move the constant def of QMAXDIS from SIMMC2 to SIMMAC
+[14 22 15]		New SIMDDT facilities
+		SIMMAC	Definition of macro SC moved from SYS1
+		SIMMCR	Define ZSDHID and ZSDSPI
+		SIMRPA	Define ZSDSPI values QIMAIN, QISYSIN,...,QICURRENT
+			New definition of macro DZSD, add a second argument
+		SIMMAC, LS1INIT
+			Move definition of ZLEIND values to LC
+		SIMRPA	QFORER=215
+			QILLUUO=216
+			QRFAIL=217
+		SUTEDS.CBL
+			RTS-LIMIT  001 thru 217
+			T2-CHECK: MOVE 176 to R1
+[14 24 15]
+RTS[23]		SIMMCR	RTSYMBOLS
+			Add the new entry CSSW0 as X(CSSW0) at the end of
+			 RTSYMBOLS definition
+  

@@ -1,0 +1,190 @@
+                            MAKE
+        TOPS-20 Implementation of Unix make Utility
+                        [13-Mar-87]
+
+MAKE is a TOPS-20 version of a public-domain  implementation
+of the Unix make utility.  It is compatible to a high degree
+with the  original Unix  version, as  far as  the syntax  of
+MAKEFILE's is concerned.   The built-in  default rules  have
+been modified to be  suitable for TOPS-20,  and a number  of
+additional rules have been added.  They are given below.
+
+The essential ideas behind MAKE are:
+
+        Many  common  tasks  in  software  development   are
+        repetitive (edit - compile -  link - run and  test),
+        and should be encapsulated in a command file to save
+        typing.
+
+        Processing (e.g. compilation)  of a  single file  is
+        unnecessary if that  file, and  its dependent  files
+        (e.g. #include  files)  are older  than  the  output
+        file(s) of the processing step.
+
+        A computer  program  specially constructed  for  the
+        purpose (MAKE) can read  a list of dependencies  and
+        rules from a file, and from them, and from the  file
+        last-write time stamps, determine what steps need to
+        be taken to bring everything up to date.
+
+Complete documentation  on MAKE  can be  found in  any  Unix
+manual   on   the   corresponding   man   page   (the   file
+/usr/man/man1/make on most Unix  systems).  The man page  is
+available in INFO  node (UNIXMAN)MAKE  on UTAH-SCIENCE.   An
+extended description is found in
+
+        S.I. Feldman, "Make -- A Program for Maintaining
+        Computer Programs", pp. 291-300, Unix Programmer's
+        Manual, Volume 2, Holt, Rinehardt and Winston (1983).
+
+That article is in /usr/doc/make  on most Unix systems,  and
+is in INFO node MAKE on UTAH-SCIENCE.
+
+The original version of MAKE  was done by Stuart Feldman  in
+1978.  The  TOPS-20  version  is based  on  a  public-domain
+posting to  the Usenet  bulletin board  net.sources,  author
+unknown.  It  contained  support  for  Unix,  OS9,  and  EON
+operating systems.  The TOPS-20 support was added by  Nelson
+H.F.  Beebe (BEEBE@UTAH-SCIENCE).
+
+Under Unix, when MAKE determines that it needs to execute  a
+shell command to update a target  file, it issues a call  to
+system() in the standard C library.  The command is executed
+by a fresh copy of the shell, and it returns an exit code (0
+on success, non-zero on  error) to the  shell which in  turn
+returns that code to MAKE.
+
+The implementation of system()  with the KCC compiler  under
+TOPS-20 differs somewhat, in  that the shell (TOPS-20  EXEC)
+is fed its commands  from the terminal  input buffer, as  if
+they were typed  by the user,  exactly like the  DO and  MIC
+commands and the batch job controller do, instead of getting
+them from a file.  This  mechanism is necessary because  the
+EXEC has not been trained to exit gracefully at  end-of-file
+in a top-level command  file.  The net  effect is the  same,
+with the exception that it  is possible for user  type-ahead
+to be mixed  in with  the input  MAKE is  stuffing into  the
+terminal input buffer;  therefore, when  running MAKE,  keep
+your fingers off the keys until it is done.
+
+If you wish to have  MAKE's commands executed in batch,  the
+command list can be captured in a file, and not executed  by
+MAKE, as follows:
+
+        make -n >foo.ctl
+        submit foo
+
+TOPS-20 commands do  not return any  command status code  to
+their parent, so a TOPS-20 MAKE  run may attempt to do  more
+steps than it  would under Unix,  since it normally  assumes
+that each step succeeds.
+
+The touch (-t) option is not yet implemented in TOPS-20 MAKE.
+
+Here is the complete list  of built-in TOPS-20 MAKE  macros,
+rules, and suffixes.  It was produced by requesting MAKE  to
+print its built-in values by executing
+
+        MAKE -p
+
+in a PHOTO session, then editing the output PHOTO log.  Note
+that it includes rules for compiling source code in C, FAIL,
+FORTRAN,  MACRO,MIDAS,   PASCAL,   and  SFTRAN3,   and   for
+processing various  TeX  files.  All  compiler  and  program
+names used  in  built-in  rules are  defined  by  macros  to
+facilitate modifying  MAKE's behavior.   Finally, macros  RM
+and MV are used for DELETE and RENAME, to facilitate porting
+MAKEFILE's from TOPS-20 to Unix.
+
+        YACC = yacc
+        SF3 = sf3
+        FC = compile
+        FFLAGS = /debug:(arg,lab)
+        PC = compile
+        PFLAGS =
+        AS = compile
+        CFLAGS =
+        CC = kcc
+        AMSTeX = AMSTeX
+        AMSTeXFLAGS = \batchmode
+        LaTeX = LaTeX
+        LaTeXFLAGS = \batchmode
+        TeX = TeX
+        TeXFLAGS = \batchmode
+        RM = delete
+        MV = rename
+
+        .tex.dvi:
+        -       $(TeX) $(TeXFLAGS) \input $<
+
+
+        .ltx.dvi:
+        -       $(LaTeX) $(LaTeXFLAGS) \input $<
+
+
+        .latex.dvi:
+        -       $(LaTeX) $(LaTeXFLAGS) \input $<
+
+
+        .atx.dvi:
+        -       $(AMSTeX) $(AMSTeXFLAGS) \input $<
+
+
+        .amstex.dvi:
+        -       $(AMSTeX) $(AMSTeXFLAGS) \input $<
+
+
+        .c.rel:
+        -       $(CC) $(CFLAGS) -c $<
+
+
+        .mac.rel:
+        -       $(AS) $<
+
+
+        .fai.rel:
+        -       $(AS) $<
+
+
+        .mid.rel:
+        -       $(AS) $<
+
+
+        .pas.rel:
+        -       $(PC) /pascal/language:"$(PFLAGS)" $<
+
+
+        .p.rel:
+        -       $(PC) /pascal/language:"$(PFLAGS)" $<
+
+
+        .for.rel:
+        -       $(FC) /fortran/language:"$(FFLAGS)" $<
+
+
+        .f.rel:
+        -       $(FC) /fortran/language:"$(FFLAGS)" $<
+
+
+        .sf3.for:
+        -       $(SF3) $<
+
+
+        .sf3.rel:
+        -       $(SF3) $<
+        -       $(FC) /fortran/language:"$(FFLAGS)" $<
+
+
+        .y.c:
+        -       $(YACC) $(YFLAGS) $<
+        -       $(MV) ytab.c $@
+
+
+        .y.rel:
+        -       $(YACC) $(YFLAGS) $<
+        -       $(CC) $(CFLAGS) -c ytab.c
+        -       $(RM) ytab.c
+        -       $(MV) ytab.rel $@
+
+        .SUFFIXES: .rel .dvi .c .y .l .mac .fai .mid .for .f .sf3 .pas \
+                   .p .tex .latex .ltx .amstex .atx .inc .h

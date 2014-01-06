@@ -1,0 +1,290 @@
+
+
+
+FPR2A.DOC -- Changes from V2 to V2A(44)
+March 1979
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1974,1978,1979 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+FPR2A.DOC                                                       Page 2
+
+
+1.0  SUMMARY
+
+This release of FACTPR adds support for FACT entries written by UMOUNT
+and  OMOUNT,  Version 26, (code 271).  No other changes have been made
+and no restrictions or bugs attended to.
+
+It has been tested with 5.07/5.07A/6.01A in-house.  It  has  not  been
+tested in-house on 5.06 monitors but is meant to work on them.
+
+
+
+2.0  EXTERNAL CHANGES
+
+The MOUNT entries are very much like the SPOOL entry  except  for  the
+following words:
+
+     0    CODE = 271
+          Job number is UMOUNTer's job number unless that  job  logged
+          off;  else, and for OF entries, it is OMOUNT's job number.
+
+     1    User's PPN.
+
+     3    QUE = 1st letter of program (O or U) concatenated  with  1st
+          letter of command (M or D or F).  'UF' is not used.
+
+     10   The device mounted, dismounted or used in a FILE command.
+
+     11   0
+
+     12   F,,TIME
+               F = 0 if request failed.
+               F = 1 if successful.
+               TIME  =  time  in  seconds  OMOUNT  dedicated  to  this
+               request.
+
+
+To implement the support of code  271,  FACTPR  has  been  changed  to
+process  MOUNT  entries  like SPOOL entries except for the units word.
+In place of the sibgle item in 'FET1'  and  'FET2',  two  entries  are
+added.   The  first  prints  the  L.H.   (MOUNT flags) as 4 characters
+starting at column 89, and the second prints the R.H.  (clock time) as
+7 characters starting at column 93.
+FPR2A.DOC                                                       Page 3
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+The are two known bugs.
+
+     1.  The station number in spool entries is octal and not decimal.
+
+     2.  The runtime in spool and mount entries is converted to  ticks
+         instead of milliseconds for DATE75 format.
+
+The following source compare provides the  fixes  for  the  above  two
+problems:
+
+
+^^
+File 1)  DSKB:FACTPR.MAC[10,2162]       created: 0955 08-MAR-1977
+File 2)  DSKB:FACTPR.OLD[10,2162]       created: 0953 08-MAR-1977
+
+1)1              SUBTTL R CLEMENTS/RCC/CMF/PFC   %2(44) 18-Sep-75
+1)       VWHO==0
+****
+2)1              SUBTTL R CLEMENTS/RCC/CMF/PFC   %2(42) 16-OCT-74
+2)       VWHO==0
+**************
+1)1      VEDIT==44
+1)       ;+
+****
+2)1      VEDIT==43
+2)       ;+
+**************
+1)26             XWD    40,OCTP2        ;12 STATION NUMBER
+1)               XWD    34,DECP6        ;13 APR SERIAL NUMBER
+****
+2)26             XWD    40,DECP2        ;12 STATION NUMBER
+2)               XWD    34,DECP6        ;13 APR SERIAL NUMBER
+**************
+1)34     TICK7:  TLNE   F,L.NDTF        ;NEW FORMAT
+1)                 JRST MST7            ;YES, IT'S REALLY MSTIME
+1)               IDIV   T1,JIFSEC       ;[34] CONVERT TO SECONDS
+1)               MOVE   T3,JIFSEC       ;[34]
+****
+2)34     TICK7:  IDIV   T1,JIFSEC       ;[34] CONVERT TO SECONDS
+2)               MOVE   T3,JIFSEC       ;[34]
+**************
+1)39     OCTP2:  SKIPA  BP,[060300,,T1]
+1)       OCTP12: MOVE   BP,[440300,,T1]
+****
+2)39     OCTP12: MOVE   BP,[440300,,T1]
+**************
+FPR2A.DOC                                                       Page 4
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+None.
+
+
+
+5.0  INTERNAL CHANGES
+
+None.
+
+
+
+[End of FPR2A.DOC]
+
+[FPR2.DOC is appended as an integral part of FPR2A.DOC]
+FPR2.DOC                                                        Page 5
+
+
+FACTPR.DOC -- Changes from V1 to V2
+October 1974
+
+
+
+1.0  SUMMARY
+
+This version cleans up all the  error  processing,  ensures  that  the
+format is always followed, adds a file identification record, adds all
+the CS2 changes, adds an  assembly  option  to  produce  COBOL  SIXBIT
+files, and supports the DATE75 project.
+
+There  are  no  known  deficiencies;   no  SPRs  were  reported  which
+generated  code  fixes.   It  should work on all monitors and has been
+tested on 5.07/6.01.
+
+FACTPR is not documented since it is an unsupported program.
+
+PURPOSE OF FACTPR:  It reads the system accounting files  (SYS:FACT.*)
+and writes an ASCII file in a fixed format which can be processed by a
+COBOL billing program.  The program has no operational options;   each
+time  it  runs  it  reads  all  accounting files and produces a single
+output file.
+
+
+
+2.0  EXTERNAL CHANGES
+
+Edit #
+
+4      Remove the PRINTX and OUTSTR warning of the unsupported  nature
+       of this program.  It is still unsupported.
+
+5      Handle DATE-75, especially in the FACT files.
+
+6      Use symbols from C.MAC.
+
+7      Ignore the CCL entry point.
+
+10     Remove unused symbols in the source.
+
+11     Output to DSK:, not to LPT:.
+
+12     Output errors to TTY:  also.
+
+13     Standardize all error messages.
+
+14     Replace all error EXITs with error messages.
+
+15     Recode to speed up line handling and suppress trailing spaces.
+
+16     Handle possible overflow items by setting to  the  maximum  the
+       output field will allow (all 9s).
+FPR2.DOC                                                        Page 6
+
+
+17     Support FACT items 120 and 260.
+
+20     Change channel and accumulator references to be mnemonic.
+
+21     Support FACT item 231 for SPRINT.
+
+22     Catch remaining cases of DATE-75 in new format entries.
+
+23     Pass over but notice unknown entry types.   Dump  in  octal  in
+       file.
+
+24     Fix code to catch FACT.SYS once.
+
+25     For CS2 only, make odd customer codes be new date format.
+
+26     Add assembly option to output COBOL  SIXBIT  files  instead  of
+       ASCII.
+
+27     Add more checks on unknown entries.
+
+30     For CS2 only, read *.FCT not FACT.*.
+
+31     Place all CS2 special code under FT$CS2.
+
+32     For CS2 only, add new tables for customer codes.
+
+33     For CS2 only, handle their incorrect use of old LOGIN entry.
+
+34     Convert spooler runtime correctly.
+
+35     Defend against full output line.
+
+36     Add CS2 entry 502;  expand 000 entry line.
+
+37     Fix CS2 entry 500.
+
+40     Use C as a universal;   standardize  the  feature  test  names;
+       default FT$SIX under FT$CS2.  Set default MAXENT to 25 (10).
+
+41     Make spooler units only 27 bits wide.
+
+42     Convert to sharable program.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+None.
+FPR2.DOC                                                        Page 7
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+Now is a .SHR instead of a .SAV file  and  gets  built  with  C  as  a
+universal and loaded with SCAN.REL in library search mode.
+
+
+
+5.0  INTERNAL CHANGES
+
+None.
+
+
+
+[End of FPR2.DOC]

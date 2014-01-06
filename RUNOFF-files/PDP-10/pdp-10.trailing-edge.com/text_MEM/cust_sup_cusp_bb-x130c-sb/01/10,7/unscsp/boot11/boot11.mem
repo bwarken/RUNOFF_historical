@@ -1,0 +1,503 @@
+
+
+
+PROGRAMMING SPECIFICATION
+
+
+
+
+
+                           BOOT11
+
+                PDP-11 BOOTSTRAP FROM PDP-10
+
+
+
+
+
+
+
+
+
+
+
+
+                    Date:  12-Oct-72
+                    File:  BOOT11.RNO
+                    Edition:  1
+
+
+
+
+
+
+
+
+***COPYRIGHT 1972, DIGITAL EQUIPMENT CORP., MAYNARD, MASS.***
+
+        This  document  reflects  the  software  as  of
+        version 4(34).
+
+        The information in this memorandum  is  subject
+        to  change  without  notice  and  should not be
+        construed as a commitment by Digital  Equipment
+        Corporation.
+
+        Actual distribution of the  software  described
+        in  this specification will be subject to terms
+        and conditions to be announced at  some  future
+        date by Digital Equipment Corporation.
+
+        Digital  Equipment   Corporation   assumes   no
+        responsibility  for  the  use or reliability of
+        its software on equipment which is not supplied
+        by Digital Equipment Corporation.
+BOOT11                                                Page 2
+
+
+1.0  INTRODUCTION
+
+BOOT11 is a bootstrap  program  designed  to  load  or  dump
+programs  from  the  PDP-10  into  a PDP-11 thru the PDP-10,
+PDP-11 Data Link (DL10).  The two main functions  of  BOOT11
+are:
+
+     1.  Loading a program into PDP-11 memory from a  PDP-10
+         disk file or the PDP-10 paper tape reader.
+
+         Warning:  BOOT11 reads ONLY formatted binary PDP-11
+         files.
+
+     2.  Dumping PDP-11 memory  into  a  PDP-10  disk  file,
+         creating  an  ASCII  listing of the contents of the
+         PDP-11 suitable for listing on a line printer.
+
+BOOT11 runs in USER mode under  a  DECsystem-10  timesharing
+system.   It  requires a minimum of 2K of memory but expands
+for IO buffers and for  the  common  memory  area  the  DL10
+provides  to  the  PDP-11.   BOOT11 "locks" itself in PDP-10
+memory and does IO instructions direct to the DL10 hardware.
+For  this  to  work, the BOOT11 job must have privileges for
+the TRPSET and LOCK functions of the timesharing system.
+
+
+
+2.0  OPERATION AND COMMAND STRING FORMAT
+
+The program BOOT11 should normally reside in the system SYS:
+area.   "R  BOOT11"  starts  the  program  which responds by
+typing
+
+     FILE:
+
+and waiting for some typed input, terminated by  a  carriage
+return.   The expected input is a standard DECsystem-10 file
+descriptor, followed by switches telling BOOT11 what to do:
+
+
+
+2.1  Loading the PDP-11
+
+    /LOAD:S         Load  the  PDP-11  from  the   specified
+                    PDP-10 file and set the starting address
+                    to the octal value S.
+
+    /START:S        Load  the  PDP-11  from  the   specified
+                    PDP-10  file  and start the -11 at octal
+                    location S.  If :S is not  present,  the
+                    default  :S is the starting address from
+                    the  file  loaded.   If   the   starting
+                    address from the file or from :S is odd,
+                    do /LOAD and don't start.
+BOOT11                                                Page 3
+
+
+    /CLEAR:C        Zero  PDP-11  memory  from  0  to   C-1.
+                    /CLEAR  can be used with /LOAD or /START
+                    to zero -11 memory before loading.
+
+    /IMAGE          Read the  PDP-11  load  file  in  /IMAGE
+                    mode.   The  PDP-11 assemblers can write
+                    binary files in  the  DECsystem-10  file
+                    system   in  either  a  "packed"  or  an
+                    "unpacked" format.   The  /IMAGE  switch
+                    tells  BOOT11 to assume "unpacked" form.
+                    Reading  from  the  paper  tape   reader
+                    automatically  sets the /IMAGE switch so
+                    the  file  is  read  in  the  "unpacked"
+                    format.
+
+    /PORTNO:P       Do the specified  operation  for  PDP-11
+                    number  P.   (PDP-11s 0-3 are on DL10#0,
+                    4-7 are on DL10#1.)
+
+/CLEAR, /IMAGE and /PORTNO may be used with /LOAD or /START.
+/LOAD and /START may not be used together.
+
+
+
+2.2  Dumping the PDP-11
+
+    /DUMP:M         Dump PDP-11  memory  starting  at  octal
+                    location  M  into  the  specified PDP-10
+                    file.
+
+    /END:N          N-1 is the last address of the dump.
+
+    /PORTNO:P       Do the specified  operation  for  PDP-11
+                    number  P.   (PDP-11s 0-3 are on DL10#0,
+                    4-7 are on DL10#1.)
+
+These  three  switches  may  be  used  together.   /DUMP  is
+required for dumping.
+
+
+
+2.3  Getting Help
+
+    /HELP           Read and type the help  text  from  file
+                    SYS:BOOT11.HLP
+
+
+
+BOOT11                                                Page 4
+
+
+2.4  Defaults
+
+Standard default values are assumed for  any  parts  of  the
+file descriptor or switch values not explicitly specified:
+
+          Item           Default value
+
+          DEVICE:        DSK:
+          FILENAME       PDPXIp
+                         "p" represents  the  PDP-11  number
+                         from /PORTNO:P.
+
+          EXTENSION      .BIN for loading ,or
+                         .LSD for dumping
+                         (A blank extension may be  specifed
+                         by  explicitly typing a dot with no
+                         extension following it.)
+
+          [PROJ,PROG]    [self], allows SFD's
+          :C             First UNIBUS trap
+          :M             0
+          :N             First UNIBUS trap
+          :S             starting address in input file
+          :P             0
+
+If no switches are specified, BOOT11 defaults to /START.  If
+the  entire  input  command  is  omitted and only a carriage
+return is typed, the default action is:
+
+          DSK:PDPXI0.BIN/START/PORTNO:0
+
+The simplest dump command is /D.  The defaults expand to:
+
+          DSK:PDPXI0.LSD/DUMP:0/END:first UNIBUS trap/PORTNO:0
+
+The switches may all be abbreviated to their first letter or
+letters.
+
+
+
+3.0  PDP-11 FORMATTED (ABSOLUTE) BINARY FILES
+
+(Formatted binary is  completely  described  in  the  PDP-11
+PAPER  TAPE  SOFTWARE  PROGRAMMING  HANDBOOK, DEC-11-GGPB-D,
+page 6-11, under "6.2.3 Absolute Loader Operation.")
+
+BOOT11 reads only PDP-11 formatted  binary  files  .   These
+files may be produced (at present) by any of five programs:
+
+     1.  MACRO-11 (which runs on the PDP-11).   The  ".ENABL
+         ABS"  pseudo instruction or the "/EN:ABS" switch in
+         the command string produces the  binary  output  in
+         formatted binary form.
+
+     2.  MACX11 (which runs  on  the  PDP-10).   The  ".ABS"
+BOOT11                                                     Page 5
+
+
+         pseudo  instruction  gives formatted binary output.
+         The output may be directed to the file system or to
+         paper  tape.   The  /I switch in the command string
+         gives  "unpacked"  formatted  binary.   The  MACX11
+         assembler  is  not  supported  by Digital now;  the
+         MACY11 assembler is the supported PDP-11  assembler
+         running on the PDP-10.
+
+     3.  MACY11 (which runs on  the  PDP-10).   The  ".ENABL
+         ABS"   pseudo   instruction,   the   ".ABS"  pseudo
+         instruction  (which  is  not  preferred),  and  the
+         "/EN:ABS"  switch in the command string may be used
+         to give formatted binary output.   The  /I  command
+         string  switch  gives  "unpacked"  binary output as
+         opposed to "packed"  output  which  is  the  normal
+         default.
+
+     4.  LINK (running  on  the  PDP-11)  loads  relocatable
+         binary files and produces formatted binary output.
+
+     5.  LNKX11, the  PDP-10  executable  version  of  LINK,
+         reads  relocatable  binary files for the PDP-11 and
+         produces formatted binary output.  The  /I  command
+         string  switch  gives  "unpacked"  binary output as
+         opposed to "packed"  output  which  is  the  normal
+         default.
+
+There are two versions of formatted binary  output  produced
+by  MACX11, MACY11 and LNKX11:  "packed" and "unpacked." The
+"packed" variation is the normal  default  and  consists  of
+four 8-bit frames of formatted binary output packed into one
+PDP-10 word.  (The packed binary files are very conveniently
+stored  in the PDP-10 file system.) The packed format cannot
+be punched onto paper tape directly with any current program
+other  than  the  paper  tape spooler.  QUEUE's /TAPE:ELEVEN
+switch tells the spooler to unpack the packed data  for  the
+paper tape punch.
+
+The "unpacked" variation consists of  one  8-bit  frame  per
+PDP-10  word  and is produced by using the /I command string
+switch.  The "unpacked" variation is the  required  form  of
+the  binary  data  if  it  is  to be punched onto paper tape
+either directly or with PIP.   (If  PIP  is  used  PIP's  /I
+switch is required.)
+
+BOOT11 reads either "packed" or "unpacked" binary data.  For
+"unpacked"  data,  the /IMAGE switch is required.  If BOOT11
+reads an "unpacked" file from the file  system  without  the
+/IMAGE  switch,  it  detects  an  error and prints a warning
+message, sets the  /IMAGE  switch  and  starts  the  loading
+operation  over  again.   When  reading  from the paper tape
+reader, BOOT11 always sets the /IMAGE switch itself,  so  no
+/IMAGE switch is required in the command string.
+
+PDP-11 paper tapes in formatted binary may be transferred to
+BOOT11                                                     Page 6
+
+
+the  -10  file  system  for  future use.  The tape should be
+placed in the PDP-10 paper tape reader with the read head in
+the  blank  tape  area  after the punched title, if any, and
+before the binary data.  (The start of the  binary  data  is
+indicated  by  a  frame of 1 followed by a frame of 0.) PIP,
+with the /I switch, copies the tape into  the  file  system.
+Files tranferred this way are in the "unpacked" format.  Use
+the /IMAGE switch in BOOT11.
+
+
+
+4.0  GENERAL INTERNAL OPERATION
+
+BOOT11 uses the DL10 hardware to load, clear,  or  dump  the
+PDP-11  memory  and  to  start  or stop the PDP-11 processor
+itself.
+
+The PDP-11/15 console panel (KY11C) has  a  "remote  control
+cable"  that  plugs  into  the DL10.  This cable enables the
+DL10 to toggle the PDP-11 HALT and START switches  remotely,
+to  examine  the  state of PDP-11 power, and to determine if
+the PDP-11 is running or is stopped.  When the  DL10  starts
+the  PDP-11,  the  DL10  sends  the  starting address to the
+PDP-11 over the Unibus.  The starting address (100002) is in
+an  area  of  -11  memory  to  which  the  DL10 responds and
+supplies data from PDP-10 memory cores.  In effect, a PDP-11
+program  is  started  which  executes  out of PDP-10 memory.
+This PDP-11 program is part of  BOOT11  and  has  the  major
+function  of  transferring  data from the -10 to the -11 for
+loading and clearing operations, or from the -11 to the  -10
+for  the  dumping operation.  BOOT11 either supplies data to
+the -11 from the formatted binary input file, or  takes  the
+PDP-11  core  image  and writes an -11 dump file on some -10
+device.
+
+Various things can go wrong with  these  operations.   Error
+messages   are   generated   for   any  of  a  multitude  of
+malfunctions.   These  messages  are  listed  in  the   next
+section.
+
+
+
+5.0  BOOT11 PROGRESS MESSAGES AND WARNINGS
+
+    " PDP-11 loading
+               The PDP-11 is being loaded with the formatted
+               binary input file data.
+
+    " PDP-11 loaded
+    " PDP-11 started
+               The loading is complete and the PDP-11 is now
+               executing code in its own memory.
+
+    " PDP-11 dumping
+               The PDP-11 memory  is  being  dumped  into  a
+BOOT11                                                     Page 7
+
+
+               PDP-10 file.
+
+    " PDP-11 dumped
+    " Clearing PDP-11
+               The -11 memory is being zeroed.
+
+    % File zero byte count--trying again in /IMAGE mode
+               This  warning  message  indicates  that   the
+               formatted   binary   input  file  is  not  in
+               "packed"  form   and   probably   is   really
+               "unpacked"  data.   BOOT11  sets  the  /IMAGE
+               switch and tries to load the  file  again  in
+               the "unpacked" format.
+
+
+
+5.1  Command String Error Messages
+
+    ? Can't /CLEAR and /DUMP at the same time
+    ? Can't /LOAD and /DUMP at the same time
+    ? Can't do both /LOAD and /START
+    ? Port number must be 0-7
+    ? Ambiguous switch--type /H for help
+    ? Unknown switch--type /H for help
+    ? Command error--type /H for help
+
+
+
+5.2  Formatted Binary File Input Error Messages
+
+    ? Can't OPEN the input device
+               The input device does not exist or is in use.
+               (Also refer to the DECsystem-10 MONITOR CALLS
+               Manual.)
+
+    ? LOOKUP failed
+               The  input  file  is  not  found,   is   read
+               protected,  or  the  input  device doesn't do
+               input.   (Also  refer  to  the   DECsystem-10
+               MONITOR CALLS Manual.)
+
+    ? EOF at start of file group
+               This and the next  five  EOF  failures  occur
+               when the end of the input file is reached and
+               more data is required for the binary format.
+
+    ? EOF after file constant 1
+    ? EOF during data in file group
+    ? EOF found when looking for checksum
+    ? EOF during first byte of a word
+    ? EOF during second byte of a word
+    ? Input file read error
+    ? File group has junk instead of constant 0
+               This and the next five errors  indicate  that
+               the  input  binary file is not in the correct
+BOOT11                                                     Page 8
+
+
+               data format.
+
+    ? File group has junk instead of constant 1
+    ? File group byte count less than 6
+    ? Junk bits in input file
+    ? Junk in input file--may not be /IMAGE mode
+               Reading a "packed" formatted input file  with
+               the  /IMAGE switch will normally produce this
+               message.   Try  again  without   the   /IMAGE
+               switch.
+
+    ? Junk after start group
+               Not enough zero 8-bit frames are on  the  end
+               of  the  file.  A paper tape torn to close to
+               the end of the binary  data  will  give  this
+               message.   Leave  at least ten zero frames on
+               the tape end (at least one inch or 2.5cm).
+
+    ? Checksum failure
+               The data check in the binary  file  is  wrong
+               for some unknown reason.
+
+
+
+5.3  Dump File Output Error Messages
+
+    ? Can't OPEN the output device
+               The output device does not  exist  or  is  in
+               use.  (Also refer to the DECsystem-10 MONITOR
+               CALLS Manual.)
+
+    ? ENTER failed
+               The output file is being modified or the file
+               or  the UFD is write protected.  Also see the
+               DECsystem-10 MONITOR CALLS manual.
+
+    ? Output device error
+               Insufficient room exists on the output device
+               for   the   dump   file.    (Refer   to   the
+               DECsystem-10 MONITOR CALLS Manual.)
+
+
+
+5.4  Miscellaneous Failure Messages
+
+    ? Insufficient core
+               BOOT11 needs more memory  and  can't  get  it
+               from the Monitor.  Call your DEC salesman.
+
+    ? TRPSET failed
+               The job does  not  have  the  privileges  for
+               TRPSET,  or  TRPSET  is  not  built into this
+               version of the Monitor.  (See  your  friendly
+               system manager.)
+BOOT11                                                     Page 9
+
+
+    ? LOCK failed
+               The job does not have LOCK  priveleges,  LOCK
+               is not built into the Monitor, doing the LOCK
+               UUO would  exclude  from  memory  an  already
+               existent  job, or locking the job would cause
+               the amount of unlocked memory to be less than
+               CORMIN.   In  this  last  case,  persuade the
+               operator to  "SET  CORMIN  n"  to  a  smaller
+               value.
+
+    ? NXM in -11 memory
+               The PDP-11 had  a  bus  trap  failure.   This
+               usually  results  from trying to load or dump
+               more PDP-11 memory than  exists.   (Your  DEC
+               salesman can arrange for more PDP-11 memory.)
+
+    ? NXM or parity error in -10 memory
+               This  shouldn't   happen.    The   DL10   has
+               referenced  non-existent PDP-10 memory or has
+               discovered a memory problem.  Notify  DEC  of
+               any parity errors.
+
+    ? PDP-11 won't start--check HALT switch
+               The DL10 can't start the  PDP-11  within  one
+               second.   The usual reason is the PDP-11 HALT
+               switch is depressed.  Check the  HALT  switch
+               and try again.
+
+    ? PDP-11 won't stop
+               The DL10 can't stop the PDP-11.  The  problem
+               is  likely the control cable from the DL10 to
+               the PDP-11.
+
+    ? PDP-11 absent or power off
+               Either a DL10 is not connected to the PDP-10,
+               the  PDP-11  or the DL10 has its power turned
+               off, or there is not a DL10.
+
+    ? PDP-11 took too long in transfer loop
+               BOOT11 has counters in each wait loop for the
+               PDP-11.   The  counter counted out one second
+               before the  PDP-11  completed  a  step  in  a
+               PDP-10/PDP-11  transfer  operation for /LOAD,
+               /DUMP, or /CLEAR.
+
+
+
+
+[End of BOOT11.RNO]

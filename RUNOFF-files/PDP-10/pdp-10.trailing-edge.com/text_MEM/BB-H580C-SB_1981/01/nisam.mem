@@ -1,0 +1,398 @@
+
+
+
+To:  All users of the ISAM utility program.
+
+Re:  Recent ISAM changes
+
+
+
+     The COBOL utility  ISAM  has  had  several  changes  made  to  it
+recently which hopefully will make it's use easier and more efficient.
+The changes made are in three general areas:
+
+
+        1.  New messages from ISAM
+        2.  New ISAM error checking
+        3.  New switches
+
+
+
+
+
+1.0  NEW ISAM MESSAGES
+
+     The most apparent change to the user will be several new messages
+displayed  by  ISAM at the end of a run.  These messages give the user
+information concerning the efficiency of the parameters that the  user
+has  given  ISAM.   These messages give detailed information about the
+wasted space in both the data and index blocks.  Also,  a  message  is
+displayed  for both the data and index blocks informing the user about
+the amount of disk space required for each logical block in the file.
+
+     Another apparent change is the new message displayed when a  user
+is  doing  an ISAM build with the /B switch.  As seen in the following
+example, ISAM now will display a recommended blocking factor  for  the
+index and data files.  Please note that this blocking factor is chosen
+by ISAM as the most efficient blocking factor as  far  as  disk  space
+utilization  is  concerned  and  ISAM makes no attempt to optimize the
+amount of core that will be required by  LIBOL  when  processing  this
+file.
+
+
+@ISAM
+
+*=FILE1/B
+Mode of input file: S
+Mode of data file: S
+Maximum record size: 240
+Key descriptor: X129.29
+Records per input block: 10
+Total records per Data block: (Recommended = 53): 25
+Empty records per data block: 
+Total entries per Index block: (Recommended = 18): 18
+Empty entries per index block: 
+Percentage of Data file to leave empty: 
+Percentage of Index file to leave empty: 
+Maximum number of records file can become: 10000
+
+                                                                Page 2
+
+
+[ISMLOV 2 Levels of index ]
+[ISMNDR 500 Data records ]
+
+[ISMWSD Wasted 127. words of 1152. 11.0% wasted space in the Data file.]
+[ISMLDE One logical Data block equals 9. physical disk blocks.]
+[ISMWSI Wasted 0. words of 128.  in the Index file.]
+[ISMLIE One logical Index block equals 1. physical disk block.]
+[ISMIBS LIBOL's I/O buffer will require 2816. words (6. Pages) of core.]
+
+
+*^C
+
+
+     Another change for TOPS10 users ,  although  not  apparent,  will
+make  ISAM  files  much  more efficient.  ISAM has now been changed to
+approximate the disk space that will be required  for  the  index  and
+data files and asks the monitor for that much in as contiguous a space
+as is possible.  This will incur considerably less  overhead  than  if
+the  files were fragmented into many smaller chunks all over the disk.
+Also, when the user restores his file from backup tapes he should  use
+BACKUP  since BACKUP does the same disk space allocation that ISAM now
+does.
+                                                                Page 3
+
+
+2.0  NEW ISAM ERROR CHECKING
+
+     In addition the these changes ISAM  now  checks  version  numbers
+when  reading  an  indexed  file  (  /P  or  /M ).  If it encounters a
+discrepancy, usually indicating file errors caused by  system  crashes
+during  file  updating,  it will print an error message indicating the
+blocks involved.  These errors are controlled under the /I switch,  so
+that  the combination of /P/I (or /M/I ) will give warnings instead of
+errors and attempt to continue the packing (or maintenance) operation.
+
+        For the case of a version number error in the index file we have:
+
+@ISAM
+
+*=BADIDX/P
+
+Mode of output file: A
+Records per output block: 2
+
+?ISMIVD Index version number discrepancy .
+        Reading index file DSK:BADFIL.IDX
+        Index level 2. index block 44. entry 2. version number 2. points to
+        Index block 10. version number 1. .
+
+
+        while for a similar error occurring within a data file we get:  
+
+
+@ISAM
+
+*=BADIDA/P
+Mode of output file: A
+Records per output block: 2
+
+
+?ISMDVD Data version number discrepancy .
+        Reading data file DSK:BADFIL.IDA from index file DSK:BADFIL.IDX
+        Index block 32. entry 3. version number 57. points to
+        Data block 121. version number 9. .
+
+
+        Some of the existing errors will also now give block information:
+
+
+@ISAM
+
+*=BADREC/P
+Mode of output file: A
+Records per output block: 2
+
+
+?ISMKOO keys are out of order
+        ABCDLKJXYZ000000122ZIF,.$-+CD
+        is after
+        ABCDLKJXYZ111111121ZIF,.$-+CD
+                                                                Page 4
+
+
+        Data block 122. version number 58. .
+
+
+
+
+
+
+     The terms level, block , entry and version are  as  described  in
+section  8.6  in  the COBOL Language Manuals .  Block numbers refer to
+128 word disk blocks numbered starting with block 1,  which  has  file
+address 0.
+                                                                Page 5
+
+
+3.0  NEW ISAM SWITCHES
+
+3.1  The /Statistics Switch
+
+     A new switch is included to provide the user with statistics when
+doing the initial build of a file so that the user may choose the most
+efficient blocking factor for the file if ISAM's recommended  blocking
+factor   is   unreasonable   because  of  core  usage  or  some  other
+consideration.  The user must attempt to balance both core  usage  and
+disk  space  in  choosing  a blocking factor.  As an aid in doing this
+ISAM will display the total amount of core that LIBOL will require  to
+process  the file at the end of it's run.  If this figure is very high
+or seems unreasonable then the user should rebuild his file  with  the
+/S switch in an effort to choose more appropriate blocking factors for
+his file.  The statistics include the blocking factor,  percentage  of
+wasted  space in the file if that blocking factor is chosen along with
+both the disk space needed and the size of the logical block in  words
+of core.  They are given for both the data and index files.
+
+     Following is an example of an ISAM build illustrating the use  of
+the /S switch to provide statistics while building.
+
+
+
+
+@ ISAM
+
+@ISAM
+
+*=FILE1/B/S
+Mode of input file: S
+Mode of data file: S
+Maximum record size: 240
+Key descriptor: X129.29
+Records per input block: 10
+Total records per Data block: 
+     Records  Disk     Wasted  Core
+     /block   Blocks   space   (wds)
+        3       1       3.9%    128
+        6       2       3.9%    256
+        9       3       3.9%    384
+        12      4       3.9%    512
+        15      5       3.9%    640
+        18      6       3.9%    768
+        21      7       3.9%    896
+        24      8       3.9%    1024
+        28      9       0.3%    1152
+        31      10      0.7%    1280
+        34      11      1.0%    1408
+        37      12      1.2%    1536
+        40      13      1.4%    1664
+        43      14      1.6%    1792
+        46      15      1.8%    1920
+        49      16      1.9%    2048
+        53      17      0.1%    2176
+                                                                Page 6
+
+
+        56      18      0.3%    2304
+        59      19      0.5%    2432
+        62      20      0.7%    2560
+        65      21      0.9%    2688
+        68      22      1.0%    2816
+        71      23      1.1%    2944
+        74      24      1.2%    3072
+        78      25      0.1%    3200
+        81      26      0.2%    3328
+        84      27      0.3%    3456
+        87      28      0.5%    3584
+        90      29      0.6%    3712
+        93      30      0.7%    3840
+        96      31      0.8%    3968
+        99      32      0.9%    4096
+(Recommended = 53): 25
+Empty records per data block: 
+Total entries per Index block: 
+     Records  Disk     Wasted  Core
+     /block   Blocks   space   (wds)
+        18      1       0.0%    128
+(Recommended = 18): 18
+Empty entries per index block: 
+Percentage of Data file to leave empty: 
+Percentage of Index file to leave empty: 
+Maximum number of records file can become: 10000
+
+[ISMLOV 2 Levels of index ]
+[ISMNDR 500 Data records ]
+
+[ISMWSD Wasted 127. words of 1152. 11.0% wasted space in the Data file.]
+[ISMLDE One logical Data block equals 9. physical disk blocks.]
+[ISMWSI Wasted 0. words of 128.  in the Index file.]
+[ISMLIE One logical Index block equals 1. physical disk block.]
+[ISMIBS LIBOL's I/O buffer will require 2816. words (6. Pages) of core.]
+                                                                Page 7
+
+
+3.2  The /Check Switch
+
+     As an aid to checking ISAM files that may be suspect  because  of
+system  crashes,  the  /C switch has been added to check the ISAM file
+for any normally detectable errors (version,record length, key  order,
+duplicate  keys,  etc).  In the manner of /I, /C will issue the errors
+as warnings (% instead of ?  ) and will continue the scan until EOF./C
+uses  the  same  syntax  and  file  name defaults as /P except that it
+produces  no  file  output  and   thus   requires   no   output   file
+specifications.
+
+     As an example of /C terminal output we have:
+
+
+
+@ISAM
+
+*BADFIL/C
+
+%ISMKOO keys are out of order
+        ABCDLKJXYZ000000000000,.$-+CD
+        is after
+        ABCDLKJXYZ000000006ZIF,.$-+CD
+        Data block 7. version number 7. .
+
+%ISMIVD Index version number discrepancy .
+        Reading index file DSK:BADFIL.IDX
+        Index level 2. index block 44. entry 2. version number 2. points to
+        Index block 10. version number 1. .
+
+%ISMRTS record too short to contain key field
+        Data block 89. version number 25. .
+
+%ISMDPK two keys with equal value = ABCDLKJXYZ000000088ZIF,.$-+CD
+        Data block 89. version number 25. .
+
+%ISMIVD Index version number discrepancy .
+        Reading index file DSK:BADFIL.IDX
+        Index level 2. index block 67. entry 3. version number 13. points to
+        Index block 32. version number 219. .
+
+%ISMDVD Data version number discrepancy .
+        Reading data file DSK:BADFIL.IDA from index file DSK:BADFIL.IDX
+        Index block 32. entry 3. version number 57. points to
+        Data block 121. version number 9. .
+
+%ISMKOO keys are out of order
+        ABCDLKJXYZ000000122ZIF,.$-+CD
+        is after
+        ABCDLKJXYZ111111121ZIF,.$-+CD
+        Data block 122. version number 58. .
+
+*^C
+                                                                Page 8
+
+
+3.3  The /Rename Switch
+
+     The current ISAM facility within LIBOL obtains the name  of  data
+file portion of the ISAM file (usually an .IDA file ) from the name as
+it is saved in the statistics portion of the index file ( usually .IDX
+file  ).   For this reason the normal monitor RENAME commands will not
+correctly rename the ISAM file pair.  To make the RENAME possible, the
+/R  switch  has  been added to ISAM.  It uses standard ISAM syntax and
+defaults , as in:
+
+        new-index-file,new-data-file=old-file/R
+
+
+     As an example we have:
+
+@DIRECTORY (OF FILES) *.I*
+
+   CBL20:<HAM-TST>
+ BADFIL.IDA.1
+   .IDX.1
+
+ Total of 2 files
+@ISAM
+
+*GOODFIL=BADFIL/R
+
+*^C
+@DIRECTORY (OF FILES) *.I*
+
+   CBL20:<HAM-TST>
+ GOODFI.IDA.1
+   .IDX.1
+
+ Total of 2 files
+
+@;NOTE THAT ISAM TRUNCATES NAMES TO SIX CHARACTERS!!!
+
+@ISAM
+
+*BADFIL.IX1,BADFIL.IX2=GOODFI/R
+
+*^C
+@DIRECTORY (OF FILES) *.I*
+
+   CBL20:<HAM-TST>
+ BADFIL.IX1.1
+   .IX2.1
+
+ Total of 2 files
+@ISAM
+
+*BADFIL=BADFIL.IX1/R
+
+*^C
+@DIRECTORY (OF FILES) *.I*
+                                                                Page 9
+
+
+
+   CBL20:<HAM-TST>
+ BADFIL.IDA.1
+   .IDX.1
+
+ Total of 2 files
+
+                                                               Page 10
+
+
+3.4  The /ADVancing Switch
+
+     The /ADV switch may be used to specify the  advancing  mode  when
+outputing   ASCII   sequential   files.   The  switch,  which  may  be
+abbreviated /A or /AD, has the following syntax:
+
+
+
+        sequential-file/ADV:mode = index-file/P
+
+
+        where mode =    6[8]            - use COBOL-68 default  (BEFORE)
+                        7[4]            - use COBOL-74 default  (AFTER)
+                        A[FTER]         - AFTER ADVANCING 1 LINE
+                        B[EFORE]        - BEFORE ADVANCING 1 LINE
+
+
+
+
+     When not specified with the /ADV switch, ADVANCING will default

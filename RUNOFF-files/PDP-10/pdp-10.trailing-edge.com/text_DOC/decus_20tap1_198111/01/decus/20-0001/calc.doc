@@ -1,0 +1,1116 @@
+
+
+
+                         CALC INSTALLATION INSTRUCTIONS
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1977 BY
+
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED  ONLY  IN
+ACCORDANCE  WITH  THE  TERMS OF SUCH LICENSE AND WITH THE INCLUSION OF THE ABOVE
+COPYRIGHT NOTICE.  THIS SOFTWARE OR ANY OTHER COPIES THEREOF MAY NOT BE PROVIDED
+OR  OTHERWISE  MADE AVAILABLE TO ANY OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF
+THE SOFTWARE IS HEREBY TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE WITHOUT NOTICE AND  SHOULD
+NOT BE CONSTRUED AS A COMMITMENT BY DIGITAL EQUIPMENT CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR RELIABILITY OF ITS SOFTWARE  ON
+EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+CALC.DOC - DECsystem-20 implementation of CALC                            Page 2
+
+
+     1.0  INTRODUCTION
+
+     CALC is a calculator designed to evaluate arithmetic expressions.   It  was
+     written  by  Peter  Baum at DEC to run on a PDP-11 under RSX-11M (DECUS no.
+     11-341).  The  modifications  necessary  to  run  it  on  the  DEC-20  were
+     performed by Paul Lemaire at DEC.
+
+
+
+     2.0  KNOWN BUGS AND DEFICIENCIES
+
+     1.  The *ASCII data type does not work as  described  in  the  CALC  USER'S
+         GUIDE.   Specifically,  you  cannot use it to obtain ASCII octal codes.
+         This is because *ASCII variables are stored as single characters on the
+         PDP-11 while they are stored as full-word Hollerith (left-justified) on
+         the DEC-20.
+
+
+
+
+     3.0  FILES SUPPLIED
+
+     3.1  Save Set 1 - CALC Documentation
+
+        CALC.DOC        This Documentation file
+
+        CALC.USR        CALC USER'S GUIDE
+
+
+
+     3.2  Save Set 2 - Files Needed To Run CALC And Sample Command Files
+
+        CALC.EXE        CALC executable file
+
+        ADD.            Command file- Adds a sequence of numbers
+        ADD1.           used by ADD.
+
+        ADD8.           Command file- Adds octal numbers
+
+        MFACT.          Command file- Calculates factorials
+        MF1.            used by MFACT
+        MF2.            used by MFACT
+
+        ROOT.           Command file- Calculates the roots of a 
+                                quadratic equation
+
+        SIGN.           CALC.HLP Example
+        MINUS.          used by SIGN.
+        PLUS.           used by SIGN.
+        ZERO.           used by SIGN.
+CALC.DOC - DECsystem-20 implementation of CALC                            Page 3
+
+
+     3.3  Save Set 3 - Source Files
+
+                                FORTRAN modules                                _______ _______
+
+        CALC.FOR        The main program
+
+        ASSIGN.FOR              associates logical units with files
+        AT.FOR                  indirect file processing
+        BASCNG.FOR              base changes
+        BLOCK.FOR               block data for common area
+        CALBIN.FOR              calculates binary operations
+        CALUN.FOR               calculates unary functions
+        CLOSE.FOR               closes files
+        CMND.FOR                processes calc commands
+        CODES.FOR               information on CALC internal codes
+        CONTYP.FOR              converts data types
+        DECLR.FOR               processes data type declarations
+        DTANH.FOR               FUDGED (uses single-precision routine)
+        ERRCX.FOR               performs initial expression error 
+                                checking
+        ERRMSG.FOR              outputs all error messages
+        FLIP.FOR                reverses an array
+        GETNNB.FOR              gets the next nonblank in input line
+        INPOST.FOR              converts infix to postfix notation
+        LIST.FOR                lists a summary of legal calc commands
+        MOUT.FOR                multiple precision output
+        PRTCON.FOR                 used by (and included in source file
+                                        of) mout
+        MULADD.FOR              multiple precision add
+        MULCON.FOR              multiple precision conversions
+        MULDIV.FOR              multiple precision division
+        MULMUL.FOR              multiple precision multiplication
+        NEXTEL.FOR              gets next element from input line
+        POSTVL.FOR              evaluates a postfix expression
+        SLEND.FOR               determines the last nonblank in the 
+                                input line
+        STRCMP.FOR              compares strings
+        VAROUT.FOR              outputs the value of variables
+        ZERO.FOR                zeroes out all of the variables
+        ZNEG.FOR                determines if a variable is positive
+
+
+
+                                 MACRO modules                                 _____ _______
+
+        MCR20.MAC               gets command line for one-shot
+        HALT.MAC                ends one-shot without time messages
+
+
+
+                             Document source files                             ________ ______ _____
+
+        CALC.DOR        RUNOFF source for this document
+        CALC.RNO        RUNOFF source for CALC USER'S GUIDE
+CALC.DOC - DECsystem-20 implementation of CALC                            Page 4
+
+
+                                    LINK job                                    ____ ___
+
+        CALINK.CTL      BATCH job used to link CALC
+
+
+
+     4.0  INSTALLATION INSTRUCTIONS
+
+     The contents of the first two Save Sets is all that is needed to run  CALC.
+     The  third  Save Set is provided so that the user can make modifications if
+     he so desires.  The commands needed to  compile  and  relink  CALC  are  as
+     follows:
+        @COMPILE *.FOR/LIST !ignore all error messages (warnings)
+        @COMPILE *.MAC/LIST
+
+     You may now modify and recompile the appropriate modules, paying  attention
+     to non-warning messages.
+
+        @SUBMIT CALINK
+
+     This will produce a new executable file and SAVE it as CALC.EXE.  In  order                                                            ________
+     to  save the original CALC, the user should either RENAME it before running
+     CALINK or EDIT CALINK to SAVE CALC under a different name.
+
+
+
+     5.0  ADDITIONAL DOCUMENTATION
+
+     Following  is  the  original  documentation  as  written  by  Peter   Baum.
+     References  to  specific  PDP-11  features/problems  are  superceded by any
+     pertinent comments that I have made above.
+                                  INTRODUCTION
+
+          This document gives information about CALC that  will  be  of  special
+     interest  to  anyone  maintaining or modifying that program.  It is assumed
+     that the reader has already read the User's Guide and therefore understands
+     such  things  as  required  expression  syntax  and  what  the various CALC
+     commands  are  used  for.   Additional  documentation  that  is   available
+     includes:
+      
+          1. Detailed comments in source code
+          2. Flowcharts for all but the trivial subroutines
+          3. Map of subroutine calls
+          4. Map of a proposed overlay structure
+          5. CALCDOC.MEM (this document)
+      
+CALC.DOC - DECsystem-20 implementation of CALC                            Page 5
+
+
+                      UNDERSTANDING THE STRUCTURE OF CALC
+
+          Before trying to understand how the different  subroutines  relate  to
+     one  another,  the  reader  should first learn something about the internal
+     codes and data structures.
+
+          NUMBER REPRESENTATION: There are 9 different data types that can be
+                            defined when using CALC. They are:
+      
+            TYPE            BYTES USED INTERNALLY
+
+           ASCII           1
+     HEX, INTEGER, OCTAL   4
+         REAL, DECIMAL     8
+        M10,M8,M16         100
+      
+        
+
+          BLOCK.FTN gives further  details  on  the  internal  storage  of  such
+     numbers.   Associated  with each number is a byte that gives its type.  You
+     will find that OCTAL and INTEGER numbers are stored internally as INTEGER*4
+     numbers  but  are  output  differently because of this type code.  The file
+     CODES.FTN gives additional information on  the  different  codes  that  are
+     used, including those for the various operators.
+
+          The overall structure of CALC can be  understood  by  looking  at  the
+     flowchart for the following routines:
+         CALC - the main routine
+         CMND - determines which CALC command is requested
+         INPOST - converts infix to postfix notation
+         POSTVL - evaluates a postfix expression
+CALC.DOC - DECsystem-20 implementation of CALC                            Page 6
+
+
+              CALC DESIGN GOALS, NON-GOALS, AND TRADE-OFF DECISIONS
+      
+      
+     CALC DESIGN GOALS
+      
+     1. Evaluate arithmetical expressions.
+      
+     2. Assume the user knows FORTRAN and follows similar
+       syntax rules to make it easy to learn the system.
+      
+     3. Perform calculations in base 8, base 10, and base 16.
+        Features should be biased towards those that would be
+        most useful to a System Programmer.
+      
+     4. Allow for calculations to be performed  on 16, 32, 36,
+        and 64 bit integers.
+      
+     5. Be able to code and decode single ASCII characters.
+      
+     6. Allow the user to enter an expression to be evaluated
+        or allows the user to assign the value of the expression
+        to a variable. Expression can then contain that variable.
+      
+     7. Program must be easily transportable to all presently used
+        DEC systems (i.e. written in FORTRAN IV).
+      
+     8. Allow files of commands to be executed.
+      
+     9. Multiple precision capability designed as optional subroutines
+        so that a very small version of CALC can be built with a subset of the
+        capabilites available with the larger version.
+      
+      
+      
+     CHARACTERISTICS THAT CALC WAS DESIGNED NOT TO HAVE:
+      
+     1. Perform calculations that are in  a form useful when
+        making dollar and cents calculations.
+      
+     2. Design a command language that could be extended to form
+        an elegant programming language.
+      
+      
+      
+     TRADE-OFF DECISIONS
+      
+     Since it is not expected that any single command line will require
+     a great deal of CPU time, space-time trade-off decisions should be
+     made to decrease the space needed to run the program.
+      
+CALC.DOC - DECsystem-20 implementation of CALC                            Page 7
+
+
+                              MODIFICATION CLASSES
+      
+      
+     M1  CONTAINS I/O CALLS
+     M2  REFERENCE TO VARIABLE LINE(80)
+     M3  ASSUMES MULTIPLE PRECISION NUMBERS ARE 100. DECIMAL BYTES LONG
+     M4  USES INTEGER*4
+     M5  RESERVED
+     M6  RESERVED
+     M7  RESERVED
+     M8  USES REAL*8
+     M9  INDIRECTION LEVEL SPECIFIED AS 6 (E.G. BY ITCNTV(6), OR
+         BY EXPRESSIONS LIKE  LEVEL.GT.6)
+     M10 SETS STACK SIZE
+      
+      
+CALC.DOC - DECsystem-20 implementation of CALC                            Page 8
+
+
+              COMMENTS TO DESIGNERS OF FUTURE CALCULATOR PROGRAMS
+
+          This section records some thoughts  on  the  subject  of  designing  a
+     calculator  program that should be of interest to anyone either designing a
+     completely new program, writing a new version of CALC  or  maintaining  the
+     present version of CALC.
+
+          If you want to extend features, consider the following points.
+
+
+       1) "Ease of computing dollars and cents..." is  a  characteristic  to  be
+          avoided  for  the  following  reason.   Suppose  the  constant 2.05 is
+          entered.  In such a form,  there  is  not  sufficient  information  to
+          distinguish  between the "dollar and cents" type and the ordinary real
+          number type that requires 15 or more  significant  digits.   We  could
+          have  a  special dollar and cents mode but conversions would add a lot
+          of code.  Note that we can not simply use REAL*8 and the proper format
+          statement  because  potential  round-off  could result in unacceptable
+          errors.  The only way to properly treat the problem is to use integers
+          and  assume  a  decimal  place  before the last two digits.  Since the
+          format for decimals already rounds to 15 decimal places,  most  dollar
+          and cents calculations can be easily done with the data type DECIMAL.
+
+       2) The most surprising complication was the necessity of considering  the
+          possible  conversions  that could occur in an expression.  If you want
+          to add another data type, be forewarned.
+
+       3) If you insist on adding control features to make CALC into a language,
+          please  exercise  intelligence  and  restraint.   If such features are
+          added,
+
+
+            1) Don't call it "CALC" for you have violated a specific non-goal.
+
+            2) Reconsider.  Start by specifying the syntax for an elegant
+
+            human engineered language that gives the capabilities you need.
+
+
+       4.  The capability of having a default base for each level was present in
+          CALC  for  awhile and then taken out.  The problem that arose was that
+          you had to make a call to a special  file  to  set  the  default  base
+          unless  you  wanted  to  set it every time the major file was entered.
+          The alternative would be to have the capability of setting the base on
+          selective  logical  I/0  units  or all logical I/O units.  Since it is
+          rare that you would be switching between bases  on  different  logical
+          I/O units, the feature was removed.
+CALC.DOC - DECsystem-20 implementation of CALC                            Page 9
+
+
+                         FEATURES THAT WORKED OUT WELL
+
+
+       1) The introduction of the variable "%" which holds the value of the last
+          expression  evaluated was a language element that was invented without
+          fully realizing its usefulness.  Perhaps a character  could  be  found
+          that  is  easier  to type.  It was an especially nice surprise to find
+          that the feature enabled indirect command files of  CALC  commands  to
+          request that the user enter a single number.  Without this feature one
+          would have to preceed the value with a variable and an equal sign.  It
+          also  had  unexpected significance when iteration capability was added
+          to the *@ command.
+
+       2) The  type  MULTIPLE  PRECISION  (M8,  M10,  and  M16)  data  type  was
+          originally  created  to  allow for the manipulation of unsigned 32 bit
+          numbers.  During the first attempt  to  transport  the  program  to  a
+          foreign  (non  RSX-11M) operating system (RSTS) it was discovered that
+          the only FORTRAN compiler available was  limited  to  16  bit  integer
+          calculations.   It was nice to know that multiple precision arithmetic
+          was still possible so  that  calculations  like  20000*2  (entered  as
+          0000020000*2) could be performed!
+
+       3) The limit of 99 digits allows for the expression (in base 10)  of  the
+          largest  magnitudes  that  can be represented by REAL*8 floating point
+          numbers using IBM's data format.  The number is roughly 7.2370*10**75.
+          The extra digits are important when simulating fractions by having the
+          result multiplied by a power of 10.
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 10
+
+
+                                DESIGN PROBLEMS
+
+     There  are  several  data  types  that  one  might   wish   to   eliminate.
+Specifically,  it  would  be  nice  to  remove the distinctions between multiple
+precision numbers (bases still need specification), integers (bases  specified),
+and reals.  It would be easy to remove the non-multiple precision data types and
+let all calculations be done in multiple precision.  The distinction was made to
+allow  a  very  small  version  of CALC to be created on machines that could not
+afford the space to have any of the  multiple  precision  capability.   If  such
+capability is removed, The vector VBLS (which holds the values of the variables)
+and the stacks can be made 8 bytes wide.
+
+     The alternative of going to variable length numbers to  represent  multiple
+precision  numbers,  integers,  and  reals  has  definite space advantages.  The
+problem would be to economically simulate all of the floating  point  functions.
+There  would  also  be  additional code needed to manipulate such numbers in the
+stacks.
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 11
+
+
+                      REFERENCE TO COMMONS BY MODULE NAME
+ 
+ () indicates that data in a common block is modified as a result of a call
+ to that routine with an appropriate variable in the routine's argument list.
+ 
+ 
+as an argument in a call to that routine.
+BLANK  CONS   DECIDE DIGV   ERROR  ITERA  STACK  V
+---------------------------------------------------------------------
+AT     AT     -      -      -      AT     -      -
+BASCNG -      -      BASCNG -      -      -      -
+BLOCK  BLOCK  BLOCK  BLOCK  BLOCK  BLOCK  BLOCK  BLOCK  
+CALBIN -      CALBIN -      -      -      CALBIN CALBIN
+CALC   CALC   -      CALC   -      CALC   -      -
+-      -      -      -      -      -      CALUN  -
+CMND   -      -      -      -      CMND   -      -
+-      -      -      -      -      -      -      -         CODES
+-      -      -      -      -      -      (CONTYP)-
+DECLR  DECLR  -      -      -      -      -       DECLR
+-      -      -      -      -      -      -      -         DFLOAT
+-      -      -      -      -      -      -      -         DTANH
+ERRCX  ERRCX  -      -      -      -      -      -
+-      -      -      -      -      -      -      -         ERRMSG
+-      -      -      -      -      -      -      -         FLIP
+-      -      -      -      -      -      -      -         GETMCR
+GETNNB GETNNB -      -      -      -      -      -
+INPOST -      -      -      INPOST -      INPOST INPOST
+-      -      -      -      -      -      -      -         LIST
+-      -      -      MOUT   -      -      -      MOUT
+-      -      -      -      -      -      MULADD -
+-      -      -      -      -      -      (MULCON)-
+-      -      -      -      -      -      MULDIV -
+-      -      -      -      -      -      MULMUL -
+NEXTEL NEXTEL -      NEXTEL NEXTEL -      -      NEXTEL
+POSTVL -      -      -      -      -      POSTVL POSTVL
+SLEND  SLEND  -      -      -      -      -      -
+STRCMP STRCMP -      -      -      -      -      -
+-      VAROUT -      VAROUT -      -      -      VAROUT
+-      -      -      -      -      -      -      ZERO
+-      -      -      -      -      -      -      ZNEG
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 12
+
+
+                       FORTRAN DATA TYPES BY MODULE NAME
+ 
+REAL*8    INTEGER*4 INTEGER*2 LOGICAL*1 NO VARIABLES
+--------------------------------------------------
+-         -         AT        AT
+-         -         BASCNG    BASCNG
+-         -         BLOCK     BLOCK
+CALBIN    CALBIN    CALBIN    CALBIN
+-         -         CALC      CALC
+CALUN     CALUN     CALUN     CALUN
+-         -         CMND      CMND
+-         -         -         -          CODES
+CONTYP    CONTYP    CONTYP    CONTYP
+-                   DECLR     DECLR
+DFLOAT    DFLOAT         -         -
+DTANH     -         -         -
+-         -         ERRCX     ERRCX
+-         -         ERRMSG    -
+-         -         FLIP      FLIP
+-         -         GETMCR    GETMCR
+-         -         GETNNB    GETNNB
+-         -         INPOST    INPOST
+-         -         -         -          LIST
+-         -         MOUT      MOUT
+-         -         MULADD    MULADD
+-         -         MULCON    MULCON
+-         -         MULDIV    MULDIV
+-         MULMUL    MULMUL    MULMUL
+NEXTEL    NEXTEL    NEXTEL    NEXTEL
+-         -         POSTVL    POSTVL
+-         -         SLEND     SLEND
+-         -         STRCMP    STRCMP
+VAROUT    VAROUT    VAROUT    VAROUT
+-         -         ZERO      ZERO
+ZNEG      ZNEG      ZNEG      ZNEG
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 13
+
+
+                                  PROBLEM FILE
+ 
+ 
+26-Sep-77
+  1. Since we can't properly convert IABS(-2147483648) to a positive
+    INTEGER*4 2's compliment number, when output in OCTAL the result is
+    -20000000000 and in HEX  -80000000.    I'm not sure how to
+    code this for other machines and compilers. In FORTRAN-IV PLUS
+    (DEC compiler) running under RSX11M we have IABS(-2147483648) evaluate
+    as -2147483648 so things print nicely. Could be a real problem on other
+    machines.
+  
+  2. Above mentioned compiler doesn't trap expressions like
+            1+2147483647
+    Decided  for  now  not   to  call ERRTST and ERRSET to trap errors but
+  let the run-time system field the errors and print out those messages
+  that mean little to the user. The problem is that everybody has routines
+  like ERRSET but they are all different in some respects.
+ 
+ 
+  3. At present, changing a variable type does not cause the variable
+    to be undefined. This would be easy to fix. For now, left that way
+    because it allows one to decode (somewhat) the internal values held
+    by different data types.
+ 
+ 
+  4. Some compiler/operating system/terminals don't handle output properly
+    when more than a buffer full of characters are to be output. Specifically,
+    when RSX-11M version 3.0/ FCS  outputs more than 80 characters to a VT-52
+    no LF is sent so that the line is overwritten.
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 14
+
+
+                            ADDING A UNARY FUNCTION
+ 
+  1) In subroutine NEXTEL, the function names are identified and the 
+    function code is passed to INPOST, so
+ 
+   a. Add 1 to the value defined by FCNT's data statement.
+   b. Add the function name to the data statement for array FUNCT.
+      Be certain that a subset of the first n characters of that
+      function name is not a previously specified function name. If
+      it does, you will have to rearrange the order of the functions,
+      also changing the array FUNVAL. For example, it is important
+      because of the linear search of names, that "ALOG10" be placed
+      before "ALOG".
+    c) Add the character count and function code to the data statement
+      for vector FUNVAL.
+    d) Update CODES.FTN and INPOST to reflect this new function code.
+       (This change is to the comments that give a table of all the codes.)
+    e) Note that space has already been provided for the above additions.
+      This was done to get an idea about total task size if additions were
+     added. What this means is that the blanks at the end of FUNCT and
+     the zero's at the end of FUNVAL are to be replaced.
+ 
+ 
+2)  CALUN must be modified to make the unary function calculation. Notice that
+   real to real functions are all done at the section starting at 10000.
+   K holds the function code, K2 the data type of the argument. Unless the
+   function is only a couple of line, actual value calculations should be
+   done in a separate subroutine.
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 15
+
+
+                       A COMPARISON WITH THE COMPETITION
+IBM - CALC-370
+
+     The University of Western Ontario produced a program called  CALC-370  that
+runs  under  the CMS/370 (Conversational Monitor System) operating system.  This
+comparison is made using the CALC-370 User's Guide as a reference.  It is  dated
+October  20, 1973 and is for Version 1 -- level 2 of the program.  Comparison is
+made with CALC (DIGITAL) version 1.0 as of 1-OCT-77.
+
+     Similarities:  Both programs allow expressions to be entered for  immediate
+evaluation.   The letters A-Z can be used as registers and have default types as
+in FORTRAN IV.  Function routines from their respective FORTRAN-IV libraries are
+sometimes  called for such functions as COSINE and SINE.  The equal sign is used
+as an assignment operator and allows one to assign values to a register.
+
+     Differences:  The programs are  each  oriented  toward  slightly  different
+audiences,  with  CALC-370  providing  a  number of functions of interest to the
+engineer or statistician.  DIGITAL's CALC (hereafter referred  to  as  CALC-DEC)
+emphasizes capabilities which would be of interest to the system programmer on a
+variety of machines.
+ 
+ 
+        CALC-370                             CALC-DEC
+ 
+Prompt is with a question mark.        Prompt is with  CALC>
+ 
+Invoked with the command CALC          If installed under RSX-11M version 3.0
+                                       invoked with the command   CAL
+ 
+CALC-370 error messages begin          CALC-DEC error messages begin with
+with "CALCERR"                         *** ERROR ***
+ 
+If FLOAT does not have an integer      If FLOAT does not have an integer
+argument, it is converted to one       argument, an error message
+and processing continues.              is produced and the error entry
+                                       point in the mainline is entered.
+ 
+FIX function                           called IFIX
+LOG                                    called ALOG
+LOG10                                  called ALOG10
+ 
+If FIX has an integer argument or      Treated by CALC-DEC as errors and an
+FLOAT has a real argument, the         appropriate error message is printed.
+function call is ignored.              Expression is not evaluated and the
+                                       mainline's error entry point is entered.
+ 
+Uses IBM SYSTEM/360 FORTRAN IV         Uses FORTRAN-IV PLUS Object Time
+library subroutines (see               library if run under RSX-11M V3.0
+IBM SRL GC28-6596)                     Can be compiled with other compilers.
+ 
+Uses CLEAR * to zero all variables.    Uses *ZERO to set all variables to zero.
+ 
+Initially all variables are zeroed.    Initially all variables are undefined.
+ 
+CLEAR A or CLEAR A,B clears the        A=0 and A=B=0 have the same effect.
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 16
+
+
+specified variables.
+ 
+Lower case letters are interpreted     RSX11M V3.0 can be used to convert lower
+as upper case (by operating system?)   case entries to upper case.
+ 
+DISPLAY enables printing whenever a    *VIEW does the same for CALC-DEC
+variable changes value.
+ 
+NODISPLAY disables printing whenever   *NOVIEW
+a variable changes value.
+ 
+Blanks separate command parameters     Except for the iteration specification
+from each other and at least one       for the *@ command, command parameters
+is required.                           are separated from each other by single
+                                       commas.
+ 
+A command and its parameters are       It is not a requirement that the
+separated by at least one blank.       arguments of a command be separated
+                                       from its parameters by at least one 
+                                       blank.
+ 
+All commands may be abreviated to      All commands require the character '*'
+their first letter, first two          and at least the first letter.
+letters etc.                           Declarations require the complete
+                                       spelling.
+ 
+A file of commands can be executed     A file of commands can be executed using
+using the PERFORM command.             *@.
+ 
+session terminated by the command      session terminated by either *STOP,
+QUIT                                   *EXIT, or a control Z (if at command
+                                       level 1).
+ 
+REAL*8 variables declared using        REAL*8 variables declared using command
+command REAL.                          *REAL.
+ 
+INTEGER*4 variables declared using     INTEGER*4 variables declared using
+using command INTEGER.                 *INTEGER.
+ 
+Values of registers are typed by       Values of registers are displayed by
+using the command TYPE.                typing the variable's name.
+ 
+Limit   of   INTEGER*4 registers       Limit of INTEGER*4 registers is the
+is  (2**31)-1 . Overflow is trapped.   entire range of a 32 bit 2's compliment
+                                       number when run under RSX11M Version 3.0.
+                                       Thus -(2**31) can be represented.
+                                       Under RSX11M's FORTRAN-IV PLUS overflow
+                                       is not trapped, allowing for convenient
+                                       "modulo" arithmetic that might be useful
+                                       when doing system programming.
+ 
+When an invalid character is found     When a single invalid character is found
+in the input line, that single         in an expression, an error message is
+character is identified.               printed and that character as well as all
+                                       the following characters are output.
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 17
+
+
+ 
+REAL*8 magnitude is 0 or 16**(-65)     On a PDP-11 we have REAL*8 magnitudes of
+through (1-(16**(-14)))*16**63         0 or between 2**(-128) and
+or approximately 5.398*10**(-79)       (1-(2**(-56))*2**127 which is equivalent
+through 7.237*10**75. Precision is     to 16**(-32) and (1-(16*(-14))*.5*16**32
+at least 15.9 decimal digits.          or approximately
+                                       0.29387*10**(-38) and 1.70141*10**38
+                                       Precision is approximately 16.8 decimal
+                                       digits.
+ 
+I**R is real                           I**R is integer
+ 
+-2**2 has value -4                     -2**2 has value +4
+ 
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 18
+
+
+                FEATURES  OF CALC-370 NOT AVAILABLE IN CALC-DEC
+ 
+    The following functions are available only with CALC-370. CALC-DEC could be
+easily extended to process these unary functions provided that FORTRAN IV
+library routines of that type existed and that task image size was not a
+problem.
+ 
+ACOS(=ARCOS)   arc Cosine
+ASIN(=ARSIN)   arc Sine   for ABS(X)<1,
+                          X+(1/2.)*(1/3.)*X**3+(1/2.)*(3/4.)*(1/5.)*X**5
+ 
+COSH           hyperbolic Cosine   (e**X + e**(-X))/2
+ 
+COTAN          cotangent           COS(X)/SIN(X)
+ 
+ERF            error function
+ 
+ERFC           compliment error function
+ 
+GAMMA          gamma function
+ 
+LGAMMA         log Gamma
+ 
+SINH           hyperbolic Sine     (e**X - e**(-X))/2
+ 
+TAN            tangent             SIN(X)/COS(X)
+ 
+ 
+ 
+      CALC-370                               CALC-DEC
+ 
+ 
+Commands REAL and INTEGER can be   It was decided to follow the requirements of
+abreviated "R" and "I"             FORTRAN IV and require the full spelling.
+                                   Note also that *REAL must be
+                                   distinguished from *READ. Commands which do
+                                   not make data type declarations may be
+                                   abreviated to the asterisks and the first
+                                   character.
+ 
+ 
+Declarations can have an           Feature can be easily added if found to be
+argument of "*" to represent       useful. Experience thus far does not indicate
+all variables.                     that it would be used very often.
+ 
+The value of more than one         Feature could be added if found useful.
+variable can be displayed using
+the TYPE command. All variables
+can be displayed using the
+the command TYPE *
+ 
+CALC-370 traps program             Function call errors are usually trapped
+interrupts and gives error         by the FORTRAN run time system. Allowing
+messages when function calls       integer overflow is useful when doing
+have arguments that are out of     system programming. Could be modified
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 19
+
+
+range.                             using ERRSET and ERRTST but would not be
+                                   directly transportable as such.
+ 
+ 
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 20
+
+
+                FEATURES OF CALC-DEC NOT AVAILABLE WITH CALC-370
+ 
+  In addition to the 26 registers denoted by single alphabetic characters
+(which are also available with CALC-370), % is a special register which
+initially holds an integer value that represents the version number of 
+the CALC-DEC program. It may be treated like any other register except
+that it is automatically assigned the value and type of the last
+complete expression that has been evaluated.
+ 
+ 
+ 
+          CALC-DEC                      CALC-370
+ 
+ 
+  All variables other than % are     variables are initialized to zero.
+initially undefined. The default
+data types are similar to those
+of CALC-370. If an attempt is made
+to use an undefined variable in an
+expression an error message results.
+ 
+Functions not availabe with CALC-370:
+ 
+ABS (=DABS)                          Can be simulated with SQRT(X*X)
+IABS
+AINT                                 Can be simulated with an appropriate
+INT (=IDINT)                         assignment statement.
+ 
+ 
+Expressions can be evaluated without
+using an equal sign. Value of
+expression is automatically assigned
+to the register %.
+ 
+Multiple assignments are legal, e.g.
+A=B=C=812.
+ 
+A list of valid commands will be output
+if a question mark is entered.
+ 
+Valid data types not available with
+CALC-370:
+ 
+1) OCTAL (32 bit integer)
+2) HEXADECIMAL (32 bit integer)
+3) REAL and DECIMAL to control the
+  output form of REAL*8 variables.   Output uses D format if magnitude is
+4) multiple precision base 10        outside the range 0.1, 10**17 - 1
+   (99 digits)
+5) multiple precision base 8
+   (99 digits)
+6) multiple precision base 16
+   (99 digits)
+7) ASCII
+ 
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 21
+
+
+ 
+Exponentiation operator may be either
+** or !
+ 
+Constants may be entered using E     CALC-370 limits real constants to 23 digits
+or D format as well as a string      and a decimal point.
+of digits and a decimal point.
+Limits are only a result of the 
+input buffer line length.
+ 
+Immediate base specifications are    Not appropriate as only base 10 numbers are
+allowed.                             allowed.
+ 
+Default base specification for       Not appropriate as only base 10 numbers are
+for constants can be changed.        allowed.
+ 
+Unary operators + and - are          Expressed as A*(-B) for CALC-370
+allowed. Expressions such as
+A*-B are allowed.
+ 
+*@ allows for nested calls to        CALC-370 allows no nested calls to files of
+up to 5 files.  This limit could     commands.
+be easily increased. Nested calls
+must be to files with distinct
+names.
+ 
+Iteration is allowed on files of 
+CALC-DEC commands.
+ 
+*C can be used to document files of
+CALC-DEC commands.
+ 
+*R allows a command to be entered
+while executing a file of CALC-DEC
+commands.
+ 
+*V n  allows precise control over
+output, selectively turning off
+output of evaluated expressions and
+lines read from command files.
+ 
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 22
+
+
+      Possible differences:
+ 
+1. CALC-DEC allows an RSX-11M call if installed as ...CAL so that
+   a one shot execution can be performed using the argument of the
+   call.
+ 
+2. Blanks are ignored by CALC-DEC except after ASCII constant specifications
+   and iteration specifications for the *@ command.
+ 
+3. Library functions' range and accuracy.
+ 
+4. Error checking for correct expression syntax.
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 23
+
+
+                          DATA TYPE CONVERSION TABLES
+ 
+ 
+ 
+                * / + -  CONVERSIONS
+                --------------------
+
+
+        OPERAND OPERAND MODIFY          MODIFY          FUNCTION
+        1       2       OPERAND 1       OPERAND 2       VALUE
+        ------- ------- ---------       ---------       --------
+
+
+1  1    ASCII   ASCII   INTEGER  4      INTEGER  4      INTEGER  4
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2
+   3            HEX     HEX      3      (HEX)    0      HEX      3
+   4            INTEGER INTEGER  4      (INTEGER)0      INTEGER  4
+   5            M10     M10      5      (M10)    0      M10      5
+   6            M8      M8       6      (M8)     0      M8       6
+   7            M16     M16      7      (M16)    0      M16      7
+   8            OCTAL   OCTAL    8      (OCTAL)  0      OCTAL    8
+   9            REAL    REAL     9      (REAL)   0      REAL     9
+
+2  1    DECIMAL ASCII   (DECIMAL)0      DECIMAL  2      DECIMAL  2
+   2            DECIMAL (DECIMAL)0      (DECIMAL)0      DECIMAL  2
+   3            HEX     (DECIMAL)0      DECIMAL  2      DECIMAL  2
+   4            INTEGER (DECIMAL)0      DECIMAL  2      DECIMAL  2
+   5            M10     (DECIMAL)0      DECIMAL  2      DECIMAL  2
+   6            M8      (DECIMAL)0      DECIMAL  2      DECIMAL  2
+   7            M16     (DECIMAL)0      DECIMAL  2      DECIMAL  2
+   8            OCTAL   (DECIMAL)0      DECIMAL  2      DECIMAL  2
+   9            REAL    (DECIMAL)0      (REAL)   0      DECIMAL  2
+
+3  1    HEX     ASCII   (HEX)    0      HEX      3      HEX      3
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2
+   3            HEX     (HEX)    0      (HEX)    0      HEX      3
+   4            INTEGER (HEX)    0      (INTEGER)0      HEX      3
+   5            M10     M16      7      M16      7      M16      7
+   6            M8      M16      7      M16      7      M16      7
+   7            M16     M16      7      (M16)    0      M16      7
+   8            OCTAL   (HEX)    0      (OCTAL)  0      HEX      3
+   9            REAL    REAL     9      (REAL    0)     REAL     9
+
+4  1    INTEGER ASCII   (INTEGER)0      INTEGER  4      INTEGER  4
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2
+   3            HEX     (INTEGER)0      (HEX)    0      HEX      3
+   4            INTEGER (INTEGER)0      (INTEGER)0      INTEGER  4
+   5            M10     M10      5      (M10)    0      M10      5
+   6            M8      M10      5      M10      5      M10      5
+   7            M16     M16      7      (M16)    0      M16      7
+   8            OCTAL   (INTEGER)0      (OCTAL)  0      INTEGER  4
+   9            REAL    REAL     9      (REAL)   0      REAL     9
+
+5  1    M10     ASCII   (M10)    0      M10      5      M10      5
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2
+   3            HEX     M16      7      M16      7      M16      7
+   4            INTEGER (M10)    0      M10      5      M10      5
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 24
+
+
+   5            M10     (M10)    0      (M10)    0      M10      5
+   6            M8      (M10)    0      M10      5      M10      5
+   7            M16     M16      7      (M16)    0      M16      7
+   8            OCTAL   (M10)    0      M10      5      M10      5
+   9            REAL    REAL     9      (REAL)   0      REAL     9
+
+6  1    M8      ASCII   (M8)     0      M8       6      M8       6
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2
+   3            HEX     M16      7      M16      7      M16      7
+   4            INTEGER M10      5      M10      5      M10      5
+   5            M10     M10      5      (M10)    0      M10      5
+   6            M8      (M8)     0      (M8)     0      M8       6
+   7            M16     M16      7      (M16)    0      M16      7
+   8            OCTAL   (M8)     0      M8       6      M8       6
+   9            REAL    REAL     9      (REAL)   0      REAL     9
+
+7  1    M16     ASCII   (M16)    0      M16      7      M16      7
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2
+   3            HEX     (M16)    0      M16      7      M16      7
+   4            INTEGER (M16)    0      M16      7      M16      7
+   5            M10     (M16)    0      M16      7      M16      7
+   6            M8      (M16)    0      M16      7      M16      7
+   7            M16     (M16)    0      (M16)    0      M16      7
+   8            OCTAL   (M16)    0      M16      7      M16      7
+   9            REAL    REAL     9      (REAL)   0      REAL     9
+
+8  1    OCTAL   ASCII   (OCTAL)  0      OCTAL    8      OCTAL    8
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2
+   3            HEX     HEX      3      (HEX)    0      HEX      3
+   4            INTEGER (OCTAL)  0      (INTEGER)0      INTEGER  4
+   5            M10     M10      5      (M10)    0      M10      5
+   6            M8      M8       6      (M8)     0      M8       6
+   7            M16     M16      7      (M16)    0      M16      7
+   8            OCTAL   (OCTAL)  0      (OCTAL)  0      OCTAL    8
+   9            REAL    REAL     9      (REAL)   0      REAL     9
+
+9  1    REAL    ASCII   (REAL)   0      REAL     9      REAL     9
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2
+   3            HEX     (REAL)   0      REAL     9      REAL     9
+   4            INTEGER (REAL)   0      REAL     9      REAL     9
+   5            M10     (REAL)   0      REAL     9      REAL     9
+   6            M8      (REAL)   0      REAL     9      REAL     9
+   7            M16     (REAL)   0      REAL     9      REAL     9
+   8            OCTAL   (REAL)   0      REAL     9      REAL     9
+   9            REAL    (REAL)   0      (REAL)   0      REAL     9
+
+
+
+
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 25
+
+
+                  **  CONVERSIONS
+                  ---------------
+
+
+        OPERAND OPERAND MODIFY          MODIFY          FUNCTION   FUNC.
+        1       2       OPERAND 1       OPERAND 2       VALUE      CODE
+        ------- ------- ---------       ---------       --------   ----
+
+
+1  1    ASCII   ASCII   INTEGER  4      INTEGER  4      INTEGER  4  4
+   2            DECIMAL DECIMAL  2      (DECIMAL)0      DECIMAL  2  1
+   3            HEX     HEX      3      (HEX)    0      HEX      3  4
+   4            INTEGER INTEGER  4      (INTEGER)0      INTEGER  4  4
+   5            M10     INTEGER  4      REAL     9      INTEGER  4  3
+   6            M8      INTEGER  4      REAL     9      INTEGER  4  3
+   7            M16     INTEGER  4      REAL     9      INTEGER  4  3
+   8            OCTAL   INTEGER  4      INTEGER  4      INTEGER  4  4
+   9            REAL    INTEGER  4      (REAL)   0      INTEGER  4  3
+
+2  1    DECIMAL ASCII   (DECIMAL)0      INTEGER  4      DECIMAL  2  2
+   2            DECIMAL (DECIMAL)0      (DECIMAL)0      DECIMAL  2  1
+   3            HEX     (DECIMAL)0      (HEX)    0      DECIMAL  2  2
+   4            INTEGER (DECIMAL)0      (INTEGER)0      DECIMAL  2  2
+   5            M10     (DECIMAL)0      REAL     9      DECIMAL  2  1
+   6            M8      (DECIMAL)0      REAL     9      DECIMAL  2  1
+   7            M16     (DECIMAL)0      REAL     9      DECIMAL  2  1
+   8            OCTAL   (DECIMAL)0      (OCTAL)  0      DECIMAL  2  2
+   9            REAL    (DECIMAL)0      (REAL)   0      DECIMAL  2  1
+
+3  1    HEX     ASCII   (HEX)    0      INTEGER  4      HEX      3  4
+   2            DECIMAL (HEX)    0      (DECIMAL)0      HEX      3  3
+   3            HEX     (HEX)    0      (HEX)    0      HEX      3  4
+   4            INTEGER (HEX)    0      (INTEGER)0      HEX      3  4
+   5            M10     (HEX)    0      REAL     9      HEX      3  3
+   6            M8      (HEX)    0      REAL     9      HEX      3  3
+   7            M16     (HEX)    0      REAL     9      HEX      3  3
+   8            OCTAL   (HEX)    0      (OCTAL)  0      HEX      3  4
+   9            REAL    (HEX)    0      (REAL)   0      HEX      3  3
+
+4  1    INTEGER ASCII   (INTEGER)0      INTEGER  4      INTEGER  4  4
+   2            DECIMAL (INTEGER)0      (DECIMAL)0      INTEGER  4  3
+   3            HEX     (INTEGER)0      (HEX)    0      INTEGER  4  4
+   4            INTEGER (INTEGER)0      (INTEGER)0      INTEGER  4  4
+   5            M10     (INTEGER)0      REAL     9      INTEGER  4  3
+   6            M8      (INTEGER)0      REAL     9      INTEGER  4  3
+   7            M16     (INTEGER)0      REAL     9      INTEGER  4  3
+   8            OCTAL   (INTEGER)0      (OCTAL)  0      INTEGER  4  4
+   9            REAL    (INTEGER)0      (REAL)   0      INTEGER  4  3
+
+5  1    M10     ASCII   (M10)    0      INTEGER  4      M10      5  6
+   2            DECIMAL REAL     9      (DECIMAL)0      REAL     9  1
+   3            HEX     (M10)    0      (HEX)    0      M10      5  6
+   4            INTEGER (M10)    0      (INTEGER)0      M10      5  6
+   5            M10     (M10)    0      INTEGER  4      M10      5  6
+   6            M8      (M10)    0      INTEGER  4      M10      5  6
+   7            M16     (M10)    0      INTEGER  4      M10      5  6
+   8            OCTAL   (M10)    0      (OCTAL)  0      M10      5  6
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 26
+
+
+   9            REAL    REAL     9      (REAL)   0      REAL     9  1
+
+6  1    M8      ASCII   (M8)     0      INTEGER  4      M8       6  5
+   2            DECIMAL REAL     9      (DECIMAL)0      REAL     9  1
+   3            HEX     (M8)     0      (HEX)    0      M8       6  5
+   4            INTEGER (M8)     0      (INTEGER)0      M8       6  5
+   5            M10     (M8)     0      INTEGER  4      M10      5  5
+   6            M8      (M8)     0      INTEGER  4      M8       6  5
+   7            M16     (M8)     0      INTEGER  4      M16      7  5
+   8            OCTAL   (M8)     0      (OCTAL)  0      M8       6  5
+   9            REAL    REAL     9      (REAL)   0      REAL     9  1
+
+7  1    M16     ASCII   (M16)    0      INTEGER  4      M16      7  7
+   2            DECIMAL REAL     9      (DECIMAL)0      REAL     9  1
+   3            HEX     (M16)    0      (HEX)    0      M16      7  7
+   4            INTEGER (M16)    0      (INTEGER)0      M16      7  7
+   5            M10     (M16)    0      INTEGER  4      M16      7  7
+   6            M8      (M16)    0      INTEGER  4      M16      7  7
+   7            M16     (M16)    0      INTEGER  4      M16      7  7
+   8            OCTAL   (M16)    0      (INTEGER)0      M16      7  7
+   9            REAL    REAL     9      (REAL)   0      REAL     9  1
+
+8  1    OCTAL   ASCII   (OCTAL)  0      INTEGER  4      OCTAL    8  4
+   2            DECIMAL (OCTAL)  0      (DECIMAL)0      OCTAL    8  3
+   3            HEX     (OCTAL)  0      (HEX)    0      OCTAL    8  4
+   4            INTEGER (OCTAL)  0      (INTEGER)0      OCTAL    8  4
+   5            M10     (OCTAL)  0      REAL     9      OCTAL    8  3
+   6            M8      (OCTAL)  0      REAL     9      OCTAL    8  3
+   7            M16     (OCTAL)  0      REAL     9      OCTAL    8  3
+   8            OCTAL   (OCTAL)  0      (OCTAL)  0      OCTAL    8  4
+   9            REAL    (OCTAL)  0      (REAL)   0      OCTAL    8  3
+
+9  1    REAL    ASCII   (REAL)   0      INTEGER  4      REAL     9  2
+   2            DECIMAL (REAL)   0      (DECIMAL)0      REAL     9  1
+   3            HEX     (REAL)   0      (HEX)    0      REAL     9  2
+   4            INTEGER (REAL)   0      (INTEGER)0      REAL     9  2
+   5            M10     (REAL)   0      REAL     9      REAL     9  1
+   6            M8      (REAL)   0      REAL     9      REAL     9  1
+   7            M16     (REAL)   0      REAL     9      REAL     9  1
+   8            OCTAL   (REAL)   0      (OCTAL)  0      REAL     9  2
+   9            REAL    (REAL)   0      (REAL)   0      REAL     9  1
+
+
+
+
+CALC.DOC - DECsystem-20 implementation of CALC                           Page 27
+
+
+        ** FUNCTION CODES
+        -----------------
+
+
+RESULT  FUNCTION        CODE
+------  --------        ----
+
+REAL    REAL**REAL       1
+REAL    REAL**INTEGER    2
+INTEGER INTEGER**REAL    3
+INTEGER INTEGER**INTEGER 4
+M8      M8**INTEGER      5
+M10     M10**INTEGER     6
+M16     M16**INTEGER     7

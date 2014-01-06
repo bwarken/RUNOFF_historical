@@ -1,0 +1,56 @@
+Imgspl is a Tops-20 spooler for the Imgen 8/300 laser printer.
+To install the spooler, the following files are needed:
+
+	IMGSPL.MAC			The spooler
+	IMGSPL-EXEC-CHANGES.TXT		Exec sources modifications
+	IMGSPL-GALAXY-CHANGES.TXT	Galaxy Source modifications
+
+After making the changes to Galaxy and the Exec, compile and
+load Imgspl and save on SYS: (or wherever you keep your spoolers).
+Imgspl is designed to run under Sysjob.  If you have n Imagen
+8/300's, you will need to run n copies of Imgspl.
+
+
+To implement a "laser print queue" in Galaxy, the punched card
+queue is used (so if you have a card punch, don't use this).
+Most of the modifications to Galaxy are to change the text used
+for the card punch (e.g. "printing" instead of "punching").
+The Exec modifications are to add a "Laser-Print" command with
+switches that mean something to the Imagen printer.
+
+Some system-wide logical names are needed:
+
+	^EDEFINE LSR: CDP:	;So "@Copy file.name (to) LSR:" works.
+	^EDEFINE LSR0: CDP0:
+	^EDEFINE LSR1: CDP1:	;And so on for as many printers as you have.
+
+When the spooler receives a message to "START LASER-PRINTER n /NODE:node"
+It looks for the logical name "node-LSRn:".  If no /NODE switch
+is given, it will look for "LOCAL-LSRn" (where "n" is the unit number):
+
+	^EDEFINE LOCAL-LSR0: TTY1:	;If unit zero is on tty line 1.
+
+The spooler will also send files to printers connected to the
+network:
+
+	^EDEFINE LOCAL-LSR0: TCP:.30003036001-35.0;CONNECTION:ACTIVE;PERSIST:30
+
+Sequenced Packet Protocol is used for printers on terminal lines.
+Serial Protocol is used for TCP printers.
+Accounting is not available for TCP printers.
+
+
+Assembly Switches in Imgspl.Mac:
+
+	ACCTSW	If non-zero, system accounting (USAGE%) is done.
+
+	OFFLSW	If non-zero, a message will be sent to a
+		user if the printer runs out of paper while
+		his job is being printed.
+
+	REMSPL	For TCP printers, the remote object may be a
+		printer or a hosts.  If the object is a host,
+		REMSPL should be set non-zero if that host
+		sends a herald when the connection is opened.
+		REMSPL should be set to zero if actual printers
+		are used.

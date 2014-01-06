@@ -1,0 +1,2616 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        IND - Enhanced, programmable command files for TOPS20
+       =======================================================
+
+
+
+                                 NOTE
+
+               This document describes the IND program,
+               a  utility which offers advanced command
+               file facilities.  IND will  process  all
+               standard  EXEC  "TAKE" files, as well as
+               offering extra  features.   It  is  thus
+               easy   to   start  to  use,  and  offers
+               powerful tools for those  who  have  the
+               time the find out about them.
+
+
+	IND - Enhanced, programmable command files for TOPS20          Page 2
+
+
+
+
+                                 NOTE
+
+               The copyright in  the  computer  program
+               described  in  this  document and in the
+               associated  user  instructions  is   the
+               property    of    Kevin   Ashley.    The
+               information in this document is  subject
+               to  change without notice and should not
+               be construed as a  commitment  by  Kevin
+               Ashley,  who  assumes  no responsibility
+               for any errors which may appear in  this
+               document.   The  software  described  in
+               this  document  is  supplied   under   a
+               licence  and  may only used or copied in
+               accordance with the conditions of such a
+               licence.   The  licence conditions state
+               that this  software  shall  be  supplied
+               free  of charge and shall not be sold or
+               otherwise disposed of by means of  trade
+               or  ortherwisw for any form of profit or
+               advantage.   Possesion  or  use  of  the
+               software  shall  be deemed as acceptance
+               of the conditions of  the  licence.   No
+               guarantee  is given or may be implied as
+               to the adequacy of the  program  or  its
+               suitability  for  any particular purpose
+               and no liability  is  accepted  for  any
+               loss or damage arising out of its use.
+
+
+	IND - Enhanced, programmable command files for TOPS20          Page 3
+OVERVIEW
+
+
+1.0  OVERVIEW
+
+        IND is a program which offers command  file  facilities  which
+are  a  far more powerful, yet totally compatible superset of standard
+TOPS20 EXEC TAKE files.  The extra facilities offered by  IND  include
+the following:
+
+        o       Labels, GOTOs, and subroutines (GOSUB, RETURN)
+        o       Variables which are set at execution time
+        o       Logical, numeric and string comparisons
+        o       Conditional execution of commands
+        o       Interaction with the user via special  question/answer
+        directives
+        o       Ability to create data files
+        o       Ability to read input data files
+        o       Creation of terminal log files recording  the  command
+                file session, in a similar manner to PHOTO.
+        o       Picking up of parameters for the command file from  an
+                EXEC command line
+        o       Ability to test such things as user name,  privileges,
+        etc.
+        o       Date handling, with conversion of  string  to  numeric
+        dates, and vice versa
+
+        IND   was   inspired   directly   via   its   RSX-11M/D/M-PLUS
+counterpart,  also  known  as  IND, ICP or AT.  Its general syntax and
+functionality owes everything to its forebear, but advantage has  been
+taken  where  possible  of  extra  features that can be offered to the
+TOPS20 user that would not be feasible under RSX.  Similarly, features
+provided under RSX which are of little use, or are meaningless in, the
+TOPS20 environment have been removed in IND-20.
+
+	IND - Enhanced, programmable command files for TOPS20          Page 4
+INTRODUCTION
+
+
+2.0  INTRODUCTION
+
+
+        An indirect command file (also known as TAKE file) is  a  file
+containing  a  set  of  commands  for  the  TOPS20 EXEC that you would
+normally type at a terminal.  In addition, it can also contain special
+commands  that  allow you to control the execution of the command file
+itself.  To initiate an IND file, type IND followed by the name of the
+command file to the TOPS20 prompt.  If your system has a PCL EXEC, you
+may also find that you can run a command file by typing CMD  filename.
+This is usually much easier, as it permits you to use recognition (ie,
+pressing the escape key to fill out the filename).
+
+@IND CONTROL
+
+        The assumed file type is  .CMD,  thus  the  preceding  command
+causes further commands to be taken from CONTROL.CMD .  For other file
+types, specify the file type explicitly.  An indirect command file can
+contain  any  EXEC  command that you could type at your terminal (with
+the exception of LOGOUT or BYE.) It may also contain commands to other
+programs  that  it  runs.   Thus, the simplest type of command file is
+merely a sequence of commands to the EXEC and  to  programs  that  are
+run.   For  example, a command file to compare two files and print the
+differences might look like this:
+FILCOM
+OUT.SCM=INPUT1.FIL,INPUT2.FIL
+^C
+PRINT OUT.SCM/DELETE
+
+        This   simply   runs  the  FILCOM  program,  produces  a  file
+consisting of the differences between two other files, and prints  the
+output.   If the above commands were in a file called F.CMD, you would
+run them like this:
+                    @IND F
+        However, this command file is very limited.   Although  it  is
+already  more  powerful than an ordinary command file (which could not
+contain commands to the FILCOM program), it still is not very  useful.
+The  filenames  used are fixed - it might be nice to set them up as we
+run the command file.  Also, we might not want to print the output if,
+after we run FILCOM, we see that it is not worth printing.  IND allows
+you to do  all  this,  and  more.   This  is  where  the  special  IND
+directives come into their own.         Command  files  can be nested,
+ie can invoke other command files, up to a current limit of 4 deep.
+        When the end of the highest level file is reached, the message
+
+@ <EOF>
+
+is displayed on the screen.  To exit from a command file  prematurely,
+type  CTRL/Z  in  response  to any request for input from IND, or type
+CTRL/A while IND is running.  If you use CTRL/A, any output  that  was
+being  produced  will  probably  have disappeared.  You should only do
+this if it is really necessary..
+
+                When processing a command file IND  first  reads  each
+line  to  determine  if it is a command intended for TOPS20, a special
+directive to IND itself, or just a message to be typed on the  screen.
+	IND - Enhanced, programmable command files for TOPS20          Page 5
+INTRODUCTION
+
+
+The  directives  to IND are distinguished by a period (.) as the first
+character in  the  line.   TOPS20  commands  have  no  special  prefix
+characters.   Messages  to  the  user are prefixed by a semicolon (;).
+The directives to IND form a primitive language, which allows you to:
+
+        o Define labels
+        o Define and assign values to symbols of  5  types:   logical,
+        numeric,
+        floating point, string and file.
+        o Create and access data files
+        o Control the logical flow of the command file
+        o Perform logical tests
+        o Enable or disable any of a number of operating modes
+        o Increment or decrement numeric symbols
+        o Control execution of subsidiary tasks or programs.
+
+        The IND directives are listed below by category.   A  detailed
+description  of  each  directive is presented in alphabetical order in
+the next section.
+
+	IND - Enhanced, programmable command files for TOPS20          Page 6
+DIRECTIVES (SUMMARY)
+
+
+3.0  DIRECTIVES (SUMMARY)
+
+
+Label definition:
+
+ .label:                Assigns a name to a line in the  command  file
+                so that the line may be referenced.
+
+Symbol definition:
+
+ .ASK           Defines or redefines a logical symbol  by  asking  the
+                user  a  Y/N question and assigns the logical symbol a
+                true or false value.
+
+ .ASKN          Defines or redefines a numeric symbol  by  asking  the
+                user  a  question  and  assigns a numeric value to the
+                symbol.
+
+ .ASKR          Defines or redefines a floating point symbol by asking
+                the user a question and assigns a floating point value
+                to the symbol.
+
+ .ASKS          Defines or redefines a string  symbol  by  asking  the
+                user  a  question and assigns the symbol a value which
+                is a string of text.
+
+ .ASKF          Defines or redefines a file symbol  by  prompting  the
+                user  for  a  filename  and associates the symbol with
+                that filename.
+
+ .FILE/.LOGICAL/.NUMERIC/.REAL/.STRING  Allow you to  declare  symbols
+                and  their  types in advance of use, and initialize to
+                default values.
+
+ .PARSE         Breaks  a  string  into  substrings  by  looking   for
+                specific characters that break up the string.
+
+ .CODE          Gets the ASCII value of a character.
+
+ .TRIM/PAD      Remove or add trailing blanks or tabs from a string.
+
+ .RAISE/.LOWER          Makes strings upper or lower case.
+
+ .SETT/.SETF    Defines or redefines a logical symbol and assigns  the
+                symbol a true or false value.
+
+ .SETN          Defines or redefines a numeric symbol and assigns  the
+                symbol a numeric value.
+
+ .SETR          Defines or  redefines  a  floating  point  symbol  and
+                assigns the symbol a floating point value.
+
+ .SETFI         Defines or redefines a file  symbol  and  assigns  the
+                symbol a file value.
+
+ .SETS          Defines or redefines a string symbol and  assigns  the
+	IND - Enhanced, programmable command files for TOPS20          Page 7
+DIRECTIVES (SUMMARY)
+
+
+                symbol a character string value.
+
+ .PURGE         Removes the definition of a symbol or set of symbols.
+
+ .RADIX         Sets the current radix for reading in  whole  numbers,
+                and for outputting them.
+
+Date handling:
+
+ .DAYTON        Converts a date string in a fairly arbitrary format to
+                a Smithsonian day number.
+
+ .NTODAY        Converts a Smithsonian day number to a date in text.
+
+File access:
+
+ .DATA          Specifies a single line of  data  to  be  sent  to  an
+ output file.
+
+ .CLOSE         Closes an output data file.
+
+ .READ  Reads a line  of  data  from  an  input  file  into  a  string
+                variable.
+
+ .CLOSEI        Closes an input file.
+
+ .OPEN          Opens an output data file (creates a  new  version  if
+ necessary).
+
+ .OPENA         Opens an existing output data file and appends data to
+ it.
+
+ .OPENI Opens an input file.
+
+ .REWIND        Rewinds an input file to start of file.
+
+ .POSITION              Positions an input file to a specific byte  in
+                the file.
+
+Logical control:
+
+ .CALL          Invokes another IND file, keeping all symbols defined.
+
+ .GOSUB         Branches to a label identifying  a  subroutine  within
+                the command file.
+
+ .GOTO          Branches to a label within a command file.
+
+ .RETURN                Effects an exit from a  subroutine  -  returns
+                control  to  the line following the .GOSUB that called
+                it.
+
+ .RUN           Runs a program, but allows input for  the  program  to
+                come from the terminal rather than the command file.
+
+ .TELL  Places a single command in the input buffer of a  program  run
+	IND - Enhanced, programmable command files for TOPS20          Page 8
+DIRECTIVES (SUMMARY)
+
+
+                by      the .RUN directive.
+
+ .EXIT          Terminates IND without a message.
+
+ .STOP          Terminates the current command file.
+
+ .LOGFILE       Specifies a file to be used to log terminal I/O to.
+
+ .ENDLOG        Closes a logfile and releases pseudo terminal.
+
+Logical tests:
+
+ .IF            Determines whether or not a string or  numeric  symbol
+                satisfies one of a number of possible conditions.
+
+ .IFDF/.IFNDF   Determines whether or not a symbol is defined.
+
+ .IFT/.IFF      Determines whether a logical symbol is true or false.
+
+ .TEST          Tests the length of a string symbol,  and  checks  for
+                whether it      is    alphabetic,    alphanumeric   or
+                numeric.
+
+ .TESTFILE      Tests to see if a file exists.
+
+Enable/disable operating mode:
+
+ .DISABLE/.ENABLE       Turns on  or  off  the  following  parameters:
+                Substitution,  command  echoing,  data  mode, extended
+                EXEC,  trace,   CTRL/Z   recognition,   execution   of
+                COMAND.CMD,  logging  to  PHOTO-type  file, ability of
+                lower fork to logout job.
+
+ .DELIM         Changes the character used for substitution.
+
+Loop control:
+
+ .INC           Increments the value of a numeric symbol.
+
+ .DEC           Decrements the value of a numeric symbol.
+
+Execution control:
+
+ .DELAY         Delays further execution for the specified  number  of
+ seconds.
+
+ .PAUSE         Stops the indirect command file temporarily,  allowing
+                the user to enter commands to TOPS20.
+
+Miscellaneous:
+
+ .DISPLAY       Displays  a  string  symbol  without  translation  and
+                without  leading/trailing  cr/lfs.   Useful for screen
+                control.
+
+ .STATUS                Dumps the symbol table and various performance
+	IND - Enhanced, programmable command files for TOPS20          Page 9
+DIRECTIVES (SUMMARY)
+
+
+                counts  to the screen.
+
+ .DDT           Merges DDT and causes an unsolicited breakpoint.
+
+	IND - Enhanced, programmable command files for TOPS20         Page 10
+SYMBOLS
+
+
+4.0  SYMBOLS
+
+
+        The indirect command  file  processor  allows  you  to  define
+symbols.   These  symbols  can  then be tested or compared in order to
+control flow through the command file.  They may also  be  substituted
+for  EXEC  commands, data to files, or comments to be displayed at the
+terminal.  The word 'symbol' is used interchangeably with  'variable'.
+They  mean  the  same thing.  If you are used to programming languages
+like FORTRAN or BASIC, you will probably find it easier  to  think  of
+these  things  as  variables.   The essential concept is that they are
+names for numbers or sets of characters that have  been  read  from  a
+terminal or file, or produced by combining other such sets of things.
+        Symbol names are strings of characters from 1 to 9  characters
+in  length.   They  must  start with a letter(a-z) or dollar sign ($).
+The remaining characters must be alphanumeric or dollar.  There are  5
+symbol types:
+
+        o       Logical
+        o       String
+        o       Numeric
+        o       Real or floating point
+        o       File
+
+A logical symbol has either a true or false value.
+
+A string symbol has as its value a string of ASCII characters, with  a
+length between 0 and 120 characters inclusive.
+
+A numeric symbol can have a value in  the  range  -131070  to  +131069
+inclusive.
+
+A floating point or real symbol  has  as  its  value  a  real  number,
+ranging  through  the  permissible  range  for  single  precision real
+numbers on the DEC20 (about +/- 10E+/-39).
+
+A file symbol has as  its  value  a  TOPS20  filespec,  including  any
+optional protection value, account string, etc.
+
+        A symbol's type (logical, numeric, etc.) is determined by  the
+first  directive  that  assigns a value to it.  Subsequent assignments
+may change the symbol value, but cannot redefine its type.  A variable
+may  also  be  declared  and  initialized by a .FILE, .NUMERIC, .REAL,
+.LOGICAL or .STRING directive.  If a  variable  is  removed  with  the
+.PURGE  directive,  then  its type and value are forgotten.  It may be
+redefined with a new type.
+
+
+
+
+4.1  SPECIAL SYMBOLS
+
+
+        IND automatically defines certain special symbols dependant on
+system  characteristics  and enquires made by the command file itself.
+As with ordinary symbols, special symbols can be of any  of  5  types,
+	IND - Enhanced, programmable command files for TOPS20         Page 11
+SYMBOLS
+
+
+and can be compared, substituted, and tested.  All system symbols have
+a common format;  angle  brackets  (<>)  enclose  the  special  symbol
+names.
+
+Symbol name     Type                    Value___________     ____                    ______
+
+<STRLEN>        Numeric         Length of last string symbol in  .TEST
+                                directive,  or  entered in response to
+                                .ASKS.
+<SYSTEM>        String          Name  of  system  as  printed  when  a
+                                CTRL/C is struck to login, eg
+                      Installation test system,TOPS20 Monitor 4(3417).
+<DATE>          String          Current date in form 25-Dec-81.
+<TIME>          String          Current time in form 13:00:00
+<USER>          String          User name of current job, eg T-BENN
+<DIRECTORY>     String          Currently  connected  directory,  with
+                                structure,eg PS:<K-LIVINGSTONE>
+<FILESTAT>      Numeric         Result of last .TESTFILE directive.
+<EOF>           Logical         Set to TRUE if  currently  open  input
+                                file   is   at  end  of  file.   False
+                                otherwise, or if  no  input  file  has
+                                been selected.
+<ACCOUNT>       String          Account in  use  by  the  job,  as  in
+                                DOCAS.
+<ALPHA>         Logical         Set by  the  .ASKS,  .TEST  and  .READ
+                                directives  to true if the last string
+                                processed  by  them   contained   only
+                                alphabetic characters.
+<ALPHANUM>      Logical         As <ALPHA>, except that this  variable
+                                tells    you   if   the   string   was
+                                alphanumeric or not.
+<DISKUSED>      Numeric         Equal to the  total  number  of  pages
+                                used   in   the   currentLY  connected
+                                directory.
+<JOB>           Numeric         Job number
+<LIQUOTA>       Numeric         Working storage quota  (in  pages)  of
+                                currently connected directory.
+<LOQUOTA>       Numeric         Permanent storage quota.
+<NUMERIC>       Logical         Set to true if  last  string  read  by
+                                .ASKS,  .TEST  or .READ contained only
+                                numeric characters.
+<TERLEN>        Numeric         Terminal length in lines/page
+<TERMINAL>      Numeric         Controlling terminal number of current
+                                job  NOTE:   this  is decimal, whereas
+                                TOPS-20 has them in octal.
+<BYTEPOS>       Numeric         Current position of input file  opened
+                                with .READ directive, as the number of
+                                the next byte which will be  read,  or
+                                -1  if  no  file  is  open.   Used  in
+                                conjunction with .POSITION.
+
+<TERWID>        Numeric         Width in characters/line of terminal
+
+<FILDEV>,<FILDIR>,              These symbols are all set by the TESTFILE
+<FILNAM>,<FILTYP>,              directive to indicate the device, directory
+<FILGEN>,<FILPRO>,              name, type, generation, protection, account
+	IND - Enhanced, programmable command files for TOPS20         Page 12
+SYMBOLS
+
+
+<FILACT>,<FILCRE>,              and date/time of creation and read of the
+<FILRED>                        specified file. They are all string symbols.
+
+<FILPAG>,<FILSIZ>,              These are also set up by the .TESTFILE
+<FILBYS>                        directive with the number of pages, bytes,
+                                byte size of the file, if it is online. They
+                                are numeric symbols.
+
+
+
+        Other special symbols can  be  set  up  by  the  command  that
+invoked  IND itself.  It is possible to pass parameters to the command
+file by including them after the command file name, as below:
+@IND indgen filename <This is a complex parameter> 3
+
+        These set upto 9 parameters called P1 to  P9,  which  are  all
+text  string variables.  If a parameter is not supplied on the command
+line, its associated variable will be null (eg in the  above  example,
+P4  to  P9  will  be  the  null  string.)  The  parameters are usually
+separated by spaces, but if you wish to include special characters  or
+spaces  in  a parameter, you can emclose that parameter in any sort of
+brackets:  curly, round, angle or square to delimit it,  as  has  been
+done  above.   You  can  also use double quotes to delimit the string.
+Using one quoting mechanism allows you to use any of the others within
+the  string,  without  their  having a special meaning (so you can use
+unbalanced curly brackets within round brackets,  for  instance.)  The
+brackets  are removed by IND before assigning the whole text string to
+one parameter.  Note that you can pass numbers or filenames  this  way
+too,  you  just  need  to  perform an assignment statement within IND.
+Following the above example:
+
+.setn PASSES 'p3'
+
+will set the value of numeric variable passes to 3, as  that  is  what
+the text string for p3 expands to.
+
+
+
+
+
+4.2  SYMBOL Value Substitution
+
+
+        Substitution can occur in any line of a command file.  Command
+files  can  use  the  values assigned to string,numeric,file or system
+symbols by replacing a normal  parameter  (for  example  a  device  or
+directory name) with a symbol name enclosed in apostrophes (eg CONNECT
+'dir').  As long as a previous directive has not disabled substitution
+(the  .DISABLE  SUBSTITUTION  directive), IND replaces the symbol name
+and apostrophes with the value of the symbol.
+                When IND  encounters  an  apostrophe,  it  treats  the
+subsequent  text  upto  the  next  apostrophe  as  a  symbol name, and
+substitutes the value of  that  symbol  for  its  name  and  enclosing
+apostrophes.
+        For example, the first 2 lines below appear in a command file.
+When  IND encounters these lines, it displays the following 2 lines at
+	IND - Enhanced, programmable command files for TOPS20         Page 13
+SYMBOLS
+
+
+the controlling terminal:
+
+ .ASKS tapname Name of magtape to read ?
+mount tape 'tapname':  /write-protected/label-type:ANSI
+
+* Name of magtape to read ?  [S]:  ARCHIVE              <- user  typed
+ARCHIVE
+@mount tape ARCHIVE:  /write-protected/label-type:ANSI
+
+        ARCHIVE was entered in response to the question.   This  reply
+associated  the  string  value ARCHIVE with the string symbol tapname.
+Then, when IND read:
+
+        mount tape 'tapname':  ...
+
+it substituted for 'tapname' the value  assigned  to  TAPNAME,  namely
+ARCHIVE.   If substitution mode was disabled, the command would simply
+have been passed as it stood, with apostrophes.
+
+        If apostrophes are an inconvenient character for  you  to  use
+(perhaps  you  are  writing  a set of commands for a program that used
+apostrophes itself), you can change the special substitution character
+with the .DELIM directive.
+
+
+
+
+4.3  Numeric,real And String Symbols.
+
+
+        A numeric symbol is a string of digits representing a value in
+the  range  -131070  to +131069.  When a numeric symbol is substituted
+into text, these digits  are  placed  there,  with  a  minus  sign  if
+necessary.   The  current  radix (set by the .RADIX operator) controls
+what radix is used to substitute the values and read in new ones.  The
+default  radix  is  10.   A numeric symbol or constant may be combined
+with other symbols or constants in numeric expressions via  arithmetic
+operators.  These are + to add, - to subtract, * to multiply, and / to
+divide.  No imbedded blanks or tabs are allowed  in  the  expressions,
+and  all arithmetic is done on whole numbers only, without a check for
+under- or over-flow.  The  expressions  are  evaluated  from  left  to
+right, stricly, unless parentheses are used to to form subexpressions.
+For example, the directive lines:
+
+        .SETN N1 2
+        .SETN N2 3
+        .SETN N3 N1+N2*4
+
+        assigns n3 the value 20 whereas the lines
+
+        .SETN N1 2
+        .SETN N2 3
+        .SETN N3 N1+(N2*4)
+
+        assigns N3 the value 14.
+	IND - Enhanced, programmable command files for TOPS20         Page 14
+SYMBOLS
+
+
+        Numeric expressions are permitted as second operands in  .SETN
+ and  .IF  directives, and also as range arguments to .ASKN and .ASKS,
+ and also
+as substring delimiters in string expressions.
+        Real symbols take on floating point values, such as  -232.045.
+They  behave  much  the  same  as numeric symbols, in that they can be
+combined in expressions.  Real and numeric symbols can be used in  the
+same expression, and one is converted to the other whenever necessary.
+If the final result is to be real, all integers in the expression  are
+converted  to real first ;  if the final result is to be integer, each
+real is rounded (in the ALGOL sense)  to  the  nearest  integer  value
+before use.
+
+
+
+4.4  String Symbols, Substrings And Expressions
+
+
+        A string constant is a  string  of  any  printable  characters
+(possibly including several non-printable ones, such as bell) enclosed
+by quotes (" ").  Empty strings are also  permitted.   The  number  of
+characters in a string cannot exceed 120.  Examples:
+
+        "ABCDef"
+        ""
+
+        String symbols may have a value of any string  constant.   The
+value  is  assigned  by  a .SETS or .ASKS directive.  For example, the
+directive lines
+
+        .SETS S1 "ABCDEF"
+        .SETS S2 S1
+
+assigns string symbol S2 the value of S1 (that is, ABCDEF.)
+
+        A substring facility allows you to extract a segment from  the
+value  of  a  string  symbol.   You  can use substrings only as second
+operands in .SETS and
+ .IF directives.  For example, the directive lines
+
+        .SETS S1 "ABCDEF"
+        .SETS S2 S1[1:3]
+
+assign string symbol S2 the value of string  symbol  S1  beginning  at
+character  1  and  ending  at character 3 (that is, ABC).  The top and
+bottom of the range need not be numeric constants ;  they can  be  any
+arbitrary numeric expression.
+
+        You can combine a string constant, symbol  or  substring  with
+another   string   constant,   symbol   or  substring  by  the  string
+concatenation operator + to form a string expression.
+        String expressions are permitted as second operands  in  .SETS
+and  .IF  directives  where the first operand is a string symbol.  For
+example, the directive lines
+
+        .SETS S1 "A"
+	IND - Enhanced, programmable command files for TOPS20         Page 15
+SYMBOLS
+
+
+        .SETS S2 "CDEF"
+        .SETS S3 S1+"B"+S2[1:3]
+
+assign string symbol S3 the value of the concatenation of  the  string
+symbol  S1,  string constant "B", and the first 3 characters of string
+symbol S2 (that is, ABCDE).
+
+	IND - Enhanced, programmable command files for TOPS20         Page 16
+DIRECTIVES
+
+
+5.0  DIRECTIVES
+
+
+        Directives must be separated from  their  arguments  and  from
+EXEC  or program commands by at least one space or tab.  Spaces may be
+placed anywhere in a command line  without  problems,  except  in  the
+following exceptions:
+
+        (1) No space is permitted between a label  and  the  following
+        colon (:).
+        (2) Embedded spaces or tabs are not permitted  within  numeric
+        or string
+         expressions (except, of course, within string constants.)
+
+        Note specifically that the dot in front of a directive may  be
+separated from its name, to allow you to indent portions of your file.
+Thus, constructions like:
+.             ASK fred What do you want ?
+are permissible.  Similarly,
+                .ASK fred What do you want ?
+is equally ok, as long as leading spaces have not been  disabled  with
+the
+.DISABLE LEADING
+directive.  (RSX and RT11 IND do  not  permit  leading  spaces  before
+directives.)
+
+
+
+
+5.1  Define A Label                                   .label:
+
+
+        Labels always appear at the beginning of a line;  they may  be
+on a line with additional directives and/or an EXEC command, on a line
+with a comment, or on a line by themselves.  When control is passed to
+a  line  with  a label, the line is processed from the first non-blank
+character after the colon.
+        Labels are upto 9 characters long, and must be preceded  by  a
+period and terminated by a colon.  Once a label has been seen once, it
+is found very quickly when subsequent references to it are made.  If a
+label  is  referenced  before  it  is seen, there can be a short delay
+while it is found.
+
+
+
+
+5.2  Ask A Yes/No Question And Wait For A Reply                      .ASK
+
+
+        The .ASK directive prints a question  on  the  terminal  which
+requires  a  yes/no answer and sets a specified logical symbol to true
+or false, depending on the reply.  Format:
+
+        .ASK ssssss question-text
+
+where:
+	IND - Enhanced, programmable command files for TOPS20         Page 17
+DIRECTIVES
+
+
+        ssssss  = 1-9 character symbol to be assigned true/false value
+        question-text = any ASCII string of characters, maximum length
+        80
+
+        When executing a .ASK directive,  IND  displays  the  question
+preceded by an asterisk and suffixed with "[Y/N]:".  Three answers are
+recognised:
+
+        (1) YES (or an abbreviation) - set symbol to true
+        (2) NO (        ""      "" ) - set symbol to false
+        (3) Return on its own - treat as NO.
+
+        Example:  The directive line
+
+        .ASK exp Do you want to expunge the directory?
+
+        displays
+
+* Do you want to expunge the directory ?  [Y/N]:
+
+on the terminal.  Symbol EXP will be set to true or  false  after  the
+user  types  Yes,  no,  or  return.   Recognition  can  be used, and a
+question mark typed to see the list of available options.
+
+
+
+
+5.3  Ask For Definition Of A Numeric Symbol                     .ASKN
+
+
+        The .ASKN directive prints on the terminal  a  request  for  a
+numeric  value, waits for it to be entered, optionally tests the range
+of the numeric response and/or applies a default value, and  sets  the
+value of the specified symbol accordingly.  Format:
+
+        .ASKN sssss question
+        .ASKN [low:high] ssss question
+        .ASKN [low:high:default] ssss question
+
+where   sssss   =       1-9 character symbol to be assigned a  numeric
+        value
+        question =      question to be asked the user
+        low:high =      numeric   expressions    to    indicate    the
+                        permissible   low  and  high  limits  for  the
+                        reponse.
+        default =       numeric expression for the default answer.
+
+        When  executing  the  directive,  IND  displays  the  question
+preceded  by  *  and followed by [#]:  to indicate a numeric answer is
+required.  If ranges have been specified, the display is  followed  by
+[#  R:low:high]:   ;if  a  default  has  been supplied, the display is
+suffixed by [# R:low:high D:def]:.
+        If the user's response is out of range, IND  prints  an  error
+message and re-issues the question.  If the response is an empty line,
+and a default has been supplied, the default is used.  A question mark
+can  be  typed  for  help,  and  escape can also be used to obtain the
+	IND - Enhanced, programmable command files for TOPS20         Page 18
+DIRECTIVES
+
+
+default answer, if any.  Example:
+
+        .ASKN [1:100:20] NUSE Maximum number of users
+
+        displays on the terminal as
+
+        * Maximum number of users [# R:1:100 D:20]:
+
+        The user must enter a number between 1 and 100, or type return
+for 20.  Symbol NUSE is set to the returned value.
+
+
+
+
+5.4  Ask For Definition Of A Real Symbol                     .ASKR
+
+
+        The .ASKR directive prints on the terminal  a  request  for  a
+floating point value, waits for it to be entered, optionally tests the
+range of the numeric response and/or applies a default value, and sets
+the value of the specified symbol accordingly.  Format:
+
+        .ASKR sssss question
+        .ASKR [low:high] ssss question
+        .ASKR [low:high:default] ssss question
+
+where   sssss   =       1-9 character symbol to be assigned a  numeric
+        value
+        question =      question to be asked the user
+        low:high =      numeric   expressions    to    indicate    the
+                        permissible   low  and  high  limits  for  the
+                        reponse.
+        default =       real expression for the default answer.
+
+        When  executing  the  directive,  IND  displays  the  question
+preceded  by  *  and followed by [#]:  to indicate a numeric answer is
+required.  If ranges have been specified, the display is  followed  by
+[#  R:low:high]:   ;if  a  default  has  been supplied, the display is
+suffixed by [# R:low:high D:def]:.
+        If the user's response is out of range, IND  prints  an  error
+message and re-issues the question.  If the response is an empty line,
+and a default has been supplied, the default is used.  A question mark
+can  be  typed  for  help,  and  escape can also be used to obtain the
+default answer, if any.  Example:
+
+        .ASKR [.00001:.005:.0001] TOLERANCE Tolerance factor to use
+
+        displays on the terminal as
+
+        * Tolerance factor to use [# R:1E-5:0.005 D:0.0001]:
+
+        The user must enter a number between .00001 and .005, or  type
+return  for  .0001.   Symbol  TOLERANCE  is set to the returned value.
+Note that  the  value  .00001  has  been  displayed  as  1E-5  -  this
+conversion  to  scientific  notation  will  occur if the number is too
+large or small to be conveniently displayed another way.
+	IND - Enhanced, programmable command files for TOPS20         Page 19
+DIRECTIVES
+
+
+5.5  Ask For Definition Of A String Symbol                              .ASKS
+
+
+        The .ASKS directive prints on the terminal  a  request  for  a
+string  value  to  define  a  string  symbol, and optionally tests the
+number of characters in  the  string  to  ensure  they  are  within  a
+specified  range.  An indication is returned to the command file as to
+whether the entered characters were all alphabetic or alphanumeric  or
+numeric.    This  is  via  logical  variables  <ALPHA>,<NUMERIC>,  and
+<ALPHANUMERIC>.  The count of the number of characters in  the  string
+is returned in variable <STRLEN>.  Formats:
+
+        .ASKS sssss question
+        .ASKS [low:high] sssss question
+
+        where:  sssss = 1-9 character symbol name
+                question = question to be displayed
+                low:high = inclusive limits for number  of  characters
+                in string.
+
+        Low and high are arbitrary numeric expressions.
+
+Examples:
+
+        .ASKS [1:39] NAM Please enter your name
+
+        displays
+
+* Please enter your name [S R:1:39]:
+
+on the controlling terminal.  The symbol NAM is defined  according  to
+the answer given.  A question mark can be typed for help, although the
+help message is just "text string".
+
+        If it is desired to have a  default  for  this  function,  the
+symbol <STRDEF> may be set to the default desired, ie with a directive
+like:
+.SETS <STRDEF> "Weekend"
+will cause the string "Weekend" to be used as the default  answer  for
+all .ASKS directives.  To remove the default for later directives, use
+.PURGE to remove the <STRDEF> symbol.
+
+
+
+
+5.6  Ask For Definition Of A File Symbol                              .ASKF
+
+
+        The .ASKF directive prints on the terminal  a  request  for  a
+file  specification  to define a file symbol, and optionally applies a
+default generation to ensure that the file is new or old.  Formats:
+
+        .ASKF ffff question
+        .ASKF [gen] ssssss question
+
+        where:  sssss = 1-9 character symbol name
+	IND - Enhanced, programmable command files for TOPS20         Page 20
+DIRECTIVES
+
+
+                question = question to be displayed
+                gen = default generation number, with certain  special
+                defaults.
+
+        Gen is an arbitrary numeric expression.  It is the  generation
+        number  desired  if  it  is  positive,  or  if  it  is zero or
+        negative, the following rules apply:
+        0 means use the highest existing generation (an old file)
+        -1 means  use  a  generation  one  higher  than  the  existing
+        generation ( a new file)
+        -2 means use the lowest existing generation.
+        Recognition may be used on the file name.
+
+Examples:
+
+        .ASKF [0] INP Enter name of input data file
+
+        displays
+
+* Enter name of input data file [F]:
+
+on the controlling terminal.  The symbol INP is defined  according  to
+the  answer  given.   A  question  mark can be typed for help, and the
+message  "file  name"  is  given.   The  default  generation  will  be
+overridden if the user explicitly enters a generation number.
+
+        You may  specify  a  default  filename,  filetype,  directory,
+device  and  account  to  be  used  for  .ASKF.   These defaults, once
+specified, are used for all .ASKF directives until they are removed by
+using   .PURGE  to  remove  the  associated  default  variables.   The
+following variables (of type  string)  are  set  up  if  defaults  are
+desired.   They  are all independant - you only need to set them up if
+you want a default for specific field (ie you can have a default  type
+without a default name).
+
+o       <DEFACC>        Default account
+
+o       <DEFNAM>        Default name
+
+o       <DEFDIR>        Default directory
+
+o       <DEFDEV>        Default device
+
+o       <DEFTYP>        Default extension (or file type)
+
+
+
+
+5.7  Call Up Another IND File                                   .CALL
+
+
+        The .CALL directive tells IND to suspend the current file, and
+take  commands from another file.  It is as if all of that second file
+were inserted at the  place  the  .CALL  directive  exists,  with  the
+difference  that  one  file  is not allowed to reference labels in the
+other.  All symbols defined by one file are accesible  to  the  other,
+	IND - Enhanced, programmable command files for TOPS20         Page 21
+DIRECTIVES
+
+
+however.  .CALL directives can be nested upto 4 deep.  Format:
+
+        .CALL filename
+
+Default file type is as for IND command, ie .CMD.  Usually the default
+device is DSK:  (which is usually your own directory.) However, if IND
+was originally invoked with a command like IND TRIM, and  TRIM.CMD  is
+not  found  on  DSK:,  it  then  searches  SYS:   for  the  file.   If
+SYS:TRIM.CMD existed, then any .CALL directives which it  issues  will
+use SYS:  as their default device.
+
+
+
+
+5.8  Close Secondary File                                        .CLOSE
+
+
+        The .CLOSE directive closes the secondary  file  opened  in  a
+.OPEN directive.  It is a noop if no file has been opened (ie no error
+occurs if a file is not currently open.)
+
+
+
+
+5.9  Close Secondary Input File                                  .CLOSEI
+
+
+        The .CLOSEI directive closes the secondary file  opened  in  a
+.OPENI  directive.   It  is  a  noop if no file has been opened (ie no
+error occurs if a file is not currently open.)
+
+
+
+
+5.10  Get ASCII Code Of A Character                                    .CODE
+
+
+        The .CODE directive returns  the  ASCII  value  of  the  first
+character of a string expression to a numeric variable.  Format:
+        .CODE number string-expression
+
+The variable number receives the ASCII code of the first character  in
+the string expression.  Examples:
+
+.CODE start "This is a string of characters" .CODE n command
+
+        In the first example, variable start gets the ASCII  code  for
+uppercase  T,  while  in the second, command is assumed to be a string
+variable, and the code for its first character is returned to  n.   If
+command is a null string, n is set to 0.
+
+	IND - Enhanced, programmable command files for TOPS20         Page 22
+DIRECTIVES
+
+
+5.11  Output Data To Secondary File                                   .DATA
+
+
+        The .DATA directive specfies text to be output to a  secondary
+file opened by a previous .OPEN directive.  An error occurs if no file
+is open.  Format:
+        .DATA arbitrary text which is not interpreted
+
+        Leading blanks and tabs are stripped from the data, and symbol
+substitution is still performed if enabled.
+
+Example:
+
+        .SETS SEND "This is data"
+        .OPEN TEMP.DAT
+        .DATA 'SEND'
+
+        These directives output "This is data" to the secondary file.
+
+
+
+5.12  Convert Date String To Smithsonian Day Number                 .DAYTON
+
+
+        The .DAYTON directive converts a string expression,  which  is
+assumed  to be a date, into a Smithsonian day number.  Smithsonian day
+numbers are an easier method for programs to handle  dates  with  than
+date  strings  (ie  it  is easier to do things like find out the year,
+find out how far apart two dates are, etc.) Format:
+
+        .DAYTON String-expression Numeric-symbol
+
+Example:
+        .DAYTON "24-Dec-84" XMASEVE
+
+This stores the date of Christmas Eve 1984 in XMASEVE.   Day  zero  is
+17th  November  1858.   Negative day numbers are not allowed.  .DAYTON
+accepts dates in any reasonable format, such as  24th  December  1984,
+24/12/84, 24 dec 1984, etc.  It cannot accept the names of days of the
+week, nor can it accept numeric dates  delimited  by  periods.   If  a
+wholly numeric date is entered (as 24/12/84 or even 241284), it adopts
+the british convention of assuming the second  number  is  the  month,
+rather  the  American  convention  of assuming the first number is the
+month.
+
+
+
+
+5.13  Debug IND                                                  .DDT
+
+
+        The .DDT directive merges SYS:UDDT with the  IND  program  and
+then executes an unsolicited breakpoint into DDT.  It is used only for
+debugging IND.  When you  have  set  your  breakpoints,  or  otherwise
+fiddled, use $P to continue IND execution.
+	IND - Enhanced, programmable command files for TOPS20         Page 23
+DIRECTIVES
+
+
+     This directive accepts no arguments.
+
+
+
+
+5.14  Decrement Numeric Symbol                                          .DEC
+
+
+        The .DEC directive subtracts one from the value of  a  numeric
+symbol.  Format:
+
+        .DEC ssssss
+
+                        where ssssss is a numeric symbol name.
+
+
+
+5.15  Delay Execution For A Specified Period Of Time                     .DELAY
+
+
+        The .DELAY  directive  delays  processing  for  the  specified
+number of seconds.  Format:
+                        .DELAY numexp
+
+        where numexp is a numeric expression equal to  the  number  of
+seconds  to  wait for.  IND just does nothing for the specified period
+of time.
+
+
+
+5.16  Change Delimiting Character For Substitution                .DELIM
+
+
+        The .DELIM directive changes the character which  is  used  to
+mark  out  variables  for  substitution  in  the  command  file.  This
+character is usually ' (apostrophe).  .DELIM can be used to change  it
+to any ASCII printing character.  Format:
+
+        .DELIM string-expression
+
+Eg, the directive
+        .DELIM ""                _
+means that wherever IND  finds  a  variable  name  surrounded  by  the
+ampersand  ()  in  a  command  file,  the  value  of  that variable is            _
+substituted in.
+
+
+
+
+5.17  Disable Option Or Mode                                      .DISABLE
+
+
+        The .DISABLE directive turns off a specified mode or option of
+IND.   See  the  .ENABLE  directive  for  information  about  options.
+Format:
+	IND - Enhanced, programmable command files for TOPS20         Page 24
+DIRECTIVES
+
+
+        .DISABLE SUBSTITUTION
+
+
+
+5.18  Enable Option Or Mode                                      .ENABLE
+
+
+                The ENABLE directive is used  to  invoke  one  of  the
+special  operating modes or options of IND.  Some modes or options are
+ENABLEd by default - you do not need to turn these on, but may wish to
+turn  them  off via .DISABLE.  The default settings are listed below ;
+they are explained later.  The format of the directives is as below:
+
+        .ENABLE keyword
+        .DISABLE keyword
+
+where keyword is from the following list (defaults at  startup  follow
+each keyword):
+
+        ABORT - enabled
+        COMAND-CMD - enabled
+        CONTROL-Z-EXITS - enabled
+        DATA - disabled
+        EXTENDED-EXEC - disabled
+        ESCAPE - disabled
+        LEADING - enabled
+        LOGGING - disabled
+        LOGOUT - disabled
+        TRACE - disabled
+        SUBSTITUTION - Enabled
+        QUIET - Disabled
+
+Keywords, unlike IND directives, may  be  abbreviated  to  any  unique
+substring.  It is recommended that you use at least four characters in
+your abbreviation - other directives may otherwise make it  non-unique
+in a later release of IND.
+
+        When COMAND-CMD is enabled,  the  EXEC  that  IND  passes  its
+commands  to is allowed to read the COMAND.CMD file as usual before it
+starts.  This is the normal mode.  If you wish to suppress  this,  you
+can disable this feature.  The .DISABLE command for this must be given
+before any EXEC commands appear in your command file.
+
+        When DATA mode is enabled, IND stops treating the contents  of
+the  file  as  commands,  and  instead sends everything it sees to the
+secondary data file until a  .DISABLE  DATA  directive  is  processed.
+This  is  the  only directive that will be recognised - all others are
+treated as data.  DATA mode is useful if you have a number of lines to
+send  to  the  secondary  file  (it  saves  a  lot  of individual DATA
+directives), or if you wish to send lines with leading blanks or  tabs
+to  the  secondary  file.   This mode does not strip these characters.
+Substitution is still performed if applicable.
+
+        When EXTENDED-EXEC mode is enabled, IND  uses  an  alternative
+form  of  the  EXEC to process your TOPS-20 commands.  This is usually
+SYS:MEXEC.EXE, but may be optionally selected to be any other EXEC  by
+	IND - Enhanced, programmable command files for TOPS20         Page 25
+DIRECTIVES
+
+
+recompiling  IND.  The .ENABLE EXTENDED-EXEC command, if used, must be
+given before any TOPS20 commands have been issued by the command file.
+Once enabled, it cannot be disabled.
+
+        When ESCAPE mode is enabled, any escape characters  that  your
+file  transmits  to  the  screen,  via  comments for instance, will be
+transmitted as escapes instead of being translated into dollar  signs,
+which is what TOPS20 normally does.
+
+        When CONTROL-Z-EXITS are enabled, you can  use  CTRL/Z  as  an
+answer to any question from IND, and it will exit immediately, closing
+data files first.  When this mode is disabled, IND will not allow  the
+user to bypass a question in this manner.
+
+        In substitution mode, the processor substitutes  a  string  in
+place   of  a  symbol  name  when  the  symbol  name  is  enclosed  in
+apostrophes.  When substitution is operating, it is  performed  before
+any  other action is taken with a line, ie before the decision is made
+as to whether the line is an IND directive, a  TOPS20  command,  or  a
+comment.   (While  obeying  GOTO directives which cause forward motion
+through the file, however, substitution is  not  performed  until  the
+target  label  has  been  found, to prevent any spurious errors due to
+symbols having unexpected values.  This means that, in general, labels
+should  not  be  inserted  via substitution, as they may not always be
+found.) When substitution is  disabled,  apostrophes  are  treated  no
+differently from other characters.
+
+        In TRACE mode, IND prints all commands at the  terminal  after
+substitution has been performed on them, but before they are executed.
+This gives you a chance to debug complex command  files,  as  the  IND
+directives  are  not  usually displayed on the screen, only the TOPS20
+commands and comments.
+
+        In QUIET mode, TOPS20 commands which are normally  printed  at
+the  terminal as they are executed are instead inhibited from echoing.
+Thus the only output appearing on the  screen  is  that  generated  by
+questions or comments, or as output from a program.
+
+        When LOGGING is enabled, all characters  that  appear  on  the
+terminal  are  also  written to the currently selected logfile, in the
+same way that PHOTO or similar programs would do.  This mode cannot be
+enabled  if a previous .LOGFILE command has not been given to select a
+logfile.  Logging can be selectively enabled and disabled  during  the
+course  of  the  command  file, with the logfile remaining open.  This
+allows you to record only those sections of  the  dialogue  which  you
+feel are important.
+
+        When LOGOUT is enabled, the lower fork is allowed  to  execute
+the  LOGOUT or BYE commands, or generally to issue a LGOUT JSYS.  This
+is not normally the case, as it can cause IND to end prematurely.  You
+can  enable this mode if you wish to be able to use the LOGOUT command
+from within a command file.  Make sure that you have closed  all  open
+files first.
+
+        When LEADING is enabled, you can use leading blanks before the
+"."  that comes before an IND directive.  When it is disabled, the "."
+	IND - Enhanced, programmable command files for TOPS20         Page 26
+DIRECTIVES
+
+
+at the beginning of an IND directive must be at the left hand margin.
+
+
+     When ABORT is enabled, you can abort an IND command file  at  any
+time  by  typing the abort character (usually control-A).  This can be
+disabled during sensitive actions with the .DISABLE  ABORT  directive,
+but  you  should  be  warned  that  the command file will then be very
+difficult to stop should it contain bugs.
+
+
+
+
+5.19  Display A Text String                                     .DISPLAY
+
+
+        The .DISPLAY directive sends  a  text  string  to  the  screen
+verbatim,  without  translation  of control characters and without any
+leading or trailing carriage returns or linefeeds.  Format:
+
+        .DISPLAY string-expression
+
+This directive is mainly only useful for sending escape  sequences  to
+screen  terminals,  and  is  of  very  limited  use.   To  send normal
+messages, use the comment feature of placing your messages on  a  line
+after a semicolon.  Example:
+
+        .DISPLAY "$[H"
+
+This sends the sequence to a VT100 to home the cursor.
+
+
+
+
+5.20  Close A Logfile                                        .ENDLOG
+
+
+        The .ENDLOG directive closes the terminal logfile opened  with
+a .LOGFILE directive and releases the asssociated pseudo terminal back
+to the pool of system resources.  Format:
+
+        .ENDLOG
+
+
+
+
+5.21  Exit Quietly From An IND File                                .EXIT
+
+
+        The .EXIT directive terminates IND  execution,  and  does  not
+print  any message.  Normally, the message @ <EOF> is displayed on the
+screen when a command file is finshed.  Placing the .EXIT directive at
+the end stops this.  Also, .EXIT will still exit if placed in a nested
+command file.  Use .STOP if you merely wish to terminate  the  current
+command file (ie return to the next higher level.) Format:
+
+        .EXIT
+	IND - Enhanced, programmable command files for TOPS20         Page 27
+DIRECTIVES
+
+
+5.22  Define A File Symbol                                 .FILE
+
+
+        The .FILE directive declares a list  of  symbols  to  be  file
+symbols,  and initializes them all to point to NUL:.  The symbols must
+not already be defined.  Format:
+
+        .FILE symbol,symbol,symbol....
+
+The list of symbols can contain from 1 to 10 symbol names.
+
+
+
+
+5.23  Call A Subroutine                                       .GOSUB
+
+
+        The  .GOSUB  directive  saves  the  current  position  in  the
+indirect  file  and then branches to a label.  The label specifies the
+start of a subroutine which is terminated by a .RETURN directive.  The
+maximum nesting depth for subroutine calls is 10.  Format:
+
+        .GOSUB  label
+
+where label is the tag at the start of  the  subroutine,  without  the
+leading dot or trailing colon.
+
+
+
+
+5.24  Branch To A Label                                             .GOTO
+
+
+        The .GOTO directive causes a branch from one line in a command
+file  to  another.   All commands between the GOTO and the destination
+are ignored.  Btanches may go forwards or backwards in the  file,  but
+not  to  labels  in  a  different command file (eg not to the one that
+.CALLed this one.) Format:
+
+        .GOTO label
+
+
+
+
+5.25  Logical Test                                                      .IF
+
+
+        A number of directives make various sorts  of  logical  tests,
+that is, those whose results are either true or false.  If the test is
+true, IND processes the remainder of the line as another command.
+
+	IND - Enhanced, programmable command files for TOPS20         Page 28
+DIRECTIVES
+
+
+5.25.1  Test If Symbol Meets Specified Condition                        .IF - 
+
+        The .IF directive compares a numeric or string symbol with  an
+expression  of  the  same type to determine if one of several possible
+conditions is true.  If the condition is satisfied, IND  executes  the
+remainder  of  the  command  line.   Numeric  tests are made purely on
+magnitude ;  string tests are made by comparing the strings  character
+by  character:   when the strings differ, it is the order of the first
+differing  characters  that  determine  which   string   is   greater.
+Upper/lower  case  is  ignored  when  making  this comparison.  If one
+string is a substring of another (eg LOCK  and  LOCKED),  the  shorter
+string is considered the lesser of the two.
+        Thus, "APPLE"  is  equal  to  "apple",  "pear"  is  less  than
+"TOMATO", and "under" is less than "underfoot".
+        Format:
+
+        .IF symbol relop expression command
+
+where:  symbol= 1-9 character name of numeric, real or string symbol
+        relop = one of the following relational operators:
+
+                EQ or =         :  equal to
+                NE or ~= or <> or >< :  Not equal to
+                GE or >= or =>  :  Greater than or equal to
+                LE or =< or <=  :  Less than or equal to
+                GT or >         :  Greater than
+                LT or <         :  Less than
+
+        expression = expression of same type as symbol (except that  a
+        real  expression  can  be converted to integer, and integer to
+        real without any problem.)
+
+Examples:
+
+        .SETS X "A"
+        .SETS Y "BBC"
+        .IF X LT Y .GOTO START
+
+        The value of string X is less than that of Y,  so  a  transfer
+will occur to the line labelled .START:  .
+
+        .IF N1 < 200*PAY SYSTAT ALL NO OPERATOR
+
+        If the value of numeric symbol N1 is less than  the  value  of
+symbol  PAY  multiplied  by  200,  then  the  SYSTAT  command  will be
+executed.
+
+
+
+
+5.25.2  Test If Symbol Is Defined Or Not Defined                 .IFDF/.IFNDF - 
+
+        These directives test whether or not a symbol is  defined  yet
+to  IND.   If  the test is true, the rest of the command is processed.
+The value is not tested.  Formats:
+	IND - Enhanced, programmable command files for TOPS20         Page 29
+DIRECTIVES
+
+
+        .IFDF symbol command
+        .IFNDF symbol command
+
+        where symbol is the symbol name.  Examples:
+
+        .IFDF a .GOTO 100
+        .IFNDF tim .ASK tim Do you want to set the time?
+
+
+
+5.25.3  Test If Logical Symbol Is True Or False                     .IFT/.IFF - 
+
+        The .IFT/.IFF directives test if a logical symbol is  true  or
+false.   If  the  test is true, the remainder of the line is executed.
+Format:
+
+        .IFT symbol command
+        .IFF symbol command
+
+Examples:  .IFT Wheel ^equit
+
+        This executes the ^e quit command if the logical symbol  wheel
+        is true.
+
+
+
+5.26  Increment A Numeric Symbol                                        .INC
+
+
+        The  .INC  directive  increments  a  numeric  symbol  by  one.
+        Format:
+
+        .INC symbol
+
+        One is added to the value of  symbol,  which  must  previously
+have been defined as numeric.
+
+
+
+
+5.27  Open Terminal Logfile                                    .LOGFILE
+
+
+        The .LOGFILE directive declares a file to be  used  to  record
+all characters displayed at the terminal.  Although it opens the file,
+characters are not  logged  until  an  .ENABLE  LOGGING  directive  is
+issued.  Format:
+
+        .LOGFILE filename
+
+Filename must be a valid file to which you have write access.  A spare
+pseudo terminal must exist for this function to be effective.
+
+	IND - Enhanced, programmable command files for TOPS20         Page 30
+DIRECTIVES
+
+
+5.28  Declare Logical Symbols                                   .LOGICAL
+
+
+        This directive declares a  list  of  symbols  to  be  of  type
+logical,  and  initializes  them  to  false.  They must not already be
+defined.  Format:
+
+        .LOGICAL symbol,symbol...
+
+
+
+
+5.29  Make A String Lower Case                                  .LOWER
+
+
+        The .LOWER directive forces all  alphabetic  characters  in  a
+string to be upper case.  (See .RAISE for the converse.) Format:
+
+        .LOWER Symbolname
+
+where SYMBOLNAME is the  name  of  an  existing  string  symbol.   All
+alphabetic  characters  in  that string will be made lowercase.  Other
+characters are not affected.
+
+
+
+
+5.30  Convert Day Number To Date String                            .NTODAY
+
+
+        The .NTODAY directive converts a Smithsonian day number into a
+date string.  Format:
+
+        .NTODAY numeric-expression string-variable
+
+The date is converted in the format dd-mmm-yy, unless  it  was  before
+1900, in which case it is in the format dd-mmm-18yy.  Example:
+
+        .DAYTON <DATE> Today .NTODAY Today+7 Nextweek
+
+        This results in string symbol  Nextweek  containing  the  date
+        representation  of  one week after today, no matter whether it
+        is a different month or year.
+
+
+
+
+5.31  Declare Numeric Symbols                                   .NUMERIC
+
+
+        This directive declares a  list  of  symbols  to  be  of  type
+numeric,  and  initializes  them  to  zero.   They must not already be
+defined.  Format:
+
+        .NUMERIC symbol,symbol...
+	IND - Enhanced, programmable command files for TOPS20         Page 31
+DIRECTIVES
+
+
+5.32  Open Secondary File                                             .OPEN
+
+
+        The .OPEN directive opens the  specified  secondary  file  for
+output.  Format:
+
+        .OPEN filename.typ.gen
+
+A usual TOPS20 filespec can be entered, with any optional  fields  (eg
+;ACCOUNT, ;BLOCKSIZE.) There is no default type.
+
+
+
+5.33  Open Secondary File For Append                                   .OPENA
+
+
+        This directive is identical to .OPEN, except that the file  is
+opened for append access only.
+
+
+
+5.34  Open File For Input                                     .OPENI
+
+
+        The .OPENI directive opens a file for reading with  the  .READ
+directive.   The  file  must exist.  There is no default name or type.
+Format:
+
+        .OPENI filename
+
+The file must be ASCII (ie simple text)  and  the  records  cannot  be
+longer than the maximum length of a string variable.
+
+
+
+
+5.35  Pad A String With Blanks To A Specified Length                    .PAD
+
+
+        The .PAD directive takes a specified string and pads it  to  a
+particular  length  using  spaces.   This can be useful for formatting
+printouts using string substitution.  Format is:
+
+        .PAD string numeric-expression
+
+The string variable is padded to the length specified by  the  numeric
+expression.   A  warning  is generated if the string is already longer
+than the length you want to pad it to.
+
+	IND - Enhanced, programmable command files for TOPS20         Page 32
+DIRECTIVES
+
+
+5.36  Break A String Into Substrings                                   .PARSE
+
+
+        The .PARSE directive is a very powerful mechanism for breaking
+up  command  strings, or data from files.  The function it performs is
+to take a string of characters and chop it up into  smaller  parts  by
+looking  for  specific characters which delimit portions of the input.
+You supply the string to be chopped (referred to as the parse  string)
+and  another string which contains a set of delimiter characters which
+are searched for one by one in  the  parse  string.   This  string  of
+delimiters  is  referred to as the control string.  A set of variables
+is supplied which receive the chopped out portions.  The command looks
+like:
+
+.PARSE parse-string control-string Out1 out2 out3 ...
+
+The trailing dots indicate that you can have as many output strings as
+you want.  What happens is this:
+
+        A search is made in the parse string for the  first  character
+in  the  control  string.   When it is found, the portion of the parse
+string up to that point is copied into variable  out1  (not  including
+the  terminating  character).   The search is then continued from that
+point in the parse string for the  next  character  from  the  control
+string expression.  This substring, when found, is copied to out2, and
+so on.  If we run out of characters in the control string while  there
+is still more to chop up, we use the last character repeatedly.  If we
+run out of parse string before  all  the  variables  have  had  values
+assigned  the  remaining variables contain null strings.  The variable
+<STRLEN> contains the actual number of subtrings found.  If we run out
+of  output  variables,  the  last  output  variable contains the whole
+remainder of the string up to the point currently parsed.  Examples:
+
+        .SETS address "12,Morrow lane,Datchworth,Herts."
+        .PARSE address "," number road town county
+
+This breaks the variable address up into "12" which is put in variable
+number,  "Morrow  lane"  which is put into road, "Datchworth" which is
+put into variable town, and "Herts." which is put into county.  If the
+control string had been ", ," instead, we could have split up "Morrow"
+from "lane" as well.
+
+
+
+
+5.37  Pause For Operator Action                                      .PAUSE
+
+
+        The  .PAUSE  directive  causes  IND  to  temporarily   suspend
+processing  its  command  file, and allow the operator to enter TOPS20
+commands from the keyboard.  It acts rather like a PUSH command in  an
+ordinary  TAKE  file.   When  the  .PAUSE  directive  is  reached, IND
+displays the following message at the user's terminal:
+
+[IND - pausing.  To continue type 'POP'.]
+	IND - Enhanced, programmable command files for TOPS20         Page 33
+DIRECTIVES
+
+
+        Any commands may be entered (except LOGOUT or  BYE)  and  when
+the user wishes to continue they can type POP.  The message
+
+[IND - continuing.]
+
+is then displayed at  the  terminal.   Both  the  above  messages  are
+suppressed if the .ENABLE QUIET directive has been issued.
+
+
+
+
+5.38  Set Input File To Specified Position                      .POSITION
+
+
+        The .POSITION directive is only valid if an input file (opened
+with  .OPENI)  is  currently open.  It takes as its argument a numeric
+expression, which is the byte number to set the file  pointer  to  (ie
+the next byte or character read will be that one.) You can use this to
+re-read parts of an  input  file  if  you  have  previously  read  the
+position using the <BYTEPOS> system symbol.  Format:
+
+        .POSITION numeric-expression
+
+A fatal error occurs if the expression is non-positive, or if no input
+file is open.
+
+
+
+
+5.39  Remove A Symbol And Its Definition                         .PURGE
+
+
+        The .PURGE directive removes a  list  of  variables  from  IND
+entirely.   Their  values  and  types  are totally forgotten.  This is
+mainly of use when you have set up a special symbol such  as  <STRDEF>
+for  a  default  for  one  question,  and  you  then  want the default
+forgotten.  Format:
+
+        .PURGE var1,var2,var3,....
+The list may be as long as you wish.
+
+
+
+
+5.40  Change Current Radix For Integers                          .RADIX
+
+
+        The .RADIX diretive changes the current base or radix used for
+typing  out  numeric  symbols,  reading  them  from  the terminal, and
+reading them in expressions in command files.  Format:
+
+        .RADIX numeric expression.
+
+The numeric expression involved is ALWAYS interpreted as being in base
+10.   If  only  output  is to be performed with a different radix, the
+radix may be anything from 2 to 36.  If input is to be performed also,
+	IND - Enhanced, programmable command files for TOPS20         Page 34
+DIRECTIVES
+
+
+it can only be between 2 and 10.  Example:
+
+.SETN OLDRADIX 10               ;Save old radix
+.RADIX 5                        ;Do some WEIRD stuff in rad 5
+.
+.
+.RADIX OLDRADIX         ;Set the radix back again
+
+
+
+
+
+5.41  Raise A String To Upper Case                                  .RAISE
+
+
+        the .RAISE directive forces all the  characters  in  a  string
+variable to be upper case.  Format:
+
+        .RAISE string-variable-name
+
+Non-alphabetic  characters  are  unaffected.   The  .LOWER   directive
+performs the converse operation.
+
+
+
+
+5.42  Read A Record From Input File                               .READ
+
+
+        The .READ directive reads a line from the currently open input
+file  (set  with .OPENI) and places its contents in a string variable.
+Format:
+
+        .READ ssssss
+
+Where sssss is the name of a string variable.  If end of file has been
+reached,  the variable is set to the null string and the system symbol
+<EOF> becomes true.
+
+
+
+
+5.43  Define A Floating Point Symbol                             .REAL
+
+
+        This directive defines a list of symbols to be floating  point
+and  initializes  them  to  zero.  It is not necessary to declare your
+variables in this way, but it can be helpful.  Format:
+
+        .REAL symbol,symbol,...
+
+Example:
+
+        .REAL loadav,cycletime
+
+	IND - Enhanced, programmable command files for TOPS20         Page 35
+DIRECTIVES
+
+
+        5.44  Return From A Subroutine                                       .RETURN
+
+
+        The .RETURN directive is used  at  the  end  of  a  subroutine
+        called by a
+.GOSUB directive, and transfers control  to  the  line  following  the
+.GOSUB that
+called it.  Format:
+
+        .RETURN
+
+
+
+
+5.45  Reset Input Data File                               .REWIND
+
+
+        The .REWIND directive "rewinds" the input file, ie  it  causes
+the  next read from the file opened with .OPENI to come from the start
+of the file.  Format:
+
+        .REWIND
+
+
+
+
+5.46  Run A Program Requiring Terminal Input                        .RUN
+
+
+        The .RUN directive runs a program under the control of IND  in
+much  the same way as the EXEC RUN command does.  However, whereas the
+Run command to the EXEC, when in an  IND  file,  would  cause  program
+input  to  come  from  the command file, the .RUN directive allows the
+user to interact with the program via the terminal.  When the  program
+exits,  IND continues to process the command file.  This can be useful
+if you want to invoke an editor, say, from within an  IND  file.   You
+can  run the editor in the normal way - however, you must then put the
+editor commands within your command file.  Format:
+
+        .RUN program optional-data
+
+        The filetype of the program is presumed to be .EXE, and may be
+omitted.   The  directory  name  is  presumed  to be DSK:, and must be
+entered explicitly if different.  This command loads the rescan buffer
+in the same way that the EXEC does, so a command such as:
+
+        .RUN sys:rev *.dat
+
+        is permissible, and causes the rescan buffer to be loaded with
+REV *.DAT, thus causing REV to start automatically reviewing all files
+of type DAT.  This may be applied to any program that  normally  reads
+the rescan buffer that the EXEC supplies (eg TV,SYSDPY,RUNOFF.)
+
+	IND - Enhanced, programmable command files for TOPS20         Page 36
+DIRECTIVES
+
+
+5.47  Set Symbol To True Or False                                .SETT/.SETF
+
+
+        The .SETT/.SETF directives define or change  the  value  of  a
+logical  symbol.   The symbol must be undefined, or previously defined
+as logical.  Formats:
+
+        .SETT symbol
+        .SETF symbol
+
+        The .SETT directive sets the symbol to true, the  .SETF  makes
+        it false.
+
+
+
+5.48  Set Symbol To File Value                                      .SETFI
+
+
+        The .SETFI directive sets the  value  of  a  file  symbol,  ie
+associates a symbol with a filename (either an existing filename, or a
+new filename.) Format:
+
+        .SETFI symbol filename.
+
+        Filename can  be  in  standard  TOPS20  format,  symbol  is  a
+standard symbol name.
+
+
+
+5.49  Set Symbol To Numeric Value                                      .SETN
+
+
+        The .SETN directive sets the value of a numeric symbol  to  be
+equivalent  to  the  value  of a given numeric expression.  The symbol
+must be previously numeric, or undefined.  Format:
+
+        .SETN symbol expression
+
+where symbol is a valid symbol name, and  expression  is  any  numeric
+expression.  Examples:
+
+        .SETN number 103
+        .SETN number2 3*(a2-2)
+
+
+
+5.50  Set Symbol To Floating Value                                      .SETR
+
+
+        The .SETR directive sets the value of a floating point  symbol
+to  be equivalent to the value of a given expression.  The symbol must
+be previously real, or undefined.  Format:
+
+        .SETR symbol expression
+
+where symbol is a valid symbol name, and  expression  is  any  numeric
+	IND - Enhanced, programmable command files for TOPS20         Page 37
+DIRECTIVES
+
+
+expression.  Examples:
+
+        .SETR number 103.45
+        .SETR number2 3*(a2-2.506)
+
+
+
+5.51  Set Symbol To String Value                                       .SETS
+
+
+        The .SETS directive associates a string with a string  symbol.
+        Format:
+
+        .SETS symbol strexp
+
+where symbol is  a  string  symbol,  and  strexp  is  a  valid  string
+expression.  Examples:
+
+        .SETS x "hello there"
+        .SETS type a[1:6]+"."+b[1:3]
+
+        The first directive assigns the string hello there to symbol x
+;   the  seconds directive makes string symbol type have a value equal
+to the first siz characters of the value of symbol a, followed by a .,
+followed by the first 3 characters of symbol b.
+
+
+
+5.52  Terminate Current Command File                                   .STOP
+
+
+        The .STOP directive closes any currently open IND  data  file,
+and terminates the command file.  If the current command file has been
+called from a higher level one, the current file only  is  terminated,
+and control is returned to the upper file.  The message
+
+@ <EOF>
+
+is displayed only if this is the top-level command file.
+
+
+
+5.53  Declare String Symbol                             .STRING
+
+
+        The .STRING directive declares a list of symbols to be of type
+string  and  sets  their  values to be the null string.  They must not
+already be defined.  It is not necessary to declare variables in  this
+manner.  Format:
+
+        .STRING ssss,sssss,sssss...
+
+where the ssss are symbols names to be declared.
+	IND - Enhanced, programmable command files for TOPS20         Page 38
+DIRECTIVES
+
+
+5.54  Pass A Command To An Interactive Program                         .TELL
+
+
+        In certain rare circumstances it is desired to  use  the  .RUN
+directive  to  run a program, allowing the user to type his or her own
+commands at it, but first to give the program one or two  initializing
+commands.   The  .TELL directive allows this.  Only one command can be
+passed, however.  Format:
+
+        .TELL String-expression
+
+Examples:
+
+        .TELL "TRANSFER=INIT.PST$" .RUN SYS:PSTAT.EXE
+        Will run PSTAT, but  tell  it  to  transfer  to  the  file  of
+        commands  INIT.PST  before  accepting input from the terminal.
+        INIT.PST  presumable   contains   some   environment   setting
+        commands.
+
+
+
+
+        5.55  Test String Symbol                                         .TEST
+
+
+        The .TEST directive allows you to determine the  length  of  a
+string  symbol.   After  it is executed, the system symbol <STRLEN> is
+set to  the  length  of  the  tested  string.   The  symbols  <ALPHA>,
+<ALPHANUM>  and  <NUMERIC> are also set to indicate whether the string
+was alphabetic, alphanumeric or numeric only.  Format:
+
+        .TEST symbol
+
+where symbol is a string symbol to be tested.  Example:
+
+        .SETS a "1234"
+        .TEST a
+
+Symbol <STRLEN> would now equal 4.
+
+
+
+5.56  Test If A File Exists                                       .TESTFILE
+
+
+        The .TESTFILE directive takes as its argument a filename,  and
+sets the special symbol <FILESTAT> to indicate whether or not the file
+exists.  Format:
+
+        .TESTFILE filename
+
+        The symbol <FILESTAT> is set as follows:
+
+        1       File exists normally
+        0       File does not exist
+        -1      File exists, but is deleted.
+	IND - Enhanced, programmable command files for TOPS20         Page 39
+DIRECTIVES
+
+
+        -2      File exists, but is invisible.
+        -3      File exists, but is offline.
+        -4      Filespec is invalid (ie no such directory or  no  such
+        device)
+
+        If a file is deleted  and  invisible,  it  will  be  shown  as
+invisible.   If  a  file is offline and invisible, it will be shown as
+offline.
+
+     The symbols <FILDEV>,  <FILNAM>,  <FILDIR>,  <FILTYP>,  <FILGEN>,
+<FILPRO>,  <FILACT>, <FILCRE>, <FILRED> are also set up to contain the
+various       parts       of       the        filespec        (device,
+directory,name,type,generation,protection,account,creation  date/time,
+read date/time.) These fields are always set up, whether or  not  they
+were  specified  in  the  filespec.  They are all string symbols.  The
+symbols <FILPAG>,<FILSIZ> and <FILBYS>  are  set  up  to  contain  the
+number  of  pages in the file, the number of bytes, and the byte size.
+They are all numeric symbols.  They can only be set up  if  <FILESTAT>
+is 1,-1 or -2 (i.e.  if the file is online.)
+
+
+
+5.57  Trim Trailing Blanks And Tabs                                  .TRIM
+
+
+                The .TRIM directive removes trailing blanks  and  tabs
+from an input string.  Format:
+        .TRIM variable
+
+        The variable has all trailing blanks and tabs remove from  it.
+It must already be defined of type string.
+
+
+
+6.0  IND ERROR MESSAGES AND WARNINGS
+
+6.1  Informational Messages
+
+        These messages require no action on your  part.   They  merely
+inform you about some action being taken by IND.
+
+[IND - exiting]
+                                        This message is issued after a
+                        fatal  error  message  to  indicate  that  IND
+                        cannot continue to execute your command file.
+
+[IND - pausing.  To continue type "POP"]
+                                        This is typed on the  terminal
+                        whenever  a .PAUSE directive is encountered in
+                        the  command  file.   It  tells  you  how   to
+                        terminate  the  .PAUSE directvive and continue
+                        with command file execution.
+
+[IND - continuing]
+                                        This is typed after  you  have
+                        typed   POP   to   continue   after  a  .PAUSE
+	IND - Enhanced, programmable command files for TOPS20         Page 40
+IND ERROR MESSAGES AND WARNINGS
+
+
+                        directive.
+
+
+
+
+6.2  Warning Messages
+
+        These messages indicate some condition that, while it does not
+prevent  the command file from continuing to be executed, may indicate
+some problem with your command file that you ought  to  be  aware  of.
+The action you take depends on how serious you consider the problem to
+be.
+%IND - can't DELAY for a negative amount of time
+                                        The     numeric     expression
+                        supplied  to  a  .DELAY  directive  yielded  a
+                        negative  value.   You  cannot  delay  for   a
+                        negative amount of time.
+
+%IND - logfile already open
+                                You  have  given  a  second   .LOGFILE
+                        command  when the previous logfile was already
+                        open.  The second command is ignored, and  the
+                        logfile stays open.
+
+%IND - no PTYs available for logging - releasing logfile.
+                                IND could not assign a pseudo-terminal
+                        for  use  in  creating  a  logfile.   Thus, no
+                        logfile can be created.
+
+%IND - string is already longer than .PAD length:
+                                You  tried  to  pad  a  string  to   a
+                        particular length with the .PAD directive, but
+                        the string was already longer than  this.   It
+                        has not been modified.
+
+
+
+
+6.3  Fatal Error Messages.
+
+        These messages indicate an error condition in IND  that  means
+that  it  cannot safely continue.  (There are some exceptions, see the
+individual descriptions.) They are all followed  by  printing  of  the
+command  line  that  has  caused  the  error, and in some cases by the
+particular portion of that command that is in question.
+?IND - ambiguous:
+                                        The  keyword  specified  in  a
+                        .ENABLE  or  .DISABLE  directive is ambiguous,
+                        that is it is an abbreviation of more than one
+                        valid keyword.
+
+?IND - answer not in range
+                                        This is  not  a  fatal  error.
+                        The  response given to a .ASKN directive which
+                        had specified valid ranges for the answer, did
+                        not  fall  within  the  ranges  allowed in the
+	IND - Enhanced, programmable command files for TOPS20         Page 41
+IND ERROR MESSAGES AND WARNINGS
+
+
+                        command file.  The question is repeated  until
+                        the answer is valid.  Note that this condition
+                        can occur if you have  specified  both  ranges
+                        and  a  default  value,  but the default value
+                        does not lie within the range,  and  the  user
+                        attempts to take the default.
+
+?IND - bad numeric constant:
+                                        IND expected to see a  numeric
+                        constant   at   some   point   in   a  numeric
+                        expression, as what was there was not an  open
+                        bracket  or  a  numeric symbol.  The constant,
+                        however, could not be evaluated.
+
+?IND - bad numeric range
+                                        A numeric expression  as  part
+                        of  a  substring range or a .ASKx range is not
+                        correctly structured.
+
+?IND - bad range format:
+                                        This    indicates    incorrect
+                        formatting  of a substring range, or the range
+                        arguments to a  directive  such  as  .ASKS  or
+                        .ASKN.   IND  has  parsed one of the ranges or
+                        default values and expects to see either a ":"
+                        to  indicate  another value or "]" to indicate
+                        no more ranges.  Neither of these was found.
+
+?IND - blank symbol name in declaration list:
+                                A comma without a following  name,  or
+                        some  other  syntactic  error, is present in a
+                        declaration   list   following   a   .NUMERIC,
+                        .LOGICAL, .STRING or .FILE directive.
+
+?IND - blank symbol name for .PURGE:
+                                A  .PURGE  directive  has  detected  a
+                        missing   name   or  an  extra  comma  in  its
+                        declaration list.  This should be of the  form
+                        .PURGE var1,var2,var3...
+                        Blanks are permitted between the names and the
+                        commas.
+
+?IND - can't .CALL file:
+                                        The file specified in a  .CALL
+                        directive  cannot be found, or the filespec is
+                        invalid.   A  detailed  JSYS   error   message
+                        follows.
+
+?IND - can't .ENABLE DATA without data file open.
+                                        An .ENABLE DATA directive  was
+                        issued  without  a data file having previously
+                        being opened via an .OPEN or .OPENA directive.
+
+?IND - can't get get handle on logfile:
+                                        IND cannot get a JFN  for  the
+                        file  specified  in the .LOGFILE directive.  A
+	IND - Enhanced, programmable command files for TOPS20         Page 42
+IND ERROR MESSAGES AND WARNINGS
+
+
+                        JSYS error message follows.  The  filespec  is
+                        probaly  incorrect,  or you do not have access
+                        to the directory.
+
+?IND - can't OPEN file:
+                                        The file referenced in a .OPEN
+                        or .OPENA directive cannot be opened for write
+                        or append access.  The JSYS error is given  on
+                        the following line.
+
+?IND - can't OPEN input file:
+                                IND cannot open the file specified  in
+                        the  .OPENI  directive,  even  though the file
+                        exists.  This is a rare error.  A  JSYS  error
+                        message follows.
+
+?IND - can't RUN program:
+                                        The  program  specified  in  a
+                        .RUN  directive could not be found, started or
+                        mapped for some reason.  This message will  be
+                        followed  by  a  specific  JSYS  error message
+                        explaining why the program could not be  found
+                        or  run.   Common errors include specifying an
+                        incorrect name for the program  (e.g  omitting
+                        to specify SYS:  for TV.)
+
+?IND - can't open command file:
+                                        The file specified in a  .CALL
+                        directive has been found, but cannot be opened
+                        for  read  access.   A  JSYS   error   message
+                        follows.
+
+?IND - can't open logfile:
+                                        IND cannot  open  the  logfile
+                        specified  in  the .LOGFILE directive.  A JSYS
+                        error message follows.
+
+?IND - can't understand number:
+                                        The     numeric     expression
+                        specified  as  the  second argument in a .SETN
+                        expresson was invalid for some  reason.   This
+                        message  will usually be preceded by some more
+                        informative   message   about   the    problem
+                        encountered in the numeric expression.
+
+?IND - can't understand string comparison:  Internal error
+                                        This is a fatal internal error
+                        which should not occur.  It should be reported
+                        to your system programmers, and  will  be  the
+                        result of some catastrophe in a .IF directive.
+
+?IND - cannot initialize fields for parse:
+                        Some error occurred trying to  set  all  field
+                        variables in a .PARSE directive to null before
+                        attempting the parse.  Some other  error  will
+                        probably  already have been printed indicating
+	IND - Enhanced, programmable command files for TOPS20         Page 43
+IND ERROR MESSAGES AND WARNINGS
+
+
+                        the problem.  This may be an error in IND,  or
+                        you may have too many strings defined.
+
+?IND - Control string is null:
+                                The  control  string  expression  (the
+                        second  thing in a .PARSE directive) evaluated
+                        to a null string.  IND cannot break the  parse
+                        string into subfields in this case.
+
+?IND - End of file while searching for label "
+                                        While attempting to satisfy  a
+                        .GOTO directive which referenced a label which
+                        ahd not yet been found, the end  of  file  was
+                        reached.    The  label,  therefore,  does  not
+                        exist, and the .GOTO directive  is  in  error.
+                        The  target  label name is printed out as part
+                        of the error message.
+
+?IND - error executing command:
+                                        Some error occured while using
+                        CRCMD  to  execute  an  EXEC command.  This is
+                        usually some error indicating  that  the  EXEC
+                        cannot   be   found,   or   that   there   are
+                        insufficient system resources to allocate more
+                        forks.   The exact JSYS error message follows.
+                        This error may indicate an internal  error  in
+                        IND.
+
+?IND - error in filename:
+                                        The filename  specified  in  a
+                        .SETFI directive is not valid for some reason.
+                        A more explanatory JSYS error message follows.
+
+?IND - error writing to data file:
+                                        Some  system   error   occured
+                        writing  to  the  data  file  as a result of a
+                        .DATA directive.  The JSYS  error  follows  on
+                        the next line.
+
+?IND - failure to parse command:
+                                        A line was seen to start  with
+                        a valid IND directive, and an attempt was made
+                        to parse the  rest  of  the  directive.   This
+                        attempt  failed for some reason.  This message
+                        will  always  be   preceded   by   some   more
+                        informative  message  from  a part of IND that
+                        was trying to cope with the invalid section of
+                        your directive.
+
+?IND - fatal internal error in numeric parser  -  impossible  operator
+invoked.
+                                        This error should  not  occur,
+                        It  indicates  an error in IND's numeric parse
+                        routines concerning operators.
+
+?IND - File already open:
+	IND - Enhanced, programmable command files for TOPS20         Page 44
+IND ERROR MESSAGES AND WARNINGS
+
+
+                                        An .OPEN  directive  was  used
+                        when  another  .OPEN  directive was already in
+                        force, ie the  previous  .OPEN  has  not  been
+                        followed  by a .CLOSE.  Only one data file may
+                        be in use at a time.
+
+?IND - input file already open:
+                                        An .OPENI directive  was  used
+                        when  another  .OPENI directive was already in
+                        force, ie the previous  .OPENI  has  not  been
+                        followed  by  a  .CLOSEI.  Only one input file
+                        may be in use at a time.
+
+?IND - invalid filespec:
+                                        The filespec referenced  in  a
+                        .TESTFILE  directive is invalid.  A JSYS error
+                        message follows  which  explains  the  problem
+                        further.
+
+?IND - input record too long:
+                                A record read from an input file  with
+                        the   .READ  directive  was  longer  than  the
+                        maximum permitted string length.
+
+?IND - invalid system symbol type
+                                        An attempt was made to perform
+                        substitution using a system symbol not of type
+                        string or numeric.
+
+?IND - length to pad string to is too great:
+                                The padding length in a .PAD directive
+                        must not exceed the maximum length of a string
+                        (currently 120 characters).
+
+?IND - logical symbol not defined:
+                                        The  symbol  referenced  in  a
+                        .IFT  or .IFF directive is not a known logical
+                        symbol.
+
+?IND - maximum file nesting depth exceeded
+                                        Too    many    nested    .CALL
+                        directives  have  been  issued.   The  current
+                        maximum is 4.
+
+?IND - mismatched " in string constant:
+                                        A string  expression  contains
+                        an odd number of quote characters (").
+
+?IND - mismatched quotes while substituting:
+                                        An apostrophe has  been  found
+                        while  substitution  was  enabled,  and it was
+                        assumed that this marked the start of a symbol
+                        for value substitution.  No closing apostrophe
+                        was found, however.
+
+?IND - no data file open:
+	IND - Enhanced, programmable command files for TOPS20         Page 45
+IND ERROR MESSAGES AND WARNINGS
+
+
+                                        A .DATA  directive  was  given
+                        without   a   preceding   .OPEN  directive  to
+                        indicate the destination for secondary data.
+
+?IND - no field variables for .PARSE:
+                                After the  parse  string  and  control
+                        string expression.  IND expects to find a list
+                        of variables to receive the individual  fields
+                        as  they are parsed in a .PARSE directive.  It
+                        could not find any.  Check your syntax.
+
+?IND - no input file open:
+                                        A .READ or  .REWIND  directive
+                        has  been  given  without  a  matching  .OPENI
+                        directive.
+
+?IND - No name for symbol:
+                                Some directive that requires a name to
+                        define a symbol has been given a blank name.
+
+?IND - non-numeric system symbol in numeric expression:
+                                        A system symbol being used  in
+                        a numeric expression is not of numeric type.
+
+?IND - numeric answer required
+                                        This is  not  a  fatal  error.
+                        The  response  given  by  the  user to a .ASKN
+                        question was not numeric, or contained invalid
+                        data.   The  question  is  repeated  until the
+                        answer is valid.
+
+?IND - .RETURN when not in subroutine:
+                                        A .RETURN directive  has  been
+                        given without a matching .GOSUB.
+
+?IND - string length not in range
+                                        This is not a fatal error.   A
+                        .ASKS  directive  has  specified  maximum  and
+                        minimum permissible  lengths  for  the  user's
+                        answer.   The  user  has  supplied  an  answer
+                        outside this range.  The question is repeated.
+
+?IND - string space exhausted:  recursive call to SQUEEZE.
+                                        There is no more room left for
+                        storage of string symbol values, as an attempt
+                        has just  been  made  to  collect  all  unused
+                        space,  and  this  has  still not freed enough
+                        space  to  store  the  new  string  that  this
+                        command  wants  to  define.   Ask  your system
+                        programmer  to  build  IND  with  more  string
+                        storage space.  ?IND - string storage full
+                                        This   error    is    somewhat
+                        misleading.  It in fact indicates that IND has
+                        no room to store the name of a new symbol  (of
+                        whatever   type)   that  the  current  command
+                        attempts to define.
+	IND - Enhanced, programmable command files for TOPS20         Page 46
+IND ERROR MESSAGES AND WARNINGS
+
+
+?IND - symbol to be parsed does not exist:
+                                The  first  variable  specified  in  a
+                        .PARSE directive should be of type string.  In
+                        this case, it does not appear to exist.
+
+?IND - string too long:
+                                        A   string   that   is   being
+                        assigned to a string symbol contains more than
+                        256 characters.  This  is  an  absolute  upper
+                        limit on string lengths.
+
+?IND - subroutine nesting depth exceeded:
+                                        Too   many   nested    .GOSUBS
+                        (currently  more  than  4)  have  been issued.
+                        Recode your file to  involve  less  subroutine
+                        nesting.
+
+?IND - substring limits invalid:
+                                        Limits   specified    for    a
+                        substring in a string expression either do not
+                        specify  the  correct  number  of  limits,  or
+                        specify limits which are outside the bounds of
+                        the string.  If limits are specified to  cause
+                        substring chopping, there must be two and only
+                        two specified, they must both be greater  than
+                        1,  the  upper  bound  must be greater than or
+                        equal to the lower bound, and both bounds must
+                        fall within the string length.
+
+?IND - symbol does not exist for increment/decrement:
+                                        The symbol specified in a .IND
+                        or .DEC directive is either not defined, or is
+                        defined as not numeric.
+
+?IND - symbol is already defined:
+                                A  symbol  declared  in  a   .LOGICAL,
+                        .NUMERIC,   .FILE   or  .STRING  directive  is
+                        already defined.  This is not permitted.
+
+?IND - symbol is invalid type for assignment:
+                                        The  symbol  specified  in   a
+                        .SETT,  .SETF, .SETN, .SETS or .SETF directive
+                        has already been defined  as  a  symbol  of  a
+                        different type.
+
+?IND - symbol is not a file symbol:
+                                        The symbol  specified  as  the
+                        destination  in an .ASKF directive has already
+                        been defined with a type other than file.
+
+?IND - symbol is not logical:
+                                        The   symbol   specified   for
+                        assignment  in  a  .ASK  directive has already
+                        been defined with a type other than logical.
+
+?IND - symbol is not numeric or string for comparison:
+	IND - Enhanced, programmable command files for TOPS20         Page 47
+IND ERROR MESSAGES AND WARNINGS
+
+
+                                        The symbol  specified  as  the
+                        first  operand  in  an  .IF directive is not a
+                        numeric or string symbol.  These symbols  must
+                        be numeric or string.
+
+?IND - symbol is not numeric:
+                                        The   symbol   specified   for
+                        assignment  in  a  .ASKN directive has already
+                        been defined with a type other than numeric.
+
+?IND - symbol is not string:
+                                        The  symbol  specified  in   a
+                        .ASKS  or  .READ  directive  has  already been
+                        defined with a type other than string.
+
+?IND - symbol table full
+                                        There is no room left in IND's
+                        internal  tables to define the symbol that the
+                        current command is attempting to define.
+
+?IND - Symbol to be .PURGE'd is not defined:
+                                Some symbol in your  .PURGE  list  has
+                        either never been defined, or has already been
+                        purged.
+
+?IND - system symbol in string expression is not of type string:
+                                        A system symbol  in  a  string
+                        expression  has  been  used, but the symbol is
+                        not of type string.
+
+?IND - system symbol type not logical:
+                                        A system symbol in a  .IFT  or
+                        .IFF   directive   is  not  of  type  logical.
+                        Example:  .IFT <STRLEN> .GOTO a .
+
+?IND - table error on parameter startup
+                                        This  is   a   serious   error
+                        encountered  when parsing parameters in an IND
+                        command line.  This error should never occur.
+
+?IND - undefined symbol for substitution:
+                                        While  attempting  to  perform
+                        substitution   of   a   symbol   enclosed   in
+                        apostrophes, a symbol was found which was  not
+                        defined.
+
+?IND - unidentifiable command:
+                                        A line in a command file began
+                        with a dot (".") indicating that it was either
+                        an IND directive or a label.   It  was  not  a
+                        valid  IND directive and was not followed by a
+                        colon, so could not be a  label  either.   IND
+                        cannot understand what you are trying to do.
+
+?IND - unknown numeric symbol in expression:
+                                        A symbol  name  in  a  numeric
+	IND - Enhanced, programmable command files for TOPS20         Page 48
+IND ERROR MESSAGES AND WARNINGS
+
+
+                        expression was not numeric or was not defined.
+
+?IND - unknown relational operator:
+                                        The operator  specified  in  a
+                        .IF   directive  is  not  a  valid  comparison
+                        operator (ie is not EQ, NE ,=, ~=, etc.).
+
+?IND - unknown string symbol in expression:
+                                        A  symbol  name  in  a  string
+                        expression  is  undefined  or  is  not of type
+                        string.
+
+?IND - unknown string symbol in .PAD:
+                                The string symbol in a .PAD  directive
+                        is not a string symbol.
+
+?IND - Unknown string variable to .TRIM:
+                                The variable given to .TRIM is not  of
+                        type string, or does not exist.
+
+?IND - Unmatched parentheses:
+                                        A numeric expression  in  this
+                        command  conrains  more  open brackets than it
+                        does close brackets.
+
+?IND - unrecognised .ENABLE/.DISABLE flag:
+                                        The  keyword  specified  in  a
+                        .ENABLE  or  .DISABLE directive is not a known
+                        keyword, or valid abbreviation of one.
+
+?IND - yes or no required
+                                        As  a   result   of   a   .ASK
+                        directive,  the  processor asked a question of
+                        the user at  the  terminal.   A  response  was
+                        given  that  was  not YES, NO or return.  This
+                        error is not fatal - the  question  is  merely
+                        repeated until you give a valid answer.
+

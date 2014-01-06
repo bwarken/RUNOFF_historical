@@ -1,0 +1,379 @@
+
+
+
+
+
++---------------+
+! D I G I T A L !                       Interoffice Memorandum
++---------------+
+
+
+To: Users                               Date: 14-Jan-81 
+cc:                                     Dept: LSG Soft. Eng.
+
+
+Subj: COBOL-68 to COBOL-74 Conversion Utility
+
+68274 is a conversion utility to aid in the conversion of legal  version
+12C  COBOL-68  programs into legal version 12C COBOL-74 programs.  There
+is no guarantee that all programs can be converted without human help or
+that  all  differences  will be found, though the utility will do a good
+job on most programs.  What it will do is:  
+1) It will try to convert a COBOL-68 program to a COBOL-74 one.
+2) It will provide a listing flagging all things that either  could  not
+be converted or may have been converted incorrectly.
+
+The  utilty  is  a  variation  on  the  version  12C  COBOL-68  compiler
+produced  by setting the feature test switch FT68274 to 1.  It will take
+as input  a  COBOL  program  including  COPY  libraries  and  produce  a
+converted source output (extension .CVT) and a listing (extension .LST).
+It will NOT produce a binary file (extension .REL).  All COBOL  switches
+will be valid but the only useful ones will be /S (card sequenced file),
+/N (no errors on terminal).  The converted file will be the same  format
+as  the  input  file  with as little change as possible so that a FILCOM
+will show the differences.
+
+68274 will work with all forms of source input.  Terminal input presents
+no  problems  unless it contains line sequence numbers (such as produced
+by SOS).  In this case every time a new line is created it  gets  for  a
+line  number  1  greater  than  the previous line.  No effort is made to
+check that this line number does not  already  exist,  therefore  it  is
+recomended that all such files be resequenced before conversion.  If the
+source is card image (/S) then each new line created will get  the  same
+line number as the previous line and 68274 in the comment field (72-80).
+
+1.0     How to build the converter.
+
+Since the conversion utility is just another  version  of  COBOL-74  all
+that  has  to be done to  build it  is to add FT68274==1 and ANS68==1  to
+COBASM.MAC and set ANS74==0. Then rebuild the compiler in  the normal way
+using COBOL.CTL (or the .CTM file on TOPS-10).  Then  put the .EXE  files
+on SYS:.
+
+2.0     Things that will be converted.
+
+In general where a change is described as
+"this will be made  into  a  comment  by  putting  an  asterisk  in  the
+continuation column".
+COBOL-68 to COBOL-74 Conversion Utility                           Page 2
+
+
+It means that for the specified syntax only will this occur.   If  there
+are  other words on the line either before or after the specified syntax
+then the line will be broken into  two  or  more  parts  and  each  part
+treated separately.
+
+2.1     IDENTIFICATION DIVISION
+
+DATE-COMPILED paragraph.
+All comment lines after the  initial  line  will  have  a  asterisk  (*)
+inserted  in  the  continuation  column  since COBOL-74 would delete the
+lines otherwise.
+
+REMARKS paragraph.
+All lines, including the first one, will have a asterisk (*) inserted in
+the continuation column since COBOL-74 would delete the lines otherwise.
+
+2.2     ENVIRONMENT DIVISION
+
+2.2.1   CONFIGURATION SECTION
+
+No action required.
+
+2.2.2   INPUT-OUTPUT SECTION
+
+No action required.
+
+2.2.3   FILE-CONTROL paragraph
+
+FOR MULTIPLE REEL/UNIT
+This will be  made  into  a  comment  by  putting  an  asterisk  in  the
+continuation column.
+
+RESERVE interger ALTERNATE AREAS
+ALTERNATE will be deleted and interger will be incremented by 2.
+
+RESERVE NO ALTERNATE AREAS
+This will be changed to RESERVE 1 AREA.
+
+FILE-LIMITS clause
+This will be  made  into  a  comment  by  putting  an  asterisk  in  the
+continuation column.
+
+ACCESS MODE IS SEQUENTIAL 
+This will be changed into ORGANIZATION IS SEQUENTIAL
+
+ACCESS MODE IS RANDOM
+This will be changed  to  ORGANIZATION  IS  RELATIVE;   ACCESS  MODE  IS
+DYNAMIC
+
+ACCESS MODE IS INDEXED
+This will be changed to ORGANIZATION IS INDEXED;  ACCESS MODE IS DYNAMIC
+
+PROCESSING MODE IS SEQUENTIAL
+This will be changed to ACCESS MODE IS SEQUENTIAL
+COBOL-68 to COBOL-74 Conversion Utility                           Page 3
+
+
+ACTUAL KEY
+This is changed to RELATIVE KEY.
+
+SYMBOLIC/NOMINAL KEY clause
+This will be  made  into  a  comment  by  putting  an  asterisk  in  the
+continuation column.
+
+2.2.4   I-O-CONTROL paragraph
+
+No action required.
+
+2.3     DATA DIVISION
+
+2.3.1   FILE SECTION
+
+LABEL RECORDS ARE record-name
+This will be  made  into  a  comment  by  putting  an  asterisk  in  the
+continuation  column.   It  will  also be flagged to warn the user of an
+incompatible change.
+
+2.3.2   DATA description entry
+
+TALLY
+TALLY is no longer generated automatically.  68274 does not know whether
+TALLY will be required until it is too late so it always generates
+01      TALLY PIC S9(5) COMP.
+
+2.4     PROCEDURE DIVISION
+
+EXAMINE
+This  whole  statement  will  be  replaced  by  the  equivalent  INSPECT
+statement.  Specifically the cases are:
+
+     1.  EXAMINE identifier TALLYING ALL literal-1
+         INSPECT identifier TALLYING TALLY FOR ALL literal-1
+
+     2.  EXAMINE  identifier  TALLYING  ALL   literal-1   REPLACING   BY
+         literal-2
+         INSPECT identifier TALLYING TALLY FOR ALL  literal-1  REPLACING
+         ALL literal-1 BY literal-2
+
+     3.  EXAMINE identifier TALLYING LEADING literal-1
+         INSPECT identifier TALLYING TALLY FOR LEADING literal-1
+
+     4.  EXAMINE identifier  TALLYING  LEADING  literal-1  REPLACING  BY
+         literal-2
+         INSPECT  identifier  TALLYING  TALLY  FOR   LEADING   literal-1
+         REPLACING LEADING literal-1 BY literal-2
+
+     5.  EXAMINE identifier TALLYING UNTIL FIRST literal-1
+         INSPECT identifier TALLYING TALLY FOR CHARACTERS BEFORE INITIAL
+         literal-1
+COBOL-68 to COBOL-74 Conversion Utility                           Page 4
+
+
+     6.  EXAMINE identifier TALLYING UNTIL FIRST literal-1 REPLACING  BY
+         literal-2
+         INSPECT identifier TALLYING TALLY FOR CHARACTERS BEFORE INITIAL
+         literal-1 REPLACING CHARACTERS BY literal-2
+
+     7.  EXAMINE identifier REPLACING ALL literal-1 BY literal-2
+         INSPECT identifier REPLACING ALL literal-1 BY literal-2
+
+     8.  EXAMINE identifier REPLACING LEADING literal-1 BY literal-2
+         INSPECT identifier REPLACING LEADING literal-1 BY literal-2
+
+     9.  EXAMINE identifier REPLACING FIRST literal-1 BY literal-2
+         INSPECT identifier REPLACING FIRST literal-1 BY literal-2
+
+    10.  EXAMINE identifier REPLACING UNTIL FIRST literal-1 BY literal-2
+         INSPECT identifier REPLACING  CHARACTERS  BY  literal-2  BEFORE
+         INITIAL literal-1
+
+
+GOBACK
+This will be changed to EXIT PROGRAM
+
+NOTE paragraph
+This will be  made  into  a  comment  by  putting  an  asterisk  in  the
+continuation column.
+
+SEEK verb
+This will be  made  into  a  comment  by  putting  an  asterisk  in  the
+continuation  column.   It  will  also be flagged to warn the user of an
+incompatible change.
+
+USE LABEL PROCEDURE
+This will be  made  into  a  comment  by  putting  an  asterisk  in  the
+continuation  column.   It  will  also be flagged to warn the user of an
+incompatible change.
+
+WRITE record-name.
+If the file is ASCII and  the  WRITE  would  have  defaulted  to  BEFORE
+ADVANCING in COBOL-68 then the clause is changed to explicitly be:
+WRITE record-name BEFORE ADVANCING 1 LINE
+since the default in COBOL-74 is AFTER 1 LINE.
+
+3.0     Things that will be flagged.
+
+The flagging messages are of two kinds:
+1)Those the program would get if compiled with COBOL-74
+2)Messages warning of impossible or possibly incorrect conversions
+In addition  all  COBOL-68  fatal  and  warning  messages  (with  a  few
+exceptions)  will  be  output incase the program is not a legal COBOL-68
+one.
+
+3.1     IDENTIFICATION DIVISION
+
+Nothing is flagged.
+COBOL-68 to COBOL-74 Conversion Utility                           Page 5
+
+
+3.2     ENVIRONMENT DIVISION
+
+3.2.1   CONFIGURATION SECTION
+
+SWITCH (n)
+Switches are defined differently in COBOL-74, therefore all  definitions
+of SWITCH will be flagged.
+
+3.2.2   INPUT-OUTPUT SECTION
+
+Nothing is flagged.
+
+3.2.3   FILE-CONTROL paragraph
+
+ACCESS MODE IS RANDOM
+This will be changed to ORGANIZATION IS RELATIVE
+and then flagged warning user that
+ACCESS MODE IS DYNAMIC has been assumed.
+
+ACCESS MODE IS INDEXED
+This will be changed to ORGANIZATION IS INDEXED
+and then flagged warning user that
+ACCESS MODE IS DYNAMIC has been assumed.
+
+3.2.4   I-O-CONTROL paragraph
+
+Nothing is flagged.
+
+3.3     DATA DIVISION
+
+3.3.1   FILE SECTION
+
+LABEL RECORDS ARE record-name
+This will be flagged as no longer legal in COBOL-74.
+
+3.3.2   DATA description entry
+
+BLANK WHEN ZERO
+BLANK WHEN ZERO and asterisk (*) as zero suppression symbol in a PICTURE
+clause may not appear in the same entry.
+
+CURRENCY SIGN
+The characters "L", "/", and "=" may not be specified  in  the  CURRENCY
+SIGN clause.
+
+TODAY
+TODAY is no longer  generated  automatically.   In  COBOL-68  it  has  a
+definition of:
+01      TODAY PIC X(12).
+where the contents of TODAY is yymmddhhmmss
+where   yy = year
+        mm = month
+        dd = day
+        hh = hour
+        mm = minute
+COBOL-68 to COBOL-74 Conversion Utility                           Page 6
+
+
+        ss = second
+It would be possible to construct TODAY in COBOL-74 as:
+01      TODAY.
+        02 68274-TODAY-DATE PIC X(6).
+        02 68274-TODAY-TIME PIC x(6).
+and in the PROCEDURE DIVISION before every reference of TODAY do:
+ACCEPT 68274-TODAY-DATE FROM DATE.
+ACCEPT 68274-TODAY-TIME FROM TIME.
+However this is probably not what the user want so all  we  will  do  is
+flag  all  references to TODAY and warn the user to do the conversion by
+hand.
+
+VALUE clause in PICTURE
+In COBOL-74 VALUE is initialized independent of  JUSTIFIED  clause.   If
+this is different from COBOL-68 the JUSTIFIED clause will be flagged.
+
+3.4     PROCEDURE DIVISION
+
+IF abreviated combined relation condition.
+If NOT is immediately followed by  a  relational  operator  it  will  be
+flagged as possibly having a different meaning in COBOL-74.
+
+IF comparison of non-numeric operands
+If one operand is numeric it is treated as though it were  moved  to  an
+alphanumeric item of the same size and the contents of this alphanumeric
+item compared to the non-numeric operand.
+
+MOVE LOW-VALUE TO some-kind-of-key
+If some-kind-of-key is an ACTUAL KEY (for a RANDOM file) or  a  SYMBOLIC
+KEY or RECORD KEY (for an ISAM file), and a MOVE of LOW-VALUE is done to
+it or to a data-item subordinate to it, then what is  probably  required
+is a READ NEXT or a START with approximate key.  Since we do not do flow
+analysis it is impossible to do the conversion correctly so the  utility
+will  flag  all such references to LOW-VALUES.  Note it will not be able
+to detect the case of MOVE LOW-VALUES TO data-item,  MOVE  data-item  TO
+some-kind-of-key.
+
+STRING/UNSTRING DELIMITED BY ALL literal/data-name DELIMITER IN item-1
+If there are consecutive occurences of delimiter and  item-1  is  bigger
+than  delimiter,  then  COBOL-74  will  contain  only  one  occurence of
+delimiter,  whereas  COBOL-68  will  contain  the  actual  text  of  the
+delimiter.
+
+3.5     RESERVED WORDS
+
+There are several valid COBOL-68 user-names that are reserved  words  in
+COBOL-74.  These words will be flagged but not changed.
+
+These words are:
+
+    ALSO                  END-OF-PAGE           REFERENCES
+    BOTTOM                EOP                   REMOVAL
+    CHARACTER             EXCEPTION             RMS
+    CODE-SET              INSPECT               SEPARATE
+    COLLATING             LINAGE                SORT-MERGE
+COBOL-68 to COBOL-74 Conversion Utility                           Page 7
+
+
+    DAY                   LINAGE-COUNTER        STANDARD-1
+    DEBUGGING             NATIVE                START
+    DUPLICATES            ORGANIZATION          TOP
+    DYNAMIC               PRINTING              TRAILING
+    EBCDIC                PROCEDURES
+
+4.0 COPY LIBRARY code.
+
+Text copied from a copy library with a COPY  verb  presrents  a  special
+problem.   Clearly  the  text  should  be  converted  and/or checked for
+problems.  Checking presents no special problem since the  library  text
+will  be expanded as usual in the listing file and all errors will point
+to the correct place.  However the source does present a  problem.   The
+solution chosen while perhaps not the best is at least simple.  The COPY
+verb up to the following period will be made into a comment.   The  body
+of  the  copied  text  will  then  appear  in  the converted (.CVT) file
+surrounded by comment lines.  The effect will be:
+*   COPY FOO OF "BAR   .LIB".
+***** Start of copy library text *****
+    TEXT COPIED FROM FOO
+***** end of copy library text *****
+
+The effect of this is that the .CVT file can be compiled "as is" so  the
+converted  copy  library  text  can  be removed and replace the existing
+contents of the library.  However there  is  a  problem  with  SOS  line
+numbers.   If the source has line numbers then the copied code must also
+have line numbers or else it cannot be edited.  If the copy library text
+has  line  numbers  they  will be replaced by new line numbers generated
+from the last source line number seen, adding 1 for each new  line.   If
+the  copy  library  text  does  not  have line numbers then they will be
+supplied using the above algorithm.
+
+
+[End of 68274]

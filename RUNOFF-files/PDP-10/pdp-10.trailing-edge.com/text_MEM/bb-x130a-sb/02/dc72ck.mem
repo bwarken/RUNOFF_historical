@@ -1,0 +1,1572 @@
+
+
+
+                            DC72 Cookbook
+
+
+
+
+
+                         Doc #          100-120-022-00
+                         Date:          30-Jul-75
+                         File:          DC72CK.RNO
+                         Edition:       2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ COPYRIGHT 1973, 1974, 1975, DIGITAL EQUIPMENT CORP., MAYNARD, MASS.
+
+This document reflects the software as of version 11 for  the  DECSYNC
+DC72, and version 0 for the network DC72NP.
+
+This software is furnished to the purchaser under a license for use on
+a  single  computer  system and can be copied (with inclusion of DEC's
+copyright notice) only for use in such system, except as may otherwise
+be provided in writing by DEC.
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a commitment by Digital Equipment
+Corporation.
+
+Actual distribution of the software described  in  this  specification
+will be subject to terms and conditions to be announced at some future
+date by Digital Equipment Corporation.
+
+DEC assumes no responsibility  for  the  use  or  reliability  of  its
+software on equipment which is not supplied by DEC.
+DC72 COOKBOOK                                                   Page 2
+
+
+                               CONTENTS
+
+
+
+1.0       System Description
+1.1       Hardware Description
+1.1.1     DC72
+1.1.1.1   DC72A
+1.1.1.2   DC72B
+1.1.1.3   DC72C
+1.1.1.4   DC72L
+1.1.2     DC71
+1.1.3     DC75
+1.1.4     DS10
+1.2       SOFTWARE DESCRIPTION
+1.2.1     DC72
+1.2.2  Synchronous Front End 2.0 Installation Hints
+2.1       DP8E Diagnostic
+2.2       DP8E ECO's
+2.3       Line Printer Carriage Control
+3.0       Building Station Software
+3.1       Assembling Station Software
+3.1.1     Making a Configuration File - C.PAL
+3.1.2     Running PAL10
+3.1.3     Listing the DC72(DC71) Software
+3.2       Punching a Binary Card Deck or Paper Tape
+3.2.1     Punching a Binary Card Deck
+3.2.2     Punching a Binary Paper Tape
+4.0       System Operation
+DC72 COOKBOOK                                                   Page 3
+
+
+
+
+
+
+
+
+
+
+
+
+                               FOREWORD
+
+This document provides detailed technical information concerning  DC72
+and  DC71 Remote Stations.  It describes two distinct software systems
+that run on the same hardware, namely the DC72 DECSYNC software (which
+runs  with  monitors  prior to and including 5.07/6.01) and the DC72NP
+network software, which  runs  with  DECNET-10.   This  document  will
+continue  to  refer  to  the  hardware  as  a  DC72  (or DC71) without
+qualification, whereas it will  carefully  distinguish  the  software,
+either by explicitly naming the DC72NP when the newer network software
+is meant, or by using the qualifiers DECSYNC and "network" to refer to
+the older and newer protocols respectively.
+
+It is assumed the reader is familiar with computer concepts in general
+and  timesharing  utilization  of  the DECsystem-10.  The DECsystem-10
+Users Handbook is a good introduction.
+DC72 COOKBOOK                                                   Page 4
+1.0 System Description
+
+
+1.0  System Description
+
+
+
+1.1  HARDWARE DESCRIPTION
+
+
+
+1.1.1  DC72
+
+
+
+1.1.1.1  DC72A  - A DC72A includes a PDP-8/E computer with 8192 12-bit
+words  of  core  memory, a ROM, a line-frequency clock, a 300 cpm card
+reader, and a light duty printer.  The printer  will  print  full  132
+column lines up to 53 lines/minute.
+
+
+
+1.1.1.2  DC72B  - A DC72B includes a PDP-8/E computer with 8192 12-bit
+words  of  core  memory, a ROM, a line-frequency clock, a 300 cpm card
+reader, and a 64-character set printer.  The printer will  print  full
+132 column lines up to 245 lines/minute.
+
+
+
+1.1.1.3  DC72C  - A DC72C includes a PDP-8/E computer with 8192 12-bit
+words  of  core  memory, a ROM, a line-frequency clock, a 300 cpm card
+reader, and a 96-character set printer.  The printer will  print  full
+132 column lines up to 173 lines/minute.
+
+
+
+1.1.1.4  DC72L  - Up to two DC72L's may be installed on each DC72.   A
+DC72L provides interfacing for up to 8 full-duplex teletype compatible
+terminals operating at 110, 150, 300, 1200/150, or 2400/150 baud.
+
+
+
+1.1.2  DC71.
+
+A DC71 includes a PDP-8/I computer with 8192 or  more  words  of  core
+memory, a line frequency clock, a 300 cpm card reader, a line printer,
+and optionally up to 16 DC02F teletype lines.
+
+
+
+1.1.3  DC75.
+
+A DC75 includes a PDP11 computer with at least 4096  16-bit  words  of
+memory,  a  linefrequency  clock,  a  DS11  multiple  line synchronous
+interface, and a DL10 with DL10C.
+DC72 COOKBOOK                                                   Page 5
+1.0 System Description
+
+
+1.1.4  DS10.
+
+A DS10 is a single line synchronous interface to the PDP-10  I/O  bus.
+It  is  used  only  with  DECSYNC remote stations, and hence only with
+monitor 5.07/6.01 or earlier.
+
+
+
+1.2  SOFTWARE DESCRIPTION
+
+
+
+
+1.2.1  DC72
+
+There are two sets  of  software  which  run  in  the  DC72  and  DC71
+hardware.   They  are  distinguished  by  the  protocol  they  use  in
+communicating with the DECsystem-10.  The older one uses  the  DECSYNC
+protocol,  and  runs  with the DECSYNC version of the DC75.  The newer
+one is a part of DECNET-10, and runs with either a DC75NP or  a  DN85.
+The  NP  stands  for new protocol, and refers to the use of DDCMP, NCS
+and Device Control.
+
+
+
+1.2.2  Synchronous Front End
+
+The two versions of the DC72 code  mentioned  in  the  last  paragraph
+require  different synchronous front ends -- the DECSYNC DC72 requires
+a DC75 whereas the new protocol DC72NP requires either a DC75  running
+new protocol software (known as the DC75NP) or a DN85.
+DC72 COOKBOOK                                                   Page 6
+2.0 Installation Hints
+
+
+2.0  INSTALLATION HINTS
+
+
+
+2.1  DP8E DIAGNOSTIC
+
+When the DP8E (DC72 synchronous line interface) diagnostic is  run  by
+field  service(and  inplant  acceptance) there are jumpers on the DP8E
+which must be changed!!  Be certain that  these  jumpers  are  changed
+back when the station software is executed.
+
+
+
+2.2  DP8E ECO's
+
+Eco's M866 #9 and M839 #5 for the DP8E prevent the receive  half  from
+adding to the transmit memory.  These must be installed for successful
+station operation.
+
+
+
+2.3  LINE PRINTER CARRIAGE CONTROL
+
+LP02 line printers have a jumper which either enables printing  across
+the  paper  fold,  or provides automatic skipping to top-of-form after
+60(app.) lines.  The station  software  simulates  a  vertical  format
+unit(VFU).  For proper operation of the VFU simulation the jumper must
+be set to enable printing across the paper fold.
+DC72 COOKBOOK                                                   Page 7
+3.0 Building Station Software
+
+
+3.0  Building Station Software
+
+
+
+3.1  ASSEMBLING STATION SOFTWARE
+
+The station software is assembled from two source files:  1.) DC72.PAL
+(or  DC72NP.PAL  if  new  protocol)  distributed  by  DEC  2.) C.PAL a
+configuration file created by the installation.  PAL10 v142 is used to
+assemble the code.
+
+
+
+3.1.1  Making a Configuration File - C.PAL
+
+To reassemble the  station  software  an  installation  must  build  a
+configuration  file,  C.PAL with TECO.  C.PAL will contain a number of
+symbol definitions.  These symbols control whether code  is  assembled
+for  a  PDP-8/I  or  PDP-8/E computer;  what devices are present;  how
+many tty's are present, and what type.
+
+If the binary file is to run on a DC72(PDP-8/E)  station  include  the
+line:
+                    PDP8=2
+If the binary file is to run on a DC71(PDP-8/I)  station  include  the
+line:
+                    PDP8=1
+
+Always include the line:
+                    TTYN=#
+where # is the number of tty lines  (do  not  count  the  CTY)  to  be
+handled  by the station program.  The number # is octal and is usually
+0 or 10 or 20.This number must agree with the value assembled  in  the
+DECsystem-10 monitor if the DC72 is running under DECSYNC..
+
+Carriage widths, fill class, and hardware tabs may  be  specified  for
+each tty.  A few examples follow:
+
+                    CTYFIL=2 /CTY IS FILL CLASS 2
+                    CTYTAB=1 /CTY HAS HARDWARE TABS
+                    CTYWID=110 /CTY HAS 72(DECIMAL) COLUMN CARRIAGE
+                    T00TAB=0 /TTY0 DOESN'T HAVE HARDWARE TABS
+                    T00WID=144 /TTY0 HAS 100(DECIMAL) COLUMN CARRIAGE
+                    T00FIL=3 /TTY0 IS FILL CLASS 3
+                    T17TAB=1 /TTY17 HAS HARDWARE TABS
+
+All lines which are not specified will be assumed to have  72(decimal)
+column  carriages,  fill  class  1,  and  tabs  will be simulated with
+multiple spaces, and line feeds.
+
+If the station is DECSYNC and is to  operate  with  a  monitor  before
+601/507 include the line:
+                    FT507=0
+If the station is DECSYNC and is to operate with a 601/507 include the
+DC72 COOKBOOK                                                   Page 8
+3.0 Building Station Software
+
+
+line:
+                    FT507=1
+This affects how control R and control T are echoed from TTY's.
+
+The station name may be changed by  including  a  definition  for  the
+macro DC72ID.  For DECSYNC stations, the name is only used in messages
+displayed to the console and terminals.  In "New  Protocol"  stations,
+the  name  is  the node name of the station, and must be unique within
+the network.  An example follows:
+                    DEFINE DC72ID <
+                    "T;"E;"S;"T
+                    >
+Each character in the name must be preceeded  by  a  double  quotation
+mark  and  each  character  except  the  last  must  be  followed by a
+semicolon.
+
+The "New Protocol"  software  also  requires  a  unique  node  number.
+Include the line
+                    OURNNM=#
+Replace "#" with the octal node number (1-63) you wish  to  assign  to
+this remote station.
+
+If the line printer has both  upper  and  lower  case  characters(e.g.
+DC72C) include the line:
+                    FTLPLC=1
+
+
+An example of how to create a possible DECSYNC configuration file is:
+               .R TECO
+               *EWDSK:C.PAL$
+               IPDP8=2 /ASSEMBLE FOR A PDP-8/E
+               TTYN=20 /ASSEMBLE 16(DECIMAL) TTYS+CTY
+               T0TAB=1 /TTY0 HAS HDW TABS
+               FT507=1 /ASSEMBLE WITH 507 CONTROL R AND T
+               $EX$$
+An example for a network configuration is:
+               .R TECO
+               *EWDSK:C.PAL$
+               IPDP8=1 /ASSEMBLE FOR A PDP-8/I
+               TTYN=10 /ASSEMBLE 8(DECIMAL) TTYS+CTY
+               OURNNM=26 /NODE NUMBER IS 26
+               DEFINE DC72ID <"N;"Y;"C> /NODE NAME IS 'NYC'
+               $EX$$
+
+
+
+3.1.2  Running PAL10
+
+The commands for assembling a DECSYNC remote station are:
+
+               .R PAL10
+               *DSK:PCH.BIN,DSK:DC72.CRF/C/N=DSK:C.PAL,DSK:DC72.PAL
+
+The commands for assembling a DC72NP node are:
+DC72 COOKBOOK                                                   Page 9
+3.0 Building Station Software
+
+
+               .R PAL10
+               *DSK:PCH.BIN,DSK:DC72/C/N=DSK:C.PAL,DSK:DC72NP.PAL
+
+
+
+3.1.3  Listing the DC72(DC71) Software
+
+To produce a listing of the DC72(DC71) station software after
+performing the steps in 3.1.1 and 3.1.2 perform the following steps:
+
+               .R CREF
+               *LPT:=DSK:DC72.CRF
+
+
+
+3.1.4  Assembling DC72NP Auxiliary Programs
+
+Operation of the network DC72NP software  (not  the  DECSYNC  version)
+requires  that  two additional programs be assembled, the line-printer
+dump  routine  (file  DUMP.PAL  on  the  distribution  tape)  and  the
+down-line  bootstrap  (BOOT.PAL).  The first provides a listing of the
+contents of memory in the remote station (mostly used in the event  of
+a  crash);   the  second allows loading of the remote station over the
+synchronous line.
+
+
+
+
+3.1.4.1  DUMP.PAL -- Dump Program
+
+When the old DECSYNC DC72 software crashed (or if the user started  it
+at  location  201)  it produced a dump on the line-printer (or console
+teletype if no printer  was  available)  automatically.   Because  the
+network  software  requires more space for network functions, the dump
+routine has become a separate program.
+
+There are four things about the DUMP program which the user  may  want
+to change:  whether the dump prints on the line-printer or the console
+teletype, how many memory fields it dumps, which field it runs in, and
+where  within  that  field  it is loaded.  The first two depend on the
+hardware (is a line printer  available?,  how  many  fields  does  the
+machine   have?)  whereas  the  second  two  depend  on  the  software
+configuration of the remote station and rarely need  to  be  modified.
+There  are default values for all four which should be correct in most
+cases.  If any one of them is not correct,  the  user  must  create  a
+configuration  file  (called  "D.PAL") for the dump program with TECO.
+This configuration file should contain a line for each parameter which
+the user wants to be different from the default.  The parameters are:
+
+  1) The symbol LPTN controls where the dump is printed.  If the line
+                         LPTN=0
+     is included in D.PAL, the output will go to the console teletype.
+     If the line
+                         LPTN=1      /default
+DC72 COOKBOOK                                                  Page 10
+3.0 Building Station Software
+
+
+     is included (or if nothing about the  parameter  "LPTN"  appears)
+     the dump will go to the line printer.
+  2) The symbol FIELDS controls how many memory fields the  dump  will
+     print.   Most  DC72's  have 2 fields (i.e. 0 and 1), but some may
+     have more.  If the line
+                         FIELDS=n
+     is included in D.PAL "n" fields (0 to n-1) will  be  included  in
+     the  dump.   If  nothing appears in D.PAL concerning FIELDS or if
+     the line
+                         FIELDS=2      /default
+     appears, two fields will be dumped (0 and 1).
+  3) The  symbol  EXFLD  controls  which  field  contains   the   dump
+     program.If the line
+                         EXFLD=n
+     is included in D.PAL the dump program will run in field "n".   If
+     no  value  is given for EXFLD, the dump program will run in field
+     0.  For the considerations  involved  in  picking  the  value  of
+     EXFLD, see below.
+  4) The symbol START  controls  the  starting  address  of  the  dump
+     program.  If the line
+                         START=aaaa
+     is included in D.PAL,  the  dump  program  will  start  at  octal
+     address "aaaa".  This address must be on a page boundary (i.e. it
+     must end in at least 2 zeroes).  If no value is given for  START,
+     the   default   address   used  is  200.   (This  overwrites  the
+     initialization   code   with   the   dump   program.)   For   the
+     considerations involved in picking a value for START, see below.
+
+It may be necessary to specify a different field and starting  address
+for  the dump program because it must be loaded on top of two pages of
+the remote station program, thereby wiping out  any  information  that
+those pages might have contained.  However, since the default location
+for the dump is in the initialization code of  the  DC72NP,  which  is
+protected  (somewhat)  from  modification by the fact that most of the
+time the data field is field 1 (hence it is hard to clobber field  0),
+changing  these parameters should be necessary only rarely.  If it is,
+select two pages which do not seem to be relevant to  the  crash,  set
+EXFLD  to  the  field they are in, and set START to the address of the
+first.
+
+An example of the commands needed to create a configuration  file  for
+the DUMP program is:
+
+                    .R TECO
+                    *EWDSK:D.PAL$
+                    IFIELDS=3 /DUMP FIELDS 0-2
+                    LPTN=0 /ON CONSOLE
+                    $ex$$
+
+DC72 COOKBOOK                                                  Page 11
+3.0 Building Station Software
+
+
+To assemble a DUMP with all default parameters, type:
+                    .R PAL10
+                    *DSK:PCH.BIN=DSK:DUMP.PAL
+and to assemble one with a configuration file type:
+                    .R PAL10
+                    *DSK:PCH.BIN=DSK:D.PAL,DSK:DUMP.PAL
+
+
+
+3.2  PUNCHING A BINARY CARD DECK OR PAPER TAPE
+
+After the DECSYNC station software has been assembled it must  be  put
+on  a  medium the station can read, usually cards, but sometimes paper
+tape.  The DC72NP network software  doesn't  require  punching  either
+cards  or tape, since the remote station may be down-line loaded.  See
+section 4.1.5 for details of down-line loading.
+
+
+
+3.2.1  Punching a Binary Card Deck
+
+The program "8CARDS" is used to punch a binary deck of cards from  two
+files,  1.) DSK:CLDR.BIN;  and 2.) DSK:PCH.BIN.  The file CLDR.BIN may
+be found on the distribution tape, or may be assembled with PAL10 from
+CLDR.PAL  which  is on the distribution tape.  The file PCH.BIN is the
+binary output resulting  from  the  assembly  of  the  remote  station
+described above.
+
+
+
+3.2.2  Punching a Binary Paper Tape
+
+An alternate method of loading a DC72 is with paper tape.   "PIP"  the
+binary  output file, PCH.BIN, to the central station PTP, using the /I
+switch.  e.g.:
+                    .R PIP
+                    *PTP0:/I=DSK:PCH.BIN
+The output tape can be read  by  the  binary  loader.   Consult  PDP-8
+documentation  for use of the BINARY LOADER.  The starting address for
+the station software is 200 in field 0.
+DC72 COOKBOOK                                                  Page 12
+4.0 System Operation - Loading
+
+
+4.0  SYSTEM OPERATION This section describes  the  procedure  used  to
+load  the  DC72  with  the appropriate remote station software, how to
+start it running, and what sorts of messages might appear while it  is
+running.
+
+The old protocol DC72 is loaded via cards  or  paper  tape;   the  new
+protocol  DC72NP  is loaded from the synchronous line (this process is
+called down-line loading).  However, the bootstrap program which  runs
+in  the  PDP-8  to  do the down-line load must be loaded from cards or
+paper tape.
+
+Most of the messages that the DC72 prints either on the CTY or on  the
+user  terminal  are  the  same  for both the old protocol and the new.
+Those that are not are marked "DECSYNC Only" for the old protocol, and
+"DC72NP Only" for the new protocol.
+
+
+
+4.1  LOADING DC72(DC71)
+
+A DC72(DC71) may be loaded either from a card deck or from paper tape.
+The  program  8CARDS  is  used  to  punch  a  binary deck for a remote
+station, see 3.3 for more details.  The binary output from  the  PAL10
+assembler  may  be  "PIP'ed" to the DECsystem-10 high speed paper tape
+punch using /I to make a paper tape to load.
+
+If a card deck is out of sequence or mispunched the card  loader  will
+always  stop  on  the same card.  If a card deck is out of sequence it
+may be sorted on card columns 78-80.  If a card deck is mispunched,  a
+new deck must be punched.
+
+The normal starting address is 0200.  Starting the DC72(DC71)  program
+at 0201 will produce a dump on the line printer
+
+
+
+4.1.1  Loading DC72 from cards.
+
+This is the normal loading procedure for DC72's.  It is often possible
+to skip steps a.  through d.
+
+    a. Open the door concealing the PDP-8/E consol.  Be sure  the
+       computer  consol lock is either in the POWER or PANEL LOCK
+       position.
+
+    b. Be sure the red power switch is on.
+
+    c. Stop the computer by momentarily pressing the halt switch.
+
+    d. Be sure the switch labeled SW is in the up position.   The
+       front door may now be replaced.
+DC72 COOKBOOK                                                  Page 13
+4.0 System Operation - Loading
+
+
+    e. Place the deck of cards in the card reader, and ready  the
+       reader  by  pressing  the reset button on the front of the
+       card reader.
+
+    f. Momentarily press the INITIALIZE switch.  This will load a
+       short  card  loader  from  the ROM into core and start it.
+       The deck should read in and begin execution.  If the cards
+       stop  reading  because  of  a  read check or a pick check,
+       restart this procedure at step e.
+
+
+
+4.1.2  Alternate DC72 card loading procedure;  DC71 card loading.
+
+This procedure may be used to load the DC72 if the ROM  loader  fails.
+This is the normal procedure for loading the DC71.
+
+    a. Be sure the computer consol lock is in the POWER position,
+       and be sure PANEL LOCK is not set.
+
+    b. Stop the computer by momentarily pressing  the  HALT(STOP)
+       switch.
+
+    c. Toggle the card loader into the second memory  bank  (i.e.
+       field 1) by performing the following steps:
+
+         For the DC72 put 0011 in the  SWITCH  REGISTER  then
+         press  the  EXTD ADDR LOAD switch;  then put 7570 in
+         the SWITCH REGISTER then press the ADDR LOAD switch.
+         For the DC71 put  117570  in  the  SWITCH  REGISTER;
+         then press the LOAD ADD switch.
+         One at a time load the  following  values  into  the
+         switch  register and raise the DEP switch after each
+         value is loaded.
+                             6672
+                             5370
+                             6631
+                             5372
+                             6634
+                             3270
+                             2375
+                             5372
+         It is good practice to verify the deposits were made
+         correctly.
+         For the DC72 put 7570 in  the  SWITCH  REGISTER  and
+         then  press  ADDR LOAD;  select MD register display;
+         repeatedly press EXAM.
+         For the DC71 put 117570 in the SWITCH  REGISTER  and
+         then press LOAD ADD;  repeatedly press EXAM.
+
+    d. Place the cards in the reader  and  ready  the  reader  by
+       pressing the RESET button on the front of the reader.
+DC72 COOKBOOK                                                  Page 14
+4.0 System Operation - Loading
+
+
+    e. For the DC72 put 7570 in  the  SWITCH  REGISTER  and  then
+       press  the  ADDR  LOAD  switch;   press  the CLEAR switch;
+       press the CONT switch.
+       For the DC71 put 117570 in the SWITCH  REGISTER  and  then
+       press the LOAD ADD switch;  press the START switch.
+       The deck should read in and  begin  to  execute.   If  the
+       reader  stops  because  of  a read check, or a pick check,
+       restart the procedure at step b.
+
+
+
+4.1.3  Loading DC72(DC71) from low speed paper tape.
+
+The following procedure may be used to load a DC72(DC71) when the card
+reader is not operational.
+
+    a. Check to be sure the consol lock is in the POWER position,
+       and check that PANEL LOCK is not set.
+
+    b. Stop the DC72(DC71) by momentarily pressing the  HALT(RUN)
+       switch.
+
+    c. Toggle the  RIM  loader  into  memory  by  performing  the
+       following steps:
+         On a DC72 put 0011 in the SWITCH REGISTER  and  then
+         press  EXTD  ADDR  LOAD;   put  7756  in  the SWITCH
+         REGISTER and then press ADDR LOAD.
+         On a DC71 load 117756 in  the  switch  register  and
+         then press LOAD ADD.
+         One at a time load the  following  values  into  the
+         switch  register and raise the DEP switch after each
+         value is loaded.
+                             6032
+                             6031
+                             5357
+                             6036
+                             7106
+                             7006
+                             7510
+                             5357
+                             7006
+                             6031
+                             5367
+                             6034
+                             7420
+                             3776
+                             3376
+                             5356
+         It is good practice to verify the deposits were made
+         correctly.
+         For the DC72 put 7756 in  the  SWITCH  REGISTER  and
+         then  press  ADDR LOAD;  SELECT MD register display;
+         repeatedly press EXAM.
+         For the DC71 put 117756 in the SWITCH  REGISTER  and
+DC72 COOKBOOK                                                  Page 15
+4.0 System Operation - Loading
+
+
+         then press LOAD ADD;  repeatedly press EXAM.
+
+    d. Place the BINARY loader in the low  speed  reader  on  the
+       CTY.   Position the tape so that leader(octal 200) is over
+       the read station.
+
+    e. For the DC72 put 7756 in the SWITCH  REGISTER  then  press
+       the  ADDR LOAD switch;  press the CLEAR switch;  press the
+       CONT switch.
+       For the DC71 put 117756 in the SWITCH REGISTER then  press
+       the LOAD ADD switch;  press the START switch.
+
+    f. After the BINARY LOADER has been read stop the  DC72(DC71)
+       by momentarily pressing the HALT(STOP) switch.
+
+    g. Place the binary paper tape for the  station  in  the  low
+       speed  reader.  Position the tape so the leader(octal 200)
+       is over the read station.
+
+    h. For the DC72 put 7777 in  the  SWITCH  REGISTER  and  then
+       press  the  ADDR  LOAD  switch;   press  the CLEAR switch;
+       press the CONT switch.
+       For the DC71 put 117777 in the SWITCH  REGISTER  and  then
+       press the LOAD ADD switch;  press the START switch.
+
+    i. For a DC72 set the register select switch to AC.
+       When the BINARY LOADER has finished reading the paper tape
+       check  to be sure the contents of the AC are zero.  If the
+       AC is nonzero a checksum error has occurred, obtain a  new
+       tape and begin again.
+
+    j. For the DC72 put 0000 in  the  SWITCH  REGISTER  and  then
+       dpress  the  EXTD  ADDR  LOAD;   put  0200  in  the SWITCH
+       REGISTER and  then  press  ADDR  LOAD;   press  the  CLEAR
+       switch;  press the CONT switch.
+       For the DC71 put 000200 in the SWITCH  REGISTER  and  then
+       press the LOAD ADD switch;  press the START switch.
+       The station should now begin SYSCHK.
+
+
+
+4.1.4  Loading DC72(DC71) from high speed paper tape.
+
+The following procedure may be  used  to  load  a  DC72(DC71)  if  the
+station has a high speed paper tape reader:
+
+    a. Check to be sure the consol lock is in the POWER position,
+       and check that PANEL LOCK is not set.
+
+    b. Stop the DC72(DC71) by momentarily pressing the  HALT(RUN)
+       switch.
+DC72 COOKBOOK                                                  Page 16
+4.0 System Operation - Loading
+
+
+    c. Toggle the  RIM  loader  into  memory  by  performing  the
+       following steps:
+         On a DC72 put 0011 in the SWITCH REGISTER  and  then
+         press  EXTD  ADDR  LOAD;   put  7756  in  the SWITCH
+         REGISTER and then press ADDR LOAD.
+         On a DC71 load 117756 in  the  switch  register  and
+         then press LOAD ADD.
+         One at a time load the  following  values  into  the
+         switch  register and raise the DEP switch after each
+         value is loaded.
+                             6014
+                             6011
+                             5357
+                             6016
+                             7106
+                             7006
+                             7510
+                             5374
+                             7006
+                             6011
+                             5367
+                             6016
+                             7420
+                             3776
+                             3376
+                             5357
+         It is good practice to verify the deposits were made
+         correctly.
+         For the DC72 put 7756 in  the  SWITCH  REGISTER  and
+         then  press  ADDR LOAD;  SELECT MD register display;
+         repeatedly press EXAM.
+         For the DC71 put 117756 in the SWITCH  REGISTER  and
+         then press LOAD ADD;  repeatedly press EXAM.
+
+    d. Place  the  BINARY  loader  in  the  high  speed   reader.
+       Position  the  tape  so that leader(octal 200) is over the
+       read station.
+
+    e. For the DC72 put 7756 in the SWITCH  REGISTER  then  press
+       the  ADDR LOAD switch;  press the CLEAR switch;  press the
+       CONT switch.
+       For the DC71 put 117756 in the SWITCH REGISTER then  press
+       the LOAD ADD switch;  press the START switch.
+
+    f. After the BINARY LOADER has been read stop the  DC72(DC71)
+       by momentarily pressing the HALT(STOP) switch.
+
+    g. Place the binary paper tape for the station  in  the  high
+       speed  reader.  Position the tape so the leader(octal 200)
+       is over the read station.
+
+    h. For the DC72 put 7777 in  the  SWITCH  REGISTER  and  then
+       press  the  ADDR  LOAD  switch;   put  0000  in the SWITCH
+       REGISTER;  press the CLEAR switch;  press the CONT switch.
+DC72 COOKBOOK                                                  Page 17
+4.0 System Operation - Loading
+
+
+       For the DC71 put 117777 in the SWITCH  REGISTER  and  then
+       press  the  LOAD  ADD  switch;   put  000000 in the SWITCH
+       REGISTER;  press the START switch.
+
+    i. For a DC72 set the register select switch to AC.
+       When the BINARY LOADER has finished reading the paper tape
+       check  to be sure the contents of the AC are zero.  If the
+       AC is nonzero a checksum error has occurred, obtain a  new
+       tape and begin again.
+
+    j. For the DC72 put 0000 in  the  SWITCH  REGISTER  and  then
+       depress  the  EXTD  ADDR  LOAD;   put  0200  in the SWITCH
+       REGISTER and  then  press  ADDR  LOAD;   press  the  CLEAR
+       switch;  press the CONT switch.
+       For the DC71 put 000200 in the SWITCH  REGISTER  and  then
+       press the LOAD ADD switch;  press the START switch.
+       The station should now begin SYSCHK.
+
+
+
+4.1.5  Loading the DC72NP(DC71NP) from the synchronous line
+
+The new protocol software has provision for loading the remote station
+from  the  synchronous  line.   This is accomplished using a bootstrap
+program in the PDP-8 and the NETLDR program in the DECsystem-10.   The
+bootstrap  program must be loaded into the PDP-8 by one of the methods
+described above (namely punched card or paper tape).   For  directions
+on  assembling the bootstrap program, see section 3.3.2.  Once loaded,
+the bootstrap program should be started at location 21 in field 1.  If
+the bootstrap program was loaded by the method described in 4.1.1 (the
+"initialize"  switch  on  the  DC72)  it  will  automatically   start.
+Otherwise,  if it is a DC72, set switches to 0011 and press "EXT ADR",
+then set switches to 0021 and press  "LOAD  ADDR",  then  "CLEAR"  and
+finally  "CONT".  If the bootstrap is loaded into a DC71, set switches
+to 110021, press "LOAD ADR" and "START".
+
+Normally, this is all that is required to  load  the  remote  station,
+because  the  bootstrap  program  will request a load from the 10, and
+NETLDR will be automatically run to perform the load.
+
+
+
+4.2  DC72(DC71) Operator Messages
+
+There are three types of messages:  1.) those which may occur  on  any
+tty;   2.) those which occur on the CTY after SYSCHK;  3.) those which
+occur only during SYSCHK.
+
+
+
+DC72 COOKBOOK                                                  Page 18
+4.0 System Operation - Operator Messages
+
+
+4.2.1  Messages Which Occur on Any tty
+
+  "??NOT IN CONTACT"
+       [DECSYNC only]
+       The station will type  this  message  in  response  to  any
+       typein,  unless  contact  with  the  DECsystem-10  has been
+       established.
+
+  "%%RESTARTING XXX DC72(DC71)"
+       XXX is the station name  which  may  be  defined  when  the
+       station software is assembled.  Types on all TTY's when the
+       station is  restarted.   Can  occur  because  the  operator
+       reloaded,   or  restarted,  or  because  contact  with  the
+       DECsystem-10 has been lost for 4 minutes, or  communication
+       between   the  station  and  the  DECsystem-10  is  out  of
+       phase(e.g.  the DECsystem-10 is restarted).
+
+
+
+4.2.2  Messages on the CTY After SYSCHK
+
+  "%%CARRIER BACK"
+       [DC72's only]
+       The synchronous modem carrier has returned.
+
+  "%%CARRIER LOST"
+       [DC72's only]
+       The synchronous modem carrier has just been lost.
+
+  "%%DC72(DC71) URD"
+       THE DC72(DC71)  has  received  unrequested  data  from  the
+       DECsystem-10.
+
+  "??DC72(DC71) WAITING 4 MIN"
+       [DECSYNC only]
+       The station and the DECsystem-10  are  out  of  phase,  and
+       cannot  get  back into phase.  The station will go to sleep
+       for four minutes, and then try again.   This  usually  will
+       correct the problem.
+
+  "??DC72(DC71) CRASH PC=####"
+       The software has detected a consistency error in itself and
+       will  dump  core  on the LPT.  Collect the dump and contact
+       your software representative.
+
+  "%%DC72(DC71) HAS MADE CONTACT"
+       Communication has begun with the DECsystem-10.
+
+  "??DC72(DC71) INT ERR"
+       Some unknown device is  holding  down  the  interrupt  bus.
+       This may happen if the DC72(DC71) program was not assembled
+       for the correct configuration.  This  usually  indicates  a
+       hardware problem in the PDP-8/.
+DC72 COOKBOOK                                                  Page 19
+4.0 System Operation - Operator Messages
+
+
+  "%%DP01 END FLAG"
+       [DC71's only]
+       The "RECEIVE END FLAG" is set when the DP01  receive  logic
+       stops,  or starts, receiving the SERIAL CLOCK RECEIVE pulse
+       train from the  modem.   This  usually  indicates  a  modem
+       problem.
+
+  "%%DP8E BUS ERR"
+       [DC72's only]
+       A receive or transmit  bus  request  was  not  serviced  in
+       1/BAUD  time.  This usually indicates either the receive or
+       transmit clock from the modem is bad.
+
+  "??RACK OUT OF RANGE"
+       [DECSYNC only]
+       The station and the DECsystem-10 are out of phase.  This is
+       usually caused by restarting either the DECsystem-10 or the
+       station.  The station will restart itself to try to correct
+       the problem.
+
+  "%%WRONG DC72(DC71) CONFIG"
+       The DECsystem-10 has attempted to talk to  a  device  which
+       the   station   doesn't   have.    Contact   your  software
+       representative.
+
+
+
+4.2.3  Messages on the CTY During SYSCHK
+
+  "%%DC02F IS NOT PRESENT"
+       [DC71's only]
+       When SYSCHK tried to get the transmit flags for  the  DC02F
+       lines,  the DC02F didn't clear the group select.  All DC02F
+       TTY lines  will  be  disabled.   If  the  DC02F  is  really
+       installed contact field service.
+
+  "??DC72(DC71) CODE WON'T RUN ON A PDP-8/I(PDP-8/e)"
+       The wrong assembly option has been specified when  building
+       the station code.  Contact your software representative.
+
+  "%%DP01 DATASET NOT READY"
+       [DC71's only]
+       When SYSCHK attempted to initialize the DP01  the  skip  on
+       dataset  ready  instruction failed.  This usually indicates
+       the modem is not connected or not ready.
+
+  "??DP8E CHAR DETECT SKIP FAILED"
+       [DC72's only]
+       SYSCHK received a special character(SYNC) from the DP8E but
+       the  special  character flag did not come up.  This usually
+       indicates a hardware problem in the DP8E.
+DC72 COOKBOOK                                                  Page 20
+4.0 System Operation - Operator Messages
+
+
+  "??DP8E FIELD SELECT FAILED"
+       [DC72's only]
+       The first thing SYSCHK does with the DP8E is  to  load  the
+       field select registers with a Load Field instruction.  Then
+       SYSCHK does Read Status instructions  to  verify  the  Load
+       Field  instruction  worked.   If  the DP8E is not installed
+       this error will be detected.  If the DP8E is installed this
+       indicates a hardware problem.
+
+  "??DP8E(DP01) FLAG WON'T CLEAR"
+       While initializing the DP8E(DP01) SYSCHK  detected  a  flag
+       and  attempted  to  clear  it  by  issuing  the appropriate
+       instruction.  After issuing the instruction  the  flag  was
+       still set.
+
+  "%%DP8E(DP01) GT 9600 BAUD"
+       SYSCHK counted the number  of  characters  the  synchronous
+       link  could  transmit  in  half a second and determined the
+       link was faster than 9600 baud.  Throughput may be degraded
+       with synchronous links faster than 9600 baud.
+
+  "%%DP8E NO CARRIER"
+       [DC72's only]
+       When SYSCHK attempted  to  initialize  the  DP8E  the  read
+       status 2 instruction indicated Carrier/AGC was not present.
+       Check the other modem is ready and sending.  Check the link
+       between the two modems.
+
+  "%%DP8E NOT CLEAR TO SEND
+       [DC72's only]
+       SYSCHK initialized the DP8E and then checked for  Clear  To
+       Send  with a Read Status 2 instruction.  Check the modem is
+       powered on and ready.
+
+  "%%DP8E MODEM NOT READY"
+       [DC72's only]
+       When SYSCHK attempted  to  initialize  the  DP8E  the  Read
+       Status  1  instruction  indicated  the modem was not ready.
+       Check to be sure the modem is connected and powered on.
+
+  "%%DP8E(DP01) NOT RECEIVING"
+       After determining that the synchronous line  interface  and
+       modem    appear   ready   SYSCHK   waits   to   hear   SYNC
+       characters(226) from the  synchronous  line.   SYSCHK  will
+       loop until it does receive some characters.
+
+  "??DP8E READ CHAR DETECTED n RIGHT m"
+       [DC72's only]
+       When SYSCHK received a special character(SYNC) it performed
+       the  READ  CHAR  DETECTED  instruction,  which returned the
+       unexpected value n.  This indicates a  fault  in  the  DP8E
+       hardware.
+DC72 COOKBOOK                                                  Page 21
+4.0 System Operation - Operator Messages
+
+
+  "%%DP8E(DP01) RECEIVED #"
+       SYSCHK received data other than SYNC from  the  synchronous
+       line.  SYSCHK will loop until it receives SYNC.
+
+  "%%DP8E TERM NOT READY
+       [DC72's only]
+       SYSCHK  set  Terminal  Ready  with  a  DP8E  Load   Control
+       instruction.    Then  SYSCHK  did  a  DP8E  Read  Status  2
+       instruction and discovered  Terminal  Ready  was  not  set.
+       This will usually indicate a fault in the DP8E hardware.
+
+  "??DP8E WC OR CA INCORRECT"
+       [DC72's only]
+       After sending or receiving data via the  DP8E,  SYSCHK  did
+       not  find  the  expected  values in the datbreak registers.
+       This indicates a hardware problem in the DP8E.
+
+  "%%DP8E(DP01) XMT NOT READY
+       SYSCHK initialized the DP8E(DP01)  and  attempted  to  send
+       several synchs.  This operation failed to complete quickly.
+       This may indicate clock is  not  being  received  from  the
+       modem.
+
+  "??DP8E(DP01) IS IN LOOPBACK MODE"
+       SYSCHK transmitted an unusual pattern and received the same
+       pattern  back.   One of the modems is probably in loopback;
+       correct and then reload or restart the program at pc 200.
+
+  "[INITIALIZING DECSYNC(DDCMP) DC72(DC71) v#]"
+       # is the edit number of the DC72(DC71) code.  This  message
+       indicates that the SYSCHK portion of the program has begun.
+
+  "??KW8(DK8) ERROR"
+       SYSCHK measured the  speed  of  the  line  frequency  clock
+       against an instruction loop and found it either too fast or
+       too slow.  This message may indicate the KW8(DK8) clock  is
+       not   installed  or  not  functioning  correctly.   If  the
+       KW8(DK8)  is  installed  and  working  this  message  might
+       indicate the processor speed is incorrect.  This is a fatal
+       error.
+
+  "??LPT FLAG WON'T CLEAR"
+       SYSCHK tried to clear the line  printer  flag  and  failed.
+       This  usually  indicates  a  hardware  problem  in the line
+       printer interface.
+
+  "%%NO RESPONSE TO REP"
+       [DECSYNC only]
+       SYSCHK sent a REP message to the DECsystem-10 and failed to
+       receive  a  RACK  message as a response.  This may indicate
+       the REP message  was  not  received  by  the  DECsystem-10;
+       check  to  be sure the synchronous link from the DC72(DC71)
+       to the DECsystem-10 is ok.
+DC72 COOKBOOK                                                  Page 22
+4.0 System Operation - Operator Messages
+
+
+  "%%TTY# IS IN LOOPBACK MODE"
+       When SYSCHK sent a character out on  a  TTY  line  it  came
+       back.  This is usually caused by the hardware being set for
+       loopback test(it is tested this way at the factory, and may
+       arrive  in  this  condition).   Operating in this condition
+       would adversly affect the station,  so  the  line  will  be
+       disabled  by  the  software, until the station is reloaded.
+       Field service should be contacted.
+
+  "%%TTY# IS RUNNING OPEN"
+       The tty interface  is  receiving  a  continuous  stream  of
+       nulls.   This  condition is not fatal but tends to overload
+       the station if running faster than 110baud.   Current  loop
+       ports may behave this way when the terminal is powered off,
+       or not installed.
+
+  "%%TTY# NO XMT FLAG"
+       SYSCHK sent a character to a TTY line, and no transmit done
+       flag  was  ever raised.  This can happen if the port is not
+       really installed.  If the port is installed  contact  field
+       service.
+
+  "??TTY# XMT FLAG WON'T CLEAR"
+       SYSCHK couldn't clear the transmit done  flag;   or  SYSCHK
+       sent a character to the TTY line and the transmit done flag
+       came up immediately.  This is a fatal error;  contact field
+       service.
+
+  ??TTY# RCV FLAG WON'T CLEAR"
+       SYSCHK observed the keyboard flag for the line was  up  and
+       did a KRB to read the char and clear the flag.  Immediately
+       after doing the KRB SYSCHK observed the flag was still  up.
+       This is a fatal hardware problem.
+
+
+
+4.3  Dumping the DC72(DC71)
+
+The DC72(DC71)) program includes a routine which will produce an octal
+dump on the Line Printer.  If the program is not assembled to handle a
+line printer the dump will be produced on the CTY.  After the  program
+has  been  loaded  the  following  procedure  may  be  used  to dump a
+DC72(DC71):
+
+      a.) Be sure the computer consol lock is in the Power  position,
+       and be sure PANEL LOCK is not set.
+
+      b.) Stop the computer by momentarily  pressing  the  HALT(STOP)
+       switch.
+
+      c.) Ready the printer.
+DC72 COOKBOOK                                                  Page 23
+4.0 System Operation
+
+
+      d.) For the DC72 put 0201 in the switch register;   press  ADDR
+       LOAD;  press EXTD ADDR LOAD.
+       For the DC71 put 000201 in the switch  register;   press  LOAD
+       ADD.
+
+      e.) For the DC72 press CLEAR and then press CONT.
+       For the DC71 press the START switch.
+
+
+
+4.4  Operator Service Programs
+
+The operator at station # will usually "LOGIN" under [100+#,2] and run
+OPSER,  LPTSPL,  and  CDRSTK  or SPRINT-10.  Detailed documentation on
+these programs is provided in the DECsystem-10 software notebooks.   A
+typical command string would be:
+
+           .LOGIN 102,2
+           Password:
+           .R OPSER
+           *:SLOG 102,2
+           *:DEFINE L=
+           *L-R LPTSPL
+           *L-START
+           *:SLOG
+           *:DEFINE C=
+           *C-R CDRSTK
+           *C-START
+
+
+
+4.4.1  OPSER
+
+OPSER is the operator service program which permits a  single  tty  to
+control multiple jobs.
+
+
+
+4.4.2  INITIA
+
+INITIA is the initilaization CUSP.  The program may be  run  from  any
+tty  by  typing  the  monitor command INITIA.  When INITIA is run on a
+station CTY it will log a job in under [100+#,2] and run OPSER.   When
+OPSER  is  invoked  in  this  manner  it  will  process  the auto file
+SYS:OPR#.ATO.
+
+
+
+4.4.3  LPTSPL
+
+LPTSPL is the Line Printer Spooler.  Operating instructions for LPTSPL
+may be found in the DECsystem-10 Operators Guide.
+DC72 COOKBOOK                                                  Page 24
+4.0 System Operation
+
+
+4.4.4  CDRSTK
+
+CDRSTK is Card Reader Stacker.  Operating instructions for CDRSTK  may
+be found in the DECsystem-10 Operators Guide.
+
+
+
+4.4.5  SPRINT-10
+
+SPRINT-10 is the new card reader stacker.
+
+
+
+4.4.6  NETLDR
+
+NETLDR is the program on the DECsystem-10 which loads  network  nodes.
+It needs to know four pieces of information before it can load a node:
+      1)  the file containing the binary form of the software that is
+          to run in the node.
+      2)  whether the node is a PDP-8 or a PDP-11
+      3)  the identification of a node that is adjacent to the
+          node to be loaded (i.e. has a synchronous line to the
+          node to be loaded) and is also up.
+      4)  which synchronous line (on the node
+          that is adjacent and up) is connected to the node to be
+          loaded.
+
+for example,
+
+
+
+4.5 Loading DC75.
+
+The DC75 is normally loaded with BOOT11 which is described in the
+specification section of the notebooks.
+A typical command sequence to load the DC75 will be:
+
+          .R BOOT11
+          */CLEAR/PORT:0
+          *SYS:DC75.BIN/PORT:0
+DC72 COOKBOOK                                                  Page 25
+5.0 Trouble Shooting
+
+
+5.0  Trouble Shooting
+
+
+
+5.1  EXAMINING PDP-8/ MEMORY
+
+The station program continually reads the 12 console switches as an
+address, and places the contents of this address in the AC.
+To change the field data is displayed from set the switches to 7770 +
+the field desired.
+
+
+
+5.2  PROGRAM LOCATIONS
+
+
+
+5.2.1  F10CNT
+
+This location is a 24bit count of total messages received by the
+station.
+Note that the number of messages sent by the station will be
+approximately the same.
+
+
+
+5.2.2  T1BCNT
+
+This location is a count of messages NAKed by the DECsystem-10.
+When this is compared to the total messages sent a measure of line
+qualtity to the DECsystem-10 is obtained.
+
+
+
+5.2.3  F1BCNT
+
+This location is a count of the number of messages received by the
+station.
+When this is compared to the total messages received a measure of line
+quality to the station is obtained.
+
+
+
+5.2.4  CONTCK
+
+This location is ticked 60(50) times a second.
+The transition of location to 0 signals lost contact.
+
+
+
+5.2.5  FRECNT
+DC72 COOKBOOK                                                  Page 26
+5.0 Trouble Shooting
+
+
+This location contains the number of free chunks.
+If chunks are lost response will become poor and eventually the
+station may crash.
+DC72 COOKBOOK                                                  Page 27
+6.0 Program Flow
+
+
+6.0  Program Flow
+
+
+
+6.1  INITIALIZATION
+
+Whenever the station software is restarted certain tasks must be done.
+The first time the station is initialized (after being reloaded)
+SYSCHK will be performed.
+The synchronous line flags must be reset.
+The free core must be reestablished.
+All device blocks are reset.
+
+
+
+6.2  SYSCHK
+
+After the station software is loaded its first task is to quickly
+check its environment.
+This test is called "SYSCHK".
+SYSCHK is not exhaustive, but will catch many of the commonest
+problems that plague DC71 and DC72 stations.
+After SYSCHK has been executed it will be overlayed with data, and
+hence cannot be reexecuted.
+The station may be restarted however because the call to SYSCHK is
+patched out after it has been executed.
+
+In addition SYSCHK initializes some code and tables.
+SYSCHK builds the special char table.
+SYSCHK changes the trace and display code according to how much core
+is present.
+SYSCHK adjusts the line printer time constants according to whether a
+LS8 or LP08 printer is present.
+If the memory parity option is not present on a DC71 SYSCHK adjusts
+the memory parity checking routine.
+
+The first test SYSCHK makes is a simple instruction test.
+SYSCHK makes sure the clock is reasonably close to either 50 or 60
+cycle.
+
+
+
+6.3  NON-INTERRUPT LEVEL
+
+Non-interrupt level code begins at location "LOOP".
+LOOP scans for work left by interrupt level.
+If any work is found it is performed and LOOP is restarted.
+If no work is found control will fall through to the display routine.
+
+The display routine takes the contents of the console switches as an
+address, and places the contents of that memory location in the AC.
+If the console switches are set to 7770+n, the display routine will
+take n as the memory field to display, provided n is an existing
+memory field.
+DC72 COOKBOOK                                                  Page 28
+6.0 Program Flow
+
+
+Memory field selection for the display may be checked by observing the
+data field selected.
+
+
+
+6.4  TTY HANDLING
+
+
+
+6.5  PROTOCOL HANDLING
+
+
+
+6.6  FREE CORE
+
+Free core is maintained as "CHUNKS".
+These chunks exist in only one 4k memory bank.
+
+The size of the chunks is a conditional assembly parameter(only the
+default is guaranteed to work).
+Chunk sizes must be a power of 2(e.g. 4, 10, 20, 40, etc.).
+All chunks begin on a multiple of the chunk size
+
+The first word of all chunks is a link to any additional chunks in the
+string.
+The usual convention is that the sign bit is off in all except the
+last data word in the chunk.
+In general the low order 8bits of a chunk are the actual data, and the
+other bits(except the sign bit) are special flags or unused.
+
+The location FRECNT is the number of free chunks left.
+The location FIRFRE is the first chunk in the string of free chunks.
+DC72 COOKBOOK                                                  Page 29
+7.0 TRACE
+
+
+7.0  Trace
+
+
+
+In order to aid debugging crashes a trace of recent activity is
+maintained.
+If there is an extra 4k bank available the complete 4k will be used.
+If an extra 4k bank is not present the last 128 words in the data
+field will be used for a trace.
+The location BUGGER is used to place entrys into the trace.
+
+Approxiamately once a second (every 64th tick for 8I's, every 128th
+tick for 8e's) an entry of 7777 is made in the trace.
+
+Every non-synch character received by the DP01 is placed in the trace,
+with the sign bit set.
+Currently DP8E input is not placed in the trace.
+
+Every non-idle character sent by the DP01 is placed in the trace.
+Currently DP8E output is not placed in the trace.
+DC72 COOKBOOK                                                  Page 30
+8.0 READING DUMPS
+
+
+8.0  Reading Dumps
+
+
+
+DC72(DC71) crashes should be a rare occurance.
+A history of all station malfunctions should be kept.
+Each station crash should be logged in the history along with the
+crash PC and any other pertinant information.
+
+When the DC72(DC71) program detects an error condition it will execute
+a HLT macro which is a JMS DMPTRP.
+This will save the PC where the error was detected in location DMPTRP.
+The routine after DMPTRP will save the contents of the AC and LINK for
+analysis, and then produce an octal dump on the line printer.
+
+When reading an octal dump first check DMPTRP for the offending PC and
+refer to that location for comments in the program listing.
+DC72 COOKBOOK                                                  Page 31
+9.0 REFERENCES
+
+
+9.0  REFERENCES
+
+
+
+DECsystem-10 Communications Systems Option Bulletin.
+
+
+
+DECsystem-10 DC72 Remote Stations Option Bulletin
+
+
+
+DECsystem-10 Software Notebooks:
+
+       Operating System Commands
+       Monitor Calls Manual
+       System Reference Manual
+       Remote Batch Manual
+       BOOT11 (IN SPECIFICATIONS)
+       DECsystem-10 Operators Guide
+       MPBOPR
+       REMHLP(caution - some information is obsolete)
+
+
+
+Small Computer Handbook
+PDP-8/ instruction set and information about programming PDP-8/
+peripheral devices.
+
+
+
+Introduction to Programming
+Basic PDP-8/ family programming; documents the Binary Loader.
+DC72 COOKBOOK                                                  Page 32
+10.0 Terminology and Abbreviations
+
+
+10.0  TERMINOLOGY AND ABBREVIATIONS
+
+
+
+
+10.1  TERMINOLOGY
+
+DDCMP
+DEC Data Communications Message Protocol, the new synchronous line
+protocol.
+
+DECSYNC
+The currently distributed synchronous protocol.
+
+station
+Either a DC72 or a DC71.
+
+SYSCHK
+A portion of the station code which executes when the program is first
+loaded; this code is overwritten when the station is in contact with
+the DECsystem-10.
+
+tty
+
+
+
+
+
+
+10.2  ABBREVIATIONS
+
+CTY
+The consol TTY on the station.
+
+VFU
+Vertical format unit on a line printer.
+On local printers(e.g. LP10C) this is an 8 channel tape.
+The standard punches for this tape can be found in the DECsystem-10
+System Reference Manual.
+DC72 COOKBOOK                                                  Page 33
+
+
+
+     8CARDS  . . . . . . . . . . . .  11
+
+     Assembling Station Software . .  7
+
+     BINARY LOADER . . . . . . . . .  11
+     BOOT11  . . . . . . . . . . . .  24
+
+     CDRSTK  . . . . . . . . . . . .  24
+     Chunks  . . . . . . . . . . . .  28
+     Clock . . . . . . . . . . . . .  27
+     Configuration File  . . . . . .  7, 9
+
+     D.PAL . . . . . . . . . . . . .  9
+     DC72NP  . . . . . . . . . . . .  5, 7, 9, 11-12
+     DC75  . . . . . . . . . . . . .  24
+     DC75NP  . . . . . . . . . . . .  5
+     DDCMP . . . . . . . . . . . . .  5
+     DECNET-10 . . . . . . . . . . .  5
+     DECSYNC . . . . . . . . . . . .  5, 7
+     Device Control  . . . . . . . .  5
+     Display . . . . . . . . . . . .  27
+     DN85  . . . . . . . . . . . . .  5
+     Down-line load  . . . . . . . .  11-12
+     Dump  . . . . . . . . . . . . .  9, 22, 30
+     DUMP.PAL  . . . . . . . . . . .  9
+
+     ECO . . . . . . . . . . . . . .  6
+     Examining 8 memory  . . . . . .  25
+
+     INITIA  . . . . . . . . . . . .  23
+
+     Line printer carriage control .  6
+     LPTSPL  . . . . . . . . . . . .  23
+
+     Memory parity . . . . . . . . .  27
+
+     NCS . . . . . . . . . . . . . .  5
+     Node Name . . . . . . . . . . .  8
+     Node Number . . . . . . . . . .  8
+
+     OPSER . . . . . . . . . . . . .  23
+
+     PAL10 . . . . . . . . . . . . .  7
+     PAPER TAPE  . . . . . . . . . .  11
+     Program Flow  . . . . . . . . .  27
+     Punching a Binary Deck  . . . .  11
+
+     Reading Dumps . . . . . . . . .  30
+     References  . . . . . . . . . .  31
+
+     SPRINT-10 . . . . . . . . . . .  24
+     SYSCHK  . . . . . . . . . . . .  27
+
+     Terminology . . . . . . . . . .  32
+DC72 COOKBOOK                                                  Page 34
+
+
+
+     Trace . . . . . . . . . . . . .  29
+

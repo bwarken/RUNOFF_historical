@@ -1,0 +1,364 @@
+	+-------+
+	!digital!	 I N T E R O F F I C E	M E M O R A N D U M
+	+-------+
+
+
+	To: John Tivnan       MR1-2/E18    Date: 2-DEC-80
+	
+	CC: Joe Holewa        MR1-1/S35    From: Dick Stockdale
+	    Mark Tighe        TSC/CX
+	    Jack Rosen	      MR1-2/E18    Dept: Large Systems Diagnostics
+
+	                                   DTN: 231-6369  Loc: MR1-2/E68
+
+
+        Subject: KS10 CONSOLE CODE VERSION 5.2
+
+
+	  This memo describes the changes and corrections made to
+	Version	4.2 of the KS10 Proms.  The result is Version 5.2
+	of the Proms. 
+
+	  The  changes  consist of 6 areas.  These are (1) Klinik
+	fixes, (2) ?NXM error  fix, (3) PW recoding, (4) HSB fix,
+	(5) Forced  reload  fixes, and  (6) Power  fail  recovery
+	removal.
+
+	  Klinik fixes consist of fixing the  problems  described
+	in a memo from Mark Tighe (DDC) of 29 Apr 79 and  another
+	problem noticed.  The problem and fixes are  described in
+	the first 5 sections which parallel the problems detailed
+	in the memo.
+
+	  The ?NXM error  appears  on  some CSL boards and not on
+	others.  This  problem  was  brought  up  after I started
+	working on the console code.
+
+	  The PW decoding section was rewritten only to save some
+	additional bytes needed to fit in the ?NXM modifications.
+	The  code  performs  the  same function as before with no
+	visible difference.
+
+	  The Halt Status Block problem is described by Don Dossa
+	in  a memo of 12 Feb 80.  Essentially, what looked like a
+	microcode  problem - the HSB was being written twice, the
+	second time destroying  the  useful  information  in  the
+	first HSB - turns out to be a fault of the 8080 code.
+
+	  The  forced  reload  problem consists of the failure of
+	the 8080 to successfully restart the KS10 after a BUGHLT,
+	a function Version 2.2 of the console code was able to do.
+
+	  Removal of the power fail recovery code allowed most of
+	the above changes to be implemented.
+
+							Page 2
+
+
+
+
+	  An additional change possible but not implemented was a
+	problem  brought  to  my  attention  by Mark Tighe.  This
+	consisted  of software changes to overcome a hardware bug
+	in  an  unknown  but  probably significant number of UART
+	chips  from INTEL.  When the break character is depressed
+	and held down on the CTY, the UART may hang. This results
+	in  a  CTY  that is hung and this can be remedied only by
+	powering down the KS10 and powering it back up. INTEL has
+	since  fixed  the problem in their UARTS.  It is possible
+	in the 8080 code to reset the UART whenever a break char-
+	acter is typed.  Since  the code for initializing the CTY
+	UART is combined  with  that  for initializing the Klinik	
+	UART and so is the error detection combined for both, and
+	since  the changes to implement the correction would take
+	more bytes  than  is  easily freed up (about 10 bytes), I
+	have not made any changes to this.
+
+							Page 3
+
+
+
+
+			I-A.  KLINIK - CTY LOCKOUT
+			--------------------------
+
+      (1) Hanging the CTY from a disabled Klinik line.
+
+      One can dial up on the Klinik line and just hit a character and
+	the repeat button.  The KS-10 will respond with a ?NA as fast
+	as it can.  This will cause all output to stop to the CTY and
+	since TOPS-20 cannot  now do anything with the CTY the system
+	may crash. What the 8080 should do is hangup the line so that
+	this is not possible  and the person on the remote line would
+	have to dial up again.
+
+      This was fixed by causing the 8080  to  hang  up the line after
+	the ?NA.  Instead of returning  to caller via a RET after ?NA
+	is printed, the code  now  hangs  up  the line - so it does a
+	JMP KILL.KLINIK instead of the RET.  [Line 2450 in listing].
+
+      (2) Hanging the CTY
+
+      One can dial up the KS-10 and as a User Mode KLINIK lockout the
+	CTY from output  by typing a character and holding the repeat
+	key  down.  What  is  happening is that the KLINIK line has a
+	higher priority for output than the CTY so if the KLINIK line
+	is constantly busy nothing will be printed on CTY.
+
+      Also, one  could  hang the CTY by just logging in on the Klinik
+	line and doing something.  Occasionally, the CTY would  be in
+	a hung  state until  something was typed on the CTY or on the
+	Klinik line.
+
+      This  was  fixed  by  giving  the KLINIK line and the CTY equal
+	priority  for  output.  In  the code in section 'KS10 to 8080
+	Character Service' the last thing done was to do a JMP TTOCOM
+	which  writes  data  into one of the reserved words  so  that
+	TOPS-20 can do whatever it wants with it. This was changed to
+	a CALL TTOCOM to output the character followed by a DI. Then,
+	with  no  return  given  yet, the 8080 falls through the next
+	section  of  code  which just happens to be the CTY character
+	handling code.  The DI was to  turn  off interrupts while the
+	CTY character (if  there was one) was  being  handled so that
+	output would alternate between KLINIK character and CTY char-
+	acter.  [Line 2300 in listing].
+
+							Page 4
+
+
+
+
+		   I-B.  KLINIK - JOB NOT GETTING DETACHED
+		   ---------------------------------------
+
+      The situation  here is that when the Klinik link is broken by a
+	line  hit  or by hanging up the line, TOPS-20 does not detach
+	the current job.  This  coupled  with  the  password problems
+	described in the next section allow a person to dial up after
+	the line is hung up and get the job which wasn't detached and
+	thereby compromise system integrity.
+
+      The  code  was examined closely and the 8080 code is taking the
+	proper  action upon seeing carrier loss - putting the carrier
+	loss code (3) into word 34 bits 20-27.  The monitor, however,
+	is not acting on this bit so never  detaches  the line.  This
+	problem is less significant with the  password problems fixed
+	because if Klinik is protected  the person dialing in will be
+	challenged for a password.
+
+
+
+			I-C.  KLINIK - PASSWORD BYPASSES
+			--------------------------------
+
+
+      (1) No password asked the second time around.
+      (2) Crashing TOPS-20
+      (3) Taking over TOPS-20
+
+      Points (2) and (3) are problems only by virtue of the fact that
+	an  unauthorized  user  can  become  a duplicate CTY with all
+	attendant  privileges.  At  this point one could execute 8080
+	commands such as MR or HA or with knowledge of TOPS-20, login
+	and compromise the security of the system.
+
+      If someone had dialed in on KLINIK (KL 1) and given password in
+	Protect Mode, subsequent connects would not be challenged for
+	a password.
+
+      This occurred because  at various places in the 8080 code after
+	seeing  carrier  go  away, the  8080 does not adjust the mode
+	that is in (Mode 3) to Mode 2 so that subsequent connects get
+	asked for a password.
+
+							Page 5
+
+
+
+
+      The following sections of code were modified:
+
+	Line 1049 was CNZ HANGUP (in the Null job)
+	Line 2285 was CALL HANGUP (in the 8080/KS10 character service
+	  code where 8080 realizes that the KLINIK comm word  has a 2
+	  which indicates 'hangup')
+	These lines changed  to CNZ KILL.KLINIK and CALL KILL.KLINIK.
+	  KILL.KLINIK is located directly before HANGUP:  and says to
+	  clear KLINIK status word via CLRB KLNKSW.  This  will cause
+	  a reexamination of the status of the 8080 and KLINIK. Hence
+	  a password will be requested in the future.
+
+
+
+		   I-D.  KLINIK - KS10> MODE KLINIK PROBLEMS
+		   -----------------------------------------
+
+      (1) Losing DTR
+
+      DTR would be lost if KS10 was running stand alone (ie. at  the
+	KS10> prompt), KLINIK line was active, and carrier went away
+	for some reason. Since DTR was gone no one trying to call up
+	the KS10 on the KLINIK would succeed.
+
+      This  problem  was  fixed  by  modifying the routine at KLNKLT
+	which reexamines the switches and ensures  that DTR does not
+	go away - it does LDA STATE followed by OUT DTR.
+	[Lines 6879-6880 in listing].
+
+      (2) KL 0 does not hang up the Klinik line.
+
+      What is observed is that when a Klinik link is established and
+	KL is ON, typing KL 0 on the CTY does not hang up the Klinik
+	line.
+
+      This is not a bug. KL command defines per the KS10 Maintenance
+	Guide  whether  or  not  the Klinik user can get into Mode 3
+	(Klinik line is a  duplicate  CTY and can gain access to the
+	8080 at the KS10> prompt).
+
+							Page 6
+
+
+
+
+      (3) Passwords in KS10> mode.
+
+      This  problem  seems  to have been corrected in Version 5.2 of
+	the PROMs, although what was wrong is unknown.  The password
+	checking  and  handling  is  more straightforward in the new
+	version than the old.
+
+      (4) Hanging the Klinik line
+
+      The  problem observed was the Klinik line going into a strange
+	state when the monitor is not running and KL is off.
+
+      There is no apparent problem in the new Version 5.2 of proms -
+	if  KL  is off and monitor is not running, access via Klinik
+	is not possible.  If  someone  at CTY says KL 1, the user on
+	Klinik  can  become a duplicate cty and Klinik is never in a
+	strange state.
+
+
+
+		 I-E.  KLINIK - ADDITIONAL PROBLEMS NOTED
+		 ----------------------------------------
+
+      (1) TT command does not cause a proper mode change.
+
+      If someone at the CTY  resets  password  (hangs  up the KLINIK
+	line also) then says TT, someone  can  call back and not get
+	challenged for a password.  This is because TT automatically
+	put KLINIK  into Mode 2 (assumes that a password has already
+	been given and it was correct) rather than putting  it  into
+	Mode 2 if a password has been given but  into Mode 1 if not.
+
+      This was fixed by adding a little code to the  TT  command  to
+	check  to  see  if the  current  mode is 0 or 1 (no password
+	given yet) and not  putting it into Mode 2 unless already in
+	Mode 2 or 3.  [Lines 4148 - 4151 in listing].
+
+							Page 7
+
+
+
+
+			     II. ?NXM ERROR
+			     --------------
+
+      The problem  appears  immediately after power up when a key is
+	typed  while  waiting  for the KS10> prompt or trying to get 
+	the  prompt.  It also happens, although much more rarely, on
+	power  up when nothing is typed.  This problem occurs during
+	console initialization. The 8080 does an examine bus command
+	in  checking  out the state of the KS10 bus.  In order to do
+	this  it sets the memory latches by doing an examine memory.
+	Occasionally this  examine  causes a NXM.  The 8080 realizes
+	that  if such an error occurs it should not be printed so it
+	puts itself  into  'internal' state in which nothing will be
+	printed on the console.  Then after the examine is done, the
+	8080  turns  off  'internal' state.  When a key is struck an
+	interrupt occurs. During the interrupt processing 'internal'
+	mode  gets shut off.  Then, when a NXM occurs, the 8080 sees
+	that it  is  not in 'internal' mode and prints out the error
+	message.
+
+      This problem was fixed by guaranteing that, when the 8080 does
+	the  examine  memory  and gets a NXM, the ?NXM error message
+	will not be printed regardless of 'internal' on or off.
+	[Lines 883-4, 7357-7362, 7644 in listing].
+
+
+
+			III.  PW RECODING
+			-----------------
+
+      All  that  was needed was more room here, so rather than enter  
+	the  entire password before verifying its correctness, it is
+	verified as it is entered.  [Lines 2456-2590 in listing].
+
+							Page 8
+
+
+
+
+			IV. HALT STATUS BLOCK
+			---------------------
+
+      The  problem  noted  as  described  in Don Dossa's memo in the
+	sequence that occurs in a forced reload:
+
+	(1) KS10 halts, writing the HSB.
+	(2) 8080 notices this and decides to do a forced reload.
+	(3) 8080 loads preboot and builds a JRST 1000 to its start.
+	(4) 8080 sets Execute and Continue in the KS10.
+	(5) KS10 microcode leaves the  halt  loop  and  executes the
+	     JRST 1000.
+	(6) KS10 complete the JRST 1000 and since Run is not set, it
+	     enters the halt loop again and writes another HSB which
+	     destroys the first one which had useful data.
+	(7) 8080  sees  that  the JRST 1000 has been completed so it
+	     sets Continue and Run in the KS10.
+	(8) KS10 now does the preboot
+
+	The error is that the 8080 should have set Run  in  addition
+	to Execute and Continue in the KS10 in Step (4).
+
+      This  problem  is  fixed by setting Run in addition to Execute
+	and  Continue at line 4010 in the 'Execute KS10 instruction'
+	code.  This  causes  a few problems in other portions of the
+	code.  The remaining fixes and the code necessary to get the
+	'Execute KS10 instruction' code to  add in Run is located at
+	lines 1321-22, 4008-9, 4011, 4066-68.
+
+
+
+			V. FORCED RELOAD FIX
+			--------------------
+
+      The  problem  noted is that the 8080 would not sucessfully get
+	the system started again.  What occurred in the 8080 code is
+	that after the 8080 loaded preboot and did the JRST 1000, it
+	attempted to do  a  continue command (the same one as if you
+	typed  it  on the CTY).  The continue code sets Continue and
+	Run.  However, after  executing  the JRST 1000, Continue was
+	already set.  So  when  the 8080 tried to set Continue again
+	it failed and reloading halted at this point.
+
+      This was  fixed  by  not  including Continue when the continue
+	code was executed during a forced reload. See lines 1323-24,
+	4044-46 or the code changes.
+							Page 9
+
+
+
+
+		    VI. POWER FAIL RECOVERY REMOVAL
+		    -------------------------------
+
+      This  was  very  straightforward removal of code.  It was made
+	possible by  the decision to not support power fail recovery
+	on the 2020.
+
+      See lines 902-934 and 963-968 for the code changes.
+

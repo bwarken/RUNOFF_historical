@@ -1,0 +1,400 @@
+.variable foa f e
+.title PUTTING STATISTICS INTO A SIMULA PROGRAM
+.if foa
+.nofill
+NATIONAL DEFENSE RESEARCH INSTITUTE##FOA 1 REPORT
+S-10450 STOCKHOLM 80#################C10030-M3(E5)
+SWEDEN###############################August 1975
+.fill
+.endif foa
+.skip 3
+PUTTING STATISTICS INTO A SIMULA PROGRAM
+.p 0,2,5
+.ifnot foa
+By Jacob Palme, Swedish National Defense Research Institute,
+S-104 50 Stockholm 80, Sweden.
+.else foa
+By Jacob Palme
+.endif foa
+.p 0,2,5
+ABSTRACT: Statements for outputting a trace of what happens
+during a simulation, and for collecting statistics to be output
+after the end of the simulation, should not clutter up the
+main logic of the simulation program.
+.p 0,1,5
+This paper shows with a simple example how a SIMULA program
+can be structured such that that the tracing and
+statistics and the main logic of the simulation program
+are partioned into different segments of
+the program.
+.p 0,1,5
+The paper will, at the same time, show the general
+facilities which SIMULA has for this kind of program
+structuring.
+.if foa
+.p 0,2,5
+SEARCH KEY: SIMULA, GPSS, simulation, computer, program,
+programming language, structured programming, level programming,
+tracing, statistics, output.
+.p 0,2,5
+SWEDISH ABSTRACT: Satser f`r att skriva ut en l`pande redog`relse
+f`r vad som h{nder under en simulering, och f`r att samla statistik
+som skall skrivas ut efter simuleringens slut, b`r inte kluttra upp
+den centrala logiken hos simuleringsprogrammet.
+.p 0,1,5
+Denna rapport visar med ett enkelt exempel hur ett SIMULA-program
+kan struktureras s} att resultatutskrifter
+och statistiksammanst{llning placeras i ett programsegment, medan
+den centrala logiken i simuleringen placeras i ett annat programsegment.
+.p 0,1,1
+Exemplet inneb{r samtidigt en illustration av de programstruktureringsmetoder
+som finns i SIMULA f`r att m`jligg`ra detta slag av uppdelningar.
+.page
+.else foa
+.p 0,3,5
+.endif foa
+A necessary part of a simulation program is code to
+produce output information about what is happening
+during the simulation. You may require both different kinds
+of traces of events during the simulation, and statistical
+analysis at the end of the simulation about mean queue lengthes,
+total cost etc.
+.p 0,2,5
+Simulation programs will generally have a complex structure,
+closely related to the structure of the reality which we want to
+simulate.
+.p 0,2,5
+Important is that the simulation program will give
+a good picture of the reality model, where a reader can easily
+see the relationship between the reality model and the program.
+This makes program testing, validation and development easier and
+more secure.
+.p 0,2,5
+If statements for tracing and statistics are put directly
+into the simulation program, they will often make it much longer
+and less readable. The large amount of tracing and statistics
+statements necessary will clutter up the program and hide the
+central logic structure of the model.
+This is therefore not a good way of putting tracing and statistics
+into a simulation program.
+.p 0,2,5
+There are two common solutions to this problem. One is to include
+automatic standard statistics e.g. on queue lengthes into the
+simulation language automatically. The user will then get the
+statistics without having to write anything about it.
+.p 0,2,5
+This method is used e.g.#in GPSS. The disadvantage is that
+the standard statistics is not always what the
+user really wants. The user may therefore have to manually
+process the output from the simulation to get the figures
+he really wants.
+.p 0,2,5
+Another solution is to use a programming languages which
+allows the user to write his program on several levels, each
+level defining concepts used on a higher level.
+.p 0,2,5
+Then the user
+can himself, at one level, define concepts for queues, processes,
+events etc.##such that they will automatically produce the kind
+of tracing and statistics he wants.
+.p 0,2,5
+At a higher level, the user can thereafter use the new concepts
+to define his simulation model. On this level, the program
+need not be cluttered up with tracing and statistics.
+The logical structure of the model is thus not hidden. And the
+user will still get just the tracing and statistics he wants.
+.p 0,2,5
+This second solution is the natural one in SIMULA, since SIMULA
+has good facilities for defining new concepts at one level,
+and then using them at another level for writing
+a simulation program.
+.p 0,2,5
+To illustrate this, here is a small simulation
+program, written in SIMULA, which unfortunately does not contain
+any tracing and statistics, and which thus is not very useful
+as it stands.
+.p 0,2,5
+The program example simulates three loading platforms, one at
+a harbour, one at a store and one at a factory, and trucks
+which move between the harbour,
+the store and the factory.
+.p 0,2,5
+.nofill
+.page
+BEGIN
+  REAL simulation__duration;
+  simulation__duration:= 200;
+  simulation BEGIN
+    REF (platform) harbour, store, factory;
+    INTEGER i, u;
+.skip
+    process CLASS truck;
+    BEGIN
+      WHILE TRUE DO
+      BEGIN
+        hold(harbour.travel__time);
+        ACTIVATE harbour DELAY 0; wait(harbour.queue);
+        IF draw(0.5,u) THEN
+        BEGIN
+          hold(store.travel__time);
+          ACTIVATE store DELAY 0; wait(store.queue);
+        END ELSE
+        BEGIN
+          hold(factory.travel__time);
+          ACTIVATE factory DELAY 0; wait(factory.queue);
+        END;
+      END;
+    END of truck;
+.skip
+    process CLASS platform(platform__time, travel__time);
+    REAL platform__time, travel__time;
+    BEGIN
+      REF (head) queue;
+      queue:- NEW head;
+      WHILE TRUE DO
+      BEGIN
+        INSPECT queue.first WHEN truck DO
+        BEGIN
+          out; hold(platform__time);
+          ACTIVATE THIS truck;
+        END OTHERWISE passivate;
+      END;
+    END of platform;
+.skip
+    harbour:- NEW platform(10,20); ACTIVATE harbour;
+    store:- NEW platform(15,20); ACTIVATE store;
+    factory:- NEW platform(17,20); ACTIVATE factory;
+    FOR i:= 1 STEP 1 UNTIL 5 DO ACTIVATE NEW truck;
+    hold(simulation__duration);
+  END of simulation;
+END of program;
+.fill
+.p 0,2,40
+The program uses the predefined concepts "process" and
+"head" in SIMULA.
+.p 0,2,5
+"process" is a quasiparallel process,
+on which the program operates with statements like "hold", to
+delay the process a certain time interval, and "ACTIVATE",
+to start another process at a certain time, and "wait", to
+make a process wait in a queue to be activated later.
+.p 0,2,5
+"head" is a queue, on which the program operates with
+statements like "wait" to put a process into a
+queue, and "out" to remove a process from a queue.
+.p 0,2,5
+To illustrate how tracing and statistics can be put into
+the program above without cluttering up the program itself,
+I have modified the program to produce a trace
+whenever a process delays itself, and
+whenever a process enters or leaves a queue.
+.p 0,2,5
+I have also
+added statements to compute the mean length of each queue and
+output this after the end of the simulation.
+.p 0,2,5
+I have done this by redefining the built-in concepts
+"process" and "head" into new concepts "s__process"
+and "s__queue" which will produce the tracing and statistics.
+.p 0,2,5
+This is very easy to do in SIMULA, since by writing
+"process CLASS s__process" I can in SIMULA define a new concept
+which has all the properties of the previously defined concept
+"process" plus the additional properties for tracing and
+statistics.
+.p 0,2,5
+After the addition of these new concepts, the high level
+simulation program need only be slightly modified as follows.
+The reader is invited to compare this program, which will produce
+tracing and statistics,  with the
+previous program without any statistics or tracing at all.
+.p 0,2,5
+.nofill
+.page
+REAL simulation__duration;
+simulation__duration:= 200;
+statisticssimulation BEGIN
+  REF (platform) harbour, store, factory;
+  INTEGER i, u;
+  s__process CLASS truck;
+  BEGIN
+    WHILE TRUE DO
+    BEGIN
+      s__hold(harbour.travel__time,"LEAVING FOR HARBOUR");
+      ACTIVATE harbour DELAY 0; s__wait(harbour.queue);
+      IF draw(0.5,u) THEN
+      BEGIN
+        s__hold(store.travel__time,"LEAVING FOR STORE");
+        ACTIVATE store DELAY 0; s__wait(store.queue);
+      END ELSE
+      BEGIN
+        s__hold(factory.travel__time,"LEAVING FOR FACTORY");
+        ACTIVATE factory DELAY 0; s__wait(factory.queue);
+      END;
+    END;
+  END of truck;
+  s__process CLASS platform(platform__time, travel__time);
+  REAL platform__time, travel__time;
+  BEGIN
+    REF (s__queue) queue;
+    queue:- NEW s__queue(nameid);
+    WHILE TRUE DO
+    BEGIN
+      INSPECT queue.first WHEN truck DO
+      BEGIN
+        s__out; s__hold(platform__time,"LOADING OR UNLOADING");
+        ACTIVATE THIS truck;
+      END OTHERWISE passivate;
+    END;
+  END of platform;
+  harbour:- NEW platform("HARBOUR",1,10,20);
+  ACTIVATE harbour;
+  store:- NEW platform("STORE",1,15,20);
+  ACTIVATE store;
+  factory:- NEW platform(FACTORY",1,17,20);
+  ACTIVATE factory;
+  FOR i:= 1 STEP 1 UNTIL 5 DO
+  ACTIVATE NEW truck("TRUCK",i);
+  hold(simulation__duration);
+  outimage;
+  outtext("END OF SIMULATION"); write__time;
+  outimage;
+  harbour.queue.write__mean__length;
+  store.queue.write__mean__length;
+  factory.queue.write__mean__length;
+END of simulation;
+.fill
+.p 0,2,5
+The main difference between this program and the previous one is
+that certain small text sequences are inserted into the program.
+These text sequences are used as part of the tracing and statistics
+output messages.
+.p 0,2,5
+Here is a short excerpt of the tracing and statistics
+messages which the modified program will produce.
+.p 0,2,25
+.nofill
+TRUCK NO.  2 WILL BE LEAVING FOR HARBOUR TIME: 175.
+QUEUE AT STORE SIZE  0 TIME: 175.
+STORE NO.  1 WILL BE LOADING OR UNLOADING TIME: 175.
+QUEUE AT FACTORY SIZE  0 TIME: 180.
+FACTORY NO.  1 WILL BE LOADING OR UNLOADING TIME: 180.
+TRUCK NO.  4 INTO QUEUE AT FACTORY TIME: 180.
+QUEUE AT FACTORY SIZE  1 TIME: 180.
+TRUCK NO.  5 INTO QUEUE AT STORE TIME: 190.
+QUEUE AT STORE SIZE  1 TIME: 190.
+TRUCK NO.  3 WILL BE LEAVING FOR HARBOUR TIME: 190.
+.skip
+END OF SIMULATION AT TIME: 200.
+.skip
+QUEUE AT HARBOUR SIZE  1 TIME: 200.
+QUEUE AT HARBOUR MEAN LENGTH   0.9 UNTIL TIME: 200.
+QUEUE AT STORE SIZE  0 TIME: 200.
+QUEUE AT STORE MEAN LENGTH   0.4 UNTIL TIME: 200.
+QUEUE AT FACTORY SIZE  0 TIME: 200.
+QUEUE AT FACTORY MEAN LENGTH   0.4 UNTIL TIME: 200.
+	
+1 Garbage collection executed during 42 ms
+.skip
+End of DECsystem-10 SIMULA program execution.
+CPU time: 1.84	Elapsed time: 9.58 
+.skip
+.fill
+.p 0,2,5
+Here is the program section which defines the new concepts
+for tracing and statistics, "s__process" and "s__queue":
+.p 0,2,5
+.nofill
+.page
+simulation CLASS statisticssimulation;
+COMMENT same as "simulation" plus automatic tracing
+and production of queue statistics;
+BEGIN
+.skip
+  PROCEDURE write__time;
+  BEGIN
+    outtext(" TIME:"); outfix(time,0,4);
+    outchar('.'); outimage;
+  END;
+.skip
+  process CLASS s__process(nameid, number);
+  COMMENT same as "process" but has name and
+  number to be used in output messages;
+  VALUE nameid;
+  TEXT nameid; INTEGER number;
+  BEGIN
+    REF(s__queue) my__queue;
+    PROCEDURE s__out;
+    INSPECT my__queue DO
+    BEGIN
+      increase__queuelength(-1);
+      out; my__queue:- NONE;
+    END of s__out;
+  END of s__process;
+.skip
+  head CLASS s__queue(nameid);
+  COMMENT same as "head" but trace messages
+  are given when the queue length is changed,
+  and queue length statistics are collected;
+  VALUE nameid; TEXT nameid;
+  BEGIN
+    INTEGER queuelength;
+    REAL previous__time, length__integral;
+.skip
+    PROCEDURE increase__queuelength(plus); INTEGER plus;
+    BEGIN
+      length__integral:=
+      length__integral+queuelength*(time-previous__time);
+      previous__time:= time;
+      queuelength:= queuelength+plus;
+      outtext("QUEUE AT "); outtext(nameid);
+      outtext(" SIZE");
+      outint(queuelength,3); write__time;
+    END of increase__queuelength;
+.skip
+    PROCEDURE write__mean__length;
+    BEGIN
+      increase__queuelength(0);
+      outtext("QUEUE AT "); outtext(nameid);
+      outtext(" MEAN LENGTH ");
+      outfix(length__integral/time,1,5);
+      outtext(" UNTIL"); write__time;
+    END;
+  END;
+.page
+  PROCEDURE s__hold(the__time, place);
+  COMMENT same as "hold" but writes a trace message
+  for every event during the simulation;
+  NAME place; REAL the__time; TEXT place;
+  BEGIN
+    INSPECT current WHEN s__process DO
+    BEGIN
+      outtext(nameid); outtext(" NO.");
+      outint(number,3);
+      outtext(" WILL BE "); outtext(place);
+      write__time;
+    END;
+    hold(the__time);
+  END of s__hold;
+.skip
+  PROCEDURE s__wait(queue);
+  COMMENT same as "wait" but writes trace message
+  when a queue is entered, and updates queue statistics;
+  REF(s__queue) queue;
+  BEGIN
+    INSPECT current WHEN s__process DO
+    BEGIN
+      my__queue:- queue;
+      outtext(nameid); outtext(" NO.");
+      outint(number,3);
+    END;
+    INSPECT queue DO
+    BEGIN
+      outtext(" INTO QUEUE AT "); outtext(nameid);
+      write__time;
+      increase__queuelength(1);
+    END;
+    wait(queue);
+  END of s__wait;
+END of statisticssimulation;
+.page

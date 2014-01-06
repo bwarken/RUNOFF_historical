@@ -1,0 +1,2597 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a  comitment by Digital Equipment
+Corporation.  Digital Equipment Corporation assumes no  responsibility
+for and errors that may appear in this document.
+
+The software described in this document is furnished under  a  license
+and  may  be  used or copied only in accordance with the terms of such
+license.
+
+Digital Equipment Corporation assumes no responsibility for the use or
+reliability  of  its  software  on  equipment  that is not supplied by
+DIGITAL.
+
+     Copyright (C) 1974,1979 by Digital Equipment Corporation
+
+The following are trademarks of Digital Equipment Corporation:
+
+DIGITAL        DECsystem-10   MASSBUS
+DEC            DECtape        OMNIBUS
+PDP            DIBOL          OS/8
+DECUS          EDUSYSTEM      PHA
+UNIBUS         FLIP CHIP      RSTS
+COMPUTER LABS  FOCAL          RSX
+COMTEX         INDAC          TYPESET-8
+DDT            LAB-8          TYPESET-10
+DECCOMM        DECsystem-20   TYPESET-11
+                                                                Page 2
+
+
+                          table of contents
+
+
+  1.0 overview                                             3
+  1.1 precepts and document organization                   3
+  1.2 arrays, strings, and string operations               4
+  1.3 usage of "strlib"                                    6
+  2.0 declarative conventions and the string data-types    8
+  2.1 storage allocation                                   8
+  2.2 data-typing of strings                               8
+  2.3 string pointers                                     10
+  2.4 bounds checking                                     11
+  3.0 the level-1 routines                                12
+  3.1 the comparative routines                            14
+  3.2 the copying routines                                15
+  3.3 routines which return substrings                    16
+  3.4 the routines which search strings                   18
+  3.5 miscellaneous routines                              20
+  4.0 level-2 related terminology                         24
+  4.1 subsidiary values                                   24
+  4.2 data-directed routines -- "mode" values             24
+  4.3 character search terminology                        25
+  4.4 comparing strings of different lengths              26
+  5.0 the level-2 routines                                27
+  5.1 the data-directed comparative routine               27
+  5.2 the data-directed copying routines                  29
+  5.3 the data-directed string searching routine          32
+  5.4 character-searching                                 35
+  5.5 conversions and mappings                            39
+  6.0 error conditions                                    44
+  6.1 the defined conditions                              42
+  7.0 implementation characteristics                      46
+  7.1 "strlib" configurations                             46
+  8.0 a programming example                               48
+                                                                Page 3
+
+
+1.0 overview
+
+this document describes the character string manipulation facilities
+provided for the fortran-10 user by the string manipulation package,
+"strlib".  this initial section is devoted to outlining the interface
+between the fortran user and "strlib" and to developing the
+operational primitives upon which most string usage is based.
+
+1.1 precepts and document organization
+
+historically, fortran has been word-oriented.  but whereas the line
+between "word-machines" and "character-machines" has softened under
+the pressure of user needs, fortran has lagged behind.  
+
+          consequently the bulk of the string
+          manipulating capabilities one would like
+          to have must be grafted onto fortran in
+          a manner which is essentially
+          transparent to the source language
+          syntax.
+
+in other words, one must use subprograms in lieu of string
+manipulating statements, and one must establish conventions
+by which the existing data-typing and storage allocating
+mechanisms of fortran (e.g.  "integer" statement,
+"dimension" statement) can be used to describe strings to a
+string manipulation package.  the declarative conventions
+employed by "strlib", and also the role of literals, are
+discussed in section two of this document.
+
+the routines constituting the string manipulation package
+are divided into two groups.  the two groups will
+respectively be labeled the level-1 routines and the level-2
+routines.  the distinction is made purely for expositional
+clarity.  the level-1 routines are intended to provide the
+"basic" string manipulation capabilities, and the level-2
+routines provide either more specialized routines or more
+efficient mechanisms for performing certain operations.
+however the added capability of level-2 is achieved at the
+cost of a more complicated user interface and additional
+terminology.  section three is devoted to developing the
+level-1 routines and sections four and five will
+respectively introduce the additional terminology and
+describe the level-2 routines.
+
+section six is important as a reference since it contains a
+description of each of the run-time warnings which "strlib"
+can generate.  it also tells how to control the amount of
+error checking which is done.  section seven can be skipped
+by most readers since it is used to delve into some of the
+internal workings of string and to suggest how "strlib" can
+be used in other than the fortran environment.
+
+section eight contains two commented programming examples
+which illustrate many of the capabilities within "strlib".
+                                                                Page 4
+
+
+1.2 arrays, strings, and string operations
+
+a string is to a character approximately what an array is to
+a word.  and in fact, even though the character-referencing
+routines have not been given names that reflect it, one can
+think of a string as an array of characters.  for
+expositional purposes this analogy will be taken advantage
+of -- i.e.  the familiar subscript notation will be used to
+denote the characters of a string and to introduce the basic
+string operations.
+(note:  within this document a string constant (i.e.
+ literal) will be represented as it is within a fortran
+ program -- enclosed in single quotes.  for example, 'zzz'
+ is a string constant in the same sense that 3 is a numeric
+ constant.  also the term, "length of a string", will be
+ used interchangeably with the term, "the number of
+ characters in a string" -- e.g.  the length of 'abcde' is
+ five.)
+
+1.2.1 concatenation
+
+
+def.  1.1 concatenation is the string operation for
+combining a group of strings together into a single string.
+(!!) will be used to denote the infix concatenation
+operator.
+
+in terms of arrays, "c = a !!  b" means the following:
+
+                dimension a(5),b(6),c(11)
+                do 100 i=1,5
+        100     c(i)=a(i)
+                do 200 i=6,11
+        200     c(i)=b(i-5)
+
+thus b(1) is made to immediately follow a(5) within (c).
+similarly " 'aaabbbccc' = 'aaa' !!  'bbb' !!  'ccc' ".
+
+1.2.2 lexical comparisons
+
+just as it is useful to compare numbers, it is useful to
+compare strings.  however the mechanism of comparison is
+slightly different in that string comparison is character by
+character and left justified.  on the other hand there are
+six basic lexical relational operators just as there are six
+numeric relational operators.  that is, one string can be --
+equal to, not equal to, greater than, less than, greater
+than or equal to, or less than or equal to -- a second
+string.
+
+in the descriptions which follow, it is always assumed that
+the two strings are of equal length.  
+
+def.  1.2.  two strings are considered equal if each
+character in the first string is equal to the corresponding
+                                                                Page 5
+
+
+character in the second string (e.g.  'abd' = 'abd', but
+'abc' not = 'abd').
+
+def.  1.3 thru 1.7.  the comparative rule -- in terms of
+arrays -- for ".op." equaling one of .ne., .lt., .gt., .ge.,
+or .le.  is as follows:
+
+                dimension a(n),b(n)
+                do 100 i=1,n
+                if a(i) .op. b(i) goto success
+                if a(i) .ne. b(i) goto failure
+        100     continue
+
+in other words "a .op.  b" succeeds if and only if the first
+encountered unequal pair of characters is related by ".op.".
+for example, 'abd' is greater than 'abcc' because the first
+unequal character pair -- respectively 'd' and 'c' -- is
+such that the character in the first string is greater than
+the character in the second string.
+(note:  for strings, each a(i) and each b(i) is constrained
+ to be in the range, zero to 2**n-1, where (n) is the number
+ of bits in a character (i.e.  for ascii, the range is
+ 0-127)).
+
+(note:  all comparative routines use the full character set.
+ for instance, capital "a" is in no way considered equal to
+ little "a").
+
+1.2.3 parts of strings
+
+the converse of the concatenation operation is the ability
+to deal with parts of a string.  
+
+def.  1.8.  a substring of a string is any contiguous group
+of characters within the containing string.
+
+for instance, 'bbb' is a substring 'aaabbbccc'.  in the
+array example following, (b) is caused to equal the 2nd thru
+5th elements of (a).
+
+                dimension a(11),b(4)
+                do 100 i=2,5
+        100     b(i-1)=a(i)
+
+1.2.4 input/output
+
+although input/output is not strictly a string operation,
+the word orientation of fortran does make it necessary to
+make some provision of word-orienting strings for output and
+"un-word-orienting" them for input.  the concept in "strlib"
+central to this issue is that of "storage block", and
+storage blocks are discussed in sections 2.1 and 2.2.
+additionally the routines which most closely relate to this
+issue are "bldstr" for input (see section 3.5) and "alnstr"
+for output (see section 3.1).
+                                                                Page 6
+
+
+1.2.5 the null string
+
+def.  1.9.  the null string is any string with length of
+zero.
+
+the null string can be used locate a point within a string,
+and the usefulness of this will be seen in the examples of
+sections three and five.  a user can create a null string in
+several ways.  the three direct ways -- in the sense that
+one explicitly sets string length to zero -- are to use
+"bldstr", "setstr", or "vecstr" which are described in
+section three.
+
+1.3 usage of "strlib"
+
+the capabilities of the string manipulation package "strlib"
+are accessible to the fortran programmer as user functions
+and/or user subroutines, and the package exists as a library
+file named "string.rel".  for example, to use "strlib" from
+"ccl" one could type:
+
+         .load user.prg,string/lib
+
+and to use it from "link" one could type:
+
+         .r link
+         *user.prg,string/sea/go
+
+the location of "strlib" is obviously installation
+dependent, but normally one would expect it to be either
+"sys:" or "new:".
+
+within "strlib" a naming convention is upheld for the
+routine names.  each routine name consists of three
+descriptive letters followed by either "str" or "chr",
+whichever is applicable.  for example, there is "copstr" and
+"fndchr".
+
+an alphabetical list of the level-1 routines in "strlib" is
+as follows:
+
+ aftstr         allstr          alnstr          befstr
+ bldstr         bndstr          catstr          copstr
+ eqlstr         geqstr          gtrstr          lenstr
+ leqstr         lesstr          relstr          repstr
+ revstr         setstr          trcstr          vecstr
+ whistr         appstr
+
+the list of level-2 routines is:
+
+ aftchr         allchr          befchr          chkstr
+ cmbstr         cmpstr          cnvstr          fndchr
+ fndstr         mapstr          tabstr          taostr
+ tazstr         tofstr          tonstr          whichr
+ copchr
+                                                                Page 7
+
+
+2.0 declarative conventions and the string data-types
+
+just as their are several numeric data types (e.g.  real,
+complex), it is useful to define more than one string data
+type.  but as noted in section one, it is necessary to use
+the existing data types of fortran in conjunction with
+conventions while achieving this.  similarly it is necessary
+to use the existing storage allocation mechanisms of
+fortran, and these are outlined next.
+
+2.1 storage allocation
+
+within fortran one can allocate storage in essentially three
+ways:
+
+1) in a data-typing statement (i.e.  integer, real)
+2) in a array dimensioning statement (e.g.  dimension
+   statement)
+3) by using a constant (or literal) in an executable
+   statement.
+
+aside from obvious length restrictions as regards
+unsubscripted scalars, all of these mechanisms can be used
+to allocate strings.  however it is necessary to recall the
+word orientation of fortran;  if one uses the statement
+"dimension a(6)" to allocate space for a string, one has
+actually allocated space for thirty (ascii) characters since
+there are five characters per word.
+
+2.2 data-typing of strings
+
+before enumerating the string data-types, argument passing
+must be discussed since it is via this mechanism that all
+communication between the fortran programmer and "strlib"
+occurs.  there are four classes of arguments that one will
+have occasion to pass to "strlib".
+
+1) fixed-point numbers.  
+2) storage blocks.  these can be created by any of the
+   mechanisms discussed in section 2.1 and can be declared
+   with any data type.
+3) bit masks.  these are one word quantities in which each
+   bit position carries independent information -- only a
+   user of level-2 routines need be cognizant of this sort
+   of argument.
+4) strings.  again note that it is only for arguments that
+   are expected to be strings that "strlib" will do any
+   data-type checking.
+
+the data-typing conventions are as follows:
+
+1) a string argument which has been typed either "real" or
+   "integer" will be treated as a string of length five
+   (irrespective of any dimensioning).  for example:
+                                                                Page 8
+
+
+                integer istr
+                real    rstr
+                rstr='happy'
+                istr='days'
+                call a-string-routine (rstr)
+                call a-string-routine (istr)
+
+   the first call passes the string 'happy', and the second
+   call passes the string 'days '.  note that fortran will
+   blank pad in the assignment " istr='days' ".  
+   similarly " istr='' " will set "istr" equal to five
+   blanks.
+
+2) a string argument which has been typed "double precision"
+   will be treated as a string of length ten (irrespective
+   of any dimensioning).
+
+3) a string argument which has been typed "logical" will be
+   treated as a data-varying string.  a data-varying string
+   has the property that the length of the string is stored
+   in the word preceding the string.  
+   (note:  the maximum possible length that can be specified
+    for a data-varying string is 2**18-1 characters.)
+
+   storage is normally allocated for a data-varying string
+   by a dimensioning statement of some sort.  also one must
+   be careful to allocate room for the character count as
+   well.
+   consider an example:
+
+                dimension l(7)
+                logical l
+        100     l(1)=9
+        200     call a-string-routine( l(2) )
+        300     l(1)=5
+        400     call a-string-routine( l(2) )
+
+   the above program excerpt allocates a word for the
+   character count (i.e.  l(1)) and space for a string of
+   thirty characters starting at l(2).  the statement at 100
+   causes the call at 200 to treat l(2) as the starting
+   point of a string which currently contains nine
+   characters, and the statement at 300 causes the
+   invocation of "a-string-routine" at 400 to treat l(2) as
+   a string of length five.
+
+4) a string argument which has been typed "complex" will be
+   treated as a "string pointer".  the idea of a string
+   pointer is very important to the internal workings of the
+   string manipulation package, but it is possible to give a
+   casual user a "black box" description of what string
+   pointers make possible without going into the nature of a
+   string pointer.  this will be done here and a more
+   detailed description will be delayed until the next
+   section, section 2.3.
+                                                                Page 9
+
+
+   the power of string pointers is inherent in the way
+   fortran-10 currently defines the concept of "function".
+   within fortran, a function is a subprogram which
+   (computes and) returns a value in hardware registers zero
+   (and one).  consequently to avoid the necessity of having
+   to say something like:
+
+        call copy-string(tstring,any-string,2,13)
+        iyesno=equal-string(tstring,string2)
+
+   as opposed to:
+
+        iyesno=eql-string(sub-string(any-string,2,13),string2)
+
+   one must be able to pass the information communicated by
+   an arbitrary length string within an actual argument
+   containing one or two words.  and this is exactly what a
+   string ptr does allow.  also string pointers allow
+   references to (sub)strings to be made without copying the
+   substring into a user variable or temporary area.
+
+   there are several routines in "strlib" which return
+   string pointers (see sections three and five).  to use
+   these routines as "black boxes" (i.e.  as though they
+   return strings), one need only do two things.
+
+   a) declare these routines as "complex".
+   b) use these routines only as arguments to other "strlib"
+   routines.
+
+5) a fortran literal (i.e.  hollerith constant) will be
+   treated by each of the routines of "strlib" as a string
+   constant.  however the word orientation of fortran is
+   such that all literals are given a length which is a
+   multiple of five characters.  for example 'aaabbbc' will
+   be right padded with three blanks so that its length will
+   be ten.  to circumvent the unavailability of exact length
+   string constants, there is a routine in "strlib" to
+   truncate (strip) trailing blanks from a string, and it is
+   called "trcstr".  note that "trcstr" is one of the string
+   pointer returning routines.
+
+(note:  a literal may appear anywhere any other string can.
+ consequently "strlib" will attempt to overwrite a literal
+ which is used as the destination of one of the string
+ modifying routines.)
+
+2.3 string pointers
+
+what information precisely describes a string?  there are
+essentially two things one must know.  first of all, one
+must know where the string starts -- i.e.  the address of
+its first character.  secondly since a string can be an
+arbitrary number of characters, one has to know its length.
+consequently a string pointer contains a byte pointer (as
+                                                               Page 10
+
+
+its first word) since this is the decsystem-10's mechanism
+of dealing with characters (i.e bytes), and its second word
+contains the number of characters in the string pointed at.
+
+what does a string pointer point at?  it points at a user
+allocated storage block.  in other words, the processes of
+declaring a string pointer and allocating storage for the
+string pointed at are independent of one another.  in order
+to transform a storage block and a desired initial length
+into a string pointer, one must use the routine called
+"bldstr".  this routine is described in detail in section
+three.  for example:
+
+                dimension block(11)
+                complex bldstr,strptr
+                data initl/26/
+                strptr=bldstr(block,initl,0)
+
+this example builds a string pointer which points at "block"
+and has initial length of twenty-six.  note that there is
+room for 11*5 = 55 characters however.
+
+2.4 bounds checking
+
+just as it is possible to reference an array element which
+is out of bounds of the array's storage allocation, it is
+possible to reference or attempt to modify a character which
+is outside of the allocated length of a string.  a user of
+"strlib" can cause bounds checking of string usage to occur,
+when string pointers or data-varying strings are used, by
+specifying a maximum length for the string when a call to
+either "bldstr" or "setstr" is made -- see section 3.5 for
+details.  also for string variables typed "integer", "real"
+and "double precision", bounds checking is always done as a
+side effect of the fixed-length nature of these sorts of
+string variables.
+
+whenever a routine of "strlib" detects an out-of-bounds
+reference it will print a warning message on the user's
+console -- see section six for a description of the warning
+messages.
+                                                               Page 11
+
+
+3.0 the level-1 routines
+
+the routines in "strlib" communicate information to their
+callers in one of four ways.  the rest of this section will
+be used to introduce these methods of communication and
+enumerate the routines which fall into each class (including
+level-2 routines).  then in sections 3.1 thru 3.5 the
+level-1 routines will be grouped by function and described
+individually.
+
+3.01 string-modifying routines
+
+since arbitrary length strings can not be returned by
+functions, text movement has to occur by modification of one
+of the arguments specified in the invokation of a
+string-modifying routine.  for each of the string modifying
+routines, the string to be modified is the first argument of
+the routine.
+
+the second point about the string-modifying routines is that
+each is (potentially) aware of an attempt to overflow the
+destination string.  when one does overflow the
+destination-string in a call to one of these routines, the
+not out-of-bounds string movement does occur, and the
+routine will return a zero to indicate that string movement
+was not completed.  completion of string movement is
+signalled by returning -1 rather than 0.  for example, let
+s1 be a string whose maximum is 12 characters and let s2 be
+a string whose maximum is 20 characters:
+
+        integer modif-routine
+        i1=modif-routine(s1,'is 15 characs ')
+        i2=modif-routine(s2,'is 15 characs ')
+
+the first call would overflow (s1) and leave it equal to 'is
+15 charac' and set i1 to equal 0.  the second call would run
+to completion and leave i2 equal to -1 and s2 equal to 'is
+15 characs '.
+
+the string modifying routines are:
+
+ alnstr         appstr          catstr          chkstr
+ cmbstr         cnvstr          copchr          copstr
+ mapstr         repstr          revstr
+
+(note:  "alnstr" is a special case in that the destination
+ is a storage block rather than a string.
+ note:  "copstr" and "copchr" are special in that they
+ return no completion value.
+ note:  "revstr" returns a string pointer rather than a
+ completion value.
+ note:  "repstr" leaves the destination string unchanged if
+ the replace cannot succeed.
+ note:  if one has no need to worry about out-of-bounds
+ references, one can invoke a string-modifying routine as a
+                                                               Page 12
+
+
+ subroutine rather than as a function if that is desired.)
+
+3.02 routines which return a truth value or integer
+
+these routines should be declared as integer functions;
+they return information rather than strings.  the simplest
+example is "lenstr" which simply returns the number of
+characters in its argument.  consider some examples:
+
+        integer eqlstr,lenstr
+        if (eqlstr(string1,string2)) go to are-equal
+        i=eqlstr(string1,string2)
+        if (i.eq.-1) go to are-equal
+        j=lenstr(string1)
+        if (j.gt.lenstr(string2)) goto s1-longer
+
+the information returning routines are:
+
+ cmpstr         eqlstr          fndchr          fndstr
+ geqstr         gtrstr          lenstr          leqstr
+ lesstr         neqstr
+
+(note:  some of these routines return subsidiary information
+ -- e.g.  a second integer.  the mechanism by which this is
+ done and the description of each type of subsidiary
+ information will be presented in section five.  for the
+ purposes of section three, each level-1 routine returns
+ either an integer or a truth-value).
+
+3.03 routines which return string pointers
+
+this class of routines was introduced in sections 2.2 and
+2.3.  the following are the routines which return string
+pointers:
+
+ aftchr         aftstr          allchr          allstr
+ befchr         befstr          bldstr          bndstr
+ relstr         revstr          trcstr          vecstr
+ whichr         whistr
+
+(note:  allchr and allstr are special cases in that each
+ actually sets up three string pointers -- one of which is a
+ return value and two of which are arguments passed to them
+ by the user.
+ note:  some of these routines can "fail".  when one does,
+ double zero is returned rather a string pointer.)
+
+3.04 routines invoked as subroutines rather than functions
+
+these routines are somewhat miscellaneous.  their
+commonality is that each communicates with its caller only
+by modifying one of its arguments.  the routines in this
+class are:
+
+ setstr         tabstr          taostr          tazstr
+                                                               Page 13
+
+
+ tofstr         tonstr
+
+(note:  "copstr", and "cnvstr" under certain circumstances,
+ can be viewed as belonging to this class.)
+
+3.1 the comparative routines
+
+these six routines implement the relational operators
+discussed in section 1.2.2.  each of them returns ".true."
+(ie.  -1) if a comparison succeeds, and ".false." (ie.  0)
+if it fails.
+
+when the length of the two strings differs, the shorter
+string is padded with blanks until it is equal in length
+with the longer string.  the comparison then precedes by the
+rules outlined in defs.  1.2 thru 1.7.
+
+eqlstr
+
+     usage:  i = eqlstr(string1,string2,0)
+     (i) will be set to "true" if string1 is lexically equal
+     to string2 and "false" otherwise.
+
+geqstr
+
+     usage:  i = geqstr(string1,string2,0)
+     (i) will be set to "true" if string1 is lexically
+     greater than or equal to string2 and "false" otherwise.
+
+gtrstr
+
+     usage:  i = gtrstr(string1,string2,0)
+     (i) will be set to "true" if string1 is lexically
+     greater than string2 and "false" otherwise.
+
+leqstr
+
+     usage:  i = leqstr(string1,string2,0)
+     (i) will be set to "true" if string1 is lexically less
+     than or equal to string2 and "false" otherwise.
+
+lssstr
+
+     usage:  i = lssstr(string1,string2,0)
+     (i) will be set to "true" if string1 is lexically less
+     than string2 and "false" otherwise.
+
+neqstr
+
+     usage:  i = neqstr(string1,string2,0)
+     (i) will be set to "true" if string1 is lexically not
+     equal to string2 and "false" otherwise.
+
+examples:
+        integer eqlstr, lesstr, geqstr
+                                                               Page 14
+
+
+        real*8 dstr
+        data dstr/'aaa       '/
+        istr = 'aaa'
+        astr = 'bbb'
+        if (eqlstr(istr,astr,0)) goto succes
+        if (lesstr(istr,astr,0)) goto succes
+        if (geqstr(istr,dstr,0)) goto succes
+
+the first "goto" will not be taken and the second will be
+taken.  the third will be taken because "istr" will be
+padded with blanks to a length of ten.
+
+(note:  the non-zero values of the third argument of each of
+ these routines are discussed in section 5.1.)
+
+3.2 the copying routines
+
+these routines will be described in terms of the
+concatenation operation defined in section 1.2.1.
+
+copstr
+
+     usage:  call copstr(dest-string,s1)
+     this is the simplest copying routine.  it implements
+     the assignment statement, " dest-string = s1 ".
+
+appstr
+
+     usage:  i = appstr(dest-string,s1)
+     this routine implements efficiently the assignment
+     statement,
+     " dest-string = dest-string !!  s1 ".
+
+catstr
+
+     usage:  i = catstr(dest-string,n,s1,s2,...,sn)
+     this routine implements the assignment,
+
+               " dest-string = s1 !! s2 !! ... !! sn ",
+
+     where the second argument (n) is a count of the number
+     of strings to be concatenated.
+
+alnstr
+
+     usage:  i = alnstr(storage-block,word-cnt,n,s1,...sn)
+     this routine is designed to facilitate the process of
+     using fortran formatted i/o to output arbitrary
+     strings.  it implements the same function as "catstr"
+     with two differences.  first, "storage-block" and
+     "word-cnt" are used in place of "dest-string" to
+     identify a destination string.  this destination string
+     starts at "storage block", is word aligned, and has
+     length in characters of "word-cnt * 5".  secondly, if
+     the combined length of the source strings is less than
+                                                               Page 15
+
+
+     "word-cnt * 5", the string created at "storage-block"
+     will be blank padded until its length is "word-cnt *
+     5".
+
+     the utility of "alnstr" hinges upon two facts.  the
+     fortran format code "a" always assumes that a sequence
+     of characters starts at the left end of a word.
+     strings that start on an arbitrary character boundary
+     are thus difficult to deal with.  it is also difficult
+     to dynamically specify the length of a string -- hence
+     the need to blank pad to a defined length.
+
+examples:
+
+        logical l1(11)
+        real*8 d1
+        complex c1
+        dimension storag(20),outblk(10)
+        complex bldstr
+        integer alnstr,appstr,catstr
+        data l1/22,'a data-varying string  '/
+        data d1/'a d-p one'/
+        call copstr (istring,' abc')
+        c1 = bldstr(storag,0,0)
+        i = appstr(l1(2),d1)
+        if (.not. i) goto fail
+        i = catstr(c1, 3, l1(2), istring,'more')
+        if (.not. i) goto fail
+        i = alnstr(outblk, 10, 1, l1(2))
+        write (1,101) outblk
+101     format(1h ,10a5)
+
+after executing the above program excerpt, (l1) would equal
+'a data-varying string a d-p one', (c1) would point at a
+string equal to 'a data-varying string a d-p one abc more ',
+and the write statement would have generated a record equal
+to:
+         ' a data-varying string a d-p one                '.
+
+also note the spaces following 'abc' and 'more' in the
+literal above, this is caused by the fact that "integer"
+string variables have length five and literals are padded to
+a length which is a multiple of five.  also note the blank
+padding exhibited in the execution of the write statement
+because of "alstr".  lastly, note the "fail" checks for
+their format even though they were not strictly necessary
+since no bounds checking was set up for any of the
+destination strings.
+
+3.3 routines which return substrings
+
+these routines (and the level-2 routines) are predicated on
+the notion that string length has a geometrical basis --
+that a character can be viewed as having a left side and a
+right side.  in other words, the length of a string can be
+                                                               Page 16
+
+
+viewed as being the distance from the left side of the first
+character to the right side of the last character in the
+string.  what this means is that one must substitute the
+concept of "position" for the concept of "subscript" when
+discussing substrings.  (note however that in many
+circumstances the two concepts are equivalent.)
+
+def 3.1.  position -- a position is an index which locates a
+particular point in a string.  the index assigned to the
+point immediately preceding the first character in a string
+is one.  in general, the (i)th position in a string is the
+point to the right of the (i-1)th character and to the left
+of the (i)th character in a string.
+
+def 3.2 starting position -- the starting position of a
+substring is the point to the left of the first character in
+the string.  for example, within "example", the starting
+position of "xamp" is two.
+
+def 3.3.  ending position -- the ending position of a
+substring is the point to the right of the last character in
+the string.  obviously this is equivalent to the point to
+the left of the (last + 1)th character, so that the ending
+position of "xamp" (see def 3.2) is (5+1) = 6.
+
+(note the identity:  string-length = ending-position -
+ starting-position.
+ note:  henceforth "pos1" will be used as shorthand for
+ starting-position, and "pos2" will be used as shorthand for
+ ending-position.)
+
+relstr
+
+     usage:  string-ptr = relstr(string1, addrel)
+     this routine returns a string pointer which points at a
+     string whose starting-position within string1 equals
+     "addrel + 1" and whose length is "string1-length -
+     addrel" and whose maximum is equal to:
+     "string1-maximum - addrel".
+
+vecstr
+
+     usage:  string-ptr = vecstr(string1, pos1, length)
+     this routine returns a string pointer which points at a
+     string whose starting position within string1 is
+     "pos1", whose length is "length", and whose maximum is:
+                   "maximum of string1 - pos1 + 1".
+
+bndstr
+
+     usage:  string-ptr = bndstr(string1, pos1, pos2)
+     this routine returns a string pointer which points at
+     the substring whose starting-position within string1 is
+     "pos1", whose length is "pos2 - pos1", and whose
+     maximum is "string1-length - pos1 + 1".  however if
+                                                               Page 17
+
+
+     "pos2" is zero, "bndstr" will default "pos2" to equal
+     the ending position of "string1" -- ie.  string1-length
+     + 1.
+
+examples:
+        complex relstr, vecstr, bndstr
+        complex sp1,sp2,sp3,sp4
+        sp1 = relstr('1122334455',2)
+        sp2 = vecstr('1122334455',1,6)
+        sp3 = bndstr('1122334455',7,9)
+        sp4 = bndstr('1122334455',7,0)
+
+this excerpt causes sp1 to point at '22334455' and have
+length eight.  sp2 will point at '112233' and have length
+six.  sp3 will point at '44' and have length two.  lastly
+sp4 will point at '4455' and have length four since the zero
+third argument will be defaulted to eleven -- the ending
+position of '1122334455'.
+
+3.4 the routines which search strings
+
+each of these routines will perform the identical search if
+passed the same group of search-related arguments.  the way
+they differ from one another is in the value of the string
+pointer(s) they return.
+
+the form of the search-related arguments of this class of
+routine is:
+
+              search-routine(host-string,n,s1,s2,...,sn)
+
+where host-string is the string being searched, (n) is the
+count of the search strings, and s1 thru sn are the search
+strings.  the search can be described as follows:
+
+                do 100 i=1,length-of-host
+                do 100 j=1,num-of-search-strings
+                if (host(i) .eq. s(j,1)) goto compar
+        100     continue
+                goto search-failed
+        compar: if (eqlstr(vecstr(host,i,lenstr(s(j)),
+                          s(j))) goto search-succeeded
+                goto 100
+
+s(j) is informal notation for the (j)th search string, and
+s(j,1) is informal notation for the first character of the
+(j)th search string, and host(i) is notation for the (i)th
+character of the host.  the program excerpt illustrates that
+the search works as a parellel search, finding the search
+string which occurs earliest in the host-string.  for
+example:
+
+           search-routine('0123456789', 2, '56789','01234')
+
+will find '01234' within the host string.
+                                                               Page 18
+
+
+(note:  if none of the search-strings are found within the
+ host string, a search routine will return double zero
+ rather than a valid string pointer value).
+
+befstr
+
+     usage:  string-ptr = befstr(host, n, s1,s2,...,sn)
+     the arguments are as described above.  this routine
+     returns a string pointer which points at the string
+     within the host which precedes the found substring
+     within the host string.
+
+whistr
+
+     usage:  string-ptr = whistr(host, n, s1,s2,...,sn)
+     the arguments are as described above.  this routine
+     returns a string pointer to the string which was found
+     in the host string.
+     (note:  it is assumed that this routine would be used
+      only when there is more than one search string and one
+      wants to know "which" search string was found).
+
+aftstr
+
+     usage:  string-ptr = aftstr(host, n, s1,s2,...,sn)
+     the arguments are as described above.  this routine
+     returns a string pointer to the string within the host
+     string which is after the matched string.
+
+allstr
+
+     usage:  string-ptr = allstr(host,bef-ptr,aft-ptr,
+                                   n,s1,.,sn)
+     besides bef-ptr and aft-ptr, the arguments are as
+     above.  this routine combines the functions of the
+     three preceding routines.  it returns the same string
+     pointer as "whistr", sets up bef-ptr to be the value
+     that "befstr" would have returned, and sets up aft-ptr
+     to be the value that "aftstr" would have returned.
+     (note:  if "allstr" fails, bef-ptr and aft-ptr are left
+      unchanged).
+
+     usage:  string-ptr = allstr(host,bef-ptr,0,n,s1,...,sn)
+     this usage changes the success behavior of "allstr".
+     setting the "aft-ptr" argument to a fixed-point zero
+     causes "allstr" to return just two string pointer
+     values:
+     1) string-ptr is set to found-string !!  rest-of-string
+     2) bef-ptr is set as in the first usage.
+
+     usage:  string-ptr = allstr(host,0,aft-ptr,n,s1,...,sn)
+     this usage is similar to usage-two.  this time,
+     however:
+     1) string-ptr is set to beginning-of-string !!
+     found-string
+                                                               Page 19
+
+
+     2) aft-ptr is set as in the first usage.
+
+examples:
+        complex sp1,sp2,sp3,sp4,sp5,sp6,sp7,sp8,sp9
+        complex allstr,befstr,aftstr,whistr
+        logical l1(2),l2(2),l3(2)
+        real*8 digits
+        data digits/'0123456789'/
+        data l1/0,0/    !the null string
+        data l2/2,'34'/
+        data l3/2,'23'/
+        sp1 = befstr('0123456789', 1, '34567')
+        sp2 = aftstr('0123456789', 1, '34567')
+        sp3 = whistr('0123456789', 1, '34567')
+        sp4 = allstr('0123456789', sp5, sp6, 1, '34567')
+
+        ******* end of part one ********
+
+        sp1 = befstr(digits, 3, '56789', l2(2), l3(2))
+        sp2 = befstr(digits, 3, l3(2), l2(2), '56789')
+        sp3 = aftstr(digits, 1, 'abcde')
+        sp4 = aftstr(digits, 1, '012')
+        sp5 = whistr(digits, 2, l2(2), '34567')
+        sp6 = whistr(digits, 2, '34567', l2(2))
+
+        ****** end of part 2 ********
+
+        sp1 = allstr(digits, sp2, sp3, 1, l1(2))
+        sp4 = allstr(digits, sp5, sp6, 2, '01234', l1(2))
+        sp7 = allstr(digits, sp8, sp9, 2, '23456', l1(2))
+
+        ********** end of part 3 *********
+
+        sp1 = allstr(digits,sp2,0, 1,l2(2))
+        sp3 = allstr(digits,0,sp4,0, 1,l3(2))
+
+after executing part one, sp1 would point at '012';  sp2
+would point at '89';  sp3 would point at '34567';  sp4 would
+equal sp3;  sp5 would equal sp1;  and sp6 would equal sp2.
+
+after executing part two, sp1 and sp2 would point at '01'.
+in both cases, l3 would be the matched string because
+search-string-order only comes into play when more than one
+search string starts at the same place in the host.  in
+particular, sp5 would point at '34' and sp6 would point at
+'34567' after the execution of the two "whistr"s.  after
+execution of the two "aftstr"s, sp3 would equal zero since
+'abcde' is not within "digits", and similarly sp4 would
+equal zero because the search string is actually equal to
+'012  '.
+
+the calls of part three deal with the null string.  since
+the null string matches anything, it would match the point
+immediately preceding the first character in "digits", and
+consequently both sp1 and sp2 would be set to a null string
+                                                               Page 20
+
+
+pointing to that position.  conversely sp3 would point at
+'0123456789' -- the entirety of "digits".  however in the
+next call to "allstr", sp4 would be caused to point at
+'01234' since search order would cause the '01234' to be
+encountered before the null string l1.  this call would also
+set sp5 and sp6:  to the null string and '56789'
+respectively.  the result of the third call to "allstr"
+would be the same as the result of the first call to
+"allstr" in the sense that sp7 would equal sp1 and so on.
+this is the case because '23456' does not start at the
+beginning of "digits", and hence the parellel search would
+encounter the null string, l1, first.
+
+the calls of part four show the affect of setting either the
+bef-ptr or aft-ptr argument to zero.  in the first call, sp1
+is set to '3456789';  and sp2 is set to '12'.
+in the second call, sp3 is set to '123';  and sp4 is set to
+'456789'.
+
+3.5 miscellaneous routines
+
+bldstr
+
+     usage:  str-ptr = bldstr(storage-blk, length, maximum)
+     this routine returns a string pointer which points at
+     the beginning of storage-blk.  the string pointed at is
+     given a length of "length" and a maximum of "maximum".
+     specifying a maximum of zero is the mechanism for
+     specifying no maximum.
+
+lenstr
+
+     usage:  i = lenstr(string1)
+     (i) is set to the length, in characters, of string1.
+     (note again that lenstr('literal') will return 10
+      rather than 7).
+
+repstr
+
+     usage:  i = repstr(string1, string2, string3)
+     this routine causes string1 to be modified such that
+     string2, which is a substring within string1, is
+     replaced by string3.  (if one makes the simplifying
+     assumption that the value of string2 occurs within
+     string1 in only one place,) one can describe "repstr"
+     as follows -- lettng s1, s2, s3 be short for string1,
+     string2, string3:
+
+            s1 = befstr(s1,1,s2) !! s3 !! aftstr(s1,1,s2)
+
+     if the replacement of string2 with string3 would cause
+     the maximum of string1 to be exceeded, string1 will not
+     be modified at all and (i) will be set to zero rather
+     than -1.
+     (note:  repstr('12345', '23', 'bc') is meaningless
+                                                               Page 21
+
+
+      because '23' is not a substring of '12345';  for even
+      though the value '23' is within '12345', the literal
+      '23' is totally distinct from literal '12345' and has
+      a totally distinct starting address.)
+
+revstr
+
+     usage:  string-ptr = revstr(string1, string2 or 0)
+     this routine will reverse the source string in the
+     sense that the first character of the source string
+     will be made the last character of the destination
+     string and vice versa, the second -- the next to last,
+     and so on.  
+     if the second argument is 0, string1 will be treated as
+     both the source string and destination string.  if
+     argument two is non-zero, string2 will be treated as
+     the source string and string1 will be treated as the
+     destination string.  
+     (note:  differences in length between string1 and
+      string2 are ignored since the returned string pointer
+      will correctly identify the length of the string
+      reversed.  however if the maximum of string1 is less
+      than the length of string2, the reversal will not
+      occur and the string pointer will be set to double
+      zero.)
+
+setstr
+
+     usage:  call setstr(string1, length, maximum)
+     this routine provides the suggested mechanism for
+     (initializing and) setting either the length or maximum
+     length of a string.  if "length" is non-negative,
+     string1 will be given a length of "length";  and if
+     "maximum" is non-negative, string1 will be given a
+     maximum of "maximum".  however if the data-type of
+     string1 is not "complex" or "logical", this routine
+     will act as a no-op.
+     (note:  specifying a maximum of 0 is the mechanism for
+      specifying no maximum at all.
+      note:  a 4th argument can be specified when string1 is
+      a string pointer.  this argument is used to create
+      non-ascii strings.  in particular it causes "setstr"
+      to set the byte size of string1 to the 4th argument.
+      accordingly one would usually expect it to be 6 -- for
+      sixbit strings.).
+
+trcstr
+
+     usage:  string-ptr = trcstr(string1)
+     this routine returns a string pointer to a substring of
+     string1 such that string1 and the substring start at
+     the same character and the substring has no trailing
+     blanks.  because this is such a basic routine, a short
+     non-standard name is provided in addition to "trcstr".
+     one can invoke this routine as "np" -- no padding.
+                                                               Page 22
+
+
+examples:
+        integer repstr
+        complex revstr,bldstr, trcstr
+        complex sp1,sp2,sp3
+        logical l1(2),l2(3),anynul(2)
+        dimension inblk(5)
+        data l1,l2/4, '1234', 7, 'abcdefg'/
+        data anynul/0,0/
+        read (1,101) inblk
+    101 format(4a5)
+        sp1 = bldstr (inblk,20, 20)
+        i = lenstr(sp1)
+        sp2 = revstr(l2(2), l1(2))
+        sp3 = revstr(l1(2), 0)
+        call setstr (l2(2), 6, 0)
+        i = repstr(sp1, vecstr(sp1,2,0), 'abc')
+        if (i) goto succes
+        call setstr(sp1, -1, 25)
+    300 i = repstr(sp1, vecstr(sp1,2,0), 'abc')
+    301 i = repstr(sp1, vecstr(sp1,2,0), trcstr('abc'))
+        i = repstr(l1(2), vecstr(l1(2),2,2), anynul(2))
+
+the call to "bldstr" would point sp1 at "inblk" and give it
+a length and maximum of twenty characters.  the succeeding
+statement would set (i) to 20.  
+
+the first "revstr" would set l2 to '4321efg', but would
+point sp2 at '4321'.  the second "revstr" would reverse l1
+in place and leave it equal to '4321'.  lastly the call to
+"setstr" has the effect of truncating l2 by one and leaving
+it equal to '4321ef'.
+
+the group of calls to "repstr" attempts to illustrate the
+role of the null string as well as the nature of "repstr".
+the first call will fail because it is an attempt to replace
+a zero-length string with a string of length five when the
+destination string is already at its maximum.  this is
+"gotten around" by using "setstr" to increase sp1's maximum,
+while leaving its current length untouched, and repeating
+the call to "repstr".  after that call, 'abc ' would be the
+2nd thru 6th characters of the string pointed at by sp1, and
+that string would have length of 25.  on the other hand, if
+the statement at 301 had been executed rather than the one
+at 300, only the 'abc' would be inserted in the destination
+string, and its new length would be 23.  the last "repstr"
+truncates a destination string, removing its second and
+third characters and leaving it equal to '41'.
+                                                               Page 23
+
+
+4.0 level-2 related terminology
+
+4.1 subsidiary values
+
+most of the information-returning routines make available
+more than one piece of information to their caller.  the
+primary piece of information can always be "gotten at" by
+declaring the routine as an integer function as noted in
+section three.  when one wishes to get at the subsidiary
+information, one must do something analogous to the
+following:
+
+        complex c1
+        dimension ic (2)
+        equivalence (c1,ic)
+        c1=eqlstr(string1, string2, 0)
+
+after execution of "eqlstr", ic(1) would contain either
+"true" or "false", and ic(2) would contain one of -1, 0,1
+depending upon whether lenstr(string1) was greater than,
+equal to, or less than lenstr(string2).
+(note:  henceforth the primary value of an information
+ returning routine will be referred to as r0, and the
+ subsidiary value as r1).
+(note:  each of the routines which can potentially return a
+ subsidiary value has been given a second name of the form
+ <id>(sts or chs) where the trailing "s" stands for
+ subsidiary.  for instance, "fndchr" can also be invoked as
+ "fndchs").
+
+4.2 data-directed routines -- "mode" values
+
+"mode" is an argument common to several of the level-2
+routines.  it is a bit mask which controls the direction of
+processing within a particular routine.  in all cases,
+"mode" consists of some number of 1-bit switches which can
+be set independently (either by or-ing or adding switches
+together).  a number of the switches are antonym pairs--for
+example if the "append" bit is on, string combination is
+"append" mode;  if the same bit is off, string combination
+is "copy" (or overwrite) mode.  when a particular bit
+defines an antonym pair, the off condition will be noted in
+parenthesis.
+
+defined switches (by routine):
+
+for cmbstr and chkstr
+                        append(copy) = 1 (i.e. bit 35 is on)
+                        numeric (character) = 4 (bit 33)
+                        pad = 8 (bit 32)
+
+for cmpstr
+                        ignore = 1 (bit 35)
+                        exact = 2 (bit 34)
+                        if neither "ignore" nor "exact" are
+                                                               Page 24
+
+
+                        set
+                        "padded" is implied.
+                        translate = 4 (bit 33)
+                        trace = 8 (bit 32)
+
+for fndstr
+                        idxend (idxbegin) = 1 (bit 35)
+                        anchor = 2 (bit 34)
+                        partial = 4 (bit 33)
+                        multiple = 8 (bit 32)
+                        which (length) = 16 (bit 31)
+
+for fndchr
+                        idxend (idxbegin) = 1 (bit 35)
+                        anchor = 2 (bit 34)
+                        partial = 4 (bit 33)
+                        backwards (forwards) = 2 (bit 32)
+
+for mapstr
+                        toascii (tosixbit) = 1 (bit 35)
+                        bounds = 2 (bit 34)
+                        translate = 4 (bit 33)
+                        yesbound (nobound) = 8 (bit 32)
+for cnvstr
+                        toascii (tonumeric) = 1 (bit 35)
+                        zeropad (blankpad) = 2 (bit 34)
+                        nofill = 4 (bit 33)
+                        always = 8 (bit 32)
+
+(note:  the fortran "include" file "string.for" contains a
+ parameter statement defining a symbolic value for each of
+ the numeric mode values defined above.  the symbols in
+ "string.for" are the symbols used above, or if these are
+ too long, the first six characters thereof).
+
+(note:  in section five, the pseudo-mode "others" will be
+ used to indicate that the switch setting being described is
+ not affected by other unrelated switches being turned on).
+
+4.3 character search terminology
+
+def.  4.1.  bit index -- there are 36 bits in a word and
+each is assigned an index;  bit 0 of a word is the sign bit
+of a word, and bit 35 of a word is the far right bit in a
+word.
+
+def.  4.2.  a bit-vector of length (n) is the sequence of
+bits consisting of the (i)th bit of (n) consecutive words.
+clearly there are 36 bit-vectors in any storage block -- one
+corresponding to each bit index.
+
+def 4.3.  a boolean character table(bct) is a bit vector of
+length (128) whose purpose is to encode an arbitrary group
+of (distinct) characters in such a way as to make the
+execution speed of the analogue of:
+                                                               Page 25
+
+
+              search-routine(host, n, char1, c2,..., cn)
+
+independent of the value of (n).
+
+def.  4.4 let bct(storage-block, bit-index) denote the
+specific boolean character table starting at storage-block
+and consisting of the (bit-index)th bit of each word in the
+storage-block.
+
+def.  4.5 let the notation:
+
+              bct(block,bit-index) = c1 !! c2 !! ... cn
+
+indicate that bct(block,bit-index) is the encoded analogue
+of search string list, (n, c1, c2,...,cn).
+
+(note:  the routines which manipulate boolean character
+ tables and the character searching routines are described
+ in section 5.4).
+
+4.4 comparing strings of different lengths
+
+as noted earlier, the only "difficult" situation that can
+occur in comparing two strings is that they are not the same
+length but are equal for the extent of the shorter string.
+in section 3.1, one method of reacting to inequality of
+length was introduced, namely padding the shorter string
+with blanks.  at this point, two other reactions will be
+defined.
+
+def.  4.6 an "exact-style" comparison will consider two
+strings equal only if they are identical, i.e.  contain the
+same characters and have the same length.  additionally, if
+the two strings are lexically equal for the extent of the
+shorter, the longer string will be treated as lexically
+greater than the shorter string.
+
+def.  4.7 in an "ignore-style" comparison, the mechanism of
+obtaining equality of string lengths is to truncate the
+longer string to the length of the shorter string rather
+than to pad the shorter string.
+                                                               Page 26
+
+
+5.0 the level-2 routines
+
+the level-2 routines are grouped approximately in the same
+manner as the level-1 routines were.  however, if
+applicable, several usages will be presented for a routine,
+and features common to all usages for a particular routine
+will be described before its list of "usage:" paragraphs.
+
+5.1 the data-directed comparative routine
+
+each usage of "cmpstr", the data-directed comparative
+routine, contains an argument, "code", which determines the
+relational operator which is to be applied to the strings
+being compared.  "code" is an integer from 0 to 5 such that
+code equaling:
+
+        0 ==> the operator is "equal"
+        1 ==> the operator is "not equal"
+        2 ==> the operator is "greater than or equal"
+        3 ==> the operator is "less than or equal"
+        4 ==> the operator is "greater than"
+        5 ==> the operator is "less than"
+
+(note:  "string.for" also contains parameter statements for
+ each of the "code"s defined above).
+
+"cmpstr" returns a subsidiary value in r1 which indicates
+the relative lengths of the two strings it compared.  in r1,
+"cmpstr" will return:  
+
+        -1 if string1 is shorter than string2
+        0 if they are equal in equal
+        1 if string1 is greater in length
+
+the routine usages follow:
+
+for mode = not exact and not ignore.
+
+     usage:  cmpstr(string1, string2, code, not exact and
+                                   not ignore)
+     if the relationship between string1 and string2 in a
+     "padded-style" comparison is the relationship denoted
+     by "code", the comparision will be considered
+     successful (ie.  -1 will be returned);  otherwise the
+     comparison will be considered to have failed and will
+     return 0 in r0.  for instance, "cmpstr(s1, s2, 2, 0)"
+     is completely equivalent to "geqstr(s1, s2, 0)".
+
+for mode = ignore.
+
+     usage:  cmpstr(string1, string2, code, ignore)
+     if the relationship between string1 and string2 in a
+     "ignore-style" comparison is the relationship denoted
+     by "code", the comparision will be considered
+     successful (ie.  -1 will be returned);  otherwise the
+                                                               Page 27
+
+
+     comparison will be considered to have failed and will
+     return 0 in r0.
+
+for mode = exact.
+
+     usage:  cmpstr(string1,string2, code, exact)
+     if the relationship between string1 and string2 in a
+     "exact-style" comparison is the relationship denoted by
+     "code", the comparision will be considered successful
+     (ie.  -1 will be returned);  otherwise the comparison
+     will be considered to have failed and will return 0 in
+     r0.
+
+for mode = trace.
+
+     usage:  cmpstr(string1, string2, code, trace + others)
+     if the relationship between string1 and string2, using
+     the specified style of comparison, is the relationship
+     denoted by "code", the comparision will be considered
+     successful (ie.  -1 will be returned).  
+     otherwise the comparison will be considered to have
+     failed and will return in r1 the position of the
+     character which caused the comparison to fail.
+
+for mode = translate.
+
+     usage:  cmpstr(string1,string2, code, translate +
+                                   others, translation)
+     this usage will cause each character in string2, for
+     the extent of the shorter string, to be translated by
+     the numeric value specified in the 5th argument,
+     "translation".  the "translate" mode can be used to
+     compare numbers to letters, for instance;  or it can be
+     used to compare ascii to sixbit strings when the
+     translation factor is octal 40, and so on.
+
+examples:
+        complex cmpstr,cc
+        integer ic(2)
+        equivalence (ic,cc)
+ 100    cc=cmpstr('abcde','xyz',lss,0)
+ 200    cc=cmpstr('xyz','abcde',lss,0)
+ 300    cc=cmpstr('abcde','abc',eql,ignore)
+ 400    cc=cmpstr('abcde','abc',gtr,ignore)
+ 500    cc=cmpstr('abcde',np('abc'),eql,ignore)
+ 600    cc=cmpstr('abcde',np('abc'),gtr,ignore)
+ 700    cc=cmpstr(np('abc'),'abc',eql,exact)
+ 800    cc=cmpstr(np('abc'),'abc',lss,exact)
+ 900    cc=cmpstr(np('abc'),'abc',eql,trace)
+ 1000   cc=cmpstr(np('abc'),'abc',eql,trace+exact)
+ 1100   cc=cmpstr('abcde','12345',eql,transl,"20)
+ 1200   cc=cmpstr('12345','abcde',eql,transl,-"20)
+ 1300   cc=cmpstr('abcd0','1234 ',eql,trans,"20)
+ 1400   cc=cmpstr('abcd0',np('1234 '),eql,transl,"20)
+                                                               Page 28
+
+
+the call at 100 returns "true" in r0 (ie.  ic(1)) and zero
+(to indicate lengths are equal) in r1.  on the other hand
+the call at 200 returns "false" in r0.
+
+the call at 300 returns "false" in spite of the "ignore"
+mode because the actual length of 'abc' is five.  conversely
+the call at 500 does return "true" in r0 and 1 in r1.  the
+call at 400 returns "true" in r0 because "d" is lexically
+greater than " ".  however the call at 600 returns "false"
+since 'abc' equals 'abc' and the "d" is irrelevant.
+correspondingly 1 is returned in r1 for 600.
+
+the call at 700 returns "false" because the two strings have
+different lengths.  correspondingly -1 is returned in r1.
+the call at 800 does return "true" because the two strings
+are equal for the extent of the shorter (i.e three
+characters), and the first string is the shorter.
+
+the call at 900 simply (re)pads string1 and returns "true"
+in r0 and -1 in r1.  the call at 1000 notes the failure also
+detected at 700 by returning 4 in r0 to indicate that the
+failure was detected during the attempt to compare the
+fourth characters of the two strings.
+
+the call at 1100 returns "true" in r0 since the octal code
+of "a" is 101 and the octal code of "1" is 61, etc.  the
+call at 1200 notes the equivalence of simultaneously
+inverting the strings and the sign of the translation.  the
+next two calls, 1300 and 1400, show the difference between a
+blank trailing character and blank padding when "translate"
+is set.  the call at 1300 returns "true" since the codes of
+blank and zero are octal 40 and 60, but the call at 1400
+fails because string2 has no fifth character and the padding
+blank is not translated.
+
+5.2 the data-directed copying routines
+
+"cmbstr" and "chkstr" are essentially generalizations of
+"catstr" -- generalizations in the sense that they have more
+modes of operation.  but since the exact same modes apply to
+the two routines, the modes are described only for "cmbstr".
+the only difference between "cmbstr" and "chkstr" is how
+they react to an attempt to extend a string beyond its
+maximum.  both will return 0 rather than -1, but "chkstr"
+will checkpoint the copying operation by modifying two of
+its arguments as well.
+
+chkstr
+
+     usage:  i = chkstr(dest-string, others, start-ptr,
+     n-left, n, s1,...,sn)
+     start-ptr and n-left provide the information to do the
+     checkpointing.  for each call, start-ptr should point
+     at the character at which one wants string movement to
+     start (resume), and n-left should identify which source
+                                                               Page 29
+
+
+     string that character is in.  if s1 is that source
+     string, n-left should equal (n);  if s2, then n-left
+     should equal (n - 1), et cetera.  under normal
+     circumstances, one would continue to call "chkstr" with
+     the same arguments only so long as it continued to
+     fail.  and after each failure, "chkstr" would itself
+     set start-ptr to point at the next character to move
+     and n-left to equal the index of the current source
+     string.
+     conversely, on the first attempt to concatenate the
+     source strings, (n) and s1 are the "resume" values.
+     consequently it is not necessary that n-left and
+     start-ptr be explicitly set up since "chkstr" can get
+     the appropriate values from (n) and s1.  one tells
+     "chkstr" this is the first time through by setting
+     n-left to zero.
+
+cmbstr
+
+for mode = append.
+
+     usage:  i = cmbstr(dest, append + others, n, s1,...sn)
+     this routine usage implements the assignment:
+
+                    dest = dest !! s1 !! ... !! sn
+
+for mode = not append.
+
+     usage:  i = cmbstr(dest, not append + others, n,
+                                   s1,...,sn)
+     this routine usage implements the assignment:
+
+                        dest = s1 !! ... !! sn
+
+for mode = pad.
+
+     usage:  cmbstr(dest,pad + others, n, s1,...sn)
+     if the length of "dest" before the call is greater than
+     the combined lengths of the source strings, "dest" is
+     blank padded to that length after (sn) has been copied
+     into (appended to) "dest".  if "dest"s length before
+     the call is less than the combined lengths of the
+     source strings, it is adjusted upwards to the larger
+     value.
+
+for mode = numeric.
+
+     usage:  i = cmbstr(dest, numeric + others, n,
+                                   source-array)
+     source-array contains a list of characters encoded as
+     fixed point numbers, and (n) is the number of items in
+     the list.  this usage will cause the items in
+     source-array to be decoded, concatenated and copied
+     into (appended to) "dest".  for instance, 3 is the
+     encodement of control-c and octal 40 is the encodement
+                                                               Page 30
+
+
+     of "blank".
+
+examples:
+        complex sp1,relstr
+        integer chkstr
+        logical l1(3)
+        data s1,s2,s3,s4/'1122','3344','5566','7788'/
+        data left/0/
+        call setstr(l1(2), 0, 7)
+ 100    if (chkstr(l1(2),0, sp1,left, 4,s1,s2,s3,s4)) return
+        write (1,101) l1(2),l1(3)
+        goto 100
+ 101    format(1h ,a5,a2)
+
+        ******* part 2 ******
+
+        complex sp1,sp2
+        logical l1(9)
+        integer onelet,sevlet(6)
+        data sevlet/"101,"103,"105,"15,"12, 0/
+        data onelet/"10/
+        data l1(1),l1(2)/5, 'start'/
+        call cmbstr(l1(2), append,2,'more1','more2')
+        call setstr(l1(2),40,-1)
+        call cmbstr(l1(2),pad,2,'first half','second half')
+        call cmbstr(sp1,numeric,1,onelet)
+        call cmbstr(sp2,numeric, 5,sevlet)
+
+part one shows how to use "chkstr".  the three-statement
+loop starting at 100 is keyed on the return value of
+"chkstr".  also note that "left" is initialized to zero in a
+data statement.
+the result of executing part one is to write out seven
+characters three times.  in particular '1122 33' is written
+out the first time;  '44 5566' is written out the second
+time;  and ' 7788 ' is written out the third time.
+
+after the execution of part two, sp1 will equal "backspace"
+and sp2 will equal 'ace<crlf>'.  as regards the other two
+calls to "cmbstr", the first will set the length of l1 to 15
+and its value to 'startmore1more2', and the second will set
+its length to 40 and its value to:
+              'first halfsecond half                 '.
+
+
+there is another level-2 copying routine, and it is called
+"copchr".  it's sole purpose is to deal efficiently with
+single bytes of arbitrary size.
+
+copchr
+
+     usage:  call copchr(str-ptr1,index1,str-ptr2,index2)
+     this routine implements the assignment, string1(index1)
+     = string2(index2), where string-ptr1 points at the
+     string starting at string1 (i.e.  the first character
+                                                               Page 31
+
+
+     of string1 is denoted by string1(1)) -- and similarly
+     for string-ptr2 and string2.
+     if index1 is less than or equal to 1, 1 is assumed.
+     if index2 is less than zero, the potential for
+     "negative bytes" exists.  in other words, if index2
+     were -3, the third byte of string2 would be picked up
+     and its left most bit would left extended -- treated as
+     a sign bit.
+     if index2 is zero, 1 is assumed.
+     "copchr" makes no attempt to detect if either index1 or
+     index2 is too large -- out-of-bounds.
+
+examples:
+        complex bldstr
+        complex sp1,sp2
+        sp1=bldstr(i,1,0)
+        call setstr(sp1,1,0,36)
+        sp2=bldstr('abcde',5,0)
+        call copchr(sp1,1,sp2,4)
+        call copchr(sp2,2,sp1,1)
+
+        i=-5
+        call copchr(sp2,5,sp1,1)
+        i=0
+        call copchr(sp1,1,sp2,-5)
+
+one of the primary (potential) uses of "copchr" is to deal
+with "compressed" numbers.  this can be done by copying such
+a number into a byte whose byte size is thirty-six, i.e.  a
+full word.  
+
+the first pair of "copchr"s copies a right-justified 'd'
+into "i", and then modifies the ascii string to equal
+'adcde'.  the second pair of "copchr"s places a compressed
+-5 in the third byte of sp2 and then restores that -5 to "i"
+after clobbering "i" in the assignment, i=0.
+
+5.3 the data-directed string searching routine
+
+the discussion of string searching at the beginning of
+section 3.4 also applies to "fndstr", the data-directed
+searching routine.
+
+fndstr
+
+for mode = not idxend.
+
+     usage:  fndstr(host, not idxend, s1)
+     this routine usage causes "fndstr" to search the host
+     string for s1.  if it is found, the starting-position
+     of the matched substring is returned in r0, otherwise 0
+     is returned in r0.
+
+for mode = idxend.
+                                                               Page 32
+
+
+     usage:  fndstr (host, idxend, s1)
+     this routine usage causes "fndstr" to search the host
+     string for s1.  if it is found, the ending-position of
+     the matched substring is returned in r0, otherwise 0 is
+     returned in r0.
+
+for mode = partial.
+
+     usage:  fndstr(host, partial, pos1, pos2, s1)
+     this routine usage causes "fndstr" to search only part
+     of the host string for s1, and "bndstr(host, pos1,
+     pos2)" is the substring searched.  if s1 is found, the
+     starting-position of the matched substring within
+     "host" is returned in r0, otherwise 0 is returned in
+     r0.
+     (note:  as before, pos2 equal to zero means assume the
+      ending-position of "host").
+
+ for mode = partial + anchor.
+
+      usage:  fndstr(host, partial + anchor, pos1, pos2, s1)
+      processing is as with "partial and not anchor" except
+      that it is now only necessary that the first character
+      of s1 be within the bounds specified by pos1 and pos2
+      -- rather than all of s1.  in other words, this usage
+      is the generalized solution of the problem posed by,
+      "it's a long string, but its known to start between
+      the (pos1)th and (pos2)th characters of the editing
+      buffer".
+
+ for mode = anchor + not partia.
+
+      usage:  fndstr(host,anchor + not partia,s1)
+      this usage exists as a convenience.  it is equivalent
+      to specifying "partia" and "anchor" together and
+      setting pos1 to (1) and pos2 to (2).  in other words,
+      the first character of the host must match the first
+      character of (one of) the search string(s).
+
+ for mode = multiple.
+
+      usage:  fndstr(host, multiple + others, n, s1,...,sn)
+      specifying the "multiple" switch tells "fndstr" to
+      expect a count (n) and (n) search strings as the last
+      arguments in its argument list.  all searching is as
+      specified in the earlier usages except that there are
+      now (n) search strings rather than one search string.
+
+ for mode = partial + multiple.
+
+     usage:  fndstr(host, multiple + partial + others, pos1,
+                                   pos2, n, s1,...,sn)
+     this usage is shown explicitly only to show the form of
+     the argument list when both partial and multiple are
+     specified.
+                                                               Page 33
+
+
+for mode = multiple and which.
+
+     usage:  fndstr(host, which + multiple + others, n,
+     s1,...,sn)
+     if one of the search strings is found within the host,
+     say the (i)th search string, (i) will be returned in
+     r1.  otherwise zero will be returned in r1.
+
+for mode = not which.
+
+     usage:  fndstr(host,not which + others, s1)
+     if (one of) the search string(s) is found within the
+     host, its length will be returned in r1.  otherwise
+     zero will be returned in r1.
+
+examples:
+        complex cc,ccext
+        integer ic(2),icext(2)
+        equivalence (cc,ic),(ccext,icext)
+        complex fndstr,np
+        logical l1(2)
+        real*8 digits,filnam
+        data l1/3,'123'/
+        data filnam/'file.ext'/
+        data digits/'0123456789'/
+        cc=fndstr(digits,multip+which,2,'345',l1(2))
+        cc=fndstr(digits,multip,2,'345',l1(2))
+        mode=multip+which+partia
+        ccext=fndstr(filnam,mode,2,8, 2,np('.'),np('['))
+        if (iext(2).eq.2) goto noext
+
+        ******* part two *******
+
+        integer hasdev,hasppn
+        real*8 filspc
+        complex np,filspc
+        integer fndstr
+        data filspc/'d:f.x[1,2]'/
+        mode=partia+anchor+idxend
+        hasdev=fndstr(filspc, mode,2,8,np(':'))
+        hasppn=fndstr(filspc,partia+anchor,hasdev,0,np('['))
+
+part one, among other things, shows a potential use of a
+subsidiary value.  the if-statement after the search of
+"filnam" checks to see whether the filename was ended by a
+directory or an extension.  in this case it is ended by an
+extension.  note also that an index of 5 is returned in r0.
+the first search of "digits" returns 2 in r0 and 2 in r1
+also.  the second search of "digits" is identical except for
+the subsidiary information returned.  this time the length
+of l1, 3, is returned in r1.
+
+the two searches in part2 illustrate how a string can be
+"stepped" thru.  the first search of "filspc" returns 3 in
+r0 (ie.  the starting-position of the file name).  note that
+                                                               Page 34
+
+
+the minimum number of characters is searched -- assuming no
+extraneous blanks.  the second search takes advantage of the
+restricted choice provided from the first search by using
+"hasdev" as its pos1.  and as noted above, the pos2 of 0
+causes the rest of "filspc" to be in the search path.  the
+result of this search is to set "hasppn" to 6, and the
+combined information of "hasdev" and "hasppn" provides the
+starting and ending position of the file name, 'f.x'.
+
+
+5.4 character-searching
+
+before describing the actual searching routines, the
+routines which manipulate boolean character tables will be
+delineated.
+
+5.4.1 manipulating boolean character tables
+
+as desscribed in section 4.3, one aspect of identifying a
+particular boolean character table is its bit-index.  in
+order to make it possible to specify more than one (bct)
+simultaneously, all of the character-search related routines
+accept the bit-index information in an encoded form.  in
+particular, to identify the (i)th boolean character table of
+a storage-block, one passes a bit mask which has its (i)th
+bit turned on.  for example to pass a bit index of 35, one
+would set the mask equal to 1;  and to pass a bit index of
+zero, one would set the mask to the octal quantity "400000
+000000";  and to pass both simultaneously, one would set the
+mask to the octal quantity "400000 000001".
+
+tazstr
+
+     usage:  call tazstr(storage-blk, mask)
+     this routine will remove all characters from the
+     specified table(s).
+
+taostr
+
+     usage:  call taostr(storage-block, mask)
+     this routine will place all characters in the specified
+     table(s).
+
+tonstr
+
+     usage:  call tonstr(storage-block, mask, string1)
+     this routine will place (add) each of the characters in
+     string1 into the specified table(s).
+
+tofstr
+
+     usage:  call tofstr(storage-block, mask,string1)
+     this routine will remove each of the characters in
+     string1 from the specified table(s).
+                                                               Page 35
+
+
+tabstr
+
+     usage:  call tabstr(strorage-block, mask, string1)
+     this routine combines most of the above functions.
+     calling "tabstr" with a mask in which exactly one bit
+     is off will cause "tabstr" to do the equivalent of:
+         call taostr(storage-block, .not.  mask)
+         call tofstr(storage-block, .not.  mask, string1)
+     calling "tabstr" with a mask in which at least two bits
+     are off will cause "tabstr" to do the equivalent of:
+     "call tonstr(storage-block, mask, string1)".
+
+5.4.2 character-searching routines
+
+the names of the character searching routines are patterned
+after the names of the string searching routines.  for each
+string searching routine, xxxstr, there is a corresponding
+character searching routine, xxxchr.
+
+the power which derives from the ability to simultaneously
+pass more than one (bct) to a character searching routine
+(or table manipulating routine) is not plainly apparent.
+what it allows one to do is set-operations with groups of
+characters (i.e.  one group = one (bct)).  for example, if
+bct(block1,1) = "the vowels" and bct(block1,2) = "the
+digits", passing a mask set to 3 will cause the character
+searching routine to match either the vowels or the digits.
+
+the power inherent in the ability to easily invert a boolean
+character table (ie.  tofstr) is also not apparent.  for
+instance, if one wished to find the first arbitrary length
+sequence of blanks, tabs, carriage returns, and line feeds,
+i.e.  "span(these 4 characters)", one could set a (bct) to
+these 4 characters and find the first such character with
+one of the character searching routines.  then one could set
+a second (bct) to all characters but these four characters
+and find the 1st occurence of a character from this second
+table.  the string between these two poinst would be the
+"span".
+
+for each of the descriptions below, let:
+bct(block1, unencoded-mask) = c1 !!  c2 !!  ...  !!  cn
+where (ci) is an arbitrary character.
+
+befchr
+
+     usage:  string-ptr = befchr(host, block1, mask)
+     the output behavior of this routine is completely
+     equivalent to the output behavior of:
+     "befstr(host, n, c1, c2, ..., cn)".
+
+whichr
+
+     usage:  string-ptr = whichr(host, block1, mask)
+     the output behavior of this routine is completely
+                                                               Page 36
+
+
+     equivalent to the output behavior of:
+     "whistr(host, n, c1, c2, ..., cn)".
+
+aftchr
+
+     usage:  string-ptr = aftchr(host, block1, mask)
+     the output behavior of this routine is completely
+     equivalent to the output behavior of:
+     "aftstr(host, n, c1, c2, ..., cn)".
+
+allchr
+
+     usage:  string-ptr = allchr(host, block1, mask,
+                                   bef-ptr, aft-ptr)
+     the output behavior of this routine is completely
+     equivalent to the output behavior of:
+     "allstr(host, bef-ptr, aft-ptr, n, c1, c2, ..., cn)".
+
+     usage:  string-ptr = allchr(host, block1, mask,
+     bef-ptr,0)
+     this usage is analogous to the "allstr" usage in which
+     the aft-ptr argument is zero.  string-ptr is set to
+     latter part of the host starting with the matched
+     character, and bef-ptr is set to the part of the host
+     before the matched character.
+
+     usage:  string-ptr = allchr(host, block1, mask,
+     0,aft-ptr)
+     this usage is of course analogous to the similar
+     "allstr" usage;  string-ptr is set to the beginning of
+     the host thru the matched character, and aft-ptr is set
+     to remainder of the host after the matched character.
+
+fndchr
+
+the data-directed character searching routine is called
+"fndchr".  its possible modes are similar to "fndstr"s but
+there are differences which will be outlined below.  also
+"fndchr" returns a different piece of subsidiary information
+in r1.  if the character search is successful, "fndchr" will
+return in r1 the numeric code of the character which matched
+a character in the host, otherwise it will return zero in
+r1.
+
+for mode = not idxend.
+
+     usage:  fndchr(host, not idxend, block1, mask)
+     the output behavior of this routine is completely
+     equivalent to the output behavior of "fndstr(host, not
+     idxend + multiple, n, c1, c2, ..., cn)" except for the
+     subsidiary information in r1.
+
+for mode = idxend.
+
+     usage:  fndchr(host, idxend, block1, mask)
+                                                               Page 37
+
+
+     the output behavior of this routine is completely
+     equivalent to the output behavior of "fndstr(host,
+     idxend + multiple, n, c1, c2, ..., cn)" except for the
+     subsidiary information in r1.
+
+for mode = partial.
+
+     usage:  fndchr(host, partial, block1, mask, pos1, pos2)
+     the output behavior of this routine is completely
+     equivalent to the output behavior of "fndstr(host,
+     partial + multiple, pos1, pos2, n, c1, c2, ..., cn)"
+     except for the subsidiary information in r1.
+     (note:  as before, pos2 equaling zero means assume the
+      ending-position of the host).
+
+for mode = anchor + not partia.
+
+     usage:  fndchr(host,anchor + not partia, block1, mask)
+     this usage exists solely as a convenience.  it is
+     equivalent to specifying "anchor" and "partia" together
+     and setting pos1 to (1) and pos2 to (2).
+
+for mode = backwards.
+
+     usage:  fndchr(host, backwards + others, block1, mask)
+     this switch setting will cause "fndchr" to find the
+     last occurence within "host" of a character in
+     bct(block1, unencoded-mask), rather than the first.
+     and as the switch name suggests, "fndchr" does this by
+     searching the host string from its last character to
+     its first character rather than vice versa.
+
+examples:
+        integer fndchr,innrp,innlp,mask
+        complex sp1,sp2,sp3
+        complex bndstr,aftchr,befchr
+        dimension table(128)
+        real*8 numlst, expres
+        data numlst /'  +73   24'/
+        data expres /'(i+(j+k)-)'/
+        mask="1
+        call tabstr(table,mask,'aeiou')
+        mask=.not. 2
+        call tabstr(table,mask,' ')
+        call tazstr(table,1)
+        call tonstr(table,1,'1234567890')
+        call tonstr(table,1,'.-+')
+        call tofstr(table,2,'   ')      !a tab
+        call taostr(table,4)
+        call tofstr(table,4,'+-1234567890')
+
+        sp1=aftchr(numlst,table,2)
+        sp2=befchr(sp1,table,4)
+
+        call    tabstr(table,8,np('('))
+                                                               Page 38
+
+
+        call tabstr(table,16,np( ')' ))
+        innlp=fndchr(expres,backwa, table,8)
+        innrp=fndchr(expres,partia+idxend, table, 16)
+        sp3 = bndstr(expres, innlp,innrp)
+
+        sp1 = allchr(expres,table,8,sp2,0)
+        innlp = fndchr(expres,anchor,table,8)
+
+the first "tabstr" will set up a table which will match any
+of "a", "e", "i", "o", "u", and the second "tabstr" will set
+up a (bct) which will match the first non-blank character
+encountered.  note that both (bct)'s are in the same
+128-word block.
+
+the "tazstr" and "tonstr" respectively zero the table
+containing the vowels and replace it with a table containing
+the digits.  the second "tonstr" illustrates that a (bct)
+can be added to by including the signs within the digit
+table.  the first "tofstr" shows this same principle in
+converse by adding non-tab into the concept of non-blank.
+lastly the "taostr" and "tofstr" create a new table which
+contains everything but the digits.
+
+the calls to "aftchr" and "befchr" are used to set up sp2 to
+point at '+73'.  they use tables 34 (mask=2) and 33 (mask=4)
+to respectively strip off leading blanks and then find the
+first non-numeric character in the left-truncated string
+pointed at by sp1.
+
+the calls dealing with "express" show how to find the
+innermost parenthesized expression in a string.  in
+particular sp3 will be caused to point at '(j+k)'.  the
+technique used to setup sp3 is to find the rightmost left
+parenthesis by searching backwards thru "expres".  and then
+using that as a context, search forward until the first
+right parenthesis is found.  note the use of "idxend" to
+insure that the positions actually returned are before the
+left parenthesis and after the right parenthesis.
+
+the last two calls cause sp1 to be set to 'i+(j+k)-)', sp2
+to '(', and innlp to 0.  note that the second of these calls
+is intuitively equivalent to saying, "is the character i am
+looking at any of those i am interested in".
+
+5.5 conversions and mappings
+
+the routines, "cnvstr" and "mapstr", respectively implement
+string <---> numeric transformations and string <---> string
+transformations.  "cnvstr" will be described first.
+
+cnvstr
+
+for mode = not toascii.
+
+     usage:  i = cnvstr(integer1, string1, base, not
+                                                               Page 39
+
+
+                                   toascii)
+     this routine usage will convert string1 into a
+     fixed-point number and copy it into integer1, where
+     string1 is the string representation of a number in
+     base, "base".  as regards string1 format, it may
+     contain leading blanks and may optionally have a minus
+     sign immediately preceding the high order digit of the
+     number.  if string1 is not the representation of a
+     legal number in base "base", (i) will be set to zero
+     and integer1 will be left unchanged.
+     (note:  usually one would expect "base" to be 10 or 8).
+
+for mode = always + not toascii.
+
+     usage:  i = cnvstr(integer1, string1, base, always +
+     not toascii)
+     same as before except that even if string1 is not the
+     representation of a legal number, integer1 is set to
+     the "converted" string.  as before, (i) is set to -1
+     for a "good" number and 0 for a "bad" number.
+
+for mode = toascii + not zeropad.
+
+     usage:  i = cnvstr(string1, integer1, base, toascii +
+                                   not zeropad)
+     this routine will convert the fixed-point number,
+     integer1, into the string which represents integer1 in
+     base, "base".  if the number of characters needed to
+     represent integer1 in base "base" is greater than the
+     length of string1 at the time of the call, "cnvstr"
+     will return 0 -- signalling the failure of the
+     conversion.  otherwise it will return -1 and right
+     justify the string representation of integer1 within
+     string1 with respect to the length of string1 at the
+     time of the call (i.e.  the low-order digit of integer1
+     will be located at:
+     "vecstr(string1,1,lenstr(string1))").
+     if there is room, string1 will be padded with leading
+     blanks.  if integer1 is negative, the minus sign will
+     be to the right of the leading blanks, if any.
+
+for mode = nofill + toascii.
+
+     usage:  i = cnvstr(string1, integer1, base, nofill +
+     toascii)
+     the conversion is as with the previous usage.  what
+     "nofill" causes is the left justification of the
+     converted integer within string1.  additionally the
+     length of string1 will be adjusted so that there are no
+     trailing characters after the low order digit of the
+     converted number.  failure will be signalled only if
+     the converted number requires more characters than the
+     maximum of string1.
+
+for mode = zeropad + toascii.
+                                                               Page 40
+
+
+     usage:  i = cnvstr(string1,integer1, base, zeropad +
+                                   toascii)
+     this usage is as with "zeropad" turned off except that
+     "cnvstr" will generate leading zeroes rather than
+     leading blanks when there is room.  note also that if a
+     minus sign is needed it will be to the left of the
+     leading zeroes rather than to their right.
+
+mapstr
+
+the usages of "mapstr" will be described now.  note that
+"mapstr" conforms to the rules described in section 3.2 for
+bounds checking and setting up a completion value as the
+return variable.
+
+for mode = translate.
+
+     usage:  i = mapstr(string1, string2, translation,
+                                   translate)
+     with this switch setting, "mapstr" will, while copying
+     string2 to string1, translate each of the characters in
+     string2 by the fixed-point number, "translation".  for
+     instance one could use this routine to convert a string
+     of lower-case letters to a string of upper-case letters
+     or vice versa.  in particular, one would respectively
+     set "translation" to -32 and 32.
+
+for mode = translate + bounds + not yesbound.
+
+     usage: i = mapstr(string1, string2, translation,
+               translate + bounds + not yesbound, bounding)
+     this setting is a generalization of the previous switch
+     setting.  a character in string2 will be translated
+     only if it is not between the bounds specified by
+     "bounding".  "bounding"s left half contains the lower
+     bound and its right half contains the upper bound.  a
+     character is considered outside of the bounds only if
+     it is less than the lower bound or greater than the
+     upper bound.  in other words the bounds are inclusive.
+     this sort of call can be used to convert a mixed group
+     of upper and lower case characters to either all upper
+     or all lower case.
+
+for mode = translate + bounds + yesbound.
+
+     usage: i = mapstr(string1, string2, translation,
+               translate + bounds + yesbound, bounding)
+     this switch setting is identical to the previous
+     setting except that translation only occurs if the
+     character is in the range specified by "bounding"
+     rather than outside of it.
+
+for mode = toascii.
+
+     usage:  i = mapstr(string1, string2, 0, toascii)
+                                                               Page 41
+
+
+     this switch setting will cause the character (byte)
+     size of string2 to be forced to 6 and the byte size of
+     string1 to be forced to 7.  and then sixbit to ascii
+     conversion will be done.
+      (note:  the result of attempting to convert ascii
+      characters in the two ranges below octal 40 and above
+      octal 140 is undefined).
+
+for mode = not toascii.
+
+     usage:  i = mapstr(string1, string2, 0, not toascii)
+     this switch setting will force byte sizes to 6 and 7
+     respectively and then do ascii to sixbit conversion of
+     string2 to string1.
+
+     examples:
+        dimension sparea(2)
+        complex sp1
+        integer cnvstr,mapstr
+        integer istr,inum
+        i=cnvstr(inum,'  -12',10,0)
+        i=cnvstr(inum,'  -12',8,0)
+        i=cnvstr(inum,' -12 ',10,0)
+        i=cnvstr(istr,-20,10, toasci)
+        i=cnvstr(istr,-20,8,toasci)
+        i=cnvstr(istr,-20,10,zeropa+toasci)
+        i=cnvstr(istr,-20,10,nofill+toasci)
+
+        i=mapstr(sp1,'12325',"40,transl)
+        mode = transl+bounds+yesbou
+        i=mapstr(istr,'abc45',"20,"000061 000071)
+        i=mapstr(istr,'abc45',-"20,"000101 000111)
+        call setstr(sp1,0,12,6)
+        i=mapstr(istr,'123456',0,0)
+
+ the first "cnvstr" sets "inum" to -12 while the second
+ "cnvstr" sets its to -10 since "cnvstr" was told to treat
+ the '-12' as an octal number.  the third "cnvstr" will fail
+ (ie.  set (i) to 0) since the trailing blank is spurious.
+ also "inum" would be left with its old value.
+
+ the first time "istr" is set, it will be set to ' -20'.
+ the second time it will be represented octally and set to '
+ -24'.  the third string setting "cnvstr" will set "istr" to
+ '-0024', and the last one will set it to '-24' followed by
+ two unknown characters since an integer string variable
+ cannot have its length set to other than five.  if sp1 had
+ been the destination string, it would have pointed at '-24'
+ and had a length of 3.
+
+ the first "mapstr" will set "istr" to 'abcde', as will the
+ second.  note that the octal code of "1" is 60 and "9", 71.
+ the third "mapstr" will translate in the other direction
+ and set "istr" to '12345'.  finally the last "mapstr" will
+ create a sixbit string corresponding to the ascii '123456'.
+                                                               Page 42
+
+
+ note that the byte size of sp1 was previously set to 6 by
+ the "setstr".
+                                                               Page 43
+
+
+6.0 error conditions
+
+it is possible to control the error detection and error
+message facilities of "strlib" in two ways.
+
+1) assembly parameters -- if the symbol, "check" is given a
+   non-zero value, no error checking will be done by any of
+   the entry points of "strlib".
+   if the symbol, "messag", is given a non-zero value,
+   checks will be made and overflows corrected -- but no
+   error messages will be generated.
+
+2) load-time parameter -- if the global symbol, "str.nw" is
+   appropriately used in a link-10 "define" switch, message
+   generation can be turned off:
+
+         .r link
+         *exampl,string/search/define:str.nw:-1
+
+   note that setting str.nw to -1 does note affect the
+   process of overflow detection and correction.
+
+6.1 the defined conditions
+
+all messages generated by "strlib" are warnings in the sense
+that they are "%" messages.  each message is associated with
+a standard six character mnemonic of the form, "str<code>".
+the three-letter codes are organized such that they can be
+quite useful in debugging.  corresponding to each code is a
+global symbol of the form <code>$ such that this is the
+location branched to when the condition is encountered.
+
+the messages:
+
+1) %strllz.  length less than zero
+   an entry point was passed a string length which was less
+   than zero;  the string length is set to zero.
+
+2) %strlem.  length exceeds maximum
+   an entry point was passed a string length which exceeded
+   the maximum for that string.  the string length is caused
+   to equal to the maximum.
+
+3) %strnss.  no source strings (count under 1)
+   the count passed to one of the concatenative or
+   string-search routines was less than one.  in this event
+   the failure path is taken by the called routine.
+
+4) %strciv.  code invalid value (not 0-5)
+   "cmpstr" was passed an illegal code.  this causes the
+   failure path to be taken.
+
+5) %strspe.  2nd position past end of string
+   in either "fndchr" or "fndstr", pos2 was greater than is
+   sensible.  it is reduced to the largest meaningful value.
+                                                               Page 44
+
+
+6) %strsli.  1st position such that string length increased
+   one of the string relative functions was used to generate
+   a superstring rather than a substring.  the change is
+   simply allowed to occur.
+
+7) %strfes.  1st position exceeds second
+   in effect a zero length string was being used as a host
+   string;  the failure path is taken.
+
+8) %struof.  under or overflow of string pointer length or
+   maximum
+   one of the string relative functions was caused to create
+   an illegal value for maximum or length.  less than zero
+   values are set to zero, and greater than 2**18-1 values
+   are set to 2**18-1.
+
+9) %strmli.  maximum and length inconsistent
+   "bldstr" was passed inconsistent values;  it will
+   increase the maximum to match the length passed it.
+
+10) %strrpu.  replacement unsuccessful:  
+   a second message is printed after this message (e.g.
+   %strlem).  in any event, the failure path is taken.
+
+11) %streps.  end of substring past end of string.
+   one of the string relative functions was used to create a
+   string pointer which was partially out-of-bounds of the
+   original string.  the user is simply allowed to do this.
+
+12) %stridt.  string argument has illegal data type - null
+   string assumed
+
+                                                               Page 45
+
+
+7.0 implementation characteristics
+
+each routine in "strlib" can be invoked by any program which
+makes use of the standard calling sequence (e.g.  fortran-10
+and cobol).  additionally, note that any routine can be
+called (if one does not need the return value) or invoked as
+a function.  in any event though, all routines always
+preserve registers two and up.
+
+the internal format of a string pointer is as follows:
+
+word 1: byte pointer to first character in the string
+        such that an "ildb" would load it.
+word 2: left side is 0 or the maximum allowed length
+        right is the current length
+
+fortran literals are actually a special case of asciz
+strings -- strings that are terminated by a nul character.
+if one is programming in macro, for instance, "lenstr" and
+"setstr" can be used to access and set the length of an
+asciz string.  data-type information, including type asciz,
+is communicated in an argument list.  for a description of
+the mechanism, see an appendix of the fortran language
+manual.  note also that if no type code is specified for a
+string argument, it is assumed to be a string pointer.
+
+the full argument type table is:  (bits 9-12)
+
+        0/      string pointer
+        1/      data-varying string
+        2/      integer string (ie. length always 5)
+        3/      illegal
+        4/      real string (ie. length always 5)
+        5/      illegal
+        6/      illegal
+        7/      illegal
+        10/     double string (ie. length always 10)
+        11/     same as 10.
+        12/     illegal
+        13/     illegal
+        14/     string ptr
+        15/     string ptr
+        16/     illegal
+        17/     asciz string (ie. a literal)
+
+7.1 "strlib" configurations
+
+normally the routines of "strlib" will load into the low
+segment, but by setting the assembly parameter "high" to
+zero, the routines of "strlib" will reside exclusively in
+the high segment.  in point of fact, one could build a .shr
+file containing all of string if one wished.
+
+with field image "strlib", one has complete byte size
+generality in the sense that all routines will work
+                                                               Page 46
+
+
+correctly with all valid byte sizes (1-36).  if one wishes
+to deal solely with ascii strings, one can set the assembly
+switch "anysiz" to 1.
+
+although bounds checking will have no effect if one never
+passes a maximum length to either "setstr" or "bldstr",
+there must still be checks to see if a maximum has been
+specified.  if one wishes to eliminate the concept of bounds
+checking, so to speak, from "strlib", one sets the assembly
+switch "bnd.ch" to 1.
+                                                               Page 47
+
+
+8.0 a programming example
+
+the following has been abstracted from the running of an
+actual control file.
+
+.r fortra
+
+**exastr,tty:=exastr
+
+00001           complex sp1,trcstr,bldstr
+00002           integer allrep
+00003           dimension l1(5)
+00004           data l1/'aaaaaaaaaa'/
+00005   
+00006           sp1=bldstr(l1,10,0)
+00007           i=allrep(sp1, trcstr('aa'),bldstr(
+'1111',5,0))
+00008           if (.not. i) type 88
+00009           type 101,l1,sp1
+00010   88      format(' bombed')
+00011   101     format(1h ,5a5,2o12)
+00012           end
+
+subprograms called
+
+allrep
+bldstr  trcstr  
+
+
+%ftnwrn   main.         no fatal errors and 1 warnings
+
+00001           integer function allrep(sp1,sp2,sp3)
+00002           complex sp1,sp2,sp3,tp
+00003           integer pos1,len2,len3
+00004           integer fndstr, repstr,lenstr,newpos
+00005           complex vecstr, bndstr
+00006   
+00007           len2 = lenstr(sp2)
+00008           len3 = lenstr(sp3)
+00009           pos1 = 1
+00010   
+00011           allrep=-1
+00012   10      tp=bndstr(sp1, pos1, 0)
+00013           newpos=fndstr(tp,0,sp2)
+00014           if (newpos.eq.0) return
+00015           if (.not. repstr(sp1,
+vecstr(tp,newpos,len2), sp3)) go to 88
+00016           pos1 = pos1 + newpos - 1 + len3
+00017           go to 10
+00018   
+00019   88      allrep=0
+00020   89      format('?arpfai. aborted')
+00021           end
+
+subprograms called
+                                                               Page 48
+
+
+lenstr
+bndstr  repstr  vecstr  fndstr  
+
+allrep  no errors detected
+
+.ex exastr,string/lib
+link:   loading
+[lnkxct exastr execution]
+1111 1111 1111 1111 1111 440700000143000000000031
+
+end of execution
+cpu time: 0.05  elapsed time: 0.08
+exit
+
+this example consists of a "testing" main program and a
+"user-written" string manipulation program which will
+replace all occurences of a given string with a second
+string.  it is important to note that "allrep" expects its
+three arguments to be string pointers.  this is the case
+because a fortran subprogram cannot do data-type checking as
+"string can.  similarly generic library routines like "sin"
+can do numeric data type checking but fortran subprograms
+had better receive exclusively real values or exclusively
+double precision values.
+
+the call to "allrep" in the main program asks "allrep" to
+set every occurence of 'aa' in sp1 to '1111 '.  in overview,
+the technique "allrep" uses to accomplish this is to search
+a shorter and shorter substring of sp1 until all occurences
+of the second argument have been found.  note also that sp1,
+rather than a temporary, must appear in the call to "repstr"
+so that the length of sp1 will be appropriately adjusted
+(ie.  by 3) each time 'aa' is found.
+
+the statements of the loop:
+
+00012) sets up the host string (for the "fndstr" which
+       follows) so that its first character is immediately
+       after the last character of the previously found
+       substring and its last character is the last
+       character of sp1 (ie.  the string pointed at by sp1).
+
+00013) searches the constructed substring of sp1 for an
+       occurence of sp2 (ie.  'aa').
+
+00014) if "newpos" is set to zero, no occurence of 'aa' was
+       found this time thru the loop, and we are finished.
+
+00015) the "repstr" should not fail, but if it does the
+       branch to "88" will be taken.  the "vecstr" will
+       return the substring of sp1 which is the current
+       occurence of 'aa', and sp3 points at '1111 '.
+
+00016) adjusts pos1 past the inserted '1111 ' by adding its
+       length (ie.  len3) and its offset within "tp" (ie.
+                                                               Page 49
+
+
+       newpos - 1).
+
+the output shown from executing "exastr" is the new value of
+sp1 followed by the octal representation of the string
+pointer, sp1.  the "31" is a decimal 25 -- the length of
+sp1.

@@ -1,0 +1,1676 @@
+
+
+
+           SOS.DOC - Changes from Version 21(122) to 23(220)
+
+
+      The Brookings Institution
+      Social Science Computation Center
+      Washington, D.C. 20036
+      January 31, 1976
+
+    Copyright (C) 1975,1976, The Brookings Institution, Washington, D.C.
+
+
+
+1.0   SUMMARY
+
+      SOS version 23(220) is the DEC-distributed  version  21(122)  with
+      all  known  bugs fixed and many useful improvements.  This version
+      incorporates fixes to all problems reported in  outstanding  SPRs,
+      all  fixes  made  in  the current DEC in-house version of SOS, and
+      other fixes developed by the University of Illinois, the  National
+      Institutes  of  Health,  and Brookings.  Improvements were made to
+      provide additional features as requested by various SOS users,  to
+      make  SOS  more  easier  to  use and more efficient to run, and to
+      incorporate useful functions from  other  versions  of  SOS.   All
+      improvements  were  carefully  designed  to be consistent with the
+      SOS's design philosophy and to provide the  maximum  benefit  from
+      the  minimum  amount  of core.  This version has been tested on KA
+      and KI DECsystem-10's, running 5.07B and  6.02  VM  monitors.   It
+      fully supports erstaz devices and SFDs.
+
+      Acknowledgement should be given to Chris Larkin and Dan D'Urso  of
+      Digital  Equipment  Corporation  for  providing  the  current  DEC
+      in-house version of SOS and copies of  outstanding  SOS  SPRs,  to
+      Charles  Hedrick  of  the University of Illinois for providing his
+      version of SOS, to Glenn Ricart  of  NIH  for  field-testing  this
+      version,  and  to  Ken  Jacobs  of  the  Urban  Institute and A.W.
+      Kunderd of Brookings for providing design assistance.
+
+      This documentation and the modifications which created SOS version
+      23(220)   are  copyrighted  by  The  Brookings  Institution.   Any
+      installation may use this  version  of  SOS,  provided  that  this
+      copyright  is  acknowledged  and all modifications to this version
+      are made available at no cost to Brookings.  No redistribution  of
+      this  version  may  be made without the express written consent of
+      Brookings;   permission  to  redistribute  is  hereby  granted  to
+      Digital   Equipment   Corporation   and   DECUS.    The  Brookings
+      Institution makes no warranty, express  or  implied,  as  to  this
+      software  and  assumes  no  liability  for direct or consequential
+      damages arising from its use.  Retention or use of  this  software
+      constitutes acceptance of the above terms.
+SOS.DOC - Changes from Version 21(122) to 23(220)                 Page 2
+
+
+2.0   EXTERNAL CHANGES
+
+2.1   The commands "B" and "BP", which position you to the beginning  of
+      the  file or the beginning of the current page, respectively, have
+      been implemented.
+
+2.2   The number of simultaneous search strings that may be given  in  a
+      single "F" or "S" command has been increased from 6 to 10.
+
+2.3   SOS provides an  encryption  feature  for  sensitive  text  files.
+      Encryption  is  requested  by  specifying an encryption code (1-20
+      alphameric characters) enclosed in parenthesis following the  name
+      of the file to be edited.  Thus, command
+
+          .SOS   TEXT.FIL(SECRET)
+
+      would either create or  edit  a  file  named  "TEST.FIL"  with  an
+      encryption  code  "SECRET".  To encrypt a previously-created file,
+      the command
+
+          .SOS   CODED.FIL(KEYWORD)=PLAIN.FIL
+
+      would read the unencrypted file "PLAIN.FIL" and write  the  edited
+      file  "CODED.FIL" using the encryption code "KEYWORD".  To reverse
+      the process, the command
+
+          .SOS   PLAIN.FIL=CODED.FIL(KEYWORD)
+
+      would similarly write the  unencrypted  file  "PLAIN.FIL"  as  the
+      edited version of the encrypted "CODED.FIL".
+
+      At present, only SOS can either read  or  write  encrypted  files,
+      although  the  SSCC intends to include the encryption package into
+      other software as time permits.
+
+            IMPORTANT:   It is the user's responsibility  to
+            remember   the  encryption  codes  for  all  his
+            encrypted files.  If a user cannot determine the
+            encryption  code,  the  encrypted  file  will be
+            unreadable.
+
+2.4   The Alter command ("A") has been improved in a  number  of  useful
+      ways:
+
+      2.4.1 In Alter mode, the command "^R" types out the  current  line
+            from the left margin to the current position.  This type-out
+            closely approximates the normal ^R output.  Note that ^R may
+            be  typed  anytime  in Alter mode, even while inserting text
+            into a line with the Alter-mode  "I"  or  "R"  commands,  or
+            while  typing  arguments  to the Alter-mode "C", "S", or "K"
+            commands.
+
+      2.4.2 Similarly, the command "^U" will always be  taken  in  Alter
+            mode to restart the current line, even following a "I", "R",
+            "C", "S", or "K" operation.
+SOS.DOC - Changes from Version 21(122) to 23(220)                 Page 3
+
+
+            Note that "^U" will produce an unexpected effect when  typed
+            in  as  text  for the Extend ("X") command.  Because the "X"
+            command is implemented as an Alter mode  operation  with  an
+            automatic  insertion  at end of line, typing "^U" terminates
+            the insertion and  then  puts  you  in  Alter  mode  at  the
+            beginning of the line.
+
+      2.4.3 The Backspace character (^H) is now completely equivalent to
+            the  Rubout  character  (also  known  as  the  Delete or Del
+            character, 177 octal, sometimes written as "<RO>") in  Alter
+            mode.   This  means that Backspace, like Rubout, deletes the
+            previous character as  an  "I"  or  "R"  command  character,
+            terminates  the "C", "S", or "K" command operation, or as an
+            Alter command backs up the current character position.
+
+      2.4.4 The  Alter-mode  commands  "^",  "<",  and  ">"  have   been
+            implemented.   These commands modify the case of the current
+            character, if it is a letter,  and  then  move  the  current
+            character  position one space to the right.  The "^" command
+            inverts the case, "<" sets it to upper case, and ">" sets it
+            to  lower case.  If a repeat count has been specified, these
+            commands  operate  on  that  number  of  characters.   If  a
+            negative  sign  ("-")  has  been  specified,  these commands
+            operate on the previous character and then move the  current
+            character position one space to the left.  A negative repeat
+            count is also legal.
+
+      2.4.5 The Alter-mode command "B" immediately positions you to  the
+            beginning  of  the  current line.  This command differs from
+            "L", which also  positions  you  at  the  beginning  of  the
+            current  line, in that it does not type the remainder of the
+            line before repositioning.
+
+      2.4.6 An ALTMODE (Escape, or ESC  character)  in  Alter  mode  now
+            clears  the  accumulated  repeat count and negative sign, if
+            any, without ringing the terminal's audible alarm (bell).
+
+      2.4.7 A greater number of Alter-mode commands  may  be  used  with
+            negative repeat counts.  These include " " (space forwards),
+            Rubout or Backspace (space backwards), "@" (execute  command
+            forwards  -  see  2.4.15, below), "D" (delete forwards), "R"
+            (delete forwards and then insert),  "S"  (search  forwards),
+            "K"  (kill  next characters), "<HT>" (space to end of line),
+            and "X" (insert at end of line).  When a negative sign ("-")
+            or  negative  repeat count ("-nn") is given the direction in
+            which a command operates is  reversed,  e.g.,  "-D"  deletes
+            backwards  instead of forwards, "-X" inserts at the start of
+            the line, etc.   Note  in  the  previous  version  "^U"  was
+            illegal  following  a  minus  sign, which prevented the user
+            from restoring  the  original  line  under  certain  command
+            sequences.
+
+      2.4.8 As for other  SOS  modes,  typing  two  Bell  characters  in
+            succession ("^G^G") will now terminate alter mode and return
+            you to SOS command mode (i.e., a "*" will  be  typed).   The
+SOS.DOC - Changes from Version 21(122) to 23(220)                 Page 4
+
+
+            line currently being altered will remain intact.
+
+      2.4.9 Control characters typed  during  Alter  mode  will  now  be
+            echoed as such (as "^<char>").
+
+      2.4.10 For the "C", "S", and "K"  commands,  the  Carriage  Return
+            <CR>  character  will now terminate the Alter-mode operation
+            on the current line, just as Carriage Return now  terminates
+            operations  on  the  "I"  and  "R" commands.  Similarly, the
+            ALTMODE (Escape, or ESC character) will terminate  the  "C",
+            "S", or "K" operation, just as Backspace or Rubout does, but
+            leaves you in Alter mode on the current line at the  current
+            position.
+
+      2.4.11 For  the  "S"  and  "K"  commands,  the  initial  character
+            position  may  be  thought  of  as  being  before  the first
+            character position on the line, so that an S command for the
+            first  character  in  the line will find it, and a K command
+            for the first character will not kill any characters.   This
+            makes  Alter  mode  operations  more  consistent  since, for
+            example, in a FORTRAN program, a search for a horizontal tab
+            character  (e.g.,  typing  "S<HT>")  at the beginning of the
+            line will always put you at column 7,  whether  or  not  the
+            line has a FORTRAN statement number.
+
+      2.4.12 The "T", "W", "U", and "X" Alter-mode  commands  have  been
+            changed from prior versions to provide greater word-handling
+            capability and to make Alter mode more consistent with other
+            SOS commands.  "W" retains its present meaning of "skip next
+            word";  a word is defined  as  any  collection  of  letters,
+            numbers,  and  the  three  separator-type special characters
+            ".", "%", and "$".  In version 23(220),  "T"  means  "delete
+            next  word  and insert text";  "U" means "delete next word";
+            "X" means "skip to end of line and insert  text",  analogous
+            to  the  normal  "X"  (Extend) command.  Note that "-X" is a
+            legal command meaning "skip to beginning of line and  insert
+            text".   For  both  "T"  and  "X"  text is inserted until an
+            Altmode" or <CR> is typed.
+
+            This implementation replaces the prior version in which  "X"
+            meant  "delete word and insert text" (current "T" function )
+            and "T" and "U" were errors.
+
+      2.4.13 In Expert mode, text backspaced across (in  response  to  a
+            "<RO>",  "-<SP>",  or  "-S"  command)  is not typed when the
+            result would be that the character pointer will  be  at  the
+            start  of the line.  Instead, the line number is again typed
+            to indicate this result.
+
+      2.4.14 For the "K", "S", and "C" commands, the Line-feed character
+            ("<LF>")  has  been  given  a special meaning "end of line".
+            Thus, "K<LF>" kills all characters to end of line (beginning
+            of  line  if  "-K");   and  "S"  searches to the end of line
+            (beginning of line if "-S").  Changing a character to a line
+            feed  with  "C<LF>"  now  inserts an <CR><LF> and copies the
+SOS.DOC - Changes from Version 21(122) to 23(220)                 Page 5
+
+
+            remaining text to a new line, analogous the insertion  of  a
+            <LF> with the "I", "R", "T", or "X" command.
+
+      2.4.15 An important extension to the Alter mode  command  facility
+            has been implemented.  This is the "Execute through" command
+            ("@"), which has the syntax
+
+                  [-]  [nn]  @  <cmd>  <char>
+
+            and specifies to execute  the  Alter  mode  command  "<cmd>"
+            through  the  "nn"th  occurrence  of  "<char>".  The command
+            searches backwards if the minus sign has been specified  and
+            if  minus  is legal for the specified "<cmd>".  This command
+            supports the following command characters:  " "  ("@ <char>"
+            is  equivalent  to  "S<char>"),  "C",  "^",  ">",  "<",  "D"
+            ("@D<char>"  is  equivalent  to  "K<char>"),  and  "V"  (see
+            2.4.19,  below).  All commands except "C" and "V" may search
+            in either direction;  only the " " command may be used  when
+            searching a /READONLY file.  The "@" command follows the new
+            convention  for  initial  character  position  described  in
+            2.4.11 and obeys the added special-character conventions for
+            Carriage Return, Altmode, Backspace, Rubout, Line Feed,  ^R,
+            and  ^U  described  in  2.4..1,  2.4.2,  2.4.3,  2.4.10, and
+            2.4.14, above.
+
+      2.4.16 The Alter mode character-matching  facility,  used  by  the
+            "S", "K", and "@" commands, has been improved.
+
+            First, letter comparisons will be either exact  (upper  case
+            distinct  from  lower  case) or folded (upper case and lower
+            case are equal) depending on the  setting  of  the  "/EXACT"
+            switch  and  the  ",E"  argument, as described in item 2.28,
+            below.
+
+            Second, all pattern match special characters as described in
+            item  2.29,  below,  except "any number of" and "one or more
+            of", may be used as  target  characters.   This  means,  for
+            example,  that  the  command  "K?:"  when in /C128 mode will
+            delete all characters through the next "Separator".
+
+      2.4.17  The  "^R"  function  now  prints  the  correct  number  of
+            characters when following a "-D" command.
+
+      2.4.18 The Join function ("J") when given while positioned at  the
+            beginning  of  a  line  now  deletes  the  first  line while
+            appending the text of that line to the beginning of the next
+            line.   This  was  done to facilitate alignment of text into
+            evenly spaced lines.
+
+      2.4.19 The "V" command (Stanford case inversion command) has  been
+            implemented  for  Alter mode.  If the current character is a
+            letter, the "V" command inverts  its  case  and  spaces  one
+            character  to the left.  Otherwise, the "V" command performs
+            no action.  A repeat count may be specified, to  permit  the
+            case  of  consequitive  letters to be inverted;  or the same
+SOS.DOC - Changes from Version 21(122) to 23(220)                 Page 6
+
+
+            effect may be achieved by  using  the  "V"  command  as  the
+            subject  of  the "@" command.  However, the "V" command only
+            works left-to-right;  a minus sign (negative  repeat  count)
+            may not be given.
+
+2.5   The following changes have been made to  SOS's  handling  of  data
+      files and file specifications:
+
+      2.5.1 SOS now uses that PATH.  UUO to verify  that  a  LOOKUP  has
+            found the desired file in the specified disk area.  This may
+            occur when the user's search list has /LIB,  /SYS,  or  /NEW
+            set.   Specifically,  in the normal SOS operation, when only
+            one file is specified and /READONLY is not  in  effect,  the
+            specified  file  must be found in the disk area requested in
+            order to be edited.  This means that if you attempt to  edit
+            a  file,  which exists in your library area (i.e., on LIB:),
+            the file will be created in your area and  not  edited  from
+            LIB:.   To  edit a file from LIB:, you must specify the file
+            as "LIB:file.ext".
+
+      2.5.2 In the normal SOS operation, when only one file is specified
+            and /READONLY is not in effect, if you have requested that a
+            file be edited that is not in either your  default  path  or
+            your own disk area, SOS treats that as a request to read the
+            file from the specified  disk  area  and  write  the  edited
+            version  onto  your default path.  This is an "implied copy"
+            operation.
+
+            When  SOS  does  an  implied  copy,   it   uses   the   file
+            specification  "DSK:file.ext[-]".   SOS  follows  the normal
+            rules, as given  in  2.5.3,  below,  for  setting  the  file
+            protection on the resulting output file.  To edit a file "in
+            place" in another disk area, you must give  the  other  disk
+            area as both the input and output file specifications.
+
+            Because  this  feature  is  designed  to   keep   the   less
+            experienced    SOS   user   from   getting   into   trouble,
+            installations serving the more experienced user may  disable
+            this   feature  with  the  "FTIMPCPY"  conditional  assembly
+            switch.
+
+      2.5.3 Whenever you give a file spec to SOS, you  may  now  include
+            the  protection  to  be associated with that file as part of
+            the  file  specification,  as  in  "SAMPLE.CBL<157>".    The
+            protection last typed as part of the file spec on either the
+            input or output side of the initial  command  line,  as  the
+            argument to /NAME, or as the new file name on the "E" or "W"
+            commands will set the protection for the edited output file.
+            If   no   protection   is   specified,   SOS  will  use  the
+            system-standard  protection  when  creating  files  and  the
+            file's current protection when editing existing files.
+
+      2.5.4 Whenever SOS types a file specification out, for example  at
+            the  end  of  an  editing session, it will only type out the
+            device if  it  is  not  DSK:   (or  a  file  structure  name
+SOS.DOC - Changes from Version 21(122) to 23(220)                 Page 7
+
+
+            equivalent  to  DSK:), only type out the protection if it is
+            not the system standard, and only type the file's path if it
+            is not your default path.  A file structure is equivalent to
+            DSK:  when it is in the  system  search  list  (i.e.,  is  a
+            public  structure),  when  it  is  the only structure in the
+            user's active search list, and when it has the  normal  file
+            structure /WRITE and /CREATE attributes.
+
+      2.5.5 When editing from one file to another, SOS will type out the
+            file specifications as
+
+                  Edit: <old file>  as  <new file>
+
+            to inform you that a copy operation is being performed as  a
+            part  of  the editing process.  If /CREATE has been set, the
+            message is typed as
+
+                  Edit: <old file>  creating  <new file>
+
+            to indicate this.  Note that a copy operation may be implied
+            from  a  single  file spec accessing a file not in your disk
+            area or on your default path, as described  in  item  2.5.2,
+            above.
+
+      2.5.6 All SOS output files are written in ASCII Line mode (mode 1)
+            to better indicate their contents.
+
+      2.5.7 SOS file specifications may now be placed on the  same  line
+            as  the  RUN  or  R command initiating SOS by preceeding the
+            file specifications with a "-".  Thus the command
+
+                  .R   SOS  -  TEST.F4
+
+            would be equivalent to the commands
+
+                  .R   SOS
+
+                  File:  TEST.F4
+
+            but is simpler to type.  If you  have  previously  edited  a
+            file,  and you wish to run SOS to edit or create a different
+            file, typing a dash ("-") following the  RUN  or  R  command
+            without  a file name will cause SOS to ignore the remembered
+            file name.  (Note that this  is  a  new  description  of  an
+            existing feature of SOS version 21(122).)
+
+      2.5.8 SOS does not echo the name of the file being edited when the
+            user  entered  the  file  name explicitly in response to the
+            "File: "  prompt.   This  was  eliminated  since   in   that
+            particular  case  the  user already knows what file is being
+            edited.
+
+      2.5.9 A "save" operation, caused either by the "W" command  or  an
+            auto-save  operation  requested  by  the "/SAVE" or "/ISAVE"
+            parameters, may now be done where the  desired  output  file
+SOS.DOC - Changes from Version 21(122) to 23(220)                 Page 8
+
+
+            protection  is  <400>  or greater.  In this case, the file's
+            protection is set to <3xx> by the save operation  but  reset
+            to  the desired protection at the end of the editing session
+            ("E" or "G" commands).
+
+      2.5.10 All SOS operations reading or  writing  files  from  ersatz
+            devices  (e.g.,  NEW:,  OLD:,  HLP:,  LIB:,  etc.) will work
+            correctly.  When accessing ersatz devices, SOS  will  ignore
+            any  PPNs  specified  by  the  user  since  the  device name
+            overrides the PPN.
+
+      2.5.11 The effect of the "/DELETE" switch or the "ED" command  has
+            been  modified when SOS has a specified output file which is
+            not the same as the input file.  This  situation  can  occur
+            when the user has typed an SOS command such as
+
+                  .SOS  FILE.NEW = FILE.OLD
+
+            or when the user has set a new output file with the  "/NAME"
+            command.   When  this  occurs,  SOS will delete only the new
+            file (FILE.NEW in the above example) and only when  SOS  has
+            written  a  new copy of that file.  Thus, when only one file
+            has  been  specified  (the   so-called   "browse-and-delete"
+            function)  /DELETE  will  delete that file;  when both input
+            and output files have been given /DELETE  will  delete  only
+            the output file and never the input file.
+
+      2.5.12 WARNING:  PLANETS users should  be  aware  of  a  potential
+            naming conflict between SOS backup files (*.Q??) and PLANETS
+            quarterly data banks (*.QTR).  To prevent the  PLANETS  data
+            banks  from  being  deleted  by  the  DELETE  command (as in
+            ".DELETE  *.Q*"), the  data  banks  should  be  given  <5xx>
+            protection.   If you use the KJOB command "/S" option (as in
+            ".KJOB/S" or ".K/S") any protection  <100>  or  higher  will
+            protect the data banks from deletion while logging out.
+
+      2.5.13 When set in "/NOBAK" mode, SOS will not  delete  previously
+            existing backup files (*.Q??) when saving a new version of a
+            source file.  This permits a user to access  a  backup  file
+            created  by  SOS  when  a source file was edited in "/NOBAK"
+            mode after the same file had been  edited  in  "/BAK"  mode.
+            This  change  also  makes  SOS  slightly more efficient when
+            operating in "/NOBAK" mode.
+
+            Although the standard default for the "/BAK /NOBAK /OLD" set
+            of  switches  is "/BAK", a user may change what default with
+            an SOS SWITCH.INI entry;  an  installation  may  now  change
+            that  default  by  reassembly  of  SOS  after  changing  the
+            "DEFBAK" conditional assembly switch.
+
+      2.5.14 Because prior SOS code would not recover from "No  room  on
+            disk"  error  while  writing  output  files,  SOS  now  sets
+            "DSKFUL PAUSE" during editing sessions.   When  the  no-room
+            error then occurs, SOS would then return to Monitor level to
+            permit the user to eliminate the error  condition  and  then
+SOS.DOC - Changes from Version 21(122) to 23(220)                 Page 9
+
+
+            resume  editing  with  the  Monitor "CONTINUE" command.  SOS
+            resets the "DSKFUL" setting to the user's prior setting upon
+            exit.
+
+            In addition, the user still may request SOS  to  check  that
+            adequate  disk  space  exists before writing each block of a
+            file by setting the /CHECK parameter.  If  no  room  exists,
+            SOS  enters  a  dialog with the user to permit correction of
+            the error.
+
+      2.5.15  The  format  of  the  "=DISK"  message  and  the  "/CHECK"
+            diagnostic warning has been slightly reworded to clarify its
+            meaning.
+
+      2.5.16 To conform to  normal  DECsystem-10  conventions,  SOS  now
+            looks for the "SWITCH.INI" option file on the user's default
+            path ("[-]")  and  uses  the  user's  PPN  ("[,]")  for  the
+            "???EDS.TMP"  and  "???EDT.TMP"  command files.  Writing the
+            command files in  the  user's  own  area  assures  that  SOS
+            commands  will  remain  remembered when the user changes his
+            default path and makes SOS perform consistently whether  the
+            files are written on disk or in TMPCOR.
+
+      2.5.17 Where an input file can be read, but not renamed or deleted
+            by SOS, SOS now assumes the file is to read as /READONLY and
+            types an appropriate warning message.
+
+      2.5.18 When editing existing files, SOS attempts to optimize  disk
+            file  allocation  by  taking the actual size of the old file
+            and passing that size to the Monitor as  an  estimated  file
+            size  of  the  new  file being created.  Where disk space is
+            available, this means that the new version of the file  will
+            get  contiguous  allocated disk space.  This tends to reduce
+            overall disk space fragmentation and increase the  speed  at
+            which  the  new  file  may be read.  However, no extra space
+            will be used if the new file is shorter than the  old;   nor
+            will  anything bad happen if the new file is longer than the
+            old or if not enough contiguous space is available.
+
+            This optimization is done by using extended LOOKUP and ENTER
+            UUOs.   Similarly,  SOS now used the CHKACC UUO to determine
+            access privileges for all files being read or written.  When
+            SOS  detects  that  it cannot write a file to a certain disk
+            area, it gives the fatal message
+
+                  ? Insufficient privileges to write file
+
+            and exits to the Monitor.  No  editing  work  will  be  lost
+            because  this  condition will be detected at the start of an
+            editing session.
+
+            This change should mean that SOS will never be able  to  get
+            in  the  situation when exiting that the user cannot respond
+            the the message
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 10
+
+
+                  ?File write-protected.  Try another name.
+                  File:
+
+            because SOS has written a temporary file in a disk area with
+            a  protection  which  prevents SOS from renaming or changing
+            the protection of the file.  Determining  access  privileges
+            with the CHKACC UUO means that [1,2] users may edit files in
+            any disk area regardless of their protection.
+
+      2.5.19 Because SOS remembers that the file being edited  has  been
+            changed to determine whether to write a new copy of the file
+            when wrapping around to the beginning, when saving the  file
+            ("W"  command),  or when exiting ("E" or "G" command), logic
+            has been added so that changing a line to  itself  will  not
+            count as a change to the file.
+
+            In a related improvement, the Save command  ("W")  will  not
+            write  a new copy of the file or reposition to the beginning
+            of  the  file  when  the  file   has   not   been   changed.
+            Furthermore, commands that change the file to itself are not
+            counted by the /SAVE auto-save feature.
+
+            These changes will reduce SOS overhead.
+
+2.6   The SOS mode /UPPER or /LOWER now is effective to invert the  case
+      when  in  /C128  mode.   This  makes  more  sense  that  the prior
+      implementation, because if the user is working  on  an  upper-case
+      only  (/M33) terminal (s)he has no control over case in /C64 mode.
+      In contrast, if the user is working  on  upper/lower  case  (/M37)
+      terminals in /C64 mode typing characters out in inverted case when
+      the terminal can display both upper  and  lower  case  letters  is
+      likely  to be confusing.  This means that /LOWER mode controls the
+      inversion of only /C128 (not /C64) upper or lower case letters.
+
+2.7   Indirect command files may now invoke other indirect command files
+      with  the  "@"  command.  Note that this invokation is a permanent
+      transfer of control to the next indirect file, and is not  in  the
+      nature of a subroutine call.
+
+      As a convenience for the user,  reaching  an  end-of-file  on  the
+      indirect  command  file  will  now  not clear further SOS commands
+      typed ahead on the terminal.
+
+2.8   When an "=" command is read from an  indirect  command  file,  the
+      name  of  the requested variable is typed out to indicate the user
+      what is being displayed.
+
+2.9   When reading commands from  an  indirect  file,  the  ^O  terminal
+      status  is  not  cleared  between  commands,  so that the user may
+      easily suppress all typed output.
+
+2.10  The "implied ." convention has been implemented.  This means  that
+      where  you would use a "." to indicate the current line number (as
+      in ".+1"), you may omit the "." and SOS will  assume  it  for  you
+      (i.e., the above example ".+1" may also be given as "+1").
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 11
+
+
+      Normally, when SOS is in Novice mode (the default) SOS will assume
+      the  "."  only  in  the  middle  of  the  command, as in "I;10" or
+      "D:500".  When in Expert mode, the SOS  commands  "D",  "R",  "X",
+      "M",  "K",  "A",  "JU",  "J", ".", "VV", "VU", and "VL" when typed
+      without any arguments, as in "D<CR>" or "A<CR>", will  specify  an
+      operation  on  the  current  line.  Thus, the examples given if in
+      Expert mode will, respectively, delete and alter the current line.
+
+      However, the commands "P", "I", "L", and  "N"  will  retain  their
+      current  implementation  for  an  unspecified  range.  The command
+      "P<CR>" will print "PLINES" of text starting at the current  line;
+      "I<CR>"  will continue the previous insert operation;  and "L<CR>"
+      will list the entire  file.   Also,  a  null  range  for  the  "N"
+      command, as in "N<CR>" or "N50<CR>" will renumber the entire file.
+
+      The SSCC has had this feature implemented for several  years.   It
+      has proven most natural to use, and therefore is very popular with
+      Brookings SOS users.
+
+2.11  For compatability between the "T" and  "C"  commands  as  compared
+      with  the  "I" and "R" commands, the "T" and "C" commands will now
+      accept the increment delimited by a semi-colon as well as a comma.
+
+2.12  For the "I" and "R" commands, you may now specify  the  number  of
+      lines to be inserted with a "!" as well as with a ";!" delimiter.
+
+      Care must be taken for the "R" command.  The command "Rn!m"  means
+      "delete  'm'  lines starting at line 'n' and then insert using the
+      current increment" NOT  "delete  line  'n'  and  insert  using  an
+      increment that will permit 'm' lines of insertion." To specify the
+      latter, the command  would  have  to  be  "Rn;!m",  with  the  ";"
+      specifying  that  the  "!m"  is an insertion count and not a range
+      specification.   However,  the  command  "Rn!m!k"  is  legal   and
+      specifies  the deletion of 'm' lines starting at line 'n' followed
+      by an insertion with an increment which will permit 'k'  lines  of
+      text.
+
+      When  you  specify  the  number  of  lines  to  be  inserted,  SOS
+      automatically  computes  the largest reasonable increment that may
+      be used to insert that number of lines at that place in the  file.
+      The  increment  is selected from the list (1, 2, 4, 5, 10, 20, 25,
+      40, 50, 100) but cannot exceed your current permanent increment.
+
+2.13  When an "I" or "R"  command  terminates,  SOS  now  remembers  the
+      increment  being  used,  as well as the position, for use with the
+      next "I<CR>" command.
+
+2.14  When in Novice mode,  the  message  giving  the  number  of  lines
+      deleted  for  the  "R"  command now appears before the replacement
+      lines are inserted, and not afterward as before.  Also, a  similar
+      message is produced when lines are deleted by the "T" command.
+
+2.15  The 128-character-set mode (C128) escape character has been made a
+      user  parameter.  It may be set to any printing special character;
+      the default is "?", which is compatible  with  older  versions  of
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 12
+
+
+      SOS.   The  SSCC believes that "?" is a preferred escape character
+      over "'",  because  "'"  has  syntactic  meaning  in  many  common
+      programming languages, among them MACRO, FORTRAN, and COBOL, while
+      "?" does not have such a wide-spread meaning.  In any event,  this
+      implementation  permits  an  installation  to  change  the default
+      escape character by setting the assembly parameter  "DFC128",  and
+      permits  each user to have his default set via SWITCH.INI.  To set
+      the escape character, the command
+
+            /C128:<character>
+
+      is used, where "<character>" is the desired C128 escape character.
+      The command
+
+            /C128
+
+      with no argument sets C128 mode but does  not  change  the  escape
+      character,  and  the  command  "=CASE"  displays  the current C128
+      escape character when SOS is in C128 mode.
+
+      The rules for C128 character mapping are consistent  with  current
+      implementation;   the  current  C128  escape character always maps
+      into itself for input or output while all other characters  follow
+      the  current  C128  mappings.   Item  2.51,  below,  describes the
+      addition of Rubout as a new /C128 character.
+
+      If "?" is the current C128 escape character while  "/C128"  is  in
+      effect  typing "??" on input would supply one "?" while one "?" in
+      a text file would type out as "??".   As  a  further  convenience,
+      both  of  the  characters  "?"  and  "'",  if  not the C128 escape
+      character, map into <BELL> (^G) so  that  that  character  may  be
+      entered  with  either "?" or "'" as the escape character, e.g., as
+      "?'" or "'?", respectively.  Note that setting  the  /C128  escape
+      character  to  any  special character other than "?" or "'", while
+      legal, will preempt the normal use of a /C128 character value.
+
+2.16  The renumber command  ("N")  has  been  improved.   If  the  first
+      argument   (the  increment)  is  omitted,  the  current  permanent
+      increment is used.  This makes "N" consistent with "I", "R",  "T",
+      and "C".
+
+      Second, to prevent the  creation  of  "Order"  errors,  the  error
+      message  "%Illegal  starting line number" ("%ISLN" in Expert mode)
+      is given if the specified starting line number for the first  page
+      is not greater than the preceeding line.
+
+      Third, the starting line number for subsequent pages (i.e., when a
+      "N"  command  renumbers  more  than  one  page) is taken to be the
+      specified increment if one was specified, or the "START" parameter
+      if  none  was given.  (See 2.17, below.) Furthermore, the user may
+      specify the starting line  number  for  subsequent  pages  with  a
+      newly-added fourth parameter to the renumber command.
+
+      Fourth, and  perhaps  most  important,  when  the  third  argument
+      (starting  line number for the first page) is omitted, it defaults
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 13
+
+
+      to the specified first line number of the renumbering  range  when
+      there  is  a  previous line on the same page, and otherwise to the
+      starting line number for subsequent pages.  This change means,  as
+      a  practical matter, the user never has to specify a starting line
+      number for normal renumbering operations.
+
+2.17  The SOS parameters "START", "STEP", and "INCR" will always be used
+      for determining line numbers.  START defines the first line number
+      on a new page, where a page is being created or does not have  any
+      lines;   STEP  defines  the increment to use when reading existing
+      unsequenced ASCII files;  and INCR is the increment  to  use  when
+      creating or copying lines.
+
+2.18  The file-specification on the Copy command ("C") when copying from
+      another file will now default to the previous file from which text
+      was copied.  If no  previous  copy-from-file  operation  has  been
+      performed, attempting to default the file specification will be an
+      illegal command.  The file specification is defaulted by  omitting
+      it  from  the  normal  copy command.  When a file specification is
+      defaulted, SOS  will  indicate  the  file  being  used  by  typing
+      "Copy: <file spec>"  to  the user.  If the default is not desired,
+      typing "EQ" will terminate the command  if  the  search  mode  (/S
+      option)  has  been  taken.  This feature should facilitate copying
+      multiple pieces of text from the same file.
+
+2.19  Several improvements have been made to the Transfer ("T") and Copy
+      ("C") commands.  First, the informational messages indicating that
+      an increment has been chosen (the "INC1="  and  "INC2="  messages)
+      will  be  suppressed  when  it  was  not  necessary  to  choose an
+      increment, even though the user did  not  supply  one.   This  can
+      occur  when  a  single line is inserted between two lines, or when
+      during a multiple-page insertion  the  last  page  transferred  is
+      given a page of its own.
+
+      Second, when it is necessary to choose an increment, and the  user
+      did  not  supply  one,  SOS will apply the same algorithm used for
+      insertions  (see  2.12,  above)  and  select  either  the  current
+      increment  or  the  largest rounded increment that will permit all
+      lines to be inserted.  Also, when selecting an increment SOS  will
+      now  reasonably  generate  the  first  line number of the inserted
+      text.
+
+      Third, if during a Copy or Transfer operation while SOS is  moving
+      all  text  to  be  inserted  to free core it runs out of core, the
+      "%Not Enough Core" ("%NEC") error message will indicate  the  line
+      and  page number at which core was exceeded.  This will permit the
+      user to break the Copy or Transfer operation into smaller chunks.
+
+2.20  The definition of the Print command with  no  arguments  ("P<CR>")
+      has  been  "print 'PLINE' lines starting at the current line".  To
+      assist the user in paging down through the file with this command,
+      SOS  will  not  reprint  the  current  line  of successive "P<CR>"
+      commands;  rather, the first such command  will  print  as  before
+      while  all  successive  commands  will  start printing at the next
+      line.  This means that lines will not get typed twice  when  doing
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 14
+
+
+      successive "P<CR>" commands.
+
+2.21  The bug that any "save" operation, either  a  "W"  command  or  an
+      auto-save  function  requested  by  the /SAVE or /ISAVE parameter,
+      while reading an indirect command  file  resulted  in  an  "IO  to
+      unassigned channel" error has been fixed.
+
+2.22  The Move command (".<line number>"), which sets the  current  line
+      number  to the specified line, has been made more flexible.  It no
+      longer requires that the specified line exist;  if  is  does  not,
+      the  current  line is set to the next line following the specified
+      line.  Also, the command "./n" will set the current line to be the
+      first  line  on  page 'n', or to line 'START' (see 2.17, above) if
+      the page is empty.
+
+2.23  SOS now has the "/CREATE" and "/EDIT" switches.   "/CREATE"  tells
+      SOS not to read an existing file and to give the user an option to
+      rename his created file or delete the existing file  of  the  same
+      name  before writing the new version of that file.  "/EDIT" causes
+      SOS  to  operate  as  it  previously  always  did,   reading   and
+      superceding  existing  files  but  permitting  the  user to create
+      nonexistent files.  "/EDIT" is the default when SOS is run by  the
+      RUN  UUO,  or  by the RUN, R, SOS, or EDIT commands;  "/CREATE" is
+      the default when SOS is run with the  CREATE  command.   "/CREATE"
+      and  "/EDIT"  switches override the /READONLY switch;  those three
+      switches are mutually exclusive.  These switches may only be given
+      on the initial command line or in SWITCH.INI.
+
+      When SOS is in a "/CREATE" mode, the "=NAME" command will now type
+      "Creating  <file spec>"  to indicate this.  Similarly, when SOS is
+      in  /READONLY  mode,  the  "=NAME"  command  will  type   "Reading
+      <file spec>".
+
+2.24  Some changes to internal text buffer handling have  made  the  new
+      SOS more efficient than earlier versions.  While some improvements
+      apply  to  all  commands  which  operate  on  text,  the   largest
+      improvements  will be seen for Insert, Replace, Copy, and Transfer
+      commands.  At the extreme, a 44% reduction in CPU  time  has  been
+      observed while doing a large (50 textual page) Copy operation.
+
+2.25  As a convenience to  the  user,  and  to  conform  SOS  to  normal
+      DECsystem-10  command scanning, the user may now omit the trailing
+      "]" on file specifications when that would be the  last  character
+      of the line.
+
+2.26  On certain types of terminals (Texas Instruments Silent 700 at 300
+      baud, for example) the "<LF>" command (print next line) overprints
+      part of the sequence number of the line printed, due to a  Monitor
+      design  deficiency  in terminal character handling.  To assist the
+      users when the happens, the "/DPY" mode may  be  set.   Note  that
+      "/DPY"  is  designed  to  produce  terminal  output compressed for
+      display terminals (CRTs) and this  added  benefit  is  unintended.
+      For  example,  "/DPY" mode also suppresses the blank line normally
+      typed before the "Page n" output.
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 15
+
+
+2.27  The "Decide" option for the Substitute command ("S"), for the Find
+      command ("F" - see item 2.47, below), and for context line numbers
+      ("$<string>$<CR>" as a line number) has been improved.
+
+      First, when SOS is waiting for a user decision, it will clear  the
+      terminal's  ^O  status,  type  the  line  to be accepted, and then
+      prompt with the characters "D*".
+
+      Second, when an incorrect response has been typed for  the  Decide
+      input,  SOS  will  type  "? ",  clear  type-ahead,  and  ring  the
+      terminal's audible alarm (bell) to indicate the  error.   It  will
+      then wait for a correct input.
+
+      Third, when the "Rubout" or "Delete" response is typed to indicate
+      that the changes or the line is not accepted or when "E" or "Q" is
+      typed to terminate a Find or Substitute command, when you are  not
+      in Expert mode SOS will type an appropriate confirmation.
+
+      Fourth, the global SOS parameter "/DECIDE" will now be applied  to
+      context  line  number  searches  as  well  as  Find and Substitute
+      commands.
+
+      Fifth,  the  effect  of  the  ",D"  parameter  for  the  Find  and
+      Substitute  commands  and  for  context line number searches is to
+      invert the setting of "/DECIDE".  Thus, if "/DECIDE" is  set,  the
+      ",D"  parameter will tell SOS not to perform the command in Decide
+      mode.
+
+2.28  The  Exact-match  parameter  ",E",  on  the  Find  and  Substitute
+      commands, and on the context line number search, has been extended
+      to have features analogous to the Decide option described in 2.27,
+      above.
+
+      First, for the Alter command ("A")  and  for  the  Extend  command
+      ("X")  the  exact-match  parameter  (",E")  has  been added.  This
+      permits the user the control whether  the  case  of  a  letter  is
+      considered  when doing character comparisons for the "S", "K", and
+      "@" Alter-mode commands, as described in 2.4.16, above.
+
+      Second,  the  parameters  "/EXACT"  and   "/NOEXACT"   have   been
+      implemented  to  control  the  default  for character comparisons.
+      /EXACT implies that upper case letters  are  distinct  from  lower
+      case  letters;   /NOEXACT  treats  upper and lower case letters as
+      equivalent when comparing characters.  The command  "=EXACT"  will
+      display  the  "/EXACT"  switch  setting;  the initial condition is
+      "/NOEXACT".
+
+      Third, the definition of the ",E" parameter has  been  changed  to
+      make ",E" invert the current "/EXACT" default value.
+
+      Fourth, the bug which caused the ",E" parameters on the  Find  and
+      Substitute commands to interact has been eliminated.
+
+2.29  Several  new  pattern  matching  special   functions   have   been
+      implemented,  so  that  SOS and TECO Version 23 would have similar
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 16
+
+
+      capabilities.   These  functions  are   implemented   as   special
+      characters,  similar to the existing pattern matching functions in
+      SOS;  these characters may be entered  as  either  "/C128"  double
+      characters  or  by typing the appropriate control characters.  All
+      pattern-matching special characters are now as follows:
+
+      Character C128 rep New?  Use?               Description
+      --------- -------- ----  ----     --------------------------------
+         ^^       ?7     No   Any       "Quote" next character;  the
+                                        next character is taken for
+                                        itself without any special
+                                        interpretation
+         ^E       ?%     No   Pattern   "Not" next character
+         ^X       ?9     Yes  Pattern   Any alphameric (0-9, A-Z, a-z)
+         ^A       ?!     Yes  Pattern   Any letter (A-Z, a-z)
+         ^F       ?&     Yes  Pattern   Any upper-case letter (A-Z)
+         ^W       ?2     Yes  Pattern   Any lower-case letter (a-z)
+         ^P       ?+     Yes  Pattern   Any decimal digit (0-9)
+         ^\       ?<     Yes  Pattern   Space or Horizontal Tab
+          |       ?:     No   Pattern   Any separator (Note this
+                                        character is vertical bar, 174
+                                        octal, not back slash as
+                                        produced on some line printers.)
+         ^T(*)    ?/     No   Pattern   Any character (equivalent to
+                                        "Not End of line")
+         ^]       ?>     Yes  Pattern   End of line (equivalent to "Not
+                                        Any Character")
+         ^N       ?)     No   F,S       "Any number of" next character
+                                        (zero or more occurrences)
+         ^V       ?1     Yes  F,S       "One or more of" the next
+                                        character
+         ^O       ?*     No   String    Substitute string number
+                                        delimiter
+         ^B       ?"     No   String    Next substitute string
+
+       (*) Needs "SET TTY RTCOMPATABILITY" to be available for SOS use.
+
+      Notice that all characters identified as "Pattern"  usage  may  be
+      used  as  arguments  for Alter mode character-comparison commands;
+      and all characters identified as either "Pattern" or  "F,S"  usage
+      may be used in context line search strings.
+
+      A brief description of the SOS pattern-matching algorithm might be
+      in  order  here:   The  SOS pattern-matching algorithm will always
+      match the shortest, leftmost string that corresponds to the  given
+      pattern.   (This is the same algorithm the SNOBOL languages use.) 
+      This affects the user in several  significant  ways:   First,  the
+      "any  number  of"  operator  likes to match zero characters, since
+      that is the shortest possible string.  When  "any  number  of"  is
+      used  as the first or last match in a pattern it will always match
+      zero characters;  in those positions  it  is  redundant!   Second,
+      since the "end of line" operator may match either the beginning or
+      the end of a line, when it is given first in  a  pattern  it  will
+      match  the  beginning  and  when given last it will match the end.
+      Obviously, when it is given in the middle of a pattern other  than
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 17
+
+
+      one  consisting  of "any number of" operators colllapsing to zero,
+      that pattern will never successfully match anything.
+
+2.30  The optional modifiers (",E", ",D", ",nnn",  etc.)  which  may  be
+      specified  on the Find, Substitute, Print, and Extend commands and
+      on the context line search string may  now  be  specified  in  any
+      order.   However,  each  modifier may only be specified once.  For
+      the syntax of the Find command, see item 2.47, below.
+
+      For the Substitute ("S") command, if ",N" (suppress  printing  the
+      changed line) is typed and Decide mode is in effect because either
+      "/DECIDE" has been set or the ",D" option was given, the effect is
+      to  perform substitutions using the normal Decide operations until
+      the "G" reply (leave Decide mode)  is  given,  at  which  time  no
+      further  substitutions  are  typed.  This could be very useful for
+      "debugging" a Substitute command before  performing  a  number  of
+      substitutions.
+
+2.31  Changes have been made in the default range and repeat counts  for
+      the Find and Substitute commands, and for the context line search,
+      to make the defaults more consistent and rational.
+
+      For the Find command, the default when a search  string  has  been
+      given without a range or count (i.e., a command like "F<string>$",
+      the normal case) is to search from the current line to the end  of
+      the  file  for the next single occurrence of the string.  When the
+      search string is not given, either for a "F" or "F$" command,  the
+      default  is search from the next line to the end of the preceeding
+      Find command range (which could be to  the  end  of  file  by  the
+      preceeding  default)  for the next single occurrence of the search
+      string given in the preceeding Find command.
+
+      For the Substitute command, the  default  when  the  old  and  new
+      strings have been given without a range or count is to search from
+      the current line to the end of the file  and  make  a  replacement
+      only  in  the first line found which contains the matching string.
+      When no search strings have been specified,  as  in  "S<CR>",  the
+      default  is  to  search  from  the  next  line  to  the end of the
+      preceeding Substitute range (which might also  have  defaulted  to
+      end of file) and make the substitution on the next single matching
+      line.  This is done to make "S"  function  similarly  to  the  "F"
+      command,   and  to  minimize  the  harm  done  if  one  types  "S"
+      accidently.  However, to permit the user to perform a  potentially
+      large  number of pre-specified substitutions, the default for "S$"
+      command is to search  from  the  next  line  to  the  end  of  the
+      preceeding Substitute range and make all substitutions.
+
+      The context line search follows the same conventions as  the  Find
+      command.
+
+      Starting the search range with the current line whenever the  user
+      types  a  new  search  string  (rather  than defaulting the search
+      string with "F$...<CR>", "F<CR>", "S$...<CR>", or "S<CR>") assures
+      that  SOS  will  never miss a potentiallly matching line.  Because
+      the  improvement  is  an  obvious  external  change  to  the   SOS
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 18
+
+
+      specifications,  this  improvement  is  under  the  control of the
+      "DEFCRL" conditional assembly switch.
+
+2.32  The output produced by the "=STRING" command has been  limited  to
+      display  only the Find, Substitute, or context line search strings
+      that the user has actually previously defined.
+
+2.33  The "/NAME" command has been made illegal when "/READONLY"  is  in
+      effect,  so  that the user is prohibited from making a name change
+      on the file being read and to simplify some internal logic.  /NAME
+      is  also  illegal  on  the initial command line or as a SWITCH.INI
+      parameter for much the same reasons.
+
+2.34  As a convenience for users running SOS on slow terminals,  and  as
+      an  efficiency  improvement,  SOS will not type out the Horizontal
+      Tab following the sequence number when typing a null line.
+
+2.35  To assist users in documenting SOS indirect command files, and  to
+      permit  annotation of SOS terminal sessions, SOS now has a comment
+      command (";").  When ";" is typed as  an  SOS  command,  any  text
+      following  the  ";"  through the next Carriage Return or Line Feed
+      character is ignored.
+
+2.36  Several options have been added to the Exit  ("E")  and  Go  ("G")
+      commands.   These are "N" to unsequence (as in "EN" or "GN", which
+      is identical to "ES" or "GS"  but  is  consistent  with  PIP's  /N
+      unsequencing  switch);   "X" to exit (as in "EX" or "GX", which is
+      identical to "E" or "G" but could help out the user familiar  with
+      TECO);   and  the  new  facility "T".  The "ET" or "GT" command is
+      designed to produce  continuous  textual-format  output  files  in
+      which  both the SOS sequence numbers and Page Marks (including the
+      Form Feed characters) have been removed.
+
+      This continuous-text output option may also  be  selected  by  the
+      "/TEXT" command.  Since "/TEXT", "/SEQUENCE" and "/UNSEQUENCE" are
+      mutually exclusive options, the setting of "/TEXT" is displayed by
+      the "=SEQUENCE" command.
+
+2.37  Some additional support for users editing BASIC programs with  SOS
+      has been provided.
+
+      First, the default for editing  or  creating  any  file  with  the
+      extension  'BAS' is now "/BASIC".  However, this may be overridden
+      by the "/NOBASIC"  switch  on  the  initial  command  line  or  in
+      SWITCH.INI.
+
+      Second, the default processor  to  run  for  a  "G"  command  when
+      "/BASIC" is set is now "SYS:BASIC".
+
+      Third, because the SOS sequence number is part of  the  syntax  of
+      the  BASIC  language,  the  Renumber,  Copy, or Transfer commands,
+      which will modify the existing  sequence  numbering,  produce  the
+      query  "Destroy numbering in BASIC file?" when not in Expert mode.
+      The user may reply "Y" or "N" to the  question;   the  "N"  answer
+      aborts the command and no harm is done.
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 19
+
+
+      Fourth, for compatability with BASIC, SOS will not given the "?Bad
+      BASIC  file  format"  error when a Form-Feed character is the last
+      character in a BASIC file.  Instead, the Form Feed is ignored.
+
+2.39  To permit the user to  trade  off  response  time  and  core  size
+      against  the amount of text in core and file wrap-around time, the
+      "/CORE:nn" switch may be given on the initial command line.   This
+      permits the user to specify the minimum amount of core ("nn") in K
+      (1024 words = 1 K) that SOS will  reserve  for  the  in-core  text
+      buffer.    SOS  will  actually  allocate  the  minimum  core  size
+      specified and then utilize all available core up to the next K (or
+      P)  boundary.   The default minimum core size is 1.5K, which turns
+      out to be equivalent to a "/CORE:1"  specification.   The  default
+      text  buffer  size  may  be  changed  be  redefining  the assembly
+      parameter "DEFCOR".
+
+      Users may determine the first line number currently in  core  with
+      the  "=LOC" command and may determine the current core used by SOS
+      with the Monitor's ^T command.   The  "/CORE"  switch  allows  SOS
+      users  on  Virtual  Memory systems to keep larger sections of text
+      files in core.
+
+2.40  The ^C trapping implementation has been improved.  First, when SOS
+      is at command level (an asterisk prompt has been typed), typing ^C
+      followed by either a "C" (continue) or "R" (reenter) response will
+      now reprompt with another asterisk.
+
+      Second, when typing commands or text into SOS, typing ^C  followed
+      by   either   "R"   (reenter)  or  "E"  (exit)  will  take  effect
+      immediately.  In the prior implementation, the user had to type  a
+      Carriage Return for the reentry or exit to occur.
+
+      Third, the explanatory text typed in  response  to  "H"  has  been
+      re-written to make it easier to understand by the casual SOS user.
+
+2.41  As a user-selected option, SOS will now  produce  a  more  compact
+      file  format  for  sequence-numbered  output  files.  In this file
+      format, lines are not line-blocked;  there is no wasted  space  in
+      the file for zero "space-filler" words except that the last single
+      word in a block might be zero to prevent a  sequence  number  word
+      and  its  following  Horizontal  Tab  from being split between two
+      blocks.  In one test of a  fifty-block  MACRO  source  file,  this
+      option  resulted  in  a  4%  reduction  in  file size.  The actual
+      reduction in size depends on the contents of the data  file  being
+      compressed  and  the  cluster  size of file structure on which the
+      file is written.  Whatever size reduction is achieved will also be
+      reflected  in  a corresponding decrease in the transfer time every
+      time the file is subsequently read.
+
+      This option may  be  selected  by  the  "/BLOCK"  and  "/COMPRESS"
+      switches,  which may be given only on the initial SOS command line
+      or in SWITCH.INI.   "/BLOCK"  specifies  that  line-blocking,  the
+      previous SOS file format, should be written;  this is the default.
+      "/COMPRESS" specifies the new compressed  file  format  should  be
+      written.  These switches only apply to the format of files written
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 20
+
+
+      by SOS (including temporary work files);  all versions of SOS will
+      read  files  written  in either file format.  The command "=BLOCK"
+      will display the file format in which the file is  being  written.
+      The  default  switch  value  is  set with the conditional assembly
+      switch "DEFBLK".
+
+      We believe that all processors will accept both  line-blocked  and
+      compressed  SOS  files without change;  however, because not every
+      processor has been tested the default has been  set  to  "/BLOCK".
+      For  example,  we  have  confirmed  that  FILCOM will not find any
+      differences between line-blocked and compressed  versions  of  one
+      sequence-numbered  file.   If  a  user  determines  that  all  the
+      programs that (s)he runs will accept compressed  SOS  files,  that
+      user's  own  default  may  be changed with a SWITCH.INI parameter.
+      Users are requested to report any programs  which  will  not  read
+      compressed SOS files.
+
+2.42  The correct range of deleted lines is reported in Novice mode  for
+      the  "D",  "R", and "T" commands, when the range spanned more than
+      one page and no lines were deleted on the first page.
+
+2.43  The range definition for the Delete ("D") command has been changed
+      to  correspond  to  that  of  the  Transfer  ("T")  and Copy ("C")
+      commands.  This change only affects Delete operations in which the
+      first  line number as not been specified, as in "D/2" or "D/3:/5".
+      In these cases, the Delete command now deletes both the Page  Mark
+      preceeding  the  specified  page  (before  page  2,  and  page  3,
+      respectively in the examples) as  well  as  the  contents  of  the
+      specified  pages.   Thus,  the  first  example  would  delete  the
+      contents of page 2 as well as the Page  Mark  preceeding  page  2,
+      while  the  second  example would delete the contents of, and Page
+      Marks preceeding, Pages 3, 4, and 5.  This would be the same  text
+      which would be moved if the range specifier was used as the source
+      lines of a Transfer or Copy command.  This change also means  that
+      the  confirmation  message  "Massive  delete ok?" is produced only
+      when SOS is going to delete one or more Page Marks from  the  file
+      being edited.
+
+2.44  Bugs  have  been  fixed  with  the   Replace   command   so   that
+      multiple-page  replacements will never be inserted so as to create
+      an Order error.
+
+2.45  The Kill Page-Mark command  ("K")  has  been  extended  to  permit
+      multiple  Page  Marks  to  be  killed  with a single command.  The
+      syntax of the K command is now "K/n:/m", where  "n"  is  the  page
+      number  of  the  first  Page Mark to be killed and "m" is the page
+      number of the last Page Mark to be killed.  As  before,  only  one
+      Page Mark may be removed, as in "K/2".
+
+      In SOS notation, the "/n" Page Mark is  the  one  preceeding  page
+      "n".  Because there is no Page Mark preceeding the first page of a
+      file (SOS treats the beginning of the file as if it  were  a  Page
+      Mark),  the  command  "K/1"  (or  the  equivalent  "K/^") can't do
+      anything.  However, for consistency, the command "K/1"  is  legal;
+      furthermore,  "/1"  may be used as the first page of range of Page
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 21
+
+
+      Marks to be deleted.  Thus, for example, the command "K/1:/*" will
+      delete  all  Page  Marks  in a file.  To prevent order errors when
+      deleting Page Marks, use the command "NP" first  to  monotonically
+      renumber the affected pages of the file.
+
+2.46  To eliminate one potential  source  of  confusion,  SOS  will  not
+      permit   users   to  number  a  line  as  "00000",  by  insertion,
+      replacement, transfer, copy, or renumbering.  If users attempt  to
+      do so, SOS will start the first line number at the increment being
+      used for the operation.
+
+2.47  Three significant extensions have been  made  to  the  Find  ("F")
+      command.
+
+      First, a  "find not"  option  (",-")  has  been  added;   when  in
+      "find not"  mode  the  Find  command reports a match on every line
+      which does not contain the given pattern.  We expect this facility
+      to be most useful for applications such as finding all non-comment
+      lines in a FORTRAN program.
+
+      Second, a Decide option (",D")  has  been  added;   this  is  very
+      similar to the Decide option of the Substitute command.
+
+      Third, the number of operations that may  be  performed  on  lines
+      found by a Find command has been increased from one (Alter) to six
+      (Alter, Insert after, Replace, Delete, Mark, and  Extend).   These
+      operations  may be permanently set on the Find command (as in ",A"
+      for Alter), or if none has been specified on the command  one  may
+      be selected as a Decide option reply (as in "A" to alter the found
+      line,  similar   to   the   Substitute   command   Decide   option
+      implementation).
+
+      Thus, the complete Find command syntax is as follows:
+
+                                                         [,A]
+                                                         [,I]
+                                                         [,R]
+            F <string> $ [<range>] [,nnn] [,E] [,N] [,D] [,K] [,-]
+                                                         [,M]
+                                                         [,X]
+
+      By item 2.30, above, the  command  modifiers  (optional  arguments
+      preceeded  by  a  comma)  may  be  given  in  any order and in any
+      combination.  However, only one of the  operations  (Alter,  etc.)
+      may  be specified on a single Find command.  Also, notice that the
+      Delete operation is specified with the letter "K", because "D"  is
+      used for the Decide option.
+
+      The effect of each of these new options is as follows:
+
+         Decide (",D"):  The found line is typed (only the  line  number
+      if ",N" parameter has been given) and the "D*" prompt is given, as
+      described in item  2.27,  above.   The  legal  responses  are  " "
+      (accept the line), Rubout (reject the line), "E" or "Q" (terminate
+      the Find command), "G"  (accept  the  line  and  terminate  Decide
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 22
+
+
+      option),  and if no operation has been specified any operation may
+      be requested using the operation letter ("A", "I", "R", "K",  "M",
+      or  "X").   The  Decide option was primarily implemented to permit
+      the user to control what lines were operated on by a  pre-selected
+      operation.   However,  it  is  also  useful to exploring a file by
+      giving a large range and high repeat count on  the  Find  command,
+      and  then  terminating the Find or operating on the found lines by
+      the proper Decide reply.
+
+         Insert (",I"):  The found line is typed and a  sequence  number
+      is  chosen  and  typed  to permit insertion of a single line right
+      after the found line.
+
+         Replace (",R"):  The found line is typed and then deleted.   In
+      Novice mode, the "Line deleted" message is typed.  Then the line's
+      sequence number is typed to permit insertion of a single  line  at
+      the same place.
+
+         Delete (",K"):  The found line is typed and then  deleted.   In
+      Novice mode, the "Line deleted" message is typed.
+
+         Mark (",M"):  The found line is typed and a Page Mark  inserted
+      before  the  found  line,  thus  making it the first line on a new
+      page.  Unless "/NONUMBER" is set, the new page number is typed.
+
+         Extend (",X"):  The found line is typed in Alter  mode  (unless
+      ",N"  has  been specified) and the user can type extra text on the
+      end of the line.
+
+         Alter (",A"):  Functions as presently implemented.   In  normal
+      operation, the Alter-mode cursor is positioned before the matching
+      search string in the found line;  in "find not"  mode  the  cursor
+      remains positioned at the left margin (see item 2.4.11, above).
+
+      Note for both Insert and Replace, if an Altmode ("$") is typed  as
+      the  first character of the line nothing is inserted.  However, if
+      an Altmode is used to terminate the line of inserted  text,  there
+      is no special action.
+
+2.48  The "find not" facility (described in 2.47,  above)  may  also  be
+      used  for  a  context line search.  The (",-") operator is used to
+      specify "find not" for a context line search, just as it  is  used
+      for the Find command.
+
+2.49  SOS will now permit switches to be given  in  the  command  string
+      between the input and output file specifications, as in
+
+            .SOS  FILE.NEW/UNSEQ=FILE.OLD
+
+      However, the user should  be  aware  that  SOS  switches  are  not
+      file-specific,  i.e.,  the  switch  is  not  associated  with  the
+      filespec it follows;  rather, this change merely permits the  user
+      to type SOS command strings with more flexibility.
+
+2.50  The Stanford-type case inversion commands ("VV", "VU",  and  "VL")
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 23
+
+
+      have  been  implemented.  These commands take as arguments a range
+      of lines, optionally followed by ",S" to  suppress  printing  line
+      numbers, and operate on the case of all letters found on all lines
+      within the range;  all the lines in  the  range  are  typed.   The
+      commands  are  "VV",  invert  case;  "VU", set to upper case;  and
+      "VL", set to lower case.
+
+2.51  In /C128 mode, the Rubout character (177 octal) may now be entered
+      into  text  or  used as a search character by typing the character
+      pair "?\".  As before, Rubout will type out in C128 mode as "?\".
+
+2.52  When in /NONUMBER mode, SOS will now suppress the next "*" command
+      following  a  "P"  or case-inversion ("VV", "VU", or "VL") command
+      when the ",S" option is typed.
+
+2.53  As an aid to users who enter primarily lower-case  text  with  SOS
+      via  both upper and upper-lower case ASCII terminals, SOS will now
+      force /UPPER as well as /M37 when run from  a  terminal  that  has
+      "SET TTY LC"  in  effect.   This change permits such users to have
+      /LOWER set in their SOS SWITCH.INI  files,  so  that  /LOWER  will
+      apply when using SOS from upper-case-only ASCII terminals, such as
+      the Teletype Model 33, but /UPPER will be set for upper/lower case
+      ASCII  terminals,  since  the  user  can  control  case  with that
+      terminal's shift key.  If this feature is not  desired,  the  user
+      may override it by setting the /M37 switch.
+
+2.54  SOS now supports the SAIL compiler's syntax-error interface.  This
+      feature  gives  the SAIL user the option, when a SAIL syntax error
+      is detected, of immediately editing the erroneous file,  beginning
+      at the line where the error was detected.
+
+2.55  To compensate for terminal output timing problems, SOS now  has  a
+      special  routine  which makes sure all output generated by SOS has
+      been typed or suppressed before ^O  terminal  status  is  cleared.
+      (See  SPR  10-17094,  December  1,  1975 DECsystem-10 Dispatch, p.
+      57).  SOS clears ^O before typing the "*"  prompt,  before  typing
+      any  error  messages,  and  before  typing  any messages that will
+      require a response from the user.
+
+2.56  As a safety measure to prevent the accidental deletion  of  edited
+      files,  the  ED  command  (Exit  with  deletion)  now  asks  for a
+      confirmation by typing
+
+            Really delete the file? (Y or N)
+
+      If you type "N", SOS ignores  the  "ED"  command  and  returns  to
+      asterisk  level.  If you type "Y", SOS deletes the file and exits,
+      as before.  See item 2.5.11,  above,  for  a  description  of  the
+      effect of the "ED" command.
+
+2.57  To assist users in aligning text  to  specific  columns  within  a
+      file,  SOS  now  has  the  "=COLUMN command.  This command types a
+      template,  showing  column  numbers,  across  the  width  of   the
+      terminal.   The  width  of  the  terminal  is  determined  by  the
+      "SET TTY WIDTH" command (initially set to 72 by  the  Monitor  for
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 24
+
+
+      most terminals).  The column template has the format
+
+            123456789 123456789 123456789 123456789 123...etc.
+
+      and respects the /NONUMBER switch, which causes  sequence  numbers
+      to be suppressed.
+
+2.58  As an  abbreviation  for  common  range  specifications,  SOS  now
+      recognizes certain symbolic ranges.  These are as follows:
+
+           Symbolic range     Replacing        Meaning
+               BF:...         ^/^:...        Beginning of file
+               BF!...         ^/^!...          (Same)
+               ...:EF         ...:*/*        End of file
+                 EF           ^/^:*/*        Entire file
+               BF:EF          ^/^:*/*          (Same)
+
+      These  symbolic  ranges  may  be  used  as  part  of   any   range
+      specification (e.g., on a Find command).  However, they may not be
+      used as a line number (e.g., on an Insert command), with  line  or
+      page  number  arithmetic  (e.g.,  EF-10), or any combination other
+      than as shown (BF, EF:..., EF!..., ...:BF are all illegal.)
+
+      The symbolic range specifications differ from the "^/^" and  "*/*"
+      line numbers in that "BF" and "EF" represent the lowest or highest
+      lines that possibly could be in a file while the "^" and "*" forms
+      represent  the  current  lowest or highest lines.  This means that
+      symbolic ranges are more efficient  since  they  do  not  have  to
+      inspect  the file to find an actual lowest or highest line number.
+      Thus, use of the "BF" and "EF" range  specifications  may  prevent
+      unnecessary wrap-arounds of the file being edited.
+
+2.59  The error message  "% Illegal when READONLY"  ("%IRO"  in  /EXPERT
+      mode)  has  been  added to better identify the error message given
+      when an SOS command which would modify the file (C, D, I,  J,  JU,
+      JR, JL, JC, JW, K, M, N, R, S, T, VV, VL, VU, W, X) is typed while
+      in /READONLY mode.   Previously,  this  error  was  identified  as
+      "% Illegal command" (%ILC).
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 25
+
+
+3.0   KNOWN BUGS, DEFICIENCIES, and SUGGESTIONS.
+
+3.1   In Alter mode, the commands "-K"  and  "-S"  operate  through  the
+      specified  character,  while  in  a  forward  direction  they only
+      operate to the character.  This has not been  changed  because  it
+      might have been intended by prior SOS designers.
+
+3.2   Two asterisks are printed if the user gives an "N" answer  to  the
+      confirmation request following an "ED" command when reading a file
+      in /READONLY mode.  Note that this bug probabily will not be fixed
+      because  of  the obscurity of the conditions that produce the bug,
+      the cosmetic  nature  of  the  bug,  and  relatively  large  patch
+      required to fix it.
+
+3.3   Error messages from OPEN, LOOKUP, ENTER, and RENAME UUOs with  the
+      exception  of the initial LOOKUP of the file being edited are very
+      cryptic.  This code should be rewritten  to  make  it  conform  to
+      current DECsystem-10 coding practice.
+
+3.4   Some column-oriented facility, including expansion  of  Horizontal
+      Tab  characters,  should be provided.  A possible goal would be to
+      make SOS be able to mimic the drum-card facility  of  a  keypunch.
+      Note  for  this  to be properly done, the Monitor would have to be
+      changed to permit the user  to  define  column  numbers  for  <HT>
+      spacing, possibly via a TRMOP. extension.
+
+3.5   Permitting the user to have modifiable and executable  scratch-pad
+      memory,  similar to TECO's Q-registers, would be most useful.  One
+      possible implementation would be providing a dynamically allocated
+      "Page 0"  (nnnnn/0)  facility,  which could be edited with all SOS
+      commands.
+
+3.6   Permit the user to pre-specify  a  range  and  then  utilize  some
+      shorthand  notation  to reference the first and last lines of that
+      range.
+
+3.7   Make SOS more tolerant of "junk" input files, such as binary files
+      or those corrupted by TECO with random bit 35's on.
+
+3.8   Accept device names as well as  file  names  in  response  to  the
+      "File: "  prompt  typed  when an error is detected after an "E" or
+      "W" command.
+
+3.9   Permit the user to specify a maximum legal value for an  increment
+      on the "N" (and other) commands.
+
+3.10  Add more "Help"-type facilities,  such  as  "=HELP",  "/HELP",  or
+      "HELP:SWITCHES" commands.
+
+3.11  To permit the complete set of SOS features to be available without
+      the  average  SOS  use paying a penalty in high-segment core size,
+      split SOS into several  high  segments,  one  which  contains  the
+      commonly-used SOS commands and others which contain those plus the
+      rarely-used features.  Add code to select the proper segment based
+      on the SOS commands each user has typed.
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 26
+
+
+3.12  To reduce core for production (SYS:) versions of SOS, add a  DEBUG
+      conditional   assembly   switch   to  eliminate  the  DDT-oriented
+      features.
+
+3.13  Remove SOS's sensitivity to quota problems when saving the  edited
+      file  ("E"  or  "W"  command  or  auto-save  operation)  and  when
+      unsequencing.  Note that as a temporary solution,  typing  a  file
+      spec  with  a  different  PPN  in  response to the "File: " prompt
+      should permit SOS to write the file successfully.
+
+3.14  SOS will give a  syntax  error  attempting  to  scan  past  a  PPN
+      specification on a R or RUN command.
+
+3.15  Other than  this  file  and  SOS.HLP  there  is  no  documentation
+      describing  version  23(220).   Someone  should  produce  and make
+      available an undated version of the SOS User's Guide.
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 27
+
+
+4.0   INSTALLATION INSTRUCTIONS.
+
+      To install SOS, put the following files on the system:
+
+            SOS.SHR   (To SYS:)   For 6.02 and  later  Monitors,  use  a
+                                  GET/NSAVE  command sequence to convert
+                                  to the more efficient  SOS.EXE  format
+                                  file.
+            SOS.HLP   (To HLP:)   This help file has been rewritten  for
+                                  SOS 23(220).
+
+      SOS is designed to be run by the SOS Monitor command.  If you want
+      to  eliminate  Monitor  command support for LINED, SOS may also be
+      run by the EDIT or CREATE commands.  This version of SOS does  its
+      own  CCL  command scanning and temporary-file management.  It does
+      not need to be run by COMPIL, which reduces system overhead.   (It
+      will  also work with COMPIL if the SAIL support has been assembled
+      into SOS.  This is the default  setting.)  The  following  patches
+      will provide the Monitor interface for SOS:
+
+            In the NAMES macro in COMCON, add:
+                            C       SOS,$RUNSOS,RUNFLG,SOS
+
+            Somewhere in COMCON, add:
+                    $RNSOS: MOVE    P2,SOS ;GET PROGRAM NAME
+                            JRST    RUNAME ;  & GO RUN IT
+
+      To replace LINED with SOS, in the NAMES macro in COMCON
+
+            Replace:        C       EDIT,CCLRUN,RUNFLG
+              with:         C       EDIT,$RNSOS,RUNFLG
+
+            Replace:        C       CREATE,CCLRUN,RUNFLG
+              with:         C       CREATE,$RNSOS,RUNFLG
+
+      These patches have been tested in 5.07B;  similar  patches  should
+      apply  to  6.02 and later Monitors.  SOS will run with any Monitor
+      that supports extended LOOKUP and ENTER UUOs, and the PATH.  UUO.
+
+      As distributed, SOS 23(220)  runs  in  4+9K.   While  larger  than
+      previous  versions  of SOS, because of the efficiency improvements
+      this version gives good  response  time  when  running  on  loaded
+      systems (KA-10 with 83K of user core at Brookings).  Installations
+      may vary the size of SOS by assemblying in or out several  of  the
+      optional  features.  With all features assembled in, SOS is 4+10K;
+      with all features assembled out, SOS  might  reduce  to  4+8K  (or
+      maybe 3+8K, we have not tested this).
+
+      The following are the conditional assembly switches designed to be
+      changed by an installation:
+
+        Type      Switch  Default       Description
+      --------    ------  -------   ------------------------------------
+      Features:   JUSTSW  Off       Justification features
+                  CRYPSW  On        File encryption feature
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 28
+
+
+                  PPNTSW  Off       Formatted Print command features
+                  EXTEND  Off       Context line  search  feature  (This
+                                    feature  has generally been replaced
+                                    by  the  extensions  to   the   Find
+                                    command   described  in  item  2.27,
+                                    above.)
+                  LSTSW   On        Listing ("L") command feature  (Very
+                                    useful    for    GALAXY    immediate
+                                    spooling)
+                  DEFCRL  On        Improvements to F & S command  range
+                                    &  repeat  count defaults (see 2.31,
+                                    above.) - Should leave on
+                  FTIMPCPY On       "Implied copy" file  access  feature
+                                    (see  2.5.2,  above.) - Should leave
+                                    on
+                  CCLSW   On        CCL  features  (also  used  by  SAIL
+                                    support) - Should leave on
+                  TEMPC   On        TMPCOR features - Should leave on
+
+      Parameters: DEFCOR  1.5K      Default minimum size of in-core text
+                                    buffer (see 2.39, above).
+                  DEFBLK  /BLOCK    Default  output  file  format   (see
+                                    2.41, above.)
+                  DEFBAK  /BAK      Default  backup  file  option   (see
+                                    2.5.13, above.)
+                  DFC128  "?"       Default /C128 escape character  (see
+                                    2.15, above.)
+                  SRNUM   10.       Number of parallel search strings
+                  SFDLVL  6         Depth of SFD nesting plus 1 (permits
+                                    5 SFDs)
+                  SRBLG   200.      Number of  characters  in  a  search
+                                    string
+                  MXWPL   100.      Maximum number  of  words  per  line
+                                    (equals 500 characters)
+                  LSNUM   3         Number  of   nested   context   line
+                                    searches (if EXTEND on)
+                  PGSZ    55.       Number of lines per typed page  ("P"
+                                    command - if PPNTSW on)
+                  FULLPG  65.       Length of terminal typed  page  ("P"
+                                    command - if PPNTSW on)
+                  %LPP    53.       Number of  lines  per  listing  page
+                                    ("L" command - if LSWSW on)
+                  MINDSK  5.        Minimum disk space to attempt output
+                                    (/CHECK feature)
+                  OVRDRW  100.      Disk   space   overdraw    allowance
+                                    (/CHECK feature)
+                  PDLSIZ  200       Push-down list size
+
+      Note that  Brookings  system  programming  convention  is  to  use
+      conditional  assembly  switches  of  the form "%SSnnn" to identify
+      modifications in MACRO programs.  These switches are  used  mainly
+      to document changes (showing old code and locating new code in the
+      CREF listing);  other combinations and settings of these  switches
+      have not been tested.
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 29
+
+
+5.0   SPRS FIXED BY THIS RELEASE
+
+      The following is a list of all SPRs examined when developing  this
+      version of SOS and the resolution of problems raised in each SPR:
+
+        SPR #        Submitted by:                  Resolution
+      --------  -----------------------        --------------------
+
+      10-13986  Worcester Tech                 Fixed
+      10-14005  Worcester Tech                 User problem
+      10-14298  Harvard Business School        Rejected
+      10-14333  Worcester Tech                 User problem
+      10-14375  Harvard Business School        No problem
+
+      10-14404  Harvard Business School        Assembly option PPNTSW
+      10-14411  Harvard Business School        Rejected
+      10-14419  Harvard Business School        Fixed
+      10-14420  Harvard Business School        Fixed
+      10-14700  Brookings SSCC                 Fixed
+
+      10-14766  Harvard Business School        Fixed
+      10-14767  Harvard Business School        Fixed
+      10-14768  Harvard Business School        Fixed
+      10-14769  Harvard Business School        See 2.26, above
+      10-14770  Harvard Business School        Not reproducable
+
+      10-14771  Harvard Business School        Fixed
+      10-14779  Harvard Business School        Rejected
+      10-14791  National Security Agency       Complex problem
+      10-14835  Harvard Business School        Fixed
+      10-15204  National Institutes of Health  Fixed
+
+      10-15205  National Institutes of Health  Fixed
+      10-15206  National Institutes of Health  Fixed
+      10-15327  Atomic Energy of Canada, Ltd.  Fixed
+      10-15354  Harvard Business School        Fixed
+      10-15355  Harvard Business School        Complex problem
+
+      10-15723  CH2M Hill                      Fixed
+      10-15778  Stevens Tech                   Fixed
+      10-15796  Tufts Univ.                    Fixed
+      10-15934  CH2M Hill                      Possible fix
+      10-15942  Harvard Business School        Fixed
+
+      10-16012  Atomic Energy of Canada, Ltd.  Fixed
+      10-16374  Western Electric               Fixed
+      10-16375  Western Electric               Complex problem
+      10-16408  Harvard Business School        Fixed
+      10-16564  National Institutes of Health  Fixed
+
+      10-16595  National Institutes of Health  User problem
+      10-16596  National Institutes of Health  Fixed
+      10-16597  National Institutes of Health  Fixed
+      10-16598  National Institutes of Health  Fixed
+      10-16622  National Institutes of Health  Fixed
+SOS.DOC - Changes from Version 21(122) to 23(220)                Page 30
+
+
+      10-16637  National Institutes of Health  Fixed
+      10-16645  National Institutes of Health  Fixed
+      10-16646  National Institutes of Health  Fixed
+      10-16651  Harvard Business School        Might be fixed
+      10-16674  Harvard Business School        Fixed
+
+      10-16786  Algonquin College              Rejected
+      10-16813  National Institutes of Health  Fixed
+      10-16814  National Institutes of Health  Fixed
+      10-16817  National Institutes of Health  Fixed
+      10-16819  National Institutes of Health  Fixed
+
+      10-16950  DEC-Maynard                    Fixed
+      10-16959  Atomic Energy of Canada, Ltd.  Fixed
+      10-17013  National Institutes of Health  Fixed
+      10-17068  British Airways                Partial fix
+      10-17069  British Airways                Complex problem
+
+      10-17070  British Airways                Complex problem
+      10-17071  British Airways                Fixed
+      10-17073  British Airways                Not fixed
+      10-17074  British Airways                Monitor problem
+      10-17075  British Airways                Fixed
+
+      10-17076  British Airways                Complex problem
+      10-17077  British Airways                Fixed
+      10-17078  British Airways                Not reproducable
+      10-17079  British Airways                Complex problem
+      10-17080  British Airways                Fixed
+
+      10-17081  British Airways                KJOB problem
+      10-17082  British Airways                Fixed
+      10-17083  British Airways                Partial fix
+      10-17084  British Airways                Fixed
+      10-17085  Caltech                        Fixed
+
+      10-17148  British Airways                Rejected
+      10-17151  British Airways                Fixed
+      10-17195  National Institutes of Health  Complex problem
+      10-17230  British Airways                Fixed
+      10-17235  University of Illinois         Fixed
+
+      10-17266  National Institutes of Health  Fixed
+      10-17302  National Institutes of Health  Fixed
+      10-17325  Cornell Univ.                  Fixed
+      10-17337  National Security Agency       Complex problem
+      10-17370  University of Illinois         Fixed
+
+      10-17423  National Institutes of Health  Fixed
+      10-17424  National Institutes of Health  Rejected
+      10-17459  Rutgers Univ.                  Fixed
+      10-17585  National Institutes of Health  Fixed
+
+
+      [End of SOS.DOC]
+

@@ -1,0 +1,1259 @@
+DDT42 - DDT %42 Users Guide to New Features                     Page 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1981 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+DDT42 - DDT %42 Users Guide to New Features                     Page 2
+
+
+1.0  INTRODUCTION AND OVERVIEW
+
+     This document is designed as a users guide to DDT version  42  in
+so  far  as it has changed from previous versions of DDT.  It is not a
+complete users guide to  all  the  wonders  of  DDT,  just  those  new
+features  which  have  recently  been  implemented  (although directed
+primarily at new  features  only  in  DDT  version  41  and  42,  some
+documentation  is included to describe other aspects of DDT which have
+been around for  a  longer  period  of  time,  but  were  never  fully
+understood or otherwise documented).
+
+     Throughout this document it is assumed that the reader is already
+familiar  with  DDT and the MACRO assembly language in general as well
+as the appropriate operating system(s).
+
+     This document has been updated for changes through DDT  42,  edit
+320.
+
+
+
+2.0  CONFIGURATIONS
+
+     DDT version  42  will  run  on  KA-10's,  KI-10's,  KL-10's,  and
+KS-10's,  using  no  paging,  KI-paging, or KL-paging, with or without
+extended addressing in user or executive mode (user and file DDT's run
+only  in  user  mode) with no special assembly needed.  DDT version 42
+must be assembled to run under  either  the  TOPS-10  or  the  TOPS-20
+operating system.
+
+     It traditionally has been a goal to maintain one  single  set  of
+source  files from which all flavours of DDT are built.  This goal has
+been maintained.
+
+
+
+3.0  MEMORY AND ADDRESS CONTROL
+
+     The single biggest change to DDT version 41 from earlier versions
+is  in  the  realm of memory control and how the user addresses memory
+locations.  Some refinements were made in this area  between  versions
+41 and 42.
+
+
+
+3.1  Extended Addressing
+
+All flavours of DDT except FILDDT will  run  in  any  memory  section.
+Full  extended addressing is supported, as are "large" addresses - DDT
+will now accept a full 30-bit expression as an address.   FILDDT  will
+handle  a  35-bit  address.   In  all cases the actual address must be
+positive.
+DDT42 - DDT %42 Users Guide to New Features                     Page 3
+
+
+3.1.1  Symbol Table Restrictions - There  are   certain   restrictions
+however  which  must  be  adhered  to  in  order  for  DDT to function
+correctly.  The first restriction is that the symbol  table  logic  is
+essentially section-dependent, i.e., the symbol table and its pointers
+(.JBSYM=116 and .JBUSY=117, also .JBHSM=6 relative to the start of the
+"high  segment")  must reside (i.e., be mapped) in the same section as
+that in which DDT itself is running.  Further, the symbol table can be
+no longer than 128K words in length and must be RADIX-50 format.
+
+
+
+3.1.2  Breakpoint Restrictions - The second restriction of  which  the
+user  must  be  aware concerns breakpoints.  Since the hardware has no
+facility  to  unconditionally  transfer  control  to  DDT  using  only
+36-bits,  DDT  must  be mapped into each section (at the same relative
+address obviously) which contains code into which the user  wishes  to
+place breakpoints.
+
+
+
+3.1.3  Location Examining Restrictions - If DDT is running in  section
+0 (even on an extended addressing machine), then only locations within
+section 0 (addresses 0 to 777777) may be manipulated.  DDT will ignore
+the  left half of expressions typed as addresses and so will work much
+like it did prior to version 41.
+
+
+
+3.2  Effective Address Calculation
+
+DDT version 42 can calculate effective address references using either
+"local" or IFIW (Instruction Format Indirect Word) or "global" or EFIW
+(Extended  Format  Indirect  Word)   formats.    In   a   normal   DDT
+address-opening   command  ("/",  "",  <TAB>,  etc.)  a  single  <ESC>
+delimiting the address expression (e.g., "MOVE 3,/ 200(10)$/" or  just
+"$[")  instructs  DDT  to  treat  the  expression  as an IFIW word and
+calculate the effective address exactly like the hardware would,  were
+the hardware to execute that 36-bit word as an instruction at location
+"." (whether or not location "." is currently open).
+
+     Two <ESC>'s delimiting the address expression  instructs  DDT  to
+treat  the  36-bit  expression  as  an  EFIW  word  and  calculate the
+effective address exactly as the hardware would, were the hardware  to
+indirectly  address  the 36-bit expression at location "." (whether or
+not location "." is currently open).  A strange case can come up about
+which the user should be cautioned - there is an ambiguity as to where
+(i.e., what "section") to start  the  effective  address  calculation.
+DDT  assumes  the  left half of "." (i.e., the last location opened by
+the user).  If  for  example  having  opened  location  0,,1234  which
+contains  7,,4321  the  user  issues  the  command "$$[" then DDT will
+calulate the effective address as the contents  of  location  4321  in
+section  0  indexed  by the right half of register 7, and if bit 13 is
+on,  treating  that  word  as  an  IFIW  and  continuing  the  address
+calculation.   This,  although  probably  not what was expected, is in
+fact exactly what the hardware would do since the indirect  word  came
+DDT42 - DDT %42 Users Guide to New Features                     Page 4
+
+
+from  section  0.   Had  the  user opened location 1,,1234 (containing
+7,,4321) then DDT would take the  contents  of  location  7004321  and
+continue from there.
+
+     If no <ESC>'s delimit the address  expression,  then  DDT  simply
+uses  the  full 36-bit expression as the address (e.g., "30,,30/" says
+open location 30000030, i.e.  location 30 in section 30.
+
+     In certain circumstances, DDT will default the section number  to
+the current section.  This occurs when:
+
+     1.  The user typed nothing before the  register  opening  command
+         thus causing DDT to use the last quantity typed by DDT.
+
+     2.  The typed expression has a 0  left  half  and  no  comma  was
+         typed.
+
+
+     Hence, if .=3,,1234 and FOO=1000,
+
+     FOO/
+
+will open location 3,,1000.  This is typically what  one  wants  since
+tags are always defined with a 0 section number by present MACRO/LINK.
+
+
+
+3.3  Modifying Memory
+
+Two new commands have been added to facilitate DDT's  manipulation  of
+the user address space.
+
+
+
+3.3.1  Automatic Write-enable - The $W or $0W  command  instructs  DDT
+to,  if  the  user  attempts  to deposit into a write-protected memory
+location, automatically attempt to write-enable the  memory  location,
+do  the  memory  deposit,  then  finally  re-write-protect  the memory
+location (default for TOPS-10);  the $$W or $$0W command instructs DDT
+to  simply  give  an error indication if the user attempts to change a
+write-protected memory location (default for TOPS-20).  For FILDDT the
+use  of this command is restricted to non-file usage such as "DDT'ing"
+the running monitor/memory space.
+
+
+
+3.3.2  Automatic Page-creation - The  $1W  command  instructs  DDT  to
+automatically  try  to  create  the page the user is trying to deposit
+into if it doesn't already exist  (default  for  TOPS-20);   the  $$1W
+command  instructs  DDT to simply give an error indication if the user
+attempts to write into a  non-existant  page  (default  for  TOPS-10).
+EDDT  and  FILDDT doing super I/O or "DDT'ing" an .EXE file will NEVER
+attempt to create a non-existant  page.   For  FILDDT  the  user  must
+specify patching the file when he starts FILDDT in order to be able to
+create new pages (e.g., extend the file or fill in a gap in the middle
+DDT42 - DDT %42 Users Guide to New Features                     Page 5
+
+
+of the file (TOPS-20 only)).
+
+
+
+3.4  Page Mapping And Physical Addressing
+
+In DDT version 42 some  flavours  of  DDT  support  page  mapping  and
+address   relocation   as   well  as  register  and  physical  address
+manipulation.  All of these functions use some variation of the $U/$$U
+DDT  command.   In  general these functions may be mixed together (for
+example address relocation and page mapping).
+
+
+
+3.4.1  Physical Addressing - DDT now has  the  concept  of  "physical"
+addressing  in  addition  to  its normal "virtual" addressing.  The $U
+command instructs DDT to use normal virtual addressing (what  it  used
+to  do);   the  $$U  command  instructs DDT to manually track down the
+honest physical address rather than the virtual address space in which
+DDT  finds  itself  running.  Physical addressing is really applicable
+only to EDDT or to FILDDT looking at running  monitor/memory  (TOPS-10
+only).   User  mode  DDT  (including  EDDT  running in user mode, MDDT
+(TOPS-20 only), and VMDDT (TOPS-10 only)) and FILDDT looking at a disk
+all  treat  $U and $$U identically.  In physical addressing location 0
+is not register 0 (i.e., DDT's internal copy of user register  0)  but
+rather  physical  memory  location  0 page 0 bank 0 box 0 (that memory
+location on the hardware memory bus that responds to all address  bits
+= 0).
+
+     When the $$U DDT command is issued "physical" locations 0  to  17
+become  "registers" 0 to 17.  For user mode DDT this means locations 0
+to  17  become  DDT's  registers  rather  than  the  user's  registers
+(although  the user's registers will be properly restored on DDT-exit,
+$$U merely directs DDT not to use the  internal  "fake"  (i.e.,  user)
+registers).   For  FILDDT  this means file words 0 to 17 (as mapped by
+the .EXE directory if used) become locations 0 to  17  (normal  for  a
+data file).
+
+     Subsequent issuance of the $U DDT command will redirect locations
+0  to  17  to  being DDT's internal "fake" registers again, except for
+FILDDT looking at an data file or doing super I/O to a disk.
+
+     Note that for executive mode EDDT to utilize physical  addressing
+the  paging  hardware must have been enabled PRIOR to DDT-entry.  This
+requirement exists because EDDT, in order to access  all  of  physical
+memory,  needs  to  map  the  desired  physical  address  into its own
+(executive) virtual address space,  which  it  does  by  fondling  the
+already-extant  page  maps.   For  EDDT to provide physical addressing
+capability without this restriction would require 2 (3  if  KL-paging)
+more  memory  pages  be  dedicated to EDDT for building temporary page
+maps, plus support code etc.
+
+     For FILDDT to examine/modify physical  memory  a  7.01  or  later
+release  of  the  TOPS-10  monitor is required;  no release of TOPS-20
+supports FILDDT'ing physical memory.
+DDT42 - DDT %42 Users Guide to New Features                     Page 6
+
+
+3.4.2  Page Mapping - Some flavours of DDT now support page mapping in
+both  the  KI-  and  the  KL-tradition.   EDDT  in executive mode will
+dynamically figure out which style of paging is in effect and  operate
+accordingly.  There currently exists no command for setting which mode
+of  paging  simulation  is  desired  so  all  other  flavours  of  DDT
+(including  EDDT  running in user mode) will assume the mode of paging
+used by the operating system for which DDT was assembled  -  KI-paging
+for  TOPS-10  and  KL-paging  for  TOPS-20.  In executive mode EDDT or
+FILDDT looking at running monitor/memory  space  DDT  will  internally
+utilize  physical  addressing  in  order  to provide the user the true
+mapped virtual address space desired.
+
+
+
+3.4.2.1  KI-paging - For KI-paging (TOPS-10 default) the page  mapping
+command  syntax  is  upt$eptU  where  upt  is the physical memory page
+number of the user process table and ept is the physical  memory  page
+number  (octal)  of  the executive process table;  if ept is specified
+the resulting virtual address space is that of the executive  process,
+if  ept is omitted the address space is that of the user.  If both upt
+and ept are omitted, DDT returns to unmapped virtual addressing.
+
+
+
+3.4.2.2  KL-paging - For KL-paging (TOPS-20 default) the page  mapping
+command  syntax is xpt$spxU where only one of xpt or spx is used - xpt
+is the physical memory page number of the user  or  executive  process
+table  and  spx  is  the  index into the SPT of the process table page
+pointer (useful for looking at TOPS-20 monitor crashes).  If both  xpt
+and spx are omitted, DDT returns to unmapped virtual addressing.
+
+
+
+3.4.3  Setting The SPT - FILDDT will automatically define the start of
+the  SPT from a disk file (assumed monitor dump) from the symbol "SPT"
+if it exists (TOPS-20 only).  The command  spt<$$U  specifies  to  DDT
+that the SPT starts at address spt.
+
+
+
+3.4.4  Register Addressing - The command acs$$U instructs DDT  to  use
+the  20  consecutive  locations  starting at acs as the registers (DDT
+maintains an internal copy of the registers so changing  "register"  3
+will  not  affect  (for example) acs+3).  FILDDT, when reading an .EXE
+file, will automatically load its internal "fake" registers as  though
+the user had typed CRSHAC$$U if TOPS-10 or BUGACS$$U if TOPS-20.  Note
+that if physical addressing mode has been entered (the user has issued
+the  $$U  command) then the internal "fake" registers are ignored;  if
+the user subsequently reenters virtual addressing (via  some  form  of
+the  $U  command) then an adr$$U command may also have to be re-issued
+to get the registers  back  (this  does  not  affect  the  saving  and
+restoring  of  the  hardware  registers in user or executive DDT, only
+what DDT will use for typing out locations 0 to 17).
+DDT42 - DDT %42 Users Guide to New Features                     Page 7
+
+
+     The $U command, except for FILDDT'ing a data file or doing  super
+I/O  to a disk, will return DDT to its internal "fake" registers.  The
+selection of registers is completely independent of any  page  mapping
+in  effect.   Changing  virtual  address  spaces  does  not change the
+"registers".
+
+     In executive mode DDT only the command $$nU will  switch  DDT  to
+use (and thus display) hardware AC block n (available only for KL-10's
+and KS-10's).  The user is warned that $$7U  on  a  KL-10  will  bring
+rapid and rabid death (the microcode uses AC block 7).
+
+
+
+3.4.5  Address Relocation And Protection - As aid to looking  at  data
+structures  which  are  formed  using  pointers as offsets rather than
+pointers as absolute values DDT version 42 will allow the user to  set
+both  a  base  relocation address to be added to all addresses used in
+location examining commands and a protection address beyond which  the
+user   "virtual"   (note   the   use  of  "virtual"  here  as  meaning
+pre-relocated) address is illegal.   This  is  (coincidently)  exactly
+analguous  to  the  KA-10 hardware relocation and protection strategy,
+and in fact could be used as such to "mimic" the upt$eptU  KI/KL/KS-10
+functionality  on a KA-10 in executive mode.  The form of this command
+is base<prot>$U where base is the base virtual address and prot is the
+maximum  address  the user will be allowed to type in.  Note that page
+mapping  and  address  relocation  and  protection   are   independent
+mechanisms,  with  address  relocation  and protection being performed
+before any mapping is done.  The protection address has no  effect  on
+the  final  "physical"  address  generated by any mapping currently in
+effect.
+
+
+
+3.4.6  $U Command Summary - All $U/$$U  commands  take  the  following
+form:
+
+     1.  bas<prt>upt$eptU (KI-paging)
+
+     2.  bas<prt>xpt$spxU (KL-paging)
+
+     3.  spt<xxx>acs$$nnnU
+
+where:
+
+     1.  acs:= address of 20-word register block
+
+     2.  bas:= base relocation address
+
+     3.  ept:= executive process table page number
+
+     4.  nnn:= hardware register block number
+
+     5.  prt:= protection (maximum allowable) address
+DDT42 - DDT %42 Users Guide to New Features                     Page 8
+
+
+     6.  spt:= address of SPT
+
+     7.  spx:= index into SPT of user/executive process table pointer
+
+     8.  upt:= user process table page number
+
+     9.  xpt:= user or executive process table page number
+
+    10.  xxx:= reserved for future
+
+
+
+
+3.4.7  Address Checking (Executive EDDT Only) - EDDT version 42,  when
+running   in   executive   mode,   now   is  much  more  extensive  in
+validity-checking memory references.  In  particular,  EDDT  will  not
+cause  a NXM (page fault) trap to the resident operating system if the
+user types in an  illegal  (non-existent  or  unmapped)  address,  but
+rather will simply type its ubiquitous ?<DINK><TAB> error message.
+
+
+
+4.0  SPECIFYING THE START ADDRESS
+
+     The $G command now accepts a 30-bit address at which to start the
+user  program.  DDT will default the section number in the same was as
+for the register opening commands.
+
+
+
+5.0  SYMBOLIC EXPRESSION TYPEIN AND TYPEOUT
+
+     DDT version 42 has expanded the range of both symbolic typein and
+symbolic typeout.
+
+
+
+5.1  Symbolic Typein
+
+The JSYS opcode (opcode 104) has been added to TOPS-20  DDT,  as  have
+all  the  TOPS-10  UUO's  (but  not  the  CALLI's  etc.) for debugging
+programs which run under the compatibility package.
+
+
+
+5.2  Symbolic Typeout
+
+DDT now goes to great pains to find any possible  user-defined  symbol
+(such  as an OPDEF) to match the expression DDT is trying to type out.
+The order in which DDT searches for a symbol match in symbolic typeout
+mode for non-I/O instructions is:
+
+     1.  Full 36-bit match;  OP, AC, I, X, and  Y  fields  (e.g.,  the
+         TOPS-20 monitor calls such as GTJFN)
+DDT42 - DDT %42 Users Guide to New Features                     Page 9
+
+
+     2.  OP, I, X, and Y fields (e.g., the TOPS-10 monitor calls  such
+         as FILOP.)
+
+     3.  OP and AC fields (e.g., the TOPS-10  monitor  calls  such  as
+         INCHWL or "instructions" such as HALT)
+
+     4.  OP field only (e.g., user UUO's or "OPDEF XMOVEI [SETMI]")
+
+     5.  DDT's internal hardware opcode table
+
+The order in which DDT searches for a symbol match in symbolic typeout
+mode for I/O instructions is:
+
+     1.  I/O OP and DEV fields (bits 0 to 12 - e.g.,  KL-10  APRID  or
+         KS-10 RDCSB)
+
+     2.  Regular (non-I/O) OP field (e.g., KS-10 UMOVE)
+
+
+     Note that the command  "_"  (underscore)  which  forces  symbolic
+typeout, modifies the rules slightly so that only full word matches or
+instructions will be used.  Hence, you may see something like:
+
+     FOO/   CALL FIE   __PUSHJ P,FIE   ;CALL FIE
+
+
+
+
+6.0  ASCII TYPEOUT
+
+     DDT version 42 adds the typeout mode  commands  $8T  and  $9T  to
+typeout  8 bit ASCII or 9 bit ASCII respectively (i.e., pick up 8 or 9
+bit bytes and "type" them straight as is - which with current  TOPS-10
+and TOPS-20 operating systems means as 7-bit ASCII).
+
+
+
+7.0  COMMAND FILES
+
+The $Y command (TOPS-10 DDT only) has been changed somewhat,  both  in
+input and output (logging) functions.
+
+
+
+7.1  Command Input
+
+If the user does not type a 36-bit expression to be  used  as  a  file
+name  (such as $""FILNAM"$Y) but just types $Y by itself then DDT will
+prompt with "File:/f".  After the prompt the user can enter  a  normal
+TOPS-10  file specification in the form dev:name.type[directory] where
+[directory] can of course contain SFD's.
+DDT42 - DDT %42 Users Guide to New Features                    Page 10
+
+
+7.2  Command Output (logging)
+
+When reading a command file ($Y command) DDT will no longer "log"  all
+output  onto  device  LPT:   but  rather  just  type out onto the user
+terminal.
+
+
+
+8.0  AUTOMATIC PATCH INSERTION
+
+     The automatic patch insertion facility ($< and $>  commands)  are
+basically   the  same  as  in  version  40  of  DDT  with  only  minor
+differences.
+
+
+
+8.1  Default Patching Symbol
+
+The list and order of default patching symbols which DDT uses when the
+user does not supply an explicit patching symbol is now:
+
+     1.  PAT (TOPS-10 EDDT only)
+
+     2.  FFF (TOPS-20 EDDT and MDDT only)
+
+     3.  PAT..  (all flavours)
+
+     4.  PATCH (all flavours)
+
+     5.  PAT (all flavours except TOPS-10 EDDT)
+
+
+
+
+8.2  Default Patching Address
+
+If the user does not supply an explicit patching  symbol  and  DDT  is
+unable  to  find  one of the default patching symbols then the address
+specified by the right half of location .JBFF  (even  on  TOPS-20)  is
+used.   On  patch  close  ($> command) if .JBFF was defaulted to, then
+both the right half of location .JBFF and the left  half  of  location
+.JBSA are updated.
+
+
+
+8.3  Patch Closing Confusion And Restriction
+
+With DDT version 42 it no longer matters how (when) the user types the
+$>  command,  either  immediately  after the final word expression, or
+after a <CR> or <LF> to terminate the final word expression - DDT will
+never generate a 0 word for free.
+
+     There is a very obscure restriction however on the use of  the   
+command   in  conjunction  with  the  $>  command.   If  the  user  is
+referencing an undefined symbol in the expression for the last word of
+DDT42 - DDT %42 Users Guide to New Features                    Page 11
+
+
+the patch then that expression must explicitly be terminated in such a
+fashion as to close the location before terminating  the  patch.   For
+example,  "MOVE  T1,BLETCH $>"  is  illegal  but  "MOVE T1,BLETCH cr$>
+(where "cr" indicates a carriage return) is ok.
+
+
+
+9.0  BREAKPOINTS
+
+     The breakpoint logic  in  DDT  was  extensively  revamped  as  of
+version  41  in  order  to  support  extended addressing.  The default
+number of breakpoints is  now  12  (decimal);   and  can  be  set  (by
+defining  the  symbol  NBP=number  of  breakpoints)  arbitrarily  high
+(within memory space limitations) rather than being limited to 9 or 36
+(decimal) depending on which code restriction one choose to believe.
+
+
+
+9.1  Setting Breakpoints
+
+DDT can now set a breakpoint in code running in any section  with  two
+restrictions:
+
+     1.  If DDT is currently running in section 0 then breakpoints can
+         only be set in section 0 (see section 3.1.3 above).
+
+     2.  DDT must be mapped in the  section  containing  the  code  in
+         which breakpoints are to be placed (the logic of this is that
+         since there is no way for DDT to cause unconditional transfer
+         of  control  to  DDT  with  only  36 bits some portion of the
+         section address space must be  devoted  to  DDT;   therefore,
+         given this restriction, one might just as well put all of DDT
+         in that section since it makes  for  a  cleaner  and  simpler
+         implementation).   Note  that  this does not mean DDT must be
+         running in that section, but merely that DDT must  be  mapped
+         in that section!
+
+
+     It does not matter into how many different sections the same code
+is mapped as long as DDT is mapped into the same sections since DDT is
+"section-independent".  For example (taking the TOPS-20 monitor  which
+maps  section  0  and section 1 identically) if a breakpoint is set at
+address 1004567 (or 1,,4567) but the PC was 4567 (or 0,,4567, i.e., in
+section  0 rather than section 1) when the breakpoint was executed DDT
+does not care (as long as DDT is mapped in that section, which in  the
+example of the TOPS-20 monitor it is).
+
+     The syntax for setting a breakpoint is now opnadr<bptadr$nB where
+n  is optional and, if specified, declares the breakpoint number to be
+assigned to that address;  bptadr is the 30-bit address  at  which  to
+place  a breakpoint;  and opnadr is an optional 30-bit address to open
+and display upon execution of the breakpoint.  The syntax was  changed
+because  two  full  30-bit  addresses  could  not be squeezed into two
+halfwords.
+DDT42 - DDT %42 Users Guide to New Features                    Page 12
+
+
+     Breakpoints  may  not  be  set  at  either  an  ERCAL  or   ERJMP
+"instruction" or at an instruction immediately followed by an ERCAL or
+ERJMP "instruction" (TOPS-20 only).  DDT still does not properly  fake
+out the monitor in these cases.
+
+     DDT will no longer assign two different breakpoints to  the  same
+address,  either  accidentally  or  under  user  control - if the user
+attempts to set a breakpoint at a  location  at  which  a  (different)
+breakpoint is already set, the old breakpoint is cleared first.
+
+
+
+9.2  Breakpoint Typeout
+
+Upon execution of a breakpoint DDT will now always  typeout  the  user
+instruction (in instruction format regardless of the permanent typeout
+mode) at that breakpoint and set "." to the breakpoint  address.   If,
+further,  opnadr  was specified as in section 9.1 above, then DDT will
+also display the contents of location opnadr in  the  permanently  set
+typeout  mode  and  "." will be updated to opnadr (with the breakpoint
+address itself becoming the previous PC sequence and so available  via
+the $<CR> etc.  commands).
+
+
+
+9.3  Examining Breakpoint Locations
+
+The $nB command continues  to  be  the  "address"  of  breakpoint  n's
+database,  but  $nB  is  no  longer  equal to $n-1B+3.  The breakpoint
+database of interest to the user now has the following format:
+
+     1.  $nB+0/ If nonzero the address for breakpoint n
+
+     2.  $nB+1/ The conditional break instruction (break if skips)
+
+     3.  $nB+2/ The proceed count (break on transition to 0)
+
+     4.  $nB+3/ If greater than or equal to zero then the  address  to
+         be displayed
+
+
+     The rest of the breakpoint data base should not be of use to  the
+user.
+
+
+
+9.4  Unsolicited Breakpoints
+
+DDT  has  the  ability  to  handle  unsolicited   breakpoints   (i.e.,
+breakpoints  that  DDT  did  not  itself  set).   If control passes to
+location $0BPT+1 ($0BPT is a global DDT symbol) then DDT will  act  as
+if  a  breakpoint  had been set at the address-1 contained in location
+$0BPT.  The address in $0BPT must be setup as if the  cpu  executed  a
+JSR  $0BPT instruction - if in section 0 then flags,,PC otherwise just
+global 30-bit PC.  After "hitting" an unsolicited breakpoint the  user
+DDT42 - DDT %42 Users Guide to New Features                    Page 13
+
+
+can  proceed with program execution with the $P command (all arguments
+to the $P command such as proceed  count  or  auto-proceed  ($$P)  are
+ignored).
+
+     Although this  facility  gives  programs  the  ability  to  cause
+breakpoints  at any time (thus getting into DDT with the program state
+carefully preserved) it is intended to be of most use  in  conjunction
+with  an  as-yet-unimplemented  monitor command (such as control-D) to
+"force" a breakpoint on a program without having to control-C/DDT  the
+program.   Then  the  user  could  simply continue with the program by
+typing $P.
+
+
+
+10.0  SINGLE-STEPPING THE PROGRAM
+
+     The $X DDT command was significantly modernized (and sped  up  in
+general) with version 41 of DDT.
+
+
+
+10.1  New Opcodes
+
+The ADJSP, DADD, DSUB, DMUL, and DDIV instructions have been added  to
+DDT's $X table although double- and quad-word integers (for DADD etc.)
+are still typed out as two or four single words rather  than  one  big
+multiple   precision   integer.    All   of  the  extended  JRST-class
+instructions  are  correctly  simulated/traced.   A   user-UUO   being
+executed in a non-zero section is simply XCT'ed and is not traced.
+
+
+
+10.2  Byte-manipulation Typeout
+
+A rudimentary byte-manipulation-instruction typeout facility was added
+(to  DDT  version  40  actually)  to  display the byte pointer and the
+contents  of  the  effective  address  of  the  byte   pointer.    The
+EXTEND-class instructions are not handled.
+
+
+
+10.3  Effective Address Calculation
+
+DDT now always calculates the effective  address  of  the  instruction
+being  $X'ed  rather  than  just  blindly  "doing it" in order to both
+prevent DDT from getting an illegal memory reference  as  well  as  to
+make  DDT  be  independent of the section in which the user PC resides
+(i.e., DDT does not have to be mapped into  the  user  PC  section  to
+handle $X'es although if the user PC is in a non-zero section then DDT
+must be in a non-zero section).  Besides, it's usually faster too!
+DDT42 - DDT %42 Users Guide to New Features                    Page 14
+
+
+10.4  KS-10 I/O Instruction Trace
+
+The  KS-10  specific  I/O  instructions  which  reference  the  UNIBUS
+(executive  mode  only)  are  not  traced,  only  the  contents of the
+register specified in the AC field are displayed.   Since  the  UNIBUS
+device  registers  can be reference-volatile (i.e., merely referencing
+one can cause it to change - such as the  DL-11  data  registers)  DDT
+does  not  typeout  the  contents  of  the  referenced UNIBUS address.
+Further, since  the  effective  address  of  the  instruction  is  not
+calculated  in a standard format (at least as far as DDT is concerned)
+the effective address itself is not even displayed.
+
+
+
+10.5  PC Skipping
+
+If the user instruction being $X'ed skips then DDT  will  now  typeout
+"<SKIP>"  if  the  PC  skips  by one location, or "<SKIP n>" if the PC
+skips by n locations, where n  is  less  than  or  equal  to  the  DDT
+assembly  parameter  SKPMAX  (by  default  3).  If the PC changes more
+drastically than that (e.g., goes to a smaller address) DDT will  type
+"<JUMP> instead.
+
+
+
+10.6  ERCAL/ERJMP
+
+DDT (TOPS-20 only) will now handle instructions followed by either  an
+ERCAL  or  an  ERJMP  instruction  (which  is  really  just  a  72-bit
+instruction with two effective addresses).  If the  instruction  being
+executed  does  not  take the error jump then DDT will print "<ERSKP>"
+after the normal instruction trace to indicate to  the  user  that  an
+ERCAL  or ERJMP was just skipped (i.e., the PC incremented by 2 rather
+than 1) and will not display the ERCAL or ERJMP instruction.   If  the
+instruction  does  take  the  error  jump  then  the  ERCAL  or  ERJMP
+instruction will be displayed, if an ERCAL instruction  then  register
+17  will  also  be  displayed, and the PC will be changed to the error
+address.
+
+     DDT will print "<ERSKP>" rather than showing the ERCAL  or  ERJMP
+instruction  since  DDT  has  no  way  of  telling  whether or not the
+instruction itself caused the skip (as in a SKIPA) or if the PC merely
+"fell  through"  the  ERCAL  or  ERJMP instruction (as in a successful
+MOVE).
+
+     Do not attempt to $X ERCAL's or ERJMP's which use either indexing
+or  indirection!   DDT will calculate the true effective address as if
+the hardware were actually to execute the ERCAL or ERJMP just  like  a
+JRST while the monitor just picks up the "Y" field and goes there.
+
+     Users  of  EDDT  and  MDDT  should  be  cautioned   about   $Xing
+instructions  followed by an ERCAL or ERJMP in non-zero sections - the
+monitor has a tendency to transfer control to  the  error  address  in
+section 0, which will cause a BUGHLT because DDT (running in executive
+mode) does non-zero section things thinking it is still in a  non-zero
+DDT42 - DDT %42 Users Guide to New Features                    Page 15
+
+
+section.
+
+
+
+10.7  $X Speed Up
+
+By building into DDT a table of instructions which can cause the state
+of the known world to change, and assuming the state of the world does
+not change if the instruction being $X'ed is not so marked,  the  time
+required  to $X an instruction is cut by roughly a factor of 10.  This
+results in a dramatic performance  increase  especially  for  EDDT  on
+KL-10's  where  waiting  for  the  console front end to switch between
+secondary and primary protocol is very time-consuming.
+
+
+
+10.8  Repetitive $X'es
+
+The $$X command now takes an optional  address  range.   Normally  $$X
+will  terminate  when  the user PC inclusively enters the range .+1 to
+.+SKPMAX (default value  of  SKPMAX  is  3).   The  user  may  specify
+lwr<upr>$$X  where  lwr  is  the lower address boundary and upr is the
+upper address boundary which, if the user PC ever  inclusively  enters
+the  range so specified, terminates the $$X.  If only lwr is specified
+then upr defaults to lwr+SKPMAX.  This  command  is  very  useful  for
+recovering  from  having $X'ed a (for example) PUSHJ instead of having
+$$X'ed the (for example) PUSHJ.
+
+
+
+10.9  $X'ing From Instr$X
+
+If the user $X'es a return from a  subroutine  which  was  entered  by
+doing  an  instr$X  (for  example "PUSHJ P,SUBRTN$X where SUBRTN has a
+breakpoint in it) then DDT simply "returns" from the original  instr$X
+rather  than  proceding  to $X the internals of DDT itself.  This is a
+very obscure condition so don't worry too much about it.
+
+
+
+10.10  $X PC
+
+The $.  command now acts like the .   command  only  $.   returns  the
+value  of  the  $X PC (i.e., the address of the next instruction to be
+$X'ed).
+
+
+
+11.0  SEARCHES
+
+     Most of the differences in how DDT version  42  handles  searches
+are simply bug fixes, not major changes in the logic of searching.
+DDT42 - DDT %42 Users Guide to New Features                    Page 16
+
+
+11.1  Non-existant Pages
+
+DDT version 42 now simply skips over pages which don't  exist  in  the
+address  space  being  searched, rather than terminating the search as
+soon as a hole has been found.
+
+
+
+11.2  Missed Matches
+
+The bug which caused TOPS-20 DDT to miss many valid matches  is  fixed
+in DDT version 41.
+
+
+
+11.3  Effective Address Searches
+
+Since almost all address calculations start with an IFIW  basis  (with
+the  exceptions being such things as interrupt vectors and the like on
+KL-10's or KS-10's), DDT version 42 will  assume  that  each  word  it
+examines  is  an  instruction  and  perform  an IFIW effective address
+calculation.  The final result must match in  all  30  bits  (actually
+internally  DDT  will  do  a  full 36-bit compare so the address being
+searched for had better not contain anything in bits 0 to 5).
+
+
+
+11.4  Address Limit Defaults
+
+With the advent of extended addressing  and  physical  addressing  the
+address  limits  are defaulted somewhat differently than from previous
+versions of DDT:
+
+     1.  EDDT, MDDT (TOPS-20 only), UDDT, and VMDDT
+
+         1.  Lower Limit:  <current section>,,0
+
+         2.  Upper Limit:  <current section>,,777777
+
+
+     2.  FILDDT looking at an .EXE file
+
+         1.  Lower Limit:  0
+
+         2.  Upper Limit:  highest virtual address mapped
+
+
+     3.  FILDDT looking at a data file
+
+         1.  Lower Limit:  0
+
+         2.  Upper Limit:  highest word written in file
+
+DDT42 - DDT %42 Users Guide to New Features                    Page 17
+
+
+     4.  FILDDT looking at disk structure/unit
+
+         1.  Lower Limit:  0
+
+         2.  Upper Limit:  highest word in disk structure/unit
+
+
+     5.  FILDDT looking at runing monitor
+
+         1.  Lower limit:  0
+
+         2.  Upper limit:  777777
+
+
+     6.  FILDDT looking at physical memory (TOPS-10 only)
+
+         1.  Lower Limit:  0
+
+         2.  Upper Limit:  Highest extant memory address
+
+
+
+     As with any defaults not all cases will be properly "guessed"  by
+DDT.   In  particular if the user has mapping or address relocation in
+effect  the  virtual  address  range  so  produced  may  have  nothing
+whatsoever in common with the address limit defaults chosen by DDT.
+
+
+
+12.0  ZEROING MEMORY
+
+     The algorithm used by DDT previous to version 41 has only limited
+usefulness  in  today's  modern virtual world (especially on TOPS-20).
+However, to avoid "breaking" already extant control or MIC files which
+may  use the $$Z command it remains unchanged.  A new command has been
+implemented  -  lwr<upr>exp$z  where  lwr  is  the  lowest  (starting)
+address,  upr  is  the highest (ending) address, and exp is the 36-bit
+quantity to deposit in each word inclusively bounded by lwr  and  upr.
+Both lwr and upr must be specified.  If exp is not specified then 0 is
+used as the default.
+
+     A special note:  The creation of  zeroed  pages  (which  formerly
+were  non-existent) by the $Z and $$Z commands is under the control of
+the automatic page create flag ($1W and $$1W commands  -  see  section
+3.3.2).
+
+
+
+13.0  SPECIAL MASKS
+
+     DDT 42 distinguishes its internal addresses, such  as  masks  and
+breakpoints,  from  user  program  addresses.   Opening a DDT internal
+location  will  never  use  nor  change  the  user  default   section.
+Attempting  to  open other than defined internal locations will result
+in "?" being typed, e.g.  $M-1/.
+DDT42 - DDT %42 Users Guide to New Features                    Page 18
+
+
+     DDT version 42 (it actually started  with  DDT  version  40)  has
+several  new  "masks"  (for  lack  of a better name and/or command) of
+interest to the user.  None of these masks are  currently  displayable
+(e.g., "$3M/") in FILDDT although they may be set normally.
+
+
+
+13.1  $0M - Search Mask
+
+The operation of the search mask continues unchanged.  The search mask
+may  now  be  referenced  by  either  the  $M  (old  style) or the $0M
+commands.  The default value remains 777777777777.
+
+
+
+13.2  $1M - TTY Control Mask
+
+This mask controls special TTY behavior (TOPS-10 only).  If bit 35  of
+the  mask is 0 then rubouts behave normally;  if bit 35 of the mask is
+1 then rubouts echo as a backspace,  space,  backspace  sequence.   No
+other bits have an assigned meaning and all must be zero.  The default
+value is 0.
+
+
+
+13.3  $2M - Offset Range
+
+The 36-bit "mask" in this case is really a value, used as the  maximum
+offset allowable for typeing addresses in the form symbol+offset.  The
+default offset is 1000 (octal).
+
+
+
+13.4  $3M - Byte Mask
+
+This mask is used in conjunction with the $O command for typing  bytes
+in  a  word  that  are  not necessarily evenly spaced.  Whenever an $O
+command is issued without an explicit byte size  the  byte  boundaries
+are determined by one-bits in the byte mask - each one bit in the byte
+mask marks the low order bit of a byte.  Bit 35 is  always  considered
+on.   The default value is 0 (i.e., one 36-bit byte).  For example the
+DDT  command  040100200401$3M  sets   the   byte   mask   for   typing
+right-justified 8-bit bytes (preceded by the leading 4-bit byte).
+
+
+
+14.0  RADIX-50 SYMBOL TYPEIN
+
+     Since prehistoric times DDT has supported RADIX-50 symbol typein,
+but  that  fact was never documented.  The syntax for using a RADIX-50
+symbol as an 36-bit item in an expression is sym$5" where sym  is  the
+desired RADIX-50 symbol.  For example, to search for all occurences of
+the symbol PAT..  the DDT commands 37777,,-1$M (only look at low-order
+32 bits) and PAT..$5"$W suffice.
+DDT42 - DDT %42 Users Guide to New Features                    Page 19
+
+
+15.0  NEW DDT RUNTIME INFORMATION
+
+     Several  new  words  have  been  added  to  DDT's  runtime  table
+describing  the  state  of  the  machine  upon  (executive  mode only)
+DDT-entry.  These  words  are  all  accessible  via  the  DDT  command
+$I+offset (not available in FILDDT):
+
+     1.  $I+00/ APR CONI word
+
+     2.  $I+01/ PI CONI word
+
+     3.  $I+02/ Mask of PI channels turned off by EDDT
+
+     4.  $I+03/ Executive virtual address of EPT
+
+     5.  $I+04/ Executive virtual address of UPT
+
+     6.  $I+05/ Executive virtual address of CST
+
+     7.  $I+06/ Executive virtual address of SPT
+
+     8.  $I+07/ Original AC-block word (DATAI PAG) if $$nU
+
+     9.  $I+10/  Mapping  word  -  physical  addressing  if  negative;
+         unmapped    virtual    addressing    if    zero,    otherwise
+         1B1+EPT,,1B19+UPT if KI-paging or 1B1+EPT/UPT if KL-paging
+
+    10.  $I+11/ Fake register flag - use physical 0 - 17 if zero;  use
+         internal "fake" 0 - 17 otherwise
+
+
+
+
+16.0  OBSOLETE COMMANDS
+
+     The executive mode paper tape facilities  (^R,  $J,  and  $L  DDT
+commands)  are  no  longer  supported.  The code is left in the source
+file for reference purposes but will soon be removed.
+
+
+
+17.0  FILDDT STARTUP AND COMMANDS
+
+     FILDDT is a special  version  of  DDT  with  the  facilities  for
+"DDT'ing" address spaces other than its own, such as disk files and in
+particular .EXE files.  FILDDT has existed for years  but  has  always
+been  off  in the background as a specialized "tool" for the exclusive
+use of monitor programmers looking at crash durolled by use of the  $U
+and $$U commands).  This is a privileged command.
+DDT42 - DDT %42 Users Guide to New Features                    Page 20
+
+
+17.0.1  /P Command - The  /P  command  or  function  switch  instructs
+FILDDT  to enable for writing as well as reading the specified address
+space.  Note that DDT's internal fake registers are always writable.
+
+
+
+17.0.2  /S Command - The  /S  command  or  function  switch  instructs
+FILDDT  to  only  extract  the  symbol  table from the file specified,
+replacing any symbol table FILDDT may already have.  Unless overridden
+by  the  inclusion  of a /F command FILDDT will, after having read the
+symbol table, again prompt the user for the next FILDDT command.
+
+
+
+17.0.3  /U Command - The /U command or function switch is applied to a
+file  structure  or  disk  unit  only  rather  than  a  complete  file
+specification and indicates to FILDDT that the user wants  the  entire
+physical address space represented by that file structure or disk unit
+name independent of any "file structure mapping" normally  imposed  by
+the monitor.  This is a privileged command.
+
+
+
+17.1  TOPS-20
+
+With DDT version 42, FILDDT on TOPS-20 runs in  native  mode,  and  in
+particular,  uses  the  PMAP monitor call for all regular file access.
+FILDDT will also type a brief message telling what  address  space  is
+about to be "DDT'ed" before going into DDT mode.
+
+
+
+17.1.1  DRIVE Command - The format of the DRIVE command is:
+
+     DRIVE (FOR PHYSICAL I/O IS ON CHANNEL) c (UNIT) u
+
+     The DRIVE command allows examination of the disk unit u on system
+channel  c  without regard for whether it is mounted as part of a file
+structure, or indeed whether it even has the necessary information  so
+that  it  could  be so mounted (as if the HOME blocks were wiped out).
+If, however, the drive is part of a  mounted  file  structure,  FILDDT
+will  type  a  message  indicating  the structure to which it belongs.
+This is a privileged command.
+
+
+
+17.1.2  ENABLE DATA-FILE Command - The  ENABLE   DATA-FORMAT   command
+instructs  FILDDT to treat the file as pure data, even if a valid .EXE
+directory is detected, and in particular to use real file words  0  to
+17 as locations 0 to 17.
+DDT42 - DDT %42 Users Guide to New Features                    Page 21
+
+
+17.1.3  ENABLE PATCHING Command - The    ENABLE    PATCHING    command
+instructs  FILDDT  to  enable any subsequently specified address space
+for patching (writing).  This command is ignored when looking  at  the
+running  monitor  since there is no monitor call to "poke" the running
+monitor.
+
+
+
+17.1.4  EXIT Command - The EXIT command instructs FILDDT to return  to
+command  level.   If  FILDDT  has  an  internal symbol table (due to a
+previous LOAD or GET FILDDT command) then a  SAVE  command  will  save
+FILDDT with the symbols pre-loaded.
+
+
+
+17.1.5  GET Command - The format of the GET command is:
+
+     GET (FILE) filespec (optional switches)
+
+     The GET command instructs FILDDT to set up the disk file filespec
+as  the  address  space  to  be  "DDT'ed", as modified by the optional
+switches or previous ENABLE commands.  The available switches are:
+
+
+
+17.1.5.1  /DATA - The /DATA switch is equivilent to a previous  ENABLE
+DATA-FILE command.
+
+
+
+17.1.5.2  /PATCH - The /PATCH  switch  is  equivilent  to  a  previous
+ENABLE PATCHING command.
+
+
+
+17.1.5.3  /SYMBOL - The /SYMBOL switch  instructs  FILDDT  to  extract
+symbols  from  the  specified  .EXE  file  before  "DDT'ing" the file,
+discarding any symbols that FILDDT may already have.  This  switch  is
+legal only with .EXE files.
+
+
+
+17.1.6  HELP Command - The HELP command instructs FILDDT to type out a
+short summary of the available FILDDT commands.
+
+
+
+17.1.7  LOAD Command - The format of the LOAD command is:
+
+     LOAD (SYMBOLS FROM) filespec
+
+     The LOAD command instructs FILDDT to  extract  symbols  from  the
+disk  file  filespec,  which  must  be an .EXE file, then to return to
+FILDDT command level.  This command is legal only for .EXE files.
+DDT42 - DDT %42 Users Guide to New Features                    Page 22
+
+
+17.1.8  PEEK Command - The PEEK command instructs FILDDT  to  use  the
+currently  running  monitor  as the address space to be "DDT'ed".  The
+address space so available is currently limited to  monitor  executive
+virtual  addresses  0 to 777777, since the PEEK monitor call will only
+accept 18-bit  address  arguments  for  executive  virtual  addresses.
+Physical  memory  addressing  is  not available.  This is a privileged
+command.
+
+
+
+17.1.9  STRUCTURE Command - The format of the STRUCTURE command is:
+
+     STRUCTURE (FOR PHYSICAL I/O IS) str:
+
+     The STRUCTURE command instructs FILDDT  to  use  as  the  address
+space to be "DDT'ed" the entire disk file structure str independent of
+any "file structure mapping" normally imposed by the monitor.  This is
+a privileged command.
+
+
+
+17.2  Defaults
+
+Following is a list of the various defaults supplied by FILDDT:
+
+     1.  DSK:   is  the  default  file  device  unless  super  I/O  is
+         specified  (which requires an explicit file structure or disk
+         unit name).
+
+     2.  .EXE is the default file type or extension  unless  either  a
+         data  file  or super I/O is specified, in which case there is
+         no default file type or extension.
+
+     3.  The default directory is the user's default directory.
+
+     4.  The specified address space is read-only.
+
+     5.  If "DDT'ing" an .EXE file and FILDDT does not already have  a
+         symbol table, extract the symbol table (if any) from the .EXE
+         file first.
+
+     6.  If "DDT'ing" an .EXE file and the symbol CRSHAC (if  TOPS-10)
+         or  BUGACS  (if  TOPS-20)  exists, give a "free" CRSHAC$$U or
+         BUGACS$$U command.  If  the  CRSHAC/BUGACS  symbol  does  not
+         exist  then  use file words 0 to 17 (if any) as mapped by the
+         .EXE directory for locations 0 to 17.  For TOPS-20  only,  if
+         the  symbol  SPT exists then also give a free SPT<$$U command
+         as well.
+
+DDT42 - DDT %42 Users Guide to New Features                    Page 23
+
+
+17.3  Other FILDDT-specific Commands
+
+Following are the commands which are unique (or different) to FILDDT.
+
+
+
+17.3.1  ^E Command - The ^E  command  instructs  FILDDT  to  exit  the
+current  address  space  and  prompt the user for a new address space.
+The ^E command is equivilent to a ^Z, START command sequence.
+
+
+
+17.3.2  ^Z Command - The  ^Z  command  instructs  FILDDT  to  exit  to
+monitor level after having written out any changes to the current file
+(if any).  It is most important that the user exit only via ^Z (or  ^E
+which  does an implicit ^Z) in order to guarantee the integrity of the
+file data (if any) - a ^C can leave a file in an  indeterminate  state
+(some changes written out to the disk and some not).
+
+
+
+17.3.3  I/O Errors - Should FILDDT  incur  an  I/O  error  reading  or
+writing  a disk file, a warning message will be issued but FILDDT will
+otherwise ignore the error.  This is to allow the user the ability  to
+manually  fix  a  file  with  bad data by rewriting the data correctly
+(hoping the rewritting operation clears the error condition -  if  the
+physical  disk  surface  itself  is  at  fault,  then  it  is probably
+hopeless).
+
+[End of DDT 42 Users Guide]
+

@@ -1,0 +1,3146 @@
+.VARIABLE DO,+,-
+.LM0.RM75
+.ps 60,75
+.S5
+.c;UNIVERSITY OF YORK
+.s2
+.c;COMPUTING SERVICE
+.S2
+.c;MIC
+.s
+.c;&Macro &Interpreted &Commands
+.S2
+.c;Reference Manual - Edition 8.3
+.S3
+.c;April 1983
+.S2
+.c;This guide reflects features of version 11C(1223) of MIC.
+.s
+.s 5
+.c;Edited and revised by J.D. Service, University of York.
+.PG
+.t MIC - Macro Interpreted Commands
+.st University of York Computing Service
+.NUMBER 1
+.S5
+.c;MIC was originally written at Hatfield Polytechnic Computer Centre.
+.S3
+.c;Copying of this document is allowed.
+.nf.S4
+.c;Hatfield Polytechnic Computer Centre
+.c;The Hatfield Polytechnic
+.c;PO Box 109
+.c;Hatfield
+.c;Hertfordshire  AL10 9AB
+.c;England
+.S2
+Telephone Hatfield 68100
+Telex     262413
+.s6
+.c;This edition was edited and enhanced at the University of York.
+.s3
+.c;Department of Computer Science
+.c;University of York
+.c;Heslington
+.c;York
+.c;North Yorkshire YO1 5DD
+.c;England
+.s2
+Telephone York 59861
+Telex     57933	
+.PG
+.c;CONTENTS
+.S2
+.list
+.le;Introduction
+.le;Introducing a MIC command
+.le;Constructing MIC macro command files
+.list
+.le;Special Characters
+.le;Labelled lines
+.le;Parameter substitution
+.els
+.le;Commands derived from DECsystem-10 multi-programming batch
+.list
+.le;GOTO/BACKTO command
+.le;ERROR/NOERROR command
+.le;IF command
+.le;OPERATOR/NOOPERATOR command
+.le;SILENCE/REVIVE command
+.le;PLEASE command
+.le;CHKPNT/REQUEUE command
+.le;Others
+.els
+.le;LET command
+.list
+.le;Byte subscripting for string expressions
+.le;Multiple LET statements
+.le;Parameters in outer processes
+.le;Octal expressions
+.els
+.le;Extensions to the IF command
+.list
+.le;Parameters in outer processes
+.le;Special Tests
+.els
+.tp 10
+.le;Simple interaction with MIC
+.list
+.le;OPERATOR/NOOPERATOR command
+.le;MIC RESPONSE command
+.le;MIC DISPLAY command
+.le;MIC TYPE command
+.le;MIC WHAT command
+.le;MIC SLEEP command
+.le;MIC INPUT command
+.els
+.le;MIC control commands
+.list
+.le;MIC ABORT command
+.le;MIC CANCEL command
+.le;MIC BREAK command
+.le;MIC PROCEED command
+.le;MIC EXIT command
+.le;MIC RETURN command
+.els
+.le;Special Parameters
+.list
+.le;System Parameters
+.list
+.le;Parameter substitution
+.le;GETTABS
+.le;Octal argument to GETTABS
+.els
+.le;Action parameters
+.le;Miscellaneous special parameters
+.list
+.le;PSHIFT
+.els
+.le;Substitution of parameters in outer processes
+.els
+.le;LET and IF extensions
+.list
+.le;Use of system parameters
+.le;Use of system parameters in arithmetic assignments
+.le;Use of system parameters in IF commands
+.els
+.le;Non procedural calls to MIC (WHENEVER/ON command)
+.list
+.le;Multiple WHENEVER/ON commands
+.els
+.le;MIC SET command
+.list
+.le;COLUMN1
+.le;CONTROL
+.le;PARAMETERS
+.le;SPECIALS
+.le;FINMATCH
+.le;MSGLVL
+.le;LC
+.le;TRACE
+.le;SILENCE
+.le;CCTRAP
+.le;Multiple SET commands
+.els
+.le;CCL entry to MIC
+.le;Multiple statements on a line
+.le;Immediate mode execution of MIC commands
+.els
+.s
+         Appendix A - Examples of MIC commands
+.s
+         Appendix B - Command Summary
+.s
+         Appendix C - Syntax of integer and string expressions
+.s
+         Appendix D - Error messages
+.s
+         Index
+.PG
+.HL1 Introduction
+Standard DECsystem 10 software provides a powerful but complex command interface.
+Novice terminal users lose much time through an unforgiving command decoder and the expert resents
+the verbosity of the average command string.  Although the concise command language (C.C.L) does allow
+many simplifications to system commands, new commands may not readily be defined.
+.s
+With MIC a user may create a new command simply by writing any desired sequence
+of monitor and user mode commands in a disk file. To cause the command to be obeyed
+.in do
+the user types to monitor the filename preceded by the forward slash character "/".
+.else do
+the user types to monitor the filename preceded by the "DO" command.
+.ei do
+.s
+E.g. 
+.S
+If the file DTASAV.MIC contains the text-
+.s.nf
+ .R PIP
+ *DTAX:/X/B=FRED.TXT
+ *_^C
+ .DIR DTAX:
+.s
+the user could obey the command file thus-
+.s
+.in do
+ ./DTASAV
+.else do
+ _.DO DTASAV
+.ei do
+ .R PIP
+ *DTAX:/X/B=FRED.TXT
+ *_^C
+ .DIR DTAX:
+.s.f
+In this sequence of commands only the first line of the "MIC command" was typed by the user.
+If the user often required this sequence of commands the command macro DTASAV.MIC would save 
+a considerable amount of typing.
+.s
+To allow more generalised commands to be constructed a MIC command may have parameters:
+.s
+The command macro DTASAV.MIC would be made more useful if the file contained the text-
+.s.nf
+ .R PIP
+ *DTA'A:/X/B='B
+ *_^C
+ .DIR DTA'A:
+.s.f
+.tp 15
+The rules for parameter substitution are simple.
+When 'A is encountered in the command file the first parameter is substituted.  The first
+parameter in the macro DTASAV is the dectape number, the second parameter is the file name
+to be transferred.
+Up to 26 user  parameters are allowed ('A to 'Z).
+To write the file PETE.MAC to DTA3 the command would be:-
+.s
+.in do
+ ./DTASAV 3,PETE.MAC
+.else do
+ _.DO DTASAV 3,PETE.MAC
+.ei do
+.s
+The parameters to a MIC command are separated by commas. (See also section 2.)
+.s
+The command file may be of any
+size and is typed by MIC line by line exactly as if the user had typed it.  MIC will
+only type a line when  the job requires input. To stop MIC typein the user must type control C.
+.s
+Using the above information a user can easily make his own commands.
+Additional facilities in MIC are provided to allow:-
+.s
+1. Parameters to be manipulated during the processing of a MIC command.
+.s
+2. Conditional branching within the command macro.
+.s
+3. Detecting and processing error conditions.
+.s2
+.nt
+MIC command files may themselves contain MIC commands. In
+this case the "nested processes" each have their own parameters but 
+inner processes may access the parameters in an outer process. This
+ is described later.
+.en
+.tp 30
+.HL1 Introducing a MIC Command
+.index Command File
+To cause a MIC macro command file to be obeyed a monitor command of the following form is
+used:-
+.s
+.in do
+ ./<Standard device-file specification> <parameter list>
+.else do
+ _.DO <Standard device-file specification> <parameter list>
+.ei do
+.s
+.in do
+The first argument to the "/" command specifies the command file to be obeyed,
+.else do
+The first argument to the "DO" command specifies the command file to be obeyed,
+.ei do
+in the form DEV:FILENAME.EXT[PPN]
+If the user does not specify where the command file is held, his own 
+area is searched first followed by the ersatz device MIC (1).
+.footnote 7
+(1)  The exact order of search can be varied by the system administrator
+but by default is:-
+.nf.s
+      DSK:FILE.MIC [PROJECT,PROGRAMMER]
+      DSK:FILE.MIC [PROJECT,PROGRAMMER,MIC]
+      DSK:FILE.MIC [PROJECT,1]
+      MIC:FILE.MIC 
+.f
+.end footnote
+The default extension for the MACRO file is "MIC".
+The full default filespec is DSK:MIC.MIC in the user's own area.
+
+Sub-file directories are supported by MIC.
+.s
+The parameter list follows
+after a separator character (space or tab).  Parameters are separated by
+commas. All brackets in the parameter list must match.  A comma between matched brackets
+does not separate parameters. Outer matching < and > brackets are removed before the 
+parameter is substituted.
+.s
+E.g.
+.s
+.in do
+ ./C[105,13] TWO 
+.else do
+ _.DO C[105,13] TWO
+.ei do
+.s
+MIC macro file is C.MIC in area [105,13].
+.br
+'A would substitute as TWO.
+.s
+.in do
+ ./C A[105,13],3
+.else do
+ .DO C A[105,13],3
+.ei do
+.s
+MIC macro file is "C.MIC" on the user's own area or "MIC".
+.br
+'A would substitute as A[105,13].
+.br
+'B would substitute as 3.
+.S
+.if do
+.nt
+The original versions of MIC used the "/" command, not the "DO" command,
+and this is still used on some sites, and may be referred to in some
+documentation.
+.en
+.ei do
+.in do
+.nt
+A MIC macro command may also be introduced by using the  "DO" command,
+.s
+e.g.
+.S
+_.DO C[105,13] TWO
+.INDEX DO Command.
+.s.f
+N.B.##On other DEC-10 installations the DO command may be the
+only form available.
+.en
+.s
+.s2
+.ei do
+.pg
+.HL1 Constructing MIC macro command files
+.s
+.index Command File
+A MIC file may contain any ASCII text with or without line numbers.
+This text is taken line-by-line and typed on the user's terminal as
+though he had typed it.
+To allow the user to write macros which are easy to read, leading spaces and tabs
+are ignored. Thus the two lines:-
+.s .nf
+*/X/B=*.SAV
+.S
+and
+.nf.S
+	*/X/B=*.SAV
+.f.S
+are equivalent.
+.s
+.index Line Numbers
+.nt
+1.##Existing "MULTIPROGRAMMING BATCH" control files may be used as
+MIC command files.
+.s
+2.##On labelled lines, any space after the label terminator (the "::")
+are treated in the same way.
+.s
+3.##The leading space feature is not compatible with batch control files.
+.en
+.tp40
+.HL2 Special Characters
+As in batch control files some characters are treated specially as the file is processed.
+.index Special Characters
+.s.nf
+.ts 17,42
+Character	Position	Meaning
+.s
+.index .(dot)
+    .	at start of line	Remaining text on this line
+		may only be typed to monitor
+.s
+.index *(asterisk)
+    *	At start of line	Remaining text on this line may
+		only be typed as program input.
+.s
+.index =(equals)
+    =	At start of line	Suppress carriage return at the
+		end of this line.  Useful for 
+		command macros containing DDT 
+		and TECO commands.
+.s
+.index ;(semi-colon)
+.index !(exclamation)
+.index Comments
+ ! or ;	At start of line	Treat line as a comment.  Line is
+.index SILENCE
+		displayed on the user Teletype 
+		but not typed to the job.
+.s
+.index Control Characters
+   _^X	Any	Convert character "X" to control
+		X before it is typed.
+.s
+.index Parameter Substitution
+   'A	Any	Substitute parameter A.
+.S2
+If a special character is to be treated literally  it must be repeated.
+.s
+E.g.
+.s
+ ''A will be typed as 'A and not cause the substitution of parameter A.
+.S
+.nt
+1.##"!" overrides the silence condition, but the normal comment character ";" does not.
+.s
+2.##"_^C" or "_^A" do not have the same effect when typed by MIC,
+as they would have if the user had typed them, in that they do not "CANCEL"
+or "ABORT" the macro.
+.s
+3.##Lower case letters are converted to upper case in the "_^X" and
+"'A" cases.
+.en
+.pg
+.HL2 Labelled Lines
+.index Labelled Lines
+Any line in a command file may be labelled. A label may be of any length,
+but only the first six characters are significant. Labels may be 
+constructed of any alphanumeric characters terminated by a double colon.
+Labels can only occur at the start of a line.
+.index Labels
+.INDEX :: (double colon)
+.s.nf
+E.g.
+.S
+FRED::.DIR
+.S
+THISISALABEL::	.R PIP
+.S
+ANOTHER1::*/X/B=JIM.ALG
+.S
+.nt
+1.##Labels which begin with a "%" character have the same special meanings
+as in "Multi Programming Batch", see 4.2.1 .
+.s
+2.##Labels must always be in upper case.
+.en
+.HL2 Parameter Substitution
+The construction 'X where X is an alphabetic character, causes the
+contents of the appropriate parameter to be substituted.
+.s
+Nested parameter substitutions are allowed,
+.s
+E.g.
+.s
+'X may contain 'Y and so on to a maximum level of 8.
+.Index % labels
+.pg
+.HL1 Commands derived from DECsystem-10 Multi-Program Batch
+.Index BATCH Commands
+.HL 2 GOTO/BACKTO Command
+.Index GOTO Command
+.Index BACKTO Command
+As with batch control files a MIC command file may have some lines
+labelled.
+Using the  MIC monitor style commands GOTO and BACKTO the 
+sequential processing of the MIC command may be interrupted.
+The argument to the GOTO/BACKTO command is an identifier of one
+to six alphanumeric characters which is used to indicate the
+label in the MIC command file where processing is to resume.
+.s
+.Index Labels
+The appropriate labels in the command file are delimited
+.Index :: (double colon)
+by :: and must be at the start of a line.
+.s
+E.g.
+.s
+FRED::.DIRECT
+.s2
+.Index %FIN
+.nt
+1.##That, if, when MIC is searching a command file for the first 
+occurrence of the required label, it comes across a "&%FIN" label, this
+will satisfy the search and processing of the command file will be
+resumed at that point.
+.s
+2.##As GOTO/BACKTO commands are interpreted by the MIC program they do
+not destroy the user's core image.
+.s
+3.##The formats
+.S
+_.GO TO <label>
+.s
+and
+.s
+_.BACK TO <label>
+.S
+may be used, but these do destroy a user's core image.
+.en
+.pg
+.HL2 ERROR/NOERROR Command
+.Index ERROR
+.Index NOERROR
+As the MIC command file is processed an error may occur.
+Often a message is displayed on the user Teletype preceded
+by a question mark (?) character.
+.INDEX ?
+By using the error command
+the user may specify which character is to be treated
+as denoting an error condition when it is displayed at the start of a line.
+.s
+The argument to the error command is any single ASCII printing character.
+.s
+E.g.
+.s
+_.ERROR %
+.br
+_.ERROR ?
+.s
+If no argument is supplied to an ".ERROR" command a question mark (?)
+is assumed.
+.s
+The command NOERROR is used to turn off error checking.
+.HL 3 Error Processing
+.br
+.Index Error Processing
+.s; 
+Error processing in MIC is similar to that of MULTIPROGRAMMING BATCH.  If an error
+is detected  MIC will check if the next monitor command is an
+"IF (ERROR)" or "IF (NOERROR)" command.  If this is so, processing will
+continue there, otherwise the command file is searched for a
+.s
+%CERR or a %FIN if the error occurred in a system program,
+.s
+.Index %CERR
+or
+.s
+%ERR or a %FIN if the error occurred in a user program, before typein is
+resumed. If this fails MIC will display on the user's Teletype
+.INDEX %ERR
+.INDEX %FIN
+.s
+[ABORT ON ERROR]
+.INDEX [ABORT ON ERROR]
+.s
+and stop processing the MIC command file.
+.nt
+1.##The WHENEVER/ON command may be used to change this default processing
+(see section 11).
+.s;2.##If a "%" label is detected when we are not processing an error,
+then the commands following that "%" label and up to the next
+occurrence of a "%FIN" label will be ignored (cf. BATCH).
+.en
+.pg
+.HL2 IF Command
+.INDEX	IF
+.INDEX IF Command
+The IF command is used to conditionally process a monitor command.
+.nf.s
+
+E.g.
+.s
+_.IF (ERROR) .GOTO EER5
+.in do
+_.IF (NOERROR) ./UPDATE 13
+.else do
+_.IF (NOERROR) .DO UPDATE 13
+.ei do
+.F.s
+The monitor command is obeyed if the specified  condition is true.
+The alternatives MIC provides for the ERROR/NOERROR conditional are  discussed
+later.
+.s
+A batch control file called JOB1.CTL could be executed
+at the user's Teletype using the command:-
+.s
+.in do
+_./JOB1.CTL
+.else do
+_.DO JOB1.CTL
+.ei do
+.s
+.nt
+1.##Users who wish to use MIC in this way should note that the default
+error status when a MIC command is executed at the teletype is
+"NOERROR".
+.s
+2.##The commands "IF (ERROR)" AND "IF (NOERROR)" do not destroy the
+user's core image.
+.s
+3.##"IF (ERROR)" "IF (NOERROR)" are compatible with Multi Programming Batch.
+.en
+.HL2 OPERATOR/NOOPERATOR Command
+.Index OPERATOR Command
+The Batch command "OPERATOR" is also used in MIC.  Its operation is 
+described in section 7.1.
+.pg
+.HL2 SILENCE/REVIVE Command
+.INDEX SILENCE Command
+.INDEX REVIVE Command
+These commands are used to suppress typeout
+on the user teletype throughout an uninteresting sequence of commands.
+.s
+Another monitor level command may be placed on the same line as a SILENCE or REVIVE command (see section 14).
+.s
+E.g.
+.s
+_.REVIVE  .DIR
+.S2
+This has the useful effect of reviving the tty output after the "DIR"
+command has been typed.  Thus the user sees only the output from
+the command, not the command itself.
+.s
+N.B.
+.Index SILENCE (protection code)
+.index Protection Codes
+A whole command file may be automatically silenced if the file is given the protection code
+<2??>.  This may be overridden in the command file  by the ".REVIVE" command.
+.HL2 PLEASE Command
+.Index PLEASE Command
+Unlike DECsystem-10 batch, this command is used to communicate
+with the initiator of the MIC command.  The argument is displayed
+on the user's teletype regardless of the SILENCE/REVIVE switch.
+.s
+If the PLEASE command is terminated by an altmode, MIC typein
+proceeds normally, otherwise typein is suspended by a [BREAK]  until the user
+types _^P or a MIC PROCEED command to proceed and [PROCEED] is displayed.
+.INDEX [BREAK]
+.INDEX _^P
+.INDEX Control P
+.INDEX [PROCEED]
+.INDEX PROCEED Command
+.s
+E.g.
+.s
+_.PLEASE LOAD DECTAPE 345
+.br
+_.PLEASE THANKS$
+.HL2 CHKPNT/REQUEUE Command
+.INDEX CHKPNT
+.index REQUEUE
+The batch pseudo commands CHKPNT and REQUEUE are supported by MIC in the
+sense that they are interpreted and discarded.  MIC regards them as being
+a form of comment and discards  the line, though it will be displayed if
+the user is not silenced.
+.s;The user's core image is not affected.
+.HL2 Others
+In fact all batch pseudo-commands are legal monitor commands
+when obeyed from a MIC command file. MIC extends the batch command
+format (see section 6) and provides several new commands.
+Users unfamiliar with DECsystem-10 batch facilities
+should read DECsystem-10 BEGINNERS GUIDE TO MULTI-PROGRAM BATCH
+for a fuller description of the batch commands.
+.pg
+.HL1 LET Command
+.index LET Command
+The general form of the MIC monitor command "LET" is-
+.s
+ .LET <parameter name>=<expression>
+.s
+Decimal, Integer, Octal or string expressions may be used.
+Users parameters to MIC command macro files are
+held within MIC as ASCII strings.
+.s
+During the execution
+of a MIC command macro the LET monitor command may be used to
+change any of the parameters (A thro' Z).
+.s
+E.g.
+.index Expression-string
+.s
+ .LET C="THIS IS THE NEW PARAMETER C"
+.s
+After this command 'C in the MIC command file would cause the
+substitution of the text-
+.s
+THIS IS THE NEW PARAMETER C
+.s
+In fact "THIS IS THE NEW PARAMETER C" is the simplest form
+of a string expression.  A more complicated command sequence
+could be-
+.s
+.in do
+_./TEST FRED,BAK
+.else do
+_.DO TEST FRED,BAK
+.ei do
+.br
+_.LET Z=$A+"."+$B+"[105,113]"
+.s
+Dollar  A ($A) is used as a reference to the string parameter A.
+.Index Concatenation
+Plus (+) is a simple concatenation operator.
+After the LET
+command the parameter Z would substitute as the text-
+.nf.s
+FRED.BAK[105,113]
+.s
+.nt
+In LET statements which include a carriage return/line feed within
+the string quotes MIC will display a "--" at the start of the new line.
+.en
+Simple integer expressions are allowed in the LET command-
+.nf
+.Index Expressions-integer
+.s
+E.g.
+.s
+_.LET B=3+C*3_^D-4/(A+B)
+.f.s
+In this example  A B and C are used as references to the
+value of the parameters when read as integers.  If any referenced
+parameter may not be read as an integer an error will result.  The
+operators + * / - _^ have the usual meaning and precedence.
+Round brackets may be used to alter the usual precedence.
+.pg
+.HL2 Byte Subscripting for String Expressions
+.index Byte Subscripting
+.s
+Often in the LET command it is required to construct new parameters.
+The simple string expression has been extended to provide powerful character
+subscripting facilities.
+.s
+The format for a simple subscripted string expression is:-
+.s
+$A.[<first subscript>,<second subscript>]
+.s
+Here A may be A-Z.  The first subscript is used to specify the first parameter
+in character <A> to be used in the subscripted string.  The second subscript
+specifies the length of the constructed string.  Consider parameter <A>
+to be a string numbered as follows-
+.s3
+.literal
+   1     2     3     4
+---------------------------------
+|  F  |  I  |  R  |  S  |  T 
+----------------------------------
+  -n   -n+1  -n+2   ...
+                                                         null
+                                       n-2   n-1    n    char
+                             ---------------------------------
+                                  L  |  A  |  S  |  T  |     |
+                               -------------------------------
+                                 -4    -3    -2    -1
+.end literal
+.s2
+.c;Fig 1 Character string N bytes long
+.s
+If the second subscript is omitted the length of the constructed string
+defaults to one character.
+.s
+.pg
+E.g.
+.s
+If the parameter A contained the text ABCDEF
+.nf.s
+Command                Result after command
+.s
+.ts 33
+_.LET B=$A.[1]	A
+_.LET B=$A.[2]	B
+_.LET B=$A.[-1]	F
+_.LET B=$A.[99]	<null>		
+.s.f
+If the first subscript is out of range a null string is constructed.
+Extending the previous example for two subscripts
+.s.f
+_.LET B=$A.[1,2]	AB
+.br
+_.LET B=$A.[3,2]	CD
+.s
+Subscripts themselves may be string expressions-
+.s
+_.LET B=$A.["AB","F"]		CDE
+.s
+This construction means copy the string in parameter A  between
+the text AB and F to parameter B.
+.s
+Repeated subscripts are allowed-
+.s
+ .LET B="DSK:FILE.EXT[105,113]"
+.br
+ .LET B=$B.[":","."].[,"["]    	FILE    
+.s
+This construction means truncate the object string in parameter B
+after the character ":" at the character "." or the character "[".
+.S2
+.ts 8,16,24,32,40,48,56,64,72
+.HL2 Multiple LET  Statements
+.index Multiple LET Statements
+.S
+Several LET assignments may follow the one "LET" statement by
+terminating every assignment except the last, by a comma.
+.s
+E.g.
+.s
+ .LET A=1+2,C=$B.[1,2],D=C+"ABCDE"
+.pg
+.HL2 Parameters in Outer Processes
+.index Parameters in Outer Processes
+Parameters in an outer MIC process may be referenced in the inner process
+by following the parameter by a digit corresponding to the process level - the current process is regarded as being level 0, the first surrounding
+process is level 1 and so on.
+.s
+Thus:-
+.s
+.index Outer Processes
+_.LET B=C1
+.s
+sets B equal to the contents of the parameter C of the first enclosing process
+.s2
+And similarly
+.s
+_.LET Q3=C2
+.s
+sets parameter Q in the third outer process equal to parameter C in
+the second outer process.
+.s
+See also section 9.4.
+.HL2 Octal Expressions
+.index Octal Expressions
+The "LET" command may also be used to manipulate octal values.  An
+octal number is always preceded by a "%" sign.
+.s
+E.g.
+.S
+_.LET A=%11
+.s
+will assign the value 9 (decimal) to parameter A. Similarly,
+.S
+_.LET C=%13+%17
+.S
+would store 26 (decimal) in parameter C.
+Also the format
+.s
+_.LET %A=12
+.s
+will store 14 (octal) in parameter A and
+.s
+_.LET %A=%A+1
+.s
+will then store 15 (octal) in parameter A.
+.tp10
+.nt
+As MIC stores all variables as typeless strings it is up to the user
+to ensure that he puts "%" signs where appropriate.
+.en
+.s
+.tp 10
+Parameters may also be regarded as storing a number in octal by preceeding the parameter name by a "%" sign.
+.s
+E.g.
+.S
+_.LET A="12"
+.S
+_.LET B=%A
+.S; 
+will store 10 (decimal) in parameter B.
+.S2
+Octal and Integer values may occur together in the same expression.
+.s
+E.g.
+.S
+_.LET A=3+%11
+.S
+would give the value 12 (decimal) in parameter A.
+.S
+In order to make the manipulation of octal quantities more meaningful
+two extra operators are available:-
+.S
+"_&"	for	AND
+.S
+"!"	for	OR
+.S
+which may be used with both octal and integer values
+.S
+.nf
+E.g.
+.S
+_.LET A=%3_&%5			1
+.S
+_.LET A=3!5			7
+.S
+_.LET A=%11+7!%11		24 (DECIMAL)
+.f.s
+Note that "_&" and "!" have the same operator precedence as "*" and "/".
+.pg
+.HL1 Extensions to the IF command
+.INDEX IF
+.index IF Command
+.index IF Extensions
+Using the LET command complicated MIC command parameters may
+be broken down.  The conditional  expression in the MIC IF
+command may be used to make more generalised comparisons.
+Using relational operators strings or integers may be compared.
+.s
+.nf
+.TS 8,16,24,32,40,48,56,64,72
+Relational Operator		Meaning
+.s
+>				greater than
+>=				greater than or equal
+=				equal
+_#				not equal
+<=				less than or equal
+<				less than
+_.AND.                           AND (result non-zero implies TRUE)
+_.OR.				OR (result non-zero implies TRUE)
+.F
+.s
+.index String-comparisons
+String comparison occurs from left to right.  Corresponding
+characters are extracted from the constructed strings and
+if they are not the same or either string is exhausted,
+the result is false.
+The relational operator is applied to the two characters
+using their ASCII value.
+String expressions may not be compared with arithmetic, and the ".AND." and ".OR." relational operators
+may not be used with strings.
+.s
+A conditional expression containing a syntax error has the value false.
+.s
+If the error trapping feature has been enabled using the ERROR
+command the ERROR and NOERROR conditional can be used to
+alter command processing appropriately.
+.s
+If the conditional expression is true MIC will pass characters after the
+first character "." on the right of the conditional to the monitor.
+If the conditional is false, remaining commands on the IF line
+are ignored.
+.s
+E.g.
+.s.nf
+_.IF (A>B) .GOTO LABEL
+_.IF ($A="TRUE") .BACKTO TRUE
+_.IF (ERROR) .GOTO FIX
+_.IF (A.AND.%B) .GOTO FRED
+.s.f
+N.B. In the first example parameters A and B must contain
+text which may be read as an integer.  $A is used to reference
+the contents of parameter A as a string.
+.tp 15
+.nt
+.tp 20
+By default lower case letters are ^&not\& considered to be the same
+as upper case during string comparisons, though this may be changed by 
+use of the "MIC SET NO LC" command.  See section 12.7.
+.en
+.HL2 Parameters in outer processes
+.index Parameters in Outer Processes
+Parameters in outer processes may be referred to in "IF" statements by 
+the method described in section 5.3
+.S
+N.B.  Unlike the "IF (ERROR)" and "IF (NOERROR)" the "IF" extensions
+actually run MIC and thus destroy the user's core image.
+.HL2 Special Tests
+Some special tests are built into MIC:-
+.s
+_.IF (COJOB)
+.s
+is true if this macro is running as a COJOB,
+.s
+_.IF (SUBJOB)
+.s
+is true if this macro is running under OPSER,
+.s
+_.IF (BATCH)
+.s;
+is true is this macro is running under BATCH,
+.s
+_.IF (TERMINAL)
+.s;
+is true if this macro is running on a terminal.
+.pg
+.HL1 Simple Interaction with MIC
+.index Interactions
+.s
+A MIC command is obeyed as if the the user had typed the
+same text on the teletype - "type ahead" is not allowed.
+Some characters have a special meaning if typed by the
+user as the MIC command is obeyed.
+.s
+As MIC commands may be nested,
+control A is used to abort the current MIC process and return
+to the level above.
+.index Control A
+.INDEX _^A
+Control C will cancel all MIC processes
+the user has in progress.  An appropriate message is displayed on the
+teletype.
+.s
+To allow limited user intervention control B will suspend MIC
+typein and display  [BREAK].  The MIC process may be continued by the user typing a
+PROCEED command or a control P. The
+message [PROCEED] will then be displayed.
+.index Control P
+.INDEX _^C
+.INDEX _^P
+.s
+Note that while a process is suspended a user may
+type MIC commands on the teletype as well as any
+monitor commands.  This implies that the MIC control functions
+have their usual effect,
+and, for example, using a control C to exit from "PIP" will cancel the suspended MIC process.
+.HL2 OPERATOR/NOOPERATOR Commands
+.index OPERATOR    
+.INDEX NOOPERATOR
+.INDEX OPERATOR Character
+Similar to the ERROR command the OPERATOR command takes as its argument one ASCII
+printing character  to be treated as introducing a line requiring user 
+attention.  If the operator character is seen output in column 1, MIC
+will suspend typein and display [BREAK].
+.INDEX [BREAK]
+The user may supply typein as required and type control
+P (PROCEED) to continue processing the command file.
+During a BREAK the operator character may be output again in column
+one to PROCEED automatically, and [PROCEED] will be displayed.
+.INDEX [PROCEED]
+.s
+E.g.
+.s
+.nf
+_.OPERATOR N
+_.RUN TEST
+NOW TYPE IN YOUR NAME = [BREAK]CYRIL
+NICE ONE CYRIL
+_.[PROCEED]GOTO IT
+.f
+.s
+The operator features are only available after an OPERATOR command.
+The default character to the OPERATOR command is "?".
+.INDEX ?
+.tp20
+.HL2 MIC RESPONSE Command
+.INDEX MIC RESPONSE
+.INDEX RESPONSE
+Often it is required to inspect text displayed by a program particularly
+when it denotes an error.  The MIC RESPONSE command allows characters
+displayed after an error character in column one to be placed in a named parameter.
+The  format for a MIC RESPONSE command is-
+.s
+_.MIC RESPONSE <parameter name>(<number of characters required>)
+.s
+E.g.
+.s
+MIC RESPONSE A(21)
+.s
+If the error feature has been enabled up to 79 characters
+following the error character will be placed in the named parameter.  The command
+is used to reserve space for the response and the parameter is filled with spaces.
+When an error occurs the text on the error line is copied character by character
+until a null character is encountered in the reserved space or in the error text.  Any remaining space is removed from the named parameter.
+.HL2 MIC DISPLAY Command
+.INDEX MIC DISPLAY Command
+This command is used to output the contents of a user parameter or
+parameters on the user's terminal.
+.S
+E.g.
+.S
+_.LET A="HELLO FRED"
+.S
+_.MIC DISPLAY A
+.br
+HELLO FRED
+.br
+_.
+.s
+This output overrides any silence condition which has been set up, and
+is equivalent to
+.s
+!'A
+.S
+with the notable difference that it destroys the user's core image.
+.tp 25
+.nt
+1.##This command is useful in immediate mode - see section 15 - and when
+used in WHENEVER/ON commands - see section 11.  Note that in this case
+they do not destroy the user's core image.
+.s
+2.##Multiple parameters may be DISPLAYed by separating each by a comma  
+.s
+E.g.
+.nf.s
+_.LET A="FIRST"
+_.LET B="-AND-"
+_.LET C="SECOND"
+_.MIC DISPLAY A,B,C
+FIRST-AND-SECOND
+_.
+.f.s
+3.##String constants may also be displayed by enclosing them in (") quotes
+.s
+_.MIC DISPLAY "THIS IS A MESSAGE"
+.br
+THIS IS A MESSAGE
+.S
+4.##System parameters may be displayed in a similar fashion to user parameters
+.s
+_.MIC DISPLAY '<system-parameter>  or  
+.br
+_.MIC DISPLAY system-parameter
+.s
+See section 9.2 for further details of system parameters.
+.s
+5.##If an up-arrow "_^" occurs when a string parameter is being displayed
+the next character in the string will be converted into a control
+character in the usual way.
+.en
+.tp15
+.HL2 MIC TYPE Command
+.INDEX MIC TYPE 
+The MIC TYPE command has a similar format to the MIC DISPLAY command and
+types the contents of a user parameter as though the user had typed them.
+.s
+E.g.
+.nf.s
+_.LET A="DIR
+--"
+.ps 62,75
+_.MIC TYPE A
+DIR
+_.
+_%DIRECTORY IS EMPTY
+.f.s
+The comments made for the MIC DISPLAY command also apply to the MIC
+TYPE command.
+.ps 60,75
+.HL2 MIC WHAT Command
+.INDEX MIC WHAT 
+The MIC WHAT command is used to output a brief status report on the 
+user's currently active macro.
+.s
+E.g.
+.S
+.nf
+_.MIC WHAT
+ ACTIVE	[100,100]	53	B2	A=FRED,B=6,C=JIM2
+[MIC WHAT]
+.S
+where:-
+.S
+ACTIVE		- is the current state of the macro
+53		- is the user's line number
+B2		- is the name of the user's macro
+A= ETC.		- are the contents of the user's parameters
+[MIC WHAT]	- is the last line typed by MIC on the user's
+		  behalf.
+.HL2 MIC SLEEP Command
+.index MIC SLEEP 
+.index SLEEP Command
+The MIC command is used to cause MIC to want a certain number of seconds before typing the next command.
+.s
+E.g.
+.s
+_.MIC SLEEP n
+.S
+where n is the number of seconds to wait.
+.tp10
+.HL2  MIC INPUT Command
+.index MIC INPUT 
+This command is used to accept the input of a parameter value from
+the user's terminal from within the processing of a MIC command file.
+.s
+The format of the command is:-
+.s.nf
+_.MIC  INPUT  p
+.s
+or
+.s
+_.MIC INPUT   p,"<prompt-message>"
+.s
+.tp 20
+where
+.s.f
+p is the parameter, normally A to Z, for which the value is to be 
+supplied.  However parameter values may also be input to parameters in
+outer nested processes by specifying A1, G3, etc. - (see section 6.1
+Parameters in Outer Processes) and
+.s
+<prompt-message> is the message output to the user to invite him to
+type in the line of input.  If the prompt-message is omitted then the
+input will be prompted for the display of "Enter parameter p".  The
+prompt message may be either a string variable or a string constant and
+may include carriage returns and linefeeds.  If it contains double-quotes
+(") then they must be doubled ("").
+.s
+The execution of the MIC INPUT command allows the user to input
+a single line of information from his terminal and have it included
+in parameter p.  The line should not be in double quotes, though it 
+may include double quotes and the input will end on any break character.
+.s
+This command overrides any silence condition in order to display the
+prompt message and accept the input.  The job will, if appropriate, 
+return to the silenced condition after the input has been accepted.
+.s
+The MIC INPUT command uses the BREAK and PROCEED facilities of MIC  and when MIC has displayed
+the prompt-message it enters the BREAK state until the input has
+been read whereupon the process proceeds automatically.  However the
+normal [BREAK] and [PROCEED] messages are not displayed and any
+action which the user has defined for [BREAK] or [PROCEED]
+(using WHENEVER/ON) will be ignored.
+.s
+.tp20
+E.g.
+.s.nf
+&.MIC INPUT A		;typed from MIC macro
+^&Enter parameter A?\& 63	;63 typed by user
+&.
+.s
+or
+.s
+&.MIC INPUT C1, "What is your name?"
+^&What is your name?\& IAN
+&.
+.s
+or
+.s
+&.LET B=What is 2 multiplied by 2?"
+&.MIC INPUT  X,$B
+^&What is 2 multiplied by 2?\& 3
+&.
+.tp10
+.nt
+1.##This command destroys the user's core image.
+.s
+2.##The prompt string may use string concatenation and subscripting.
+.s
+3.##When displaying the prompt string the sequence _^ch will cause
+the character control-ch to be displayed, however the input will 
+store the two characters _^ and ch not control-ch.
+.en
+.pg
+.HL1 MIC Control Commands
+.INDEX Control Commands
+.HL2 MIC ABORT Command
+.index ABORT Command
+.INDEX ABORT
+.INDEX MIC ABORT
+Format
+.s
+_.MIC ABORT
+.INDEX Control A
+.INDEX _^A
+.s
+MIC aborts the current process as if the user had typed control A
+and the message [ABORT] is displayed.
+.INDEX [ABORT]
+.HL2 MIC CANCEL Command
+.INDEX CANCEL Command
+Format
+.s
+_.MIC CANCEL
+.INDEX MIC CANCEL
+.s
+MIC cancels all pending MIC commands as if control C was typed
+.INDEX Control C
+.INDEX _^C
+.INDEX [CANCEL]
+and the message [CANCEL] is displayed.
+.HL2 MIC BREAK Command
+.INDEX BREAK Command
+Format
+.s
+_.MIC BREAK
+.s
+MIC suspends typein until -
+.b.nf
+-operator character displayed
+.index Operator Character
+-control P typed
+.index Control P
+.index _^P
+.br
+-MIC PROCEED command
+.index PROCEED Command
+.b
+and the message [BREAK] is displayed.
+.s.f
+.INDEX [BREAK]
+This command has the same effect as the user typing control B.
+.index Control B
+.index _^B
+.INDEX [BREAK]
+.HL2 MIC PROCEED Command
+.INDEX PROCEED Command
+Format
+.s
+_.MIC PROCEED
+.s
+MIC resumes typein if a process has been suspended by a [BREAK],
+.INDEX [BREAK]
+and the message [PROCEED] is displayed.
+The user typing control P has the same effect.
+.INDEX [PROCEED]
+.INDEX Control P
+.INDEX [PROCEED]
+.HL2 MIC EXIT Command
+.INDEX EXIT Command
+Format
+.s
+_.MIC EXIT
+.s
+MIC cancels but no message is displayed.
+.nt
+The MIC EXIT cancels ^&all\& levels of a MIC macro.
+.en
+.HL2 MIC RETURN Command
+Format
+.S
+_.MIC RETURN
+.s2
+.INDEX MIC RETURN
+Acts as an "ABORT" command but no message is displayed.  Thus the
+.index RETURN Command
+MIC RETURN command is the preferred exit from a MACRO as outer levels
+of macros are not affected.
+.s;.tp 10
+The RETURN command may be used to provide a return to any label
+in an outer label macro by using
+.S;
+_.MIC  RETURN  .BACKTO  FRED
+.s;
+or
+.s
+_.MIC  RETURN  .GOTO    BILL
+.S;
+when "FRED" and "BILL" are labels in an outer level macro.
+.PG
+.HL1 Special Parameters
+.HL2 System parameters
+.index Special Parameters
+.index System Parameters
+.HL3 Parameter Substitution
+.b
+.index Parameter Substitution
+A construction of the form '<system parameter name> allows access to various system parameters.
+.s;
+E.g.
+.b
+'<JOB> is replaced by the user's job number.
+.s
+The full set of system parameters is:-
+.S;
+System parameter name		substitute as
+.S2
+PPN				[project,programmer]
+.INdEX PPN
+.s
+TTY				line number
+.INDEX TTY
+.s
+JOB				job number
+.INDEX JOB
+.s
+PROJECT				project number
+.INDEX PROJECT
+.s
+PROGRAMMER			programmer number
+.INDEX PROGRAMMER
+.s
+DATE				current date
+.INDEX DATE
+.S
+TIME				current daytime
+.INDEX TIME
+.S
+GETTAB<table>,<index>,<radix>
+.INDEX GETTAB
+.br
+				Entry in GETTAB table in
+.br
+				the appropriate radix.
+.s
+.nf
+MICFILE                         The name of the user's MIC
+                                macro in the form
+                                "DEV:FILE.EXT [PATH]".
+.s
+LENGTH(parameter)		The number of characters in
+				the parameter.
+.s
+PATH				The user's PATH
+.s
+PTHPPN				The PPN of the user's PATH
+.s
+ERRCHR                          Returns the current error character.
+.index ERRCHR
+.s    
+OPRCHR                          Returns the current operator character.
+.s
+DAY                             The current day of the week as a text
+                                string.
+.index OPRCHR
+.index PTHPPN
+.index LENGTH
+.index PATH
+.s
+.tp 15
+Thus the following:-
+.nf
+.s
+! MY PPN IS '<PPN>
+! MY TTY IS TTY'<TTY>
+! THIS JOB IS JOB NUMBER '<JOB>
+.s
+Would result in:-
+.s
+MY PPN IS [2250,7]
+MY TTY IS TTY21
+THIS JOB IS JOB NUMBER 10
+.HL3 GETTABS
+.b
+The three parameters of a GETTAB are:-
+.s
+Table
+.s;
+The table number in decimal of the required GETTAB table.  The default
+is table 0.
+.s
+Item
+.s;
+The index to the entry in the table.  This index is in decimal, and the
+default value is the user's job number.  Note that as in the GETTAB UUO
+-1 may be used to imply the user's job number.
+.s
+.INDEX GETTAB Radix
+Radix
+.s
+This is a type-out mode taken from the following set which is used to
+decode the entry in the GETTAB table.
+.s2.nf.tp8
+RADIX		MEANING
+.s
+1   BIN		BINARY  (default setting )
+2   ASC		ASCII
+3   SIX		SIXBIT
+5   OCT		OCTAL (including leading zeroes).
+6   PPN		PPN -gives "[project,programmer]"
+7   MSEC	time in HH:MM:SS
+		(GETTAB entry in milliseconds)
+8   SEC		time in HH:MM:SS
+		(GETTAB entry in seconds.)
+9   OC2		OCTAL (with leading zeroes suppressed)
+10  DAT		Date in DD-MON-YR (entry in 18-bit)
+.S2
+As an example of the use of GETTABS
+.s
+!'<GETTAB(25,-1,SIX)>'<GETTAB(26,-1,SIX)>
+.s
+would cause the user's "USERNAME" to be output.
+.tp 5
+.s;
+.s
+Note:-
+.s
+Constructions of the form
+.s
+!'<GETTAB(25,'<JOB>,ASC>
+.s;
+are acceptable.  As is:-
+.s
+!'<GETTAB(25,'A,ASC)>
+.s.f
+where A is a parameter.
+.nt
+In early versions of MIC the type-out mode was specified by the numeric
+value given the the above table (e.g. 4 for decimal).  This format will
+still work: '<GETTAB(25,'A,ASC) and '<GETTAB(25,'A,2)> are equivalent.
+.en
+.HL3 Octal Arguments to GETTABS
+.b
+.Index Octal Arguments to GETTABS
+GETTAB arguments may be supplied in octal by preceding the argument by
+a "%" sign,
+.s;
+E.g.
+.S
+_'<GETTAB(%11,-1,ASC)>
+.F.S
+This format is useful as the GETTAB tables are specified in octal in
+the Monitor Calls Manual.
+.PG
+.HL2 Action Parameters
+A special class of MIC parameter is the ACTION parameter.  This type of
+parameter performs a MIC action without destroying the user's core image.
+.S
+E.g.
+.S
+'<SILENCE>
+.S;
+will cause the macro to be silenced.  This is similar in effect to the
+.S;
+_.SILENCE
+.S
+command except that the '<SILENCE> does not cause MIC to be run and does
+not cause anything to appear in the user's terminal, not even the echo of the command.
+.S.nf
+The full list of action parameters is:=
+.index ABORT
+.index BREAK 
+.index CANCEL 
+.index ERROR
+.index NOERROR
+.index NOOPERATOR
+.index OPERATOR
+.index PROCEED
+.index RETURN
+.S
+'<ABORT>
+'<BREAK>
+'<CANCEL>
+'<ERROR(ch)>
+'<NOERROR>
+'<NOOPERATOR>
+'<OPERATOR(ch)>
+'<PROCEED>
+'<RETURN>
+'<REVIVE>
+'<SILENCE>
+'<SLEEP(n)>
+.S
+.index REVIVE
+.index SILENCE
+.index SLEEP
+.F
+and all of these have the same effect as the respective commands.
+.S
+The effect of an action parameter is always from the start of the line
+in which it occurs.
+.S;
+E.g.
+.S
+_'<SILENCE> ABCDEF
+.S
+_'ABC '<SILENCE> DEF
+.S
+_'ABCDEF '<SILENCE>
+.S;
+are all equivalent.
+.tp 15
+.HL2 Miscellaneous Special Parameters
+This is a group of parameters for specialised use.
+.index Miscellaneous Special Parameters
+.HL3 '<PSHIFT>
+.index PSHIFT
+.b
+The PSHIFT or parameter shift command causes all parameters to be 
+shifted by one, that is
+.s
+######discard the contents of parameter A,
+.br.nf
+then
+######A:=B, B:=C, C:=D ... X:=Y, Y:=Z
+and
+######Z:=null
+.s.f
+This command may be used in a loop for processing a string of
+identical parameters.
+.HL3 '<PROTATE>
+.index PROTATE
+.b
+Like PSHIFT the PROTATE or parameter rotate command causes all
+parameters to be shifted by one.  The difference is that PROTATE
+sets Z equal to A instead of discarding A.  For example:
+.s.nf
+      save the contents of parameter A,
+then
+      A:=B, C:=D, ... X:=Y, Y:=Z
+and
+      Z:= the saved contents of A
+.HL3 String Constants
+.index String constants
+.b
+Several commonly used strings of constants are now available as
+MIC parameters.
+.HL4 ALPHABET
+.br
+.index ALPHABET
+The _$ALPHABET or '<ALPHABET> parameter returns a string of the
+characters A through Z.
+.HL4 NUMERIC
+.index NUMERIC
+.br
+The _$NUMERIC or '<NUMERIC> parameter returns a string of the
+4567890.
+.HL4 ASCII
+.index ASCII
+.br
+The _$ASCII or '<ASCII> returns the characters with values 1 through
+127 in ASCII character set.
+.s.nf;Note
+LET A=$ASCII.[50]
+returns the character whose ASCII value is 50.
+.HL4 CR 
+.index CR
+.br
+The $CR or '<CR> returns a single carriage return character.
+.HL4 CRLF
+.index CRLF
+.br
+The $CRLF or '<CRLF> returns a string of the two characters
+<carriage-return> and <line-feed>.
+.HL2 Substitution of Parameters in Outer Processes
+It is often required to substitute the contents of a parameter in an outer nested process in a similar way to the "'parameter-name" used for parameters
+at the  current level.  As the syntax "'A1" cannot be used due to
+possible confusion the syntax is '<parameter-name-level>.
+.s
+E.g. to substitute parameter Q in the third outer process we use
+.s
+######'<Q3>
+.S2
+.INDEX LET Command
+.Index LET Extensions
+.pg
+.HL1 LET and IF Extensions
+.HL2 Use of System Parameters
+The LET command has been extended from that described earlier to allow the
+user access to the system parameters described in section 9.  By using the
+LET statement with a system parameter on the right hand side a user may 
+use the byte subscripting features of MIC to abstract the portions of a
+system parameter that he requires.
+.s
+_.LET B=$JOB
+.s
+This statement will store the user's job number in parameter B.
+.s
+Similarly,
+.s
+
+_.LET B=$PROJECT
+
+.s;
+will place the user's project number in parameter B.
+.s
+Concatenation of system parameters is allowed,
+.s;
+E.g.
+.s
+_.LET B="["+$PROJECT+","+$PROGRAMMER+"]"
+.s
+may be used to obtain the PPN of a MIC user.
+.s
+Byte subscription of system parameters is allowed,
+.s
+_.LET B=$PROJECT.[-1]
+.s
+would give the rightmost digit of a user's project number.
+.S2
+.HL2 Use of System Parameters in Arithmetic Assignments
+System parameters may also be used on arithmetic assignments.  However,
+as all except "JOB" and "GETTAB" return only octal numbers it is not
+normally a sensible operation, (except with "JOB" and "GETTAB"), unless
+they are preceeded by a "%" to indicate that they are to be treated as
+being octal.
+.s
+E.g.
+.s.nf
+_.LET A=JOB+2
+or
+_.LET A=GETTAB(1,2,DEC)+JOB-3
+or
+_.LET A=%TTY
+or
+_.LET A=%100_&%GETTAB(%53,-1,OCT)
+.pg
+.HL2 Use of System Parameters in IF Commands
+In a similar fashion to 10.2, system parameters may be used in "IF"
+commands, for example to ensure that a particular MIC macro is only run
+on a specified terminal, the following check could be included in the macro:-
+.s2.nf
+_.IF ($TTY_#"21") .MIC ABORT
+.s
+or
+.s
+_.IF (%TTY_#21) .MIC ABORT
+
+.f.s
+The octal arithmetic facility may be combined with the GETTAB parameter to enable bit testing
+of the system tables.
+.s
+E.g.
+.s
+_.IF (%GETTAB(A,'C,OCT).AND. %004001) .LET A="YES"
+.PG
+.HL1 Non Procedural Calls to MIC (WHENEVER/ON Command)
+.INDEX Non Procedural Calls
+Simple user interaction with MIC has been described in section 7,
+but often the MIC action, on detecting an error condition or one of the special control functions, is not the required action.
+A WHENEVER/ON command may therefore be used to 
+change the default action.
+.s
+.INDEX WHENEVER Command
+.INDEX ON Command
+The format of this command is:-
+.s
+_.WHENEVER <EVENT>:<ACTION>
+.s;
+or
+.b
+_.ON <EVENT>:<ACTION>
+.S2;
+(NOTE: ON and WHENEVER are synonymous)
+.S2
+The effect of this command is to specify that whenever the <EVENT>
+occurs, the specified <ACTION> will be performed rather than the normal default action.
+.s
+E.g.
+.s
+_.WHENEVER BREAK:GOTO FRED
+.s.f
+This sets up the user's MIC process so that 
+whenever he types control B, or a MIC BREAK occurs the process 
+will not BREAK but rather will obey the GOTO FRED command.
+.INDEX Events
+.s 2
+The valid events are:-
+.s 2
+.nf
+CANCEL	or Control C typed by the user
+.s
+ABORT	or control A typed by the user
+.s
+BREAK	or control B typed by the user
+.s
+PROCEED	or control P typed by the user
+.s
+and
+.s
+ERROR
+OPERATOR
+.PG
+and the valid actions are:-
+.INDEX Actions
+.S2
+ABORT
+BACKTO <LABEL>
+BREAK
+CANCEL
+DISPLAY <PARAMETER>
+ERROR
+EXIT
+GOTO <LABEL>
+OPERATOR
+PROCEED
+RETURN
+TYPE <PARAMETER>
+.S2
+.F
+.nt
+1.##If ERROR trapping is enabled
+.s
+E.g.
+.s
+_.ON  ERROR:ABORT
+.s
+MIC does not check the next line for an "IF" statement or a "%"
+label; the ABORT is obeyed immediately.
+.s;2.##If CANCEL trapping is enabled
+.s;E.g
+.s;_.ON CANCEL:_<action_>
+.s;then the action is reset to the normal action after every occurrence
+of the event.  This only applies to ON CANCEL, and is to prevent users from accidentally creating macros which cannot be terminated.  This feature may
+be changed by MIC SET CCTRAP, see next section.
+.EN
+.INDEX CCTRAP
+.HL2 Multiple WHENEVER/ON Commands
+.INDEX Multiple ON Commands.
+.INDEX Multiple WHENEVER Commands.
+Several default actions may be changed in the same command by separating
+the individual arguments by commas, thus:-
+.s
+_.ON ERROR:ABORT,CANCEL:BREAK
+.S;
+or
+.S
+_.WHENEVER CANCEL:GOTO FRED,ABORT:GOTO BILL
+.PG
+.HL1 MIC SET Command
+.INDEX MIC SET
+This family of commands is used to change the action "MIC"
+performs upon  certain conditions.
+.s
+The format of the command is:-
+.s
+_.MIC SET <NO> <ACTION>
+.s
+E.g.
+.S 
+_.MIC SET NO PARAMETERS
+.s
+This causes MIC to perform no parameter substitutions
+upon detecting a "'" character in the input file.
+.s
+i.e.
+.s
+'A  will "substitute" as 'A
+.s
+To restore parameter substitution use:-
+.s
+_.MIC SET PARAMETERS
+.s
+The MIC SET command currently available are:-
+.HL2 COLUMN1
+.INDEX COLUMN1.
+.INDEX COLUMN ONE.
+_.MIC SET NO COLUMN1
+.S
+MIC regards no characters in column one of the user's command file as
+being special characters (see section 3).
+.s
+The default is:-
+.s
+_.MIC SET COLUMN1
+.HL2 Control Characters
+.INDEX CONTROL
+.S
+.index Control Characters
+_.MIC SET NO CONTROL
+.S
+MIC does not cause "_^X" to substitute as control X.
+.s
+Default is:-
+.S
+_.MIC SET CONTROL
+.TP 10
+.HL2 Parameters
+.INDEX PARAMETERS
+.index Parameter Substitution
+_.MIC SET NO PARAMETERS
+.S
+MIC does not perform parameter substitution on detecting a "'" character.
+.s
+Default is:-
+.S
+_.MIC SET PARAMETERS
+.HL2 Special Characters
+.INDEX SPECIALS
+.index Special Characters
+_.MIC SET NO SPECIALS
+.S
+This performs the combined functions of the above three commands.
+.S
+Default is:-
+.S
+_.MIC SET  SPECIALS
+.INDEX FINMATCH
+.HL2 FINMATCH
+_.MIC SET NO FINMATCH
+.S
+^If this command is obeyed MIC will not regard an occurrence of "%FIN"
+as satisfying a search for a label (cf. section 4.1).
+.s
+The default is:-
+.s
+_.MIC SET FINMATCH
+.HL2 MSGLVL
+.INDEX MSGLVL
+.S
+The "MIC SET NOT MSGLVL n" may be used to suppress the output of the
+messages "[ABORT]", "[BREAK]", "[CANCEL]", and "[PROCEED]".  The
+argument "n" is a octal number which is used to specify which messages
+the user wishes to suppress.
+.s.nf
+1	supresses [ABORT].
+2	supresses [BREAK].
+4	supresses [CANCEL].
+10	supresses [PROCEED].
+.tp12
+.HL2 LC
+.INDEX LC
+_.MIC SET NO LC
+.s.f
+This causes lower case and upper case characters to be treated as
+equivalent in string comparisons.
+.S
+The default is:-
+.S
+_.MIC SET LC
+.HL2 TRACE
+.index TRACE
+This is a feature which a user may use when debugging a completed MIC
+macro.  If the command
+.s
+_.MIC SET TRACE
+.s
+is executed, then MIC displays all labels that are processed during
+search commands (GOTO/BACKTO or implied GOTOs due to errors).
+.s
+The first six characters of every label are displayed in square brackets, and a carriage return is not displayed until the last label is processed.
+Also MIC will display [TRUE] or [FALSE] on the execution of every "IF" conditional command.
+.HL2 SILENCE
+.index SILENCE
+This is another feature which is useful in debugging MIC macros.  If
+the command
+.s
+_.MIC SET NO SILENCE
+.s
+is executed, then MIC will ignore all attempts to silence the current,
+and any nested, MIC macros.  The default is:-
+.s
+_.MIC SET SILENCE
+.HL2 CCTRAP
+.INDEX CCTRAP
+This command is used to enable multiple occurrences of ON CANCEL:_<event_>.  If the command
+.s;_.MIC SET CCTRAP
+.s;is executed, then MIC will not unset the ON CANCEL:_<event_> every
+time it occurs.
+.HL2 Multiple SET Commands
+.index Multiple SET Commands
+Several SET functions may be performed in the same command by separating each of the functions by a comma, thus:-
+.s
+_.MIC SET NO PARAMETERS,CONTROLS,NO FINMATCH
+.PG
+.HL1 CCL Entry to MIC
+.index CCL Entry to MIC
+The CCL entry to MIC provides a user program interface to MIC. If MIC
+from SYS is run with a runoffset of 1 (by a RUN UUO), MIC will attempt
+to read command input from a TMPCOR file called "MIC", or if that is
+not available, from a disk file "nnnMIC.TMP" (where nnn is the user's
+job number), rather than from the terminal.
+.INDEX TMPCOR
+.b
+This file may contain a single line of input to MIC
+.s
+E.g.
+.s
+_.TYPE TMP:MIC
+.br
+.in do
+/DOIT A,36,C
+.else do
+DO DOIT A,36,C
+.ei do
+.br
+_.
+.s
+would cause the MIC macro "DOIT" to be executed if MIC is run with a runoffset of 1.
+.s2
+The file may contain any MIC command, e.g. LET, IF, GOTO, etc. though in
+this case the user must be already running under MIC, otherwise he will
+get an appropriate error message.  This provides a means of manipulating
+MIC parameters via a user program, the user program simply writes a TMPCOR file
+and runs MIC as above, with and appropriate "LET" command in the TMPCOR file.
+.nt
+1.##The CCL input file is deleted by MIC.
+.S
+2.##Use of TMPCOR is described in the Monitor Calls Manual.
+.S
+3.##Use of the RUN UUO is described in the Monitor Calls Manual.
+.S
+4.##Those CUSP's which are loaded with SCAN, (e.g. LOGIN, QUEUE,
+DIRECT, etc.) have a "/TMPFIL" switch, which has the form
+.S
+/TMPFIL:<NAME>:"<TEXT>"
+.S
+where:-
+.S
+<name>	is the three character name of a TMPCOR file
+to be created
+.INDEX TMPFIL
+.S
+<text>	is the contents of the TMPCOR file.
+.s
+5.##The TMPCOR file does ^&NOT\& contain the monitor dot or data asterisk.
+.en
+This switch may be used to create a MIC TMPCOR file and the
+"/RUN:MIC/RUNOFFSET:1" switches used to cause the file to be obeyed.
+.S
+.tp 10
+E.g.
+.s
+Say a user wished to run a macro called "SETUP" everytime he logged in;
+he may type:-
+.S
+.in do
+_.LOGIN 110,1/RUN:MIC/RUNOFFSET:1/TMPFIL:MIC:"/SETUP"
+.else do
+_.LOGIN 110,1/RUN:MIC/RUNOFFSET:1/TMPFIL:MIC:"DO SETUP"
+.ei do
+.S
+.f
+As this command is rather long the user would probably include all or
+part of it in his "SWITCH.INI" files.  (Consult the Operating Systems
+Commands Manual for a description of "SWITCH.INI" and the above 
+switches.)
+.pg
+.HL1 Multiple Statements on a Line
+.Index Multiple Statements on a Line
+.INDEX _\ (backslash)
+More than one MIC command can be written on a single line by 
+terminating each command by a "_\" character. 
+.S;
+E.g.
+.S
+_.LET A=3,B=4 _\ .GOTO JIM
+.S
+This is especially useful in the case of "IF" statements.
+.s
+E.g.
+.S
+_.IF ($A="DONE") .LET Z="FINISH" _\ .GOTO DUNIT
+.nt
+1.##This only applies to MIC commands.  It does not include normal monitor commands, except when the monitor command is the last command on the line.
+.s
+E.g.
+.s
+_.LET A=3,B=4 _\ .ERROR ? _\ .DIR ZXCV.ALG
+.s
+2.##All parameter substitution is performed for the whole line before
+the first statement is obeyed.
+.s
+This means that (assuming parameter A contains "DIR FRED") an input
+construction of the form:-
+.s.nf
+_.LET A=$A.[1,3]+" JIM" _\.'A
+.s
+would result in
+.s
+_.LET A=$A.[1,3]+" JIM" _\.DIR FRED
+.s
+being obeyed.
+.S.f
+3.##If a error occurs in a statement all subsequent statements on that
+line will be ignored.
+.S
+4.##The "_\" may be omitted after several MIC commands, for example the
+"REVIVE" command, for compatability with older macro files.
+.s1
+5.##In the case of syntax error in a MIC command preceeding a "_\", the
+rest of the line  will usually be ignored.
+.en
+.PG
+.HL1 Immediate Mode Execution of MIC commands
+When a MIC macro is in [BREAK] mode the user may type (to
+monitor) any MIC command in addition to any monitor command. This allows
+the user to suspend his macro and examine and manipulate his parameters - useful
+when debugging complex macros - or perform some action on behalf of the macro.
+.S
+The GOTO and BACKTO commands when used in this manner
+do not take effect immediately, but are effective as soon as the MACRO is proceeded.
+.s 2
+N.B.
+.S;
+A special case of the MIC DISPLAY command may be used at any 
+time, even when the user is not running under MIC. This is the
+.S
+	MIC DISPLAY <system-parameter>
+.S
+This can be very useful for obtaining information from GETTAB tables
+(see sections 7.3 and 9.2) though the user should be aware that the use of
+this command does destroy his core image.
+.appendix Examples of MIC Commands
+Asterisks indicate the scope of a macro command in these examples only.
+.s
+.nf
+ .;EXAMPLE 1
+.index Special Tests
+ .;A MIC DEMO - A SIMPLE MACRO COMMAND TO COMPILE POP2
+ .;LIBRARY FILES
+ .
+ .TYPE SYS:POP2.MIC
+ POP2
+ COMPILE(LIBRARY([LIB 'A]))
+.S2
+ .; A TYPICAL CALL OF THE POP2 MIC MACRO COMMAND.
+.in do
+ ./POP2  KALAH
+.else do
+ _.DO POP2  KALAH
+.ei do
+.C;******
+.tp20
+.s
+ .POP2
+.s
+ CSL POP2 V.26
+.S2
+ SETPOP
+ : COMPILE(LIBRARY([LIB KALAH]));
+.S2
+ TO ENTER PROGRAM TYPE KALAH
+.s
+ : _^C
+.C;*****
+.S2
+ .;AGAIN WITH A DIFFERENT PARAMETER.
+.in do
+ ./POP2  ABSYS
+.else do
+ .DO POP2  ABSYS
+.ei do
+.C
+******
+.tp20
+.s
+ .PGOP2
+.S2
+ CSL POP2 V.26
+.S2
+ SETPOP
+ : COMPILE(LIBRARY([LIB ABSYS]));
+ : _^C
+.s
+.C
+******
+.PG
+
+ .;EXAMPLE 2
+
+ .;A MIC DEMO OF GOTO COMMANDS.
+
+ .;A MIC MACRO WHICH WILL OBEY ONLY SELECTED PARTS OF A FILE
+ .;(USEFUL IF DISK SPACE IS LIMITED.)
+ .;(SEVERAL COMMANDS COULD BE KEPT IN ONE FILE)
+ .;
+ .TYPE X.MIC
+.S2
+ .GOTO 'A
+ COMP::
+ ;A MACRO TO COMPILE FILES COULD BE HERE.
+ .GOTO END
+ DATA::
+ ;A MIC MACRO TO SET UP DATA
+ .GOTO END
+ DEMO::
+ ;PARAMETERS ARE
+ ;A="'A"
+.br
+ ;B="'B"
+ ;C="'C"
+ END::
+ .;ALL COMMANDS FINISH HERE
+ .;
+ .;A TYPICAL CALL OF THE X MACRO COULD BE
+ .;
+.in do
+ ./X COMP
+.else do
+ _.DO X COMP
+.ei do
+.C
+******
+ .
+ .GOTO COMP
+.s
+ .
+ .;A MACRO TO COMPILE FILES COULD BE HERE.
+ .GOTO END
+.s
+ .
+ .;ALL COMMANDS FINISH HERE
+.s
+.C
+******
+ .
+ .;ANOTHER TYPICAL CALL
+.in do
+ ./X DEMO,FIRST PARAMETER,2ND,NO 3
+.else do
+ _.DO X DEMO,FIRST PARAMETER,2ND,NO 3
+.ei do
+.C
+******
+.s
+ .
+ .GOTO DEMO
+ .
+ .;PARAMETERS ARE
+ .;A="DEMO"
+ .;B="FIRST PARAMETER
+ .;C="2ND"
+ .
+ .;ALL COMMANDS FINISH HERE
+.C
+******
+.PG
+
+ .;EXAMPLE 3
+
+ .;A MIC DEMO OF ERROR COMMAND
+
+ .;A MACRO TO COMPARE TWO FILES AND DELETE DSK COPY IF THEY
+
+ .;ARE THE SAME
+
+ .
+
+ .TYPE CHECK.MIC
+.s
+
+ .ERROR ?
+
+ .R FILCOM
+ *TTY:/Q='A.'B
+
+ .DELETE 'A
+.s
+
+ .
+ .;A TYPICAL CALL - CHECK IF DSK:C.MIC IS A COPY OF SYS:C.MIC
+.in do
+ ./CHECK C.MIC,SYS:
+.else do
+ _.DO CHECK C.MIC,SYS:
+.ei do
+.C
+******
+.s
+ .
+ .ERROR ?
+.s
+ .R FILCOM
+.s
+ *TTY:/Q=C.MIC,SYS:
+.s
+ NO DIFFERENCES ENCOUNTERED
+.s
+ *_^C
+.s
+ .DELETE C.MIC
+ FILES DELETED
+ C.MIC
+ 01 BLOCKS FREED
+.s
+.C
+******
+.s
+ .;CREATE AN INCORRECT COPY OF C.MIC WITH PIP.
+ .R PIP
+.S
+ *C.MIC=TTY:
+ WRONG FILE
+ _Z
+ *_^C
+ .;AND USE C.MIC TO CHECK IT
+.PG
+.in do
+ ./CHECK C.MIC,SYS:
+.else do
+ _.DO CHECK C.MIC,SYS:
+.ei do
+.C
+******
+.s
+ .
+ .ERROR ?
+ .R FILCOM
+.s
+ *TTY:/Q=C.MIC,SYS:
+ FILE 1) DSK:C.MIC	CREATED: 1349  21-JAN-1975
+ FILE 2) SYS:C.MIC	CREATED: 1202  03-OCT-1974
+.s
+ ?FILES ARE DIFFERENT
+.s
+ *[ABORT ON ERROR]
+ _C
+.C
+******
+.s
+ .;MIC ABORTS
+.PG
+ .;EXAMPLE 4
+ .;A MIC DEMO OR IF ERROR
+ .;AN IMPROVEMENT ON EXAMPLE 3
+ .;COMPARE TWO FILES AND DELETE DSK COPY IF FILES ARE THE
+.index Substitution of Parameters in Outer Processes
+ .;SAME, OTHERWISE COPY AGAIN.
+ .
+ .TYPE CHECK.MIC
+ .ERROR
+ CHECK::.R FILCOM
+	*TTY:/Q='A,'B
+	.IF (NOERROR) .GOTO END
+	.R PIP
+	*'B/B/X='A
+	.BACKTO CHECK
+ END::	.;FILE 'A TRANSFERRED SUCCESSFULLY TO 'B
+.S2
+ .;A TYPICAL  CALL - CHECK FRED.SAV ON SYS: IS SAME AS
+ .;DSK VERSION
+ .
+.in do
+ ./CHECK FRED.SAV,SYS:
+.else do
+ _.DO CHECK FRED.SAV,SYS:
+.ei do
+.C
+******
+.s
+ .ERROR
+ .R FILCOM
+.s
+ *TTY:/Q=FRED.SAV,SYS:
+ FILE 1) DSK:FRED.SAV	CREATED: 1359 21-JAN-1975
+ FILE 2) SYS:FRED.SAV	CREATED: 1910 21-JAN-1975
+.s
+ ?FILES ARE DIFFERENT
+.s
+ *_^C
+ .IF (NOERROR) .GOTO END
+ .R PIP
+.s
+ *SYS:/B/X=FRED.SAV
+ *_^C
+ .BACKTO CHECK
+.s
+ .
+ .R FILCOM
+.s
+ *TTY:/Q=FRED.SAV,SYS:
+.s
+ NO DIFFERENCES ENCOUNTERED
+.s
+ *_^C
+.s
+ .IF (NOERROR) .GOTO END
+ .
+ .;FILE FRED.SAV SUCCESSFULLY TRANSFERRED TO SYS:
+.C
+******
+.PG
+_.;EXAMPLE 5
+_.;A MIC DEMO OF THE LET COMMAND
+_.;ILLUSTRATED DISTINCTION BETWEEN $A AND  A
+_.
+_.TYPE LET.MIC
+.br
+_.LET Z=A+B+C
+;A+B+C='Z
+_.LET Z=$A+$B+$C
+;CONCATENATED STRING PARAMETERS ARE 'Z
+_.LET X="'A"+"'B"+"'C"
+;BUT CONCATENATION AFTER SUBSTITUTION HAS THE SAME EFFECT
+;BUT (") QUOTES ARE REQUIRED FOR STRING LITERALS.
+;'X
+
+_.
+
+_.;USING NUMBERS AS PARAMETERS.
+
+_.
+
+.in do
+_./LET 4,5,6
+.else do
+_.DO LET 4,5,6
+.ei do
+.C
+******
+_.
+
+_.LET Z=A+B+C
+
+_.;A+B+C=15
+
+_.LET Z=$A+$B+$C
+
+_.;CONCATENATED STRING PARAMETERS ARE 456.
+
+_.LET X="4"+"5"+"6"
+
+_.;CONCATENATION AFTER SUBSTITUTION HAS THE SAME EFFECT
+
+_.;BUT (") QUOTES ARE REQUIRED FOR STRING LITERALS
+
+_.;456
+
+_.
+.C
+******
+
+ .
+
+ .;ANOTHER EXAMPLE WITH NON-NUMERIC PARAMETERS.
+
+ .
+
+.in do
+ ./LET FIRST,<,,,>,THIRD
+.else do
+ _.DO LET FIRST,<,,,>,THIRD
+
+.ei do
+.C
+******
+
+ .LET Z=A+B+C
+ ?PARAMETER  A "FIRST" IS NOT A NUMBER
+
+ .;A+B+C=
+
+ .LET Z=$A+$B+$C
+
+ .;CONCATENATED STRING PARAMETERS ARE FIRST,,,THIRD
+
+ .LET Z="FIRST"+",,,"+"THIRD"
+
+ .;CONCATENATION AFTER SUBSTITUTION HAS THE SAME EFFECT.
+
+ .;BUT (") QUOTES ARE REQUIRED FOR STRING LITERALS.
+
+ .;FIRST,,,THIRD
+
+ .
+.C
+******
+
+.PG
+.in do
+ ./LET ,[1,2],5
+.else do
+ _.DO LET ,[1,2],5
+.ei do
+.C
+******
+
+ .
+
+ .LET Z=A+B+C
+ ?PARAMETER A IS NULL
+
+ .;A+B+C=
+
+ .LET Z=$A+$B+$C
+
+ .;CONCATENATED STRING PARAMETERS ARE [1,2]5
+
+ .LET X=""+"[1,2]"+"5"
+
+ .;CONCATENATION AFTER SUBSTITUTION HAS THE SAME EFFECT
+
+ .;BUT (") QUOTES ARE REQUIRED FOR STRING LITERALS
+
+ .;[1,2]5
+
+ .
+
+ .;NOTE SECOND PARAMETER CONTAINS A COMMA BETWEEN MATCHED BRACKETS
+.PG
+
+ .;EXAMPLE 6
+
+ .;A COMPLICATED MIC MACRO COMMAND TO ASSEMBLE MACRO FILES
+
+ .TYPE C.MIC
+
+ .IF ($A.[1,"/H"]=$A).GOTO KNEW
+
+ .REVIVE
+
+ ; COMPILES MACRO FILES
+
+ ;
+
+ ; USE THUS:-
+
+ ;
+
+.in do
+ ; /C <STANDARD DEVICE FILE-SPEC>/SWITCHES
+.else do
+ ; DO C <STANDARD DEVICE FILE-SPEC>/SWITCHES
+.ei do
+
+ ;
+
+ ; SWITCHES MAY BE
+
+ ;
+
+ ;  /L TO DO A LOAD AS WELL
+
+ ;  /CN TO PRODUCE  N COPIES
+
+ ;  /H	TO TYPE THIS TEXT
+
+ ;
+
+ ;'A
+ KNEW::.ERROR
+
+ .LET B=$A.[1,"."].[1,"["].[1,"/"]
+
+ .LET C=$A.["/C","/"]
+
+ .LET D=$A.[1,"/"]
+
+ .IF ($B.[":"]#"") .LET B=$B.[":",6]
+
+ .IF ($A.[1,"/L"]#$A) .LET G="MIC ABORT"
+
+ .REVIVE .R MACRO
+ *'B,'B/C='D
+
+ .R CREF
+ *DSK:'B_'B
+
+ .Q 'B.LST/COPIES:'C
+
+ .'G
+
+ .R LINK
+ *'B/GO
+
+ .
+
+ .;A TYPICAL CALL WOULD BE (ASSUMING FILE PROTECTION OF 255
+
+.in do
+ ./C FRED.MAC/C3
+.else do
+ _.DO C FRED.MAC/C3
+.ei do
+.C
+******
+ *FRED,FRED/C=FRED.MAC
+.s
+ NO ERRORS DETECTED
+ PROGRAM BREAK IS 000001
+ 2K CORE USED
+ *_^C
+.s
+
+ .R CREF
+ *DSK:FRED=FRED
+ [CRFEXC 1K CORE]
+ *_^C
+
+ .Q FRED.LST/COPIES:3
+ TOTAL OF 3 BLOCKS IN LPT REQUEST
+
+ .MIC ABORT
+
+ .[ABORT]
+
+ .
+
+ .;NOTE USE OF AUTOMATIC SILENCE TO SUPPRESS UNINTERESTING
+ .;PARTS OF THE FILE
+.PG
+;EXAMPLE 7
+;EXAMPLE OF THE USE OF SYSTEM PARAMETERS
+.S
+.LM 12
+.F
+This MIC macro uses the system parameter feature of MIC to produce a short status report on any job on the system.
+It is expected that this macro would run silenced using a "<2??>"
+protection code, and the "!" in column 1 is used to output the information.
+.b
+If no job number is specified or the job number is negative, the status
+of the user's own job is output.
+.NF.LM1.TS39
+ .IF (_$A="").LET A=$JOB	;IF NO JOB NO. USE THIS JOB.
+.rm77 
+ .IF (A<=0).LET A=JOB	;IF JOB NO. IS NEGATIVE USE THIS JOB.
+.rm75
+ .LET B=$GETTAB(25,A,SIX)+$GETTAB(26,A,SIX)
+	;GET THE USERNAME FOR THIS JOB.
+ .LET C=$GETTAB(2,A,PPN)	;GET THE JOB'S PPN.
+ !USERNAME IS 'B LOGGED IN AS 'C
+ .LET B=$GETTAB(3,'A,SIX)	;GET THE JOB'S PROGRAM NAME.
+ !CURRENTLY RUNNING 'B
+ .LET B=$GETTAB(0,A,BIN)	;GET THE JOB'S STATUS WORD.
+ .LET C=$GETTAB(6,A,BIN)	;GET THE JOB'S PRIVILEGE WORD.
+ !PRIVILEGE WORD IS 'C
+ !STATUS WORD IS    'B
+ .
+.S
+ .; AN EXAMPLE OF A RUN OF THIS MACRO WOULD BE:-
+.S
+.in do
+ ./JBSTS
+.else do
+ _.DO JBSTS
+.ei do
+.C
+******
+ STATISTICS ON JOB 3
+ USERNAME IS BLOGGS FJ. LOGGED IN AS[100,100]
+ CURRENTLY RUNNING MIC
+ PRIVILEGE WORD IS 00000000000000000000000000000000000
+ STATUS WORD IS    00100000000001000001000000000000000
+ .
+.S
+.F.TS 8,16,24,32,40,48,56,64,72,80
+
+.nt
+This is not presented as being the most efficient way to access this
+and similar information.  It is however, a very easy and quick way of
+writing occasional or "one-off" systems programs.
+.en
+.ax Command Summary
+.lm20.i-19
+.in do
+ ./FRED ABC,<DEF,I>,[105,113]
+.else do
+ _.DO FRED ABC,<DEF,I>,[105,113]
+.ei do
+.br
+MIC will type on the user's behalf from the file MIC:FRED.MIC
+(or DSK:FRED.MIC) substituting ABC for 'A,DEF,1 for 'B and [105,113] for 'C.
+.s.i-19
+_.LET X="DEF"
+
+.br
+MIC will substitute further references in macro command file to
+X('X) as DEF.
+.s.i-19
+_.IF (ERROR).GOTO LAB
+.br
+If the previously typed command caused an error condition MIC will
+continue processing the command file at LAB::.
+.s.i-19
+_.BACKTO LAB2
+.br
+MIC will unconditionally continue processing after the first occurrence
+in the command file of the label LAB2::.
+.s.i-19
+_.SILENCE
+.br
+Suppress I/O to the teletype.
+.s.i-19
+_.REVIVE
+.br
+Restore I/O to the teletype.
+.s.i-19
+_.ERROR ?
+.br
+Treat ? in column 1 as indicating an error condition.
+.s.i-19
+_.NOERROR
+.br
+Disable error checking.
+.s.i-19
+_.OPERATOR _#
+.br
+Treat _# as indicating an OPERATOR condition.
+.s.i-19
+_.NOOPERATOR
+.br
+Disable OPERATOR checking.
+.s.i-19
+_.MIC ABORT
+.br
+Abort current process.
+.s.i-19
+_.MIC BREAK
+.br
+Suspend current procees.
+.s.i-19
+.tp 10
+_.MIC CANCEL
+.br
+Stop all processes.
+.s.i-19
+_.MIC RETURN
+.br
+Abort current process but display no message.
+.s.i-19
+_.MIC EXIT
+.br
+Stop running MIC.
+.s.i-19
+_.MIC SET NO PARAMETERS
+.br
+Suppress parameter substitutions.
+.s.i-19
+_.ON ERROR:ABORT
+.br
+Cause MIC to [ABORT] if an error is detected.
+.s.i-19
+
+_.MIC DISPLAY A
+.br
+Output the contents of parameter A on the user's terminal.
+.s.i-19
+_.MIC TYPE A
+.br
+Types the contents of parameter A as though the user had typed them.
+.s.i-19
+_.MIC WHAT
+.br
+
+Outputs status information on the user's macro.
+.s.i-19
+_.MIC INPUT A, PROMPT
+.br
+This command allows the user to accept the input of a parameter
+value from within the processing of a MIC command file.
+.lm0
+.ax Syntax of integer and string expressions
+.HL1 Integer Expressions
+The operators +, * and - have the conventional meaning.  The character _/ is used for
+divide, _^ for exponentiation, _& for logical AND, and ! for   
+logical OR.  The evaluation of an expression is from left to right with
+precedence as follows:-
+.nf.s
+	       _^		first
+	       */_!_&		second
+	       +-		third
+.s.f
+Matching round brackets may be used to arrange the desired order of execution of operations.  The monadic operator
+- is allowed but the monadic + is not allowed, since unsigned
+integers are assumed positive.
+.s
+Examples:-
+.s
+.nf
+	-2*(3+2-1)_5*(6/2+2)	    is legal
+.s
+	+2			    is not legal
+.s
+	2+(-3*(4*(6+1)))	    is legal
+.HL1 Syntax - Integer Expression
+.nf
+<DIGIT>::= 0/1/2/3/4/5/6/7/8/9
+.s
+<INTEGER>::=<DIGIT>/<any-number-of-digits>
+.s
+<PARAMETER>::=A/B/C/D/E/F/G/H/I/J/K/L/M/N/O/P/Q/R/S/T/U/V/W/X/Y/Z
+.s
+<NUMERIC-TERM>::=<PARAMETER>/<INTEGER>/<INTEGER-EXPRESSION>
+		   /<SYSTEM-PARAMETER>
+.s
+<INTEGER-EXPRESSION>::=-<NUMERIC-TERM>/<NUMERIC-TERM>
+<NUMERIC-TERM>/<OPERATOR><NUMERIC-TERM>
+.s
+<OPERATOR>::= +/-/*/"/"/_/_!/_&
+.s.f
+.tp10
+To allow references to be made to parameters in an outer process a
+qualifier is allowed to the parameter name, e.g.
+.s
+If a MIC command is nested three deep A3 would be the
+parameter A in the outer process.  This extension also applies to
+string parameters ($A3).
+.S
+On the left hand side of LET assignment statements the qualifier may be
+used to return parameters to an outer level MACRO command, e.g.
+.S
+_.LET A1="TEXT"
+.HL1 Syntax - String Expressions
+.nf
+<string>::=<any-ASCII-text>
+.s
+<string-expression>::="<string>"/$<subscripted-string>/
+			  $<system-parameter>
+.s
+<expression>::=<string-expression>/<integer-expression>
+.s
+<subscripted-string>::=<string-expression>.[<expression>]/
+                   <string-expression>.[<expression>,<expression>]
+.s
+.F
+To allow the character quote (") to be used within a text string a
+single quote (") will be substituted for any double quote ("")
+encountered within a string expression.
+.ax Error Messages
+Error messages from MIC have the form:-
+.S
+?MIC<code> <text> - in "<command-name>"  COMMAND.
+.S
+where:-
+.s
+<code>	is a three-character code unique to each error.
+.s
+<text>	is the description of the error as listed in this document.
+.s 
+<command-name>	is the name of the MIC command currently being executed.
+.PG
+.HL 1 Error messages which apply only to specific commands.
+.HL 2 _/ or DO Command.
+?MICMNR MIC not running please try again
+.lm24.br
+The operator has not started the MIC master program, and he has a
+copy of this message displayed on his console.
+.index MICMNR 
+.s.i-24
+?MICDFS Error in device file specification
+.br
+The specification of the MIC command file did not follow the
+general form "dsk:file.ext[path]".
+.index MICDFS
+.s.i-24
+?MICCID Cannot INIT device
+.br
+The device which the user specified for the command file is not
+available.
+.index MICCID
+.s.i-24
+?MICCOF Cannot OPEN file
+.br
+The command file could not be found.
+.index MICCOF
+.s.i-24
+?MICPUF PATH.UUO failed
+.br
+The path specified by the user caused an error when MIC attempted
+to use it.
+.index MICPUF
+.s.i-24
+?MICTMC Too many characters in argument
+.br
+The user's arguments are longer than approximately 500 characters.
+.index MICTMC
+.s.i-24
+?MICBMP Brackets mismatch in parameter
+.br
+The user has specified a parameter with a non-matching set of 
+parentheses.
+.index MICBMP
+.s.i-24
+?MICTMP Too many parameters - maximum = 26
+.br
+The user has attempted to specify more than 26 separate parameters.
+.index MICTMP
+.s.i-24
+?MICCNP Cannot nest processes this deep - maximum = n
+.br
+The user has specified MIC macros calling MIC macros to a
+depth greater than n, where n is an operator settable parameter.
+.index MICCNP
+.i-24.s;
+?MICNTF No TMP file for input
+.br
+No temporary file was found after an offset one entry to MIC.
+.index MICNTF
+.s.i-24
+.HL 2 ON or WHENEVER Command
+.i-24
+?MICNAE Not an event
+.br
+Attempt to use an illegal <event>, see section 11 for a full list of
+of events.
+.index MICNAE
+.s;
+.i-24
+.tp 10
+?MICILF Illegal format
+.br
+MIC cannot understand the arguments given.  See section 11.  
+.index MICILF
+.s.i-24
+?MICNOA No argument
+.br
+A command of the form
+.b
+#####_.ON <EVENT>!
+.b
+has been given.
+.index MICNOA
+.i-24.s
+?MICANA Argument is not an A-Z parameter
+.br
+A command of the form
+.b
+#####_.ON <EVENT>:<ACTION> <PARAMETER>
+.b
+has an invalid parameter.
+.index MICANA
+.s.i-24
+.HL 2 SET Command
+.i -24
+?MICUKA Unknown argument
+.br
+An invalid MIC SET command has been given.
+.index MICUKA
+.s.i-24
+?MICNPV No privileges to do this
+.br
+The user has attempted to use a privileged MIC SET function.
+.index MICNPV
+.s.i-24
+.HL 2 GOTO or BACKTO Command
+.i-24
+?MICNAL No argument for label
+.br
+The command did not specify a label.
+.index MICNAL
+.s.i-24
+?MICCFL Cannot find LABEL - <label>
+.br
+The label <label> could not be found in the command file.  This error
+is always fatal.
+.index MICCFL
+.s.i-24
+.HL 2 LET Command
+.i-24
+?MICILC Illegal character "ch" octal "n"
+.br
+The character ch followed a LET command.  Only a space or a tab
+should follow a LET.
+.index MICILC
+.s.i-24
+?MICPMB Parameter must be A-Z not "ch" octal "n"
+.br
+The parameter on the left hand side of an assignment was not valid.
+.index MICPMB
+.s.i-24
+.tp 10
+?MICASS Assignment symbol should be = or &# not "ch" octal "n"
+.br
+Assignment must be of the general form 
+.s
+#####LET A = expression
+.b
+#####or
+.b
+#####LET A _< expression
+.index MICASS
+.s.i-24
+?MICPSE Parameter space exhausted
+.br
+MIC has no room to store new argument.  (Character space is
+approximately 500 characters).
+.index MICPSE
+.s.i-24
+.HL 2 Response Command
+.i-24
+?MICMRC Maximum RESPONSE is 79 characters
+.br
+The user has attempted to use a value greater than 79 as his response
+limit.
+.index MICMRC
+.i-24
+?MICRCL RESPONSE command must specify response length
+.br
+A MIC RESPONSE command did not specify a response limit.
+.index MICRCL
+.s.i-24
+.HL 2 IF Command
+.i-24
+?MICNCD No conditional
+.br
+The contents of brackets in an IF clause was not a legal
+conditional expression.
+.index MICNCD
+.s.i-24
+?MICUCO Unknown conditional operator
+.br
+The relation operator in a conditional clause was unknown.
+.index MICUCO
+.s.i-24
+?MICMOT Mismatch of types
+.br
+An attempt was made to compare an integer expression with a string
+expression.
+.index MICMOT
+.s.i-24
+?MICCDN Conditional "cc" not defined
+.br
+The conditional cc is not known to MIC.
+.index MICCDN
+.s.i-24
+.HL 2 SLEEP Command
+.i-24
+?MICIAS Illegal argument
+.br
+The time specified in a MIC SLEEP command was invalid.
+.index MICIAS
+.s.i-24
+.HL 2 DISPLAY/TYPE Command
+.i-24
+?MICICA Invalid character follows caret ("_^")
+.br
+The user had attempted to MIC TYPE or MIC DISPLAY on a character
+of the form "_^5" which is an illegal control specification.
+.index MICICA
+.s.i-24
+.HL2 INPUT Command
+.i-24
+?MICIPS Prompt not string
+.br
+The prompt message argument to the MIC INPUT command was not a string
+ constant or a string variable or null.
+.index MICIPS
+.s.i-24
+?MICEIP INPUT has excess arguments
+.br
+.index MICEIP
+The prompt message argument to the MIC INPUT command is not terminated 
+by a break character.
+.lm0
+.HL 1 General Syntax Errors
+The following errors may occur in several MIC commands.  Which
+command the error actually occurred in is specified by the in
+"<command-name>" command section of the error message.
+.HL 2 String Expressions
+?MICSIC String subscript illegal character "ch" octal "n"
+.br;.lm 24
+The character "ch" is not valid in string subscript.
+.index MICSIC
+.s.i-24
+.HL 2 Arithmetic Expressions
+.i-24
+?MICILC Illegal character "ch" octal "n"
+.br
+The character ch is not allowed in an arithmetic expression.
+.index MICILC
+.s.i-24
+?MICOBN Operator missing between ) and number 
+.br
+Illegal construction of the form )345 in an arithmetic expression.
+.index MICOBN
+.s;
+.i-24
+?MICONB Operator missing between number and (
+.br
+Illegal construction of the form 345(.
+.index MICONB
+.s.i-24
+?MICNMB Number missing between brackets
+.br
+Illegal construction of the form () in an arithmetic expression.
+.index MICNMB
+.s.i-24
+?MICNMO Number missing between two operators
+.br
+Illegal construction in arithmetic expression.
+.index MICNMO
+.s.i-24
+?MICBRM Brackets mismatch
+.br
+Arithmetic expression is incorrectly bracketed.
+.index MICBRM
+.s.i-24
+?MICPPN Parameter "pp" is not a number
+.br
+An attempt to include a string in an arithmetic expression.
+.index MICPPN
+.s.i-24
+?MICPPN Parameter "pp" is null
+.br
+An attempt to perform arithmetic on an empty parameter.
+.index MICPPN
+.s.i-24
+?MICGTR GETTAB result "rr" is not a number
+.br
+An attempt to perform arithmetic on a GETTAB result which has not
+been obtained using the correct type out mode.
+.index MICGTR
+.s.i-24
+?MICGTR GETTAB result is null
+.br
+An attempt to perform arithmetic on a GETTAB result which has
+returned a null.
+.index MICGTR
+.s.i-24
+.HL 2 System Parameters
+.I-24
+?MICIAP Illegal action parameter
+.BR
+The user has attempted to use one of the action parameters in an
+expression.  Action parameters may only be used via parameter
+substitution.
+.index MICIAP
+.i-24
+.s
+?MICMLN "'_<LENGTH_>" parameter does not work, use _$LENGTH only.
+.index MICMLN
+.S.I-24
+?MICLLP "LENGTH requires left parentheses
+.S.I-24
+?MICLRP "LENGTH requires right parentheses
+.BR
+The length function was improperly specified.
+.index MICLLP
+.index MICLRP
+.s.i-24
+?MICPPF PATH function - PATH.UUO failed
+.br
+System error, please report this error.
+.index MICPPF
+.s.i-24
+?MICEFC Error in system parameter call
+.br
+Some unspecified error has occurred, usually invalid syntax.
+.index MICEFC
+.s.i-24
+?MICERT Error return taken by GETTAB UUO
+.br
+The GETTAB arguments specified by the user are invalid.
+.index MICERT
+.s.i-24
+?MICUFN Unknown function
+.s.i-24
+?MICUKF Unknown system parameter
+.br
+Attempt to use an invalid system parameter.
+.index MICUFN
+.index MICUKF
+.s.i-24
+.tp 10
+?MICIAF Illegal argument format for system parameter
+.br
+An argument is in error, for example an invalid radix in a GETTAB.
+.index MICIAF
+.s.i-24
+.HL 2 Other
+.i-24
+?MICNRM Not running MIC
+.br
+An attempt to use a MIC command when not inside a MIC macro.
+.index MICNRM
+.s.i-24
+?MICPNP Attempted reference to parameter in non-existent outer process
+.br
+The user has attempted to use a parameter of the form "A1" when there
+is no outer macro process.
+.index MICPNP
+.s.lm0
+.HL 1 Error messages which occur during the processing of a macro
+Error messages in this category always terminate the execution of the
+macro and the text of the error message does not include the in 
+"<command-name>" command text.
+.s
+?MICICF Illegal character follows apostrophe
+.br;.lm24
+MIC has attempted to substitute text which is not a valid parameter.
+.index MICICF
+.s.i-24
+?MICCFL Cannot find LABEL - <label>
+.br
+MIC could not find the label specified by a GOTO or BACKTO
+command.
+.index MICCFL
+.s.i-24
+?MICCNI Cannot INIT device
+.br
+The device which held the user's macro file has become inaccessible
+during the running of the macro.
+.index MICCNI
+.s.i-24
+?MICMFN Macro file not found
+.br
+The MIC macro command file has been deleted during the running of
+the macro.
+.index MICMFN
+.s.i-24
+?MICCPC Cannot nest parameter calls this deep
+.br
+An actual parameter contains parameter calls nested to a depth of
+greater than 8 levels.
+.index MICCPC
+.s.i-24
+?MICNGN Nested GETTABs are not allowed
+.s.i-24
+?MICNST Nested SLEEPs are illegal
+.ps 62,75
+.s.i-24
+?MICLER Nested LENGTHs are illegal
+.br
+The above parameters may not be nested in any combination.
+.index MICNGN
+.index MICNSI
+.index MICLER
+.do index Index
+.number index

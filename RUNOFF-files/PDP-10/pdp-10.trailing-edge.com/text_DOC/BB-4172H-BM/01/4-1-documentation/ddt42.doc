@@ -1,0 +1,368 @@
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 1
+October 1981
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1981 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 2
+SUMMARY
+
+
+1.0  SUMMARY
+
+     DDT is a symbolic assembly language debugger for the DECsystem-10
+and  DECSYSTEM-20.   DDT provides many debugging facilities, including
+breakpoints, program single-stepping, and the ability  to  examine  or
+deposit  programs  or  data  symbolically.   The  source  file DDT.MAC
+assembles into the following different versions of DDT:
+
+TOPS-10         TOPS-20         FUNCTION
+
+VMDDT.EXE       UDDT.EXE        Brought in by the DDT command.
+DDT.EXE         SDDT.EXE        DDT with system symbols.
+FILDDT.EXE      FILDDT.EXE      For EXE or binary data files.
+DDT.REL         RDDT.REL        Relocatable user DDT.
+EDDT.REL        EDDT.REL        Exec mode DDT.
+  --            MDDT.REL        TOPS-20 monitor process DDT.
+  --  KDDT.REL TOPS-20 monitor specific EDDT.
+
+     DDT 42 includes bug fixes and some small changes  since  DDT  41.
+Much  of  this document describes changes made prior to release of DDT
+41 and previously described in DDT41.DOC,  DDT41.MAN,  and  DDT41.MEM.
+The  descriptions  herein  have been updated as necessary to correctly
+describe  DDT  42.   Note  that  some  cases  in  which  DDT  41   was
+incompatible  with  previous  versions have been changed such that the
+incompatibility is no longer evident.
+
+     DDT version 41 was a significant development  release  with  many
+new features, including KL10 model B extended addressing support, 2020
+support, native mode FILDDT on TOPS-20, and many minor enhancements to
+make the debugging process easier.
+
+
+                               WARNING
+
+               A FEW OF THE NEW FEATURES IN DDT 41  ARE
+               NOT COMPATABLE WITH PREVIOUS VERSIONS OF
+               DDT.  SOME  COMMANDS  THAT  WORKED  WITH
+               PREVIOUS VERSIONS OF DDT MAY NOT WORK OR
+               DO DIFFERENT THINGS WITH  DDT  41.   SEE
+               SECTION 2 FOR MORE INFORMATION.
+
+
+
+     DDT 42 supercedes all  previous  versions.   It  runs  under  all
+supported monitors.
+
+     For DECsystem-10 sites, DDT is  documented  in  the  DDT  manual,
+which  is  part  of  volume  9 of the TOPS-10 Software Notebooks.  The
+manual   can   also   be   ordered   separately   as   order    number
+DEC-10-UDDTA-A-D.
+
+     For DECSYSTEM-20 sites, DDT is documented in the  TOPS-20  User's
+Guide,  which  is  part of volume 1 of the TOPS-20 Software Notebooks.
+The User's Guide can  also  be  ordered  separately  as  order  number
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 3
+SUMMARY
+
+
+AA-4179B-TM.
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 4
+CHANGES FROM DDT 41 TO DDT 42
+
+
+2.0  CHANGES FROM DDT 41 TO DDT 42
+
+     1.  When opening registers,  DDT  will  default  to  the  current
+section  if  no  section  is typed*.  For example, if DDT is currently
+referencing section 3, and FOO=1000, then:
+        FOO/
+
+     will open location 3,,1000.  Since  tags  are  generally  defined
+with  a  0  section number, this makes it much more convenient to work
+with a program loaded into a non-0 section.
+
+     If you type an explicit section  number  (e.g.   0,,FOO  or  even
+,FOO),  DDT will never use the default.  Note however that if DDT (but
+not FILDDT) is running in section 0, it will ignore the left  half  of
+quantities typed as addresses.  E.g.,
+
+        123,,456/
+
+     will open location 456 (in section 0).  By forcing EFIW, you  can
+get DDT to try to look at non-0 sections, but it will always fail when
+running in section 0.
+
+     Note that you can force DDT to follow an  EFIW  (extended  format
+indirect  word).   This  is done by putting 2 ESCs before the register
+opening command.  E.g.,
+        FOO$$/
+
+     will open location FOO in section 0 and set the  current  section
+to  0.   This  syntax  for EFIWs has been in DDT for some time but few
+people know about it.  It is handy for following pointers in  extended
+programs.  E.g.,
+        FOO/   5,,1234   $$<tab>
+        5,,1234/   ...
+
+     DDT will also update the default section number whenever  DDT  is
+entered,  setting  it  to  the  section  in which the user program was
+running.
+
+     If a quantity with bits 0-5 not 0 is typed  as  an  address,  DDT
+will  ignore  the  entire  left  half and default the current section.
+Hence, the following will do about what you expect:
+
+        3,,100/   12345,,54321
+
+        $$Q/   ...        (.=3,,12345)
+
+     2.  On certain commands other than register opening commands, the
+default  section  will  be  used in the absence of an explicit section
+number.  These commands are $G and $B.  E.g.,
+        FOO$G
+
+     will go to FOO in the current section, not section 0.
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 5
+CHANGES FROM DDT 41 TO DDT 42
+
+
+     3.  Defining tags at "." sets the section  to  0  thus  remaining
+consistent with tags defined during assembly.  E.g.,
+        2,,100/   0   FOO:
+
+     will define FOO as 100, not 2,,100.  Note however  that  exp<FOO:
+will set FOO to the 36-bit value of 'exp'.
+
+     4.  Some bugs causing you to drop  into  section  0  unexpectedly
+when patching or using $<CR> have been fixed.
+
+     5.  DDT will create a private section the first time you  attempt
+to  store  in  a  previously  non-existant  section (provided that DDT
+itself is running in a non-0 section).
+
+     6.  DDT now has some special logic  for  examining  its  internal
+locations  $I,  $M,  etc.   There  is  no  change  to  the syntax, but
+examining or changing these locations  does  not  use  or  change  the
+current  section  for  regular program examines.  Also, if you examine
+one of these locations and then step forward or back with LF  or  "^",
+DDT  will identify and open locations only if they are meaningful ones
+for the user to see or change.
+
+     * - In FILDDT, a section number is never  defaulted;   the  given
+section number is always used.
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 6
+CHANGES IN DDT 41
+
+
+3.0  CHANGES IN DDT 41
+
+     Most of the external changes in DDT 41 are new features that make
+the  debugging  process  easier.   Refer  to  the file DDT42.MEM for a
+detailed description of all new features.
+
+
+                         INCOMPATABLE CHANGES
+
+               SOME OF THE CHANGES  TO  DDT  MAY  CAUSE
+               COMMANDS   THAT  WORKED  UNDER  PREVIOUS
+               VERSIONS  OF  DDT  TO  NOT  WORK  OR  DO
+               DIFFERENT   THINGS  WITH  DDT  41.   THE
+               FOLLOWING  LIST   DESCRIBES   ALL   SUCH
+               CHANGES.   PLEASE BE SURE YOU UNDERSTAND
+               THIS LIST BEFORE ATTEMPTING TO  USE  DDT
+               41.
+
+
+
+
+
+3.1  Extended Addresses
+
+     When DDT is running in a non-0 section,  all  addresses  are  now
+30-bit  numbers, including the current location counter ".".  Commands
+like "/" that take addresses as arguments will now take all 30 bits of
+the  argument  as  the  address to be used.  When running in section 0
+(always on TOPS10), DDT will ignore the left half on quantities  typed
+as addresses and so will appear to work as in previous versions except
+if EFIW interpretation is forced (see below).
+
+     FILDDT always accepts 35 bits of address, although no file  could
+be that large.
+
+     When running under extended addressing, DDT will type "?"  on  an
+attempt  to  examine  any  location  in a section that does not exist.
+Hence, if DDT fails to open a location  when  expected,  it  is  often
+useful  to  check  the  value of "." (type ".=") to see if the current
+section is the intended one.  address.  An example is:
+
+        DISP/   10327,,346   $$Q/   ?   .=346,,10327
+
+In this case, the user wanted to follow the address in the  left  half
+of location DISP, but ended up looking at a huge address instead.  The
+$$Q means "the last quantity typed out with the halves swapped", which
+has  non-zero  bits  in  the  left half.  The .= verifies that this is
+indeed what has happened.  To  get  back  to  the  right  place,  type
+sec,,./ (or just ,./ if you want to be in section 0).
+
+     If you type an expression with a 0 left half and  no  comma,  DDT
+will   default   the  section  to  the  current  section.   Hence,  if
+.=3,,12345,
+
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 7
+CHANGES IN DDT 41
+
+
+     FOO/
+
+will open location FOO in  section  3.   DDT  will  also  default  the
+section  if  the  left  half of the expression could not possibly be a
+legitimate section number, i.e.  bits 0-5 are non-0.
+
+        3,,DISP/   10327,,17346   $$Q/   stuff   .=3,,10327
+
+Another example is:
+
+        LOOP1+3/   PUSHJ P,ERROR   JRST PAT..<tab>
+        PAT../   0
+
+In this example, the user wanted to deposit a JRST PAT..  at  LOOP1+3,
+and then open location PAT.. to write a patch.
+
+     The ramifications of extended addresses are more complex than can
+be  described  in this short summary.  Refer to the file DDT42.MEM for
+complete documentation.
+
+
+
+3.2  Auto-typeout On Breakpoints
+
+     The command to set a location to  type  out  automatically  on  a
+breakpoint has changed, as follows:
+
+Old way:
+
+                A,,B$B  or  B(A)$B
+
+New way:
+
+                A<B$B
+
+This command means to set a breakpoint at location  B,  and  type  out
+location  A  symbolically  every time the program hits the breakpoint.
+If the old-style command is typed to DDT 42, it will be interpreted as
+a command to set a breakpoint at the full-word address A,,B, which may
+be non-existant.
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 8
+KNOWN BUGS AND DEFICIENCIES
+
+
+4.0  KNOWN BUGS AND DEFICIENCIES
+
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)   Page 9
+INSTALLATION INSTRUCTIONS
+
+
+5.0  INSTALLATION INSTRUCTIONS
+
+5.1  TOPS-10
+
+     To install DDT version 42 on your system, copy the files DDT.EXE,
+VMDDT.EXE,  FILDDT.EXE,  DDT.REL,  EDDT.REL,  and  DDT42.MEM  from the
+distribution tape to SYS:.
+
+     The  batch  control   file   DDT.CTL   contains   all   necessary
+instructions  to  assemble  and load DDT.  It will normally have to be
+modified slightly to correspond to the installation configuration.
+
+
+
+5.2  TOPS-20
+
+     To install  DDT  version  42  on  your  system,  copy  the  files
+UDDT.EXE,  SDDT.EXE,  FILDDT.EXE,  RDDT.REL,  EDDT.REL,  MDDT.REL, and
+DDT42.MEM from the distribution tape to SYS:.  This  can  be  done  by
+mounting the tape labelled Distribution Tape on MTA0:, then typing the
+following commands:
+
+     R DUMPER
+     TAPE MTA0:
+     REWIND
+     DENSITY 1600-BPI
+     SKIP 2
+     RESTORE DSK*:<*>*DDT.EXE (TO) SYS:*.*.-1, -
+     DSK*:<*>*DDT.REL (TO) SYS:*.*.-1, -
+     DSK*:<*>DDT42.MEM (TO) SYS:*.*.-1
+     REWIND
+
+     To rebuild DDT from sources, mount the tape labelled Distribution
+Tape on MTA0:, then type the following commands:
+
+     R DUMPER
+     TAPE MTA0:
+     REWIND
+     DENSITY 1600-BPI
+     SKIP 3
+     RESTORE DSK*:<*>*.*.* (TO) <self>*.*.*
+     REWIND
+     CTRL/C
+     !At this point, you should TYPE DDT.CTL to see what it does.
+     SUBMIT DDT.CTL/TIME/RESTART
+
+     The batch control file DDT.CTL contains the procedures  necessary
+to  rebuild  DDT from sources.  It may have to be modified slightly to
+run at your installation, so you should type it to see  what  it  does
+before typing the SUBMIT command above.
+DDT42.DOC -- Changes from DDT 37(201)/40A(220) to DDT 42(320)  Page 10
+INTERNAL CHANGES
+
+
+6.0  INTERNAL CHANGES
+
+
+[End of DDT42.DOC]

@@ -1,0 +1,913 @@
+
+
+
+	    PROGRAM SPECIFICATIONS
+
+
+
+
+
+	                                IPCF
+
+
+	                      Fortran-10 IPCF Routines
+
+
+
+
+
+
+
+
+
+
+
+
+	                         Date: 16-Feb-76
+	                         File: IPCF.RNO
+	                       Author: M. Barnes
+	    Fortran-10 IPCF Routines                              Page 2
+	    Abstract
+
+
+	                              Abstract
+
+
+
+
+	         The IPCF package of subroutines allows  the  Fortran-10
+	    (or Macro, possibly Cobol) user easy access to the monitor's
+	    Inter-Process Communications Facility (IPCF).  Routines  are
+	    provided  to  access all IPCF UUO's (IPCFR., IPCFS., IPCFQ.)
+	    plus  easy  use  of  many  [SYSTEM]INFO   and   [SYSTEM]IPCC
+	    functions.   This document also hopes to provide some useful
+	    knowledge about IPCF difficult to obtain from the section on
+	    IPCF in DEC's Monitor Calls Manual.
+
+
+	         All the subroutines are type integer and all  arguments
+	    to  them  are  integer,  except where noted.  No attempt was
+	    made  to  make  these  routines  callable  by  anything  but
+	    Fortran-10 calling conventions.
+	    Fortran-10 IPCF Routines                              Page 3
+	    Background Information
+
+
+	                       Background Information
+
+
+
+
+	         The following information in  this  section  is  copied
+	    from  the Decsystem-10 Monitor Calls Manual (chapter 15) and
+	    is intended to give the user who  is  unfamiliar  with  IPCF
+	    some background information.
+
+
+
+	         The  Inter-Process  Communication  Facility  (IPCF),  a
+	    feature  of  the  DECsystem-10  Monitor  (5.07  and  later),
+	    provides a capability for communication between jobs running
+	    on  the  system.   This communication is accomplished by the
+	    use of three UUO's:  IPCFS., IPCFR., and IPCFQ.
+
+
+	         Jobs communicate by sending  "packets"  of  information
+	    (using  the  IPCFS.   UUO)  that contain a destination and a
+	    return address, some flags, and data.   The  receiver  of  a
+	    packet  can  find out if a packet has been sent (IPCFQ.) and
+	    retrieve it (IPCFR.).  When receiving a packet, a  job  will
+	    have  a  "mailbox" in the form of a short linear FIFO queue.
+	    Packets from a sender (or senders) are put in this queue and
+	    remain until the receiving job retrieves them.
+
+
+	         There is a send packet quota and receive  packet  quota
+	    per  job which can be set by each installation.  The default
+	    send packet quota is  two  per  job;   the  default  receive
+	    packet  quota  is  five  per  job.   These quotas pertain to
+	    outstanding sends and receives only.  For example  (assuming
+	    the  default  limit  of two), if a job sends two packets, no
+	    more packets can be sent by that job until one  or  both  of
+	    its  previously sent packets has first been retrieved by the
+	    intended receiver.  If the receiver has five  (assuming  the
+	    default  limit) packets in its receive queue that it has not
+	    yet received, it cannot receive any more  packets  until  it
+	    has retrieved at least one of the five waiting packets.
+
+
+	         There  are  two  system  processes  utilized  by  IPCF:
+	    [SYSTEM]INFO  and  [SYSTEM]IPCC.   [SYSTEM]INFO  acts as the
+	    information center for IPCF and performs  several  functions
+	    related  to  PID's  and  names.   [SYSTEM]IPCC  is  the IPCF
+	    controller,  and  it  performs   many   packet   controlling
+	    functions.   A job can send a packet to both of these system
+	    processes.
+	    Fortran-10 IPCF Routines                              Page 4
+	    About PIDs
+
+
+	                             About PIDs
+
+
+
+	         A PID(process I.D.) is a 36-bit value that  substitutes
+	    for  a  user  declared  symbolic  name.  The PID serves as a
+	    destination or source  address  for  a  packet  and  remains
+	    assigned  to the name as long as the user wishes to use that
+	    name.  The association between a PID and a  name  is  always
+	    released  when  the  job  logs  off  the system or through a
+	    request to [SYSTEM]INFO.  Alternatively, the job may request
+	    that  the association be freed when a RESET UUO is executed.
+	    After a PID is released, the  same  value  is  not  re-used.
+	    This  protects  against any messages being sent to the wrong
+	    job by accident.
+
+
+	         The user acquires a PID by declaring a name  (i.e.   by
+	    notifying  [SYSTEM]INFO  of this name) and requesting that a
+	    PID be assigned to the  name.   The  name  cannot  duplicate
+	    other  names in use at the same installation and has certain
+	    restrictions.
+
+
+	         The symbolic name  is  limited  to  30  characters  and
+	    cannot  contain any control characters except TAB.  In order
+	    to initiate communication between jobs, there  should  be  a
+	    mutual  understanding  between  the two jobs of the symbolic
+	    names to be used.  This frees the  communications  procedure
+	    from  any  dependencies on system characteristics that might
+	    change between executions.
+
+
+	    Examples:
+
+	                    [SYSTEM]PHOTOCOMP
+	                    FILEPROCESSOR[10,1521]
+	                    PHOTOCOMP[SYSTEM]
+	                    TEST['ANY',151]
+
+
+
+	         In order to prevent a malicious or careless  user  from
+	    assigning  a  name  that  you  want,  a small restriction is
+	    placed on the kinds of names that may appear  within  square
+	    brackets.  The only things that may appear are:
+
+	                    [PROJ.#,PROG.#]
+	                    ['ANY',PROG.#]
+	                    ['ANY','ANY']
+	                    [PROJ.#,'ANY']
+	                    [SYSTEM]
+
+	    Fortran-10 IPCF Routines                              Page 5
+	    About PIDs
+
+
+	         A job may specify [SYSTEM] as part of the name only  if
+	    the  job  is  privileged.   When trying to find the PID of a
+	    name, the name must be  specified  exactly  as  it  appears,
+	    character for character.
+	    Fortran-10 IPCF Routines                              Page 6
+	    Using the Routines
+
+
+	                         Using the Routines
+
+
+
+
+	         All the  Fortran-10  IPCF  routines  are  available  in
+	    IPCF10.REL.   A  list  of all module names is given below so
+	    the user can avoid having  to  deal  with  multiply  defined
+	    global module names.
+
+	    Module names:
+
+
+	            INFCIW  INFCIG  INFCII  INFCIJ  INFCID
+	            INFCIR  INFCIL  INFZZA  INFZZB  INFZZC
+	            IPCSE   IPCSD   IPCSI   IPCSJ   IPCSR
+	            IPCZZA  IPCFSH  ZERBLK  IPCTAB  IPCFQ
+	            IPCFR   IPCFS
+
+
+
+	         In addition,  IPCF10  requires  an  additional  module:
+	    LSH.   LSH  performs  a logical shift.  Since this module is
+	    commonly used, the author has decided not to include  it  in
+	    IPCF10.   If  LSH is not available, a listing is given below
+	    in MACRO so the user can have access to it.
+
+
+	                            TITLE   LSH
+	                            ENTRY   LSH
+	                    LSH:    MOVE    1,@1(16)
+	                            MOVE    @(16)
+	                            LSH     (1)
+	                            POPJ    17,
+	                            END
+	    Fortran-10 IPCF Routines                              Page 7
+	    Routine Descriptions
+
+
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	                        ROUTINE DESCRIPTIONS
+	    Fortran-10 IPCF Routines                              Page 8
+	    IPCF UUO's
+
+
+	                               IPCFS
+
+	          Send a packet to the specified pid or job number
+
+
+	    Call:
+	            ERROR = IPCFS(FLAGS,SENDP,RECP,PACKET,LEN)
+
+
+
+	         Send the LEN word array PACKET to the user whose pid is
+	    RECP.   If no error occurs ERROR is set to zeroes, otherwise
+	    it contains the error code received from IPCF in bits 30-35.
+	    If  you  send zero as your SENDP then IPCF will fill in your
+	    job number.
+
+
+	    Example:
+
+	    C
+	    C       HAVE [SYSTEM]INFO ASSIGN A PID (FUNCTION 3)
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            DIMENSION PACKET(2)
+	    C
+	    C       FILL PACKET WITH RIGHT THINGS
+	    C
+	            PACKET(1) = 3                   ! .IPCSI (ASSIGN A PID)
+	            PACKET(2) = 'MYPID'             ! ASCII OF PID
+	    C
+	    C       SEND PACKET
+	    C
+	            ERROR = IPCFS(0,0,0,PACKET,2)
+	    Fortran-10 IPCF Routines                              Page 9
+	    IPCF UUO's
+
+
+	                               IPCFR
+
+	               Receive next packet (if any) from IPCF
+
+
+	    Call:
+	            ERROR = IPCFR(FLAGS,SENDP,RECP,PACKET,LEN,SENPPN,CAP)
+
+
+
+	         IPCFR retrieves an IPCF packet from the  job's  receive
+	    queue.   LEN  and  FLAG  must  be  set up prior to the call.
+	    Using IPCFQ  or  the  associate  variable  obtained  from  a
+	    previous  IPCFR  call, the length (LEN) of the packet may be
+	    obtained.  After the packet has been received, its  contents
+	    (LEN words) get placed in PACKET.  The actual flags from the
+	    packet replace the value of  FLAGS  that  IPCFR  was  called
+	    with.   SENDP  and  RECP are replaced with the values of the
+	    senders pid and receivers pid.  SENPPN is  filled  with  the
+	    PPN  of  the  sender.   CAP contains the capabilities of the
+	    packet sender.  The possible capabilities of  a  sender  are
+	    listed below (by bit position):
+
+	            0       IP.JAC        The sender has the JACCT bit
+	                                  turned on
+	            1       IP.JLG        The sender is logged in
+	            2       IP.SXO        The sender is execute-only
+	            3       IP.POK        The sender has POKE privileges
+	            4       IP.IPC        The sender is an IPCF
+	                                  privileged job
+
+
+
+	         Upon return, ERROR can contain one of three things:  if
+	    zero,  a  packet  was  received  and  no error condition was
+	    detected.  If the left half of ERROR (bits  0-17)  is  zero,
+	    then  the right half contains a standard error code.  If the
+	    left half is not zero then ERROR is an  associate  variable.
+	    This  indicates  that  a  packet  was received and that more
+	    packets are in your IPCF queue and should  be  received  via
+	    IPCFR.   The associate variable contains both the length and
+	    right half of the flag word of the next packet in the queue.
+	    The format of the associate variable is as follows:
+
+	              ------------------------------------
+	              [       LEN     I  RH of Flag word ]
+	              ------------------------------------
+
+
+	    Fortran-10 IPCF Routines                             Page 10
+	    IPCF UUO's
+
+
+	                               IPCFQ
+
+	      Return the status of the next packet in the input queue
+
+
+	    Call:
+	            ERROR = IPCFQ(FLAGS,SENDP,RECP,MESWRD,SENPPN,CAP)
+
+
+
+	         IPCFQ will check the status of the next packet  in  the
+	    receiver's  queue.   It  is  wise to query IPCF (with IPCFQ)
+	    before a job tries to receive its first packet, in order  to
+	    determine  whether  or  not  the  first  packet is a page or
+	    n-number of words.  If the message in the queue is  a  page,
+	    the  receiver  must  set  bit 19 in FLAGS when receiving the
+	    packet with IPCFR.
+
+
+	         FLAGS, SENP, RECP, SENPPN, and CAP all contain the same
+	    information  they  would  if  you were to receive the packet
+	    with IPCFR (see IPCFR).  The left half  of  MESWRD  contains
+	    the  length of the message.  ERROR contains zero if no error
+	    was detected, else  the  IPCF  error  code  in  bits  30-35.
+	    Confusing (and misleading) is the fact that if you use IPCFQ
+	    and there is no packet in the queue,  no  error  message  is
+	    returned.   The  following example in peusdo Fortran-10 will
+	    demonstrate how to check for this.
+
+
+	    Example:
+
+	    C
+	    C       RETURN STATUS OF THE FIRST PACKET IN QUEUE
+	    C       SET X TO 1 IF NO PACKET
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            X = 0                   !ASSUME PACKET THERE
+	            SENDP = 0               !ENABLE TRAP IF PACKET THERE
+	            ERROR = IPCFQ(FLAGS,SENDP,RECP,MESWRD,SENPPN,CAP)
+	            IF (ERROR .NE. 0) GOTO (SOME OTHER IPCF ERROR)
+	            IF (SENDP .NE. 0) GOTO 10 !PACKET THERE
+	            X = 1                   !NO PACKET SINCE NO
+	                                    !SENDER'S PID
+	    10      [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 11
+	    Library Information
+
+
+	                   INFLIB and IPCLIB Information
+
+
+
+
+	         INFLIB and IPCLIB  are  two  libraries  (collection  of
+	    subroutines)   which   aid   in   using   [SYSTEM]INFO   and
+	    [SYSTEM]IPCC respectively.  For more information see chapter
+	    15  in the Monitor Calls Manual.  INFLIB and IPCLIB routines
+	    work  in  basically  the  same  manner.   That  sequence  is
+	    outlined below:
+
+	                            Clear Packet
+	                           Set up Packet
+	                        Send Packet (IPCFS)
+	                            Clear Packet
+	                       Receive Packet (IPCFR)
+	                           Return results
+
+
+	    Special notice:
+
+
+	         Because INFLIB and IPCLIB  routines  send  and  receive
+	    packets,  a restriction must be made.  Whenever one of these
+	    routines is called the user must insure that no packets  are
+	    in  the  input  queue (IPCFSH can do this) and that none are
+	    received during the subroutine's execution (unlikely).
+
+
+	    INFLIB and IPCLIB common parameters:
+
+
+	         Both libraries use common parameters in their calls.  A
+	    list of these parameters and their definitions follow.
+
+	    NAME
+	              Five  word  array  which  usually  contains  ASCII
+	              characters for a PID name.
+
+	    N
+	              Number of words to be used from NAME.
+
+	    CODE
+	              An 18-bit user declared quantity  associating  the
+	              answer   with  the  appropriate  request.   It  is
+	              suggested that the user always use zero for CODE.
+
+	    COPY
+	              COPY is the PID or job number of the job  that  is
+	              to  receive  a duplicate of the response.  If COPY
+	              contains zero, the response is sent  only  to  the
+	              originator of the request.
+	    Fortran-10 IPCF Routines                             Page 12
+	    Library Information
+
+
+	    PID
+	              Process ID
+
+	    JOBNUM
+	              job number
+
+	    FLAGS
+	              Flag word returned from IPCFR
+
+	    ERROR
+	              If ERROR is zero then no error was detected.  Bits
+	              12-17  indicate  a send error (IPCFS) was detected
+	              in the AC.  Bits 24-29 indicate  a  receive  error
+	              detected  in  the flags, and bits 30-35 indicate a
+	              receive error (IPCFR) detected in the AC.
+	    Fortran-10 IPCF Routines                             Page 13
+	    INFLIB Routines
+
+
+	                               INFCIW
+
+	                 Find the PID associated with NAME
+
+
+	    Call:
+	            PID = INFCIW(NAME,N,CODE,COPY,ERROR)
+
+
+
+	         Given an ASCII NAME (UP TO 29 CHARACTERS IN ARRAY NAME)
+	    [SYSTEM]INFO   attempts   to   find  (and  return)  the  PID
+	    associated with it.  The most common error code is  "76  (An
+	    unknown name has been specified).
+
+
+	    Example:
+
+	    C
+	    C       GET PID OF [SYSTEM]IPCC
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            DIMENSION NAME(5)
+	    C
+	    C       SET UP NAME
+	    C
+	            NAME(1) = '[SYST'
+	            NAME(2) = 'EM]IP'
+	            NAME(3) = 'CC'
+	    C
+	    C       GET PID
+	    C
+	            PID = INFCIW(NAME,3,0,0,ERROR)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 14
+	    INFLIB Routines
+
+
+	                               INFCIG
+
+	                    Return name of specified PID
+
+
+	    Call:
+	            FLAGS = INFCIG(PID,NAME,CODE,COPY,ERROR)
+
+
+
+	         Given a PID, [SYSTEM]INFO attempts  to  find  the  name
+	    associated  with  it.  The name is returned in the five word
+	    array NAME.  The most common error code is "74 (Unknown  PID
+	    has been specified).
+
+
+	    Example:
+
+	    C
+	    C       GET NAME OF 'PID'
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            DIMENSION NAME(5)
+	            [PROGRAM CONTINUES]
+	            DO 10 I1 = 1,5
+	    10      NAME(I1) = 0
+	            PID = (WHATEVER)
+	    C
+	    C       GET NAME
+	    C
+	            FLAGS = INFCIG(PID,NAME,0,0,ERROR)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 15
+	    INFLIB Routines
+
+
+	                               INFCII
+
+	            Get PID based on NAME (good till RESET UUO)
+
+
+	    Call:
+	            PID = INFCII(NAME,N,CODE,COPY,ERROR)
+
+
+
+	         [SYSTEM]INFO will create a PID  specified  by  NAME  (N
+	    word  array,  up  to  29 characters (5 words max)).  The PID
+	    will be disassociated from  the  job  number  when  the  job
+	    performs a RESET UUO.  Common error codes are "20 (PID table
+	    full...  this is rare), "73 (your PID quota (default is  two
+	    at  any  one  time)  has been exceeded), "75 (duplicate name
+	    exists), and "77 (NAME contains illegal characters).
+
+
+	    Example:
+
+	    C
+	    C       GET A PID FOR THE NAME 'SAILMAILFAIL'
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            DIMENSION NAME(5)
+	    C
+	    C       SET UP NAME
+	    C
+	            NAME(1) = 'SAILM'
+	            NAME(2) = 'AILFA'
+	            NAME(3) = 'IL'
+	    C
+	    C       GET PID
+	    C
+	            PID = INFCII(NAME,3,0,0,ERROR)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 16
+	    INFLIB Routines
+
+
+	                               INFCIJ
+
+	              Get PID based on NAME (good till logout)
+
+
+	    Call:
+	            PID = INFCIJ(NAME,N,CODE,COPY,ERROR)
+
+
+
+	         Same as INFCII except that the pid is  good  until  the
+	    job logs out.
+	    Fortran-10 IPCF Routines                             Page 17
+	    INFLIB Routines
+
+
+	                               INFCID
+
+	                         Drop specified PID
+
+
+	    Call:
+	            FLAGS = INFCID(PID,CODE,COPY,ERROR)
+
+
+
+	         [SYSTEM]INFO will disassociate the specified  PID  from
+	    its  job number.  This function can only be requested by the
+	    owner of the specified PID, unless the requester is an  IPCF
+	    privileged user.  The most common error code is "74 (unknown
+	    PID).
+
+
+	    Example:
+
+	    C
+	    C       DISASSOCIATE THE PID 'PID'
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            [PROGRAM CONTINUES]
+	            PID = (WHATEVER)
+	    C
+	    C       REMOVE PID
+	    C
+	            FLAGS = INFCID(PID,0,0,ERROR)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 18
+	    INFLIB Routines
+
+
+	                               INFCIR
+
+	                  Drop all PIDs created by INFCII
+
+
+	    Call:
+	            FLAGS = INFCIR(JOBNUM,CODE,COPY,ERROR)
+
+
+
+	         [SYSTEM]INFO  will  disassociate  all  PIDs  that  were
+	    created  by INFCII and are associated with the specified job
+	    number.  This function can be requested only by the owner of
+	    the   specified   job,  unless  the  requester  is  an  IPCF
+	    privileged user.
+
+
+	    Example:
+
+	    C
+	    C       DISASSOCIATE ALL 'INFCII PIDS' FOR MY JOB
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            JOBNUM = (MY JOB NUMBER)
+	            FLAGS = INFCIR(JOBNUM,0,0,ERROR)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 19
+	    INFLIB Routines
+
+
+	                               INFCIL
+
+	                  Drop all PIDs created by INFCIJ
+
+
+	    Call:
+	            FLAGS = INFCIR(JOBNUM,CODE,COPY,ERROR)
+
+
+
+	         [SYSTEM]INFO  will  disassociate  all  PIDs  that  were
+	    created  by INFCIJ and are associated with the specified job
+	    number.  This function can be requested only by the owner of
+	    the   specified   job,  unless  the  requester  is  an  IPCF
+	    privileged user.  See also INFCIR.
+	    Fortran-10 IPCF Routines                             Page 20
+	    IPCLIB Routines
+
+
+	                               IPCSE
+
+	                   Enable job to receive packets
+
+
+	    Call:
+	            ERROR = IPCSE(JOBNUM,CODE)
+
+
+
+	         [SYSTEM]IPCC will allow the  specified  job  number  to
+	    receive  packets.   If the requester is not the owner of the
+	    job specified, it  must  have  IPCF  privileges.   The  most
+	    common error code is "15 (insufficient privileges).
+
+
+	    Example:
+
+	    C
+	    C       ENABLE 'MYJOB' TO RECEIVE PACKETS
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            MYJOB = (MY JOB NUMBER)
+	            ERROR = IPCSE(MYJOB,0)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 21
+	    IPCLIB Routines
+
+
+	                               IPCSD
+
+	              Disable jobs ability to receive packets
+
+
+	    Call:
+	            ERROR = IPCSD(JOBNUM,CODE)
+
+
+
+	         [SYSTEM]IPCC will disable the specified  job's  ability
+	    to  receive packets.  If the requesting job is not the owner
+	    of the specified job number, it must have  IPCF  privileges.
+	    The most common error code is "15 (insufficient privileges).
+
+
+	    Example:
+
+	    C
+	    C       DISABLE ABILITY OF 'MYJOB' TO RECEIVE PACKETS
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            MYJOB = (MY JOB NUMBER)
+	            ERROR = IPCSE(MYJOB,0)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 22
+	    IPCLIB Routines
+
+
+	                               IPCSI
+
+	                     Return pid of [SYSTEM]INFO
+
+
+	    Call:
+	            PID = IPCSI(CODE,ERROR)
+
+
+
+	         [SYSTEM]IPCC  will  return  the  PID  associated   with
+	    [SYSTEM]INFO.   The  value  returned  will  be for the local
+	    [SYSTEM]INFO (if  there  is  one)  or  secondly  the  global
+	    [SYSTEM]INFO.   It  is recommended that the user instead use
+	    IPCTAB to obtain the pid of [SYSTEM]INFO.
+
+
+	    Example:
+
+	    C
+	    C       GET PID OF [SYSTEM]INFO
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            PID = IPCSI(0,ERROR)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 23
+	    IPCLIB Routines
+
+
+	                               IPCSJ
+
+	          Return job number associated with specified PID
+
+
+	    Call:
+	            JOBNUM = IPCSJ(PID,CODE,ERROR)
+
+
+
+	         [SYSTEM]IPCC will return the job number associated with
+	    the  specified  PID.   The  most  common  error  code is "74
+	    (Unknown PID).
+
+
+	    Example:
+
+	    C
+	    C       RETURN JOB NUMBER OF [SYSTEM]INFO
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            PID = IPCSI(0,ERROR)
+	            IF (ERROR .NE. 0) GOTO (ERROR HANDLER)
+	            JOBNUM = IPCSJ(PID,0,ERROR)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 24
+	    IPCLIB Routines
+
+
+	                               IPCSR
+
+	            Get send and receive quotas of specified job
+
+
+	    Call:
+	            ERROR = IPCSR(JOBNUM,SENDQ,RECQ,CODE)
+
+
+
+	         [SYSTEM]IPCC will respond with  the  send  and  receive
+	    quotas  associated  with  the specified job.  The send quota
+	    will be returned  in  SENDQ;   the  receive  quota  will  be
+	    returned  in  RECQ.   Probable  errors  include "17 (bad job
+	    number specified).
+
+
+	    Example:
+
+	    C
+	    C       FIND AND PRINT SEND AND RECEIVE QUOTAS FOR MY JOB
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            MYJOB = (MY JOB NUMBER)
+	            ERROR = IPCSR(MYJOB,SENDQ,RECQ,0)
+	    C
+	    C       PRINT RESULTS
+	    C
+	            IF (ERROR .NE. 0) GOTO 10
+	            WRITE(5,20) SENDQ
+	            WRITE(5,30) RECQ
+	    10      STOP
+	    20      FORMAT(' SEND QUOTA: ',I3)
+	    30      FORMAT(' RECEIVE QUOTA: ',I3)
+	            END
+	    Fortran-10 IPCF Routines                             Page 25
+	    Other routines
+
+
+	                               IPCTAB
+
+	                     Miscellaneous data on IPCF
+
+
+	    Call:
+	            RESULT = IPCTAB(ITEM)
+
+
+
+	         IPCTAB returns various types of information about  IPCF
+	    depending  on  the  value of ITEM.  The allowable values and
+	    their respective functions are shown below:
+
+	         0  %IPCML   Maximum packet length
+	         1  %IPCSI   PID of system-wide [SYSTEM]INFO
+	         2  %IPCDQ   Default quota
+	         3  %IPCTS   Total packets sent
+	         4  %IPCTO   Total packets outstanding
+	         5  %IPCCP   PID of [SYSTEM]IPCC
+	         6  %IPCPM   PID mask ("377)
+	         7  %IPCMP   Length of PID table
+	         8  %IPCNP   Number of PID's now defined
+	         9  %IPCTP   Total PID's defined since reload
+
+
+	    Example:
+
+	    C
+	    C       GET PID OF [SYSTEM]INFO
+	    C
+	            IMPLICIT INTEGER(A-Z)
+	            PID = IPCTAB(1)
+	            [PROGRAM CONTINUES]
+	    Fortran-10 IPCF Routines                             Page 26
+	    Other routines
+
+
+	                               IPCFSH
+
+	                  Flush any packets in IPCF queue
+
+
+	    Call:
+	            NUM = IPCFSH(ERROR)
+
+
+
+	         IPCFSH will receive any packets  waiting  in  the  IPCF
+	    queue.   The  number  of packets flushed is returned in NUM.
+	    The last error returned (from IPCFR)  is  stored  in  ERROR.
+	    This  function  is  good for initializing any IPCF activity,
+	    since it helps insure that your program will handle only the
+	    packets it wishes to.
+	    Fortran-10 IPCF Routines                             Page 27
+	    IPCF Error codes
+
+
+	                             Error Codes
+
+
+	               1   An address check was encountered
+	               2   The block is not long enough
+	               3   There is no packet in the receive queue
+	               5   The data is too long for the user's buffer
+	               6   Destination unknown
+	               7   The destination has been disabled
+	              10   The senders quota has been exceeded
+	              11   The receiver's quota has been exceeded
+	              12   There is no room in system storage
+	              13   Sender specified invalid page number
+	              14   Sender's PID invalid as specified
+	              15   Insufficient privileges
+	              16   Unknown function specified
+	              17   Bad job number has been specified
+	              20   PID table is full
+	              21   Bit 19 was set in flags word, but first
+	                   packet was not a page or visa versa
+	              22   Paging I/O error
+	              23   A bad index has been specified for system PID
+	                   table
+	              24   Undefined ID in system PID table
+	              70   [SYSTEM]INFO has an internal error
+	              71   [SYSTEM]IPCC request from [SYSTEM]INFO failed
+	              72   [SYSTEM]INFO failed to complete a request
+	              73   The PID quota has been exceeded
+	              74   Unknown PID has been specified
+	              75   A duplicate name has been specified
+	              76   An unknown name has been specified
+	              77   The name specified has illegal characters
+                                                                                                                                                             

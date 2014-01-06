@@ -1,0 +1,4556 @@
+
+
+
+
+
+
+
+
+
+
+
+
+                                IDENTIFICATION
+                                --------------
+
+        PRODUCT CODE:           AH-T101B-DD
+
+        DIAGNOSTIC CODE:        DFRPM
+
+        PRODUCT NAME:           DFRPMC0 - RP04/06/07 FORMATTER/EXERCISER
+
+        VERSION:                0.3
+
+        DATE RELEASED:          September 13, 1985
+
+        MAINTAINED BY:          36-bit Diagnostic Engineering
+
+        AUTHOR:                 Frank Gatulis
+
+        UPDATE AUTHOR:          Gregory A. Scott
+
+                        COPYRIGHT (C) 1982, 1984, 1985
+
+                DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+        THIS SOFTWARE IS FURNISHED UNDER A LICENSE FOR  USE  ONLY  ON  A
+        SINGLE COMPUTER SYSTEM AND MAY BE COPIED ONLY WITH THE INCLUSION
+        OF THE ABOVE COPYRIGHT NOTICE.   THIS  SOFTWARE,  OR  ANY  OTHER
+        COPIES  THEREOF, MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE
+        TO ANY OTHER PERSON EXCEPT FOR USE ON SUCH SYSTEM AND TO ONE WHO
+        AGREES  TO  THESE  LICENSE TERMS.  TITLE TO AND OWNERSHIP OF THE
+        SOFTWARE  SHALL  AT   ALL  TIMES  REMAIN  IN  DIGITAL  EQUIPMENT
+        CORPORATION.
+
+        THE INFORMATION IN THIS DOCUMENT IS SUBJECT  TO  CHANGE  WITHOUT
+        NOTICE  AND  SHOULD  NOT BE CONSTRUED AS A COMMITMENT BY DIGITAL
+        EQUIPMENT CORPORATION.
+
+        DIGITAL EQUIPMENT CORPORATION ASSUMES NO  RESPONSIBILITY FOR THE
+        USE  OR  RELIABILITY  OF  ITS SOFTWARE IN EQUIPMENT WHICH IS NOT
+        SUPPLIED BY DIGITAL EQUIPMENT CORPORATION.
+
+MAINDEC-10-DFRPM-B-D                                             Page ii
+Table of Contents                                              12 Sep 85
+
+
+                                                                    Page
+                                                                    ----
+
+        1.0     Program Abstract . . . . . . . . . . . . . . . . . . 1
+        1.1       Scope of this documentation  . . . . . . . . . . . 1
+        1.2       General program description  . . . . . . . . . . . 1
+        1.3       Pre-requisite software . . . . . . . . . . . . . . 1
+        1.4       Program size . . . . . . . . . . . . . . . . . . . 1
+        1.5       Program run time . . . . . . . . . . . . . . . . . 2
+        1.6       User mode capability . . . . . . . . . . . . . . . 2
+        1.7       Fault detection and isolation  . . . . . . . . . . 2
+        1.8       General user interface philosophy  . . . . . . . . 2
+        1.9       Compatibility  . . . . . . . . . . . . . . . . . . 3
+        1.9.1       CPU family . . . . . . . . . . . . . . . . . . . 3
+        1.9.2       Standard diagnostic support software . . . . . . 3
+        1.9.3       Operating systems  . . . . . . . . . . . . . . . 4
+        1.10      CPU/Memory failures  . . . . . . . . . . . . . . . 4
+        1.11      Power fail/restart . . . . . . . . . . . . . . . . 4
+        1.12      Disk drive failure . . . . . . . . . . . . . . . . 4
+        1.13      Restrictions . . . . . . . . . . . . . . . . . . . 4
+        1.13.1      User mode privileges . . . . . . . . . . . . . . 4
+        1.13.2      User mode transfer sizes . . . . . . . . . . . . 5
+        1.13.3      User mode timing tests . . . . . . . . . . . . . 5
+        1.13.4      User mode priority interrupts  . . . . . . . . . 5
+        1.14      DDRPI compatibility  . . . . . . . . . . . . . . . 5
+        1.15      Support of the RP06  . . . . . . . . . . . . . . . 5
+        1.16      Control and monitoring of ISS microdiagnostics . . 5
+        1.17      Support of the ISS CE cylinder for RP07  . . . . . 6
+
+        2.0     Hardware Requirements  . . . . . . . . . . . . . . . 6
+        2.1       CPU family . . . . . . . . . . . . . . . . . . . . 6
+        2.2       Memory . . . . . . . . . . . . . . . . . . . . . . 6
+        2.3       Load device  . . . . . . . . . . . . . . . . . . . 6
+        2.4       User interface to program  . . . . . . . . . . . . 6
+        2.5       Operating systems  . . . . . . . . . . . . . . . . 7
+
+        3.0     Functional Description . . . . . . . . . . . . . . . 7
+        3.1       Philosophical overview . . . . . . . . . . . . . . 7
+        3.2       Console sense switch options . . . . . . . . . .  11
+        3.3       Program start and restart philosophy . . . . . .  11
+        3.3.1       Initial program start up . . . . . . . . . . .  11
+        3.3.2       Optional restart address . . . . . . . . . . .  12
+        3.3.3       Control-C capability (Ctrl-C)  . . . . . . . .  12
+        3.3.4       Stopping the program . . . . . . . . . . . . .  12
+        3.4       Configuration of program and subsystem . . . . .  13
+        3.4.1       Finding RH20s and Drives . . . . . . . . . . .  13
+        3.4.2       Choosing devices and run time options  . . . .  14
+        3.4.3       Reconfiguration capability . . . . . . . . . .  15
+        3.4.4       Automatic configuration (Auto-config)  . . . .  15
+        3.4.5       Handling of user data on the media . . . . . .  15
+        3.4.6       Dual port configurations . . . . . . . . . . .  17
+        3.5       Modes of program operation . . . . . . . . . . .  18
+        3.6       Test dispatching . . . . . . . . . . . . . . . .  19
+        3.7       General test philosophy  . . . . . . . . . . . .  19
+MAINDEC-10-DFRPM-B-D                                          Page iii
+Table of Contents                                            12 Sep 85
+
+
+        3.8       Test specification and terminology . . . . . . .  20
+        3.9       Test flow (cycling through devices)  . . . . . .  21
+        3.9.1       Starting the test  . . . . . . . . . . . . . .  22
+        3.9.2       Stopping the test  . . . . . . . . . . . . . .  22
+        3.9.3       Obtaining run time status (S)  . . . . . . . .  23
+        3.9.4       Restarting the test  . . . . . . . . . . . . .  23
+        3.9.5       Parameter generation . . . . . . . . . . . . .  24
+        3.9.6       Scope looping  . . . . . . . . . . . . . . . .  25
+        3.9.7       Error printouts  . . . . . . . . . . . . . . .  25
+        3.10      Test and Utility descriptions  . . . . . . . . .  26
+        3.10.1      EX1 - recalibrate  . . . . . . . . . . . . . .  26
+        3.10.2      EX2 - recalibrate, seek  . . . . . . . . . . .  26
+        3.10.3      EX3 - recalibrate, search  . . . . . . . . . .  27
+        3.10.4      EX4 - seek, seek . . . . . . . . . . . . . . .  27
+        3.10.5      EX5 - search, search . . . . . . . . . . . . .  27
+        3.10.6      EX6 - seek, write, read, verify data . . . . .  28
+        3.10.7      EX7 - write, read, verify data . . . . . . . .  28
+        3.10.8      EX8 - seek, read . . . . . . . . . . . . . . .  29
+        3.10.9      EX9 - data test a specific area of the media .  29
+        3.10.10     EX10 - seek, write . . . . . . . . . . . . . .  31
+        3.10.11     EX11 - read, write, read . . . . . . . . . . .  32
+        3.10.12     EX12 - write, read, write  . . . . . . . . . .  32
+        3.10.13     RONLY - read only  . . . . . . . . . . . . . .  32
+        3.10.14     WONLY - write only . . . . . . . . . . . . . .  33
+        3.10.15     FORMAT - format the media  . . . . . . . . . .  33
+        3.10.16     NEWBAT - write new (clean) BAT blocks  . . . .  35
+        3.10.17     MAPOUT - manipulate BAT blocks . . . . . . . .  35
+        3.10.18     PAKINT - media initialize  . . . . . . . . . .  38
+        3.10.19     CONFIG - perform configuration dialogue  . . .  39
+        3.10.20     SKTST1 - Timing of incremental seeks . . . . .  39
+        3.10.21     SKTST2 - Timing of the seek operation  . . . .  40
+        3.10.22     SKTST3 - Timing seeks between any 2 cylinders   41
+        3.10.23     NEXTST - read/write/next test  . . . . . . . .  41
+        3.10.24     PEEK - examine areas of the media  . . . . . .  44
+        3.10.25     TOTALS - print accumulated totals  . . . . . .  44
+        3.10.26     TOTCLR - clear/reset totals counters . . . . .  45
+        3.10.27     TDLST - list track descriptor records  . . . .  45
+        3.10.28     TDBLD - write track descriptor record  . . . .  46
+        3.10.29     TD631 - write track descriptor record  . . . .  47
+        3.10.30     MODE - changing program run mode . . . . . . .  47
+        3.10.31     RUNTME - obtaining program run time  . . . . .  48
+        3.10.32     RUNZRO - resetting program runtime to zero . .  48
+        3.10.33     PGMSIZ - print current core usage  . . . . . .  48
+        3.10.34     EXIT - exit the program  . . . . . . . . . . .  48
+        3.11      BAT BLOCK handling philosophy  . . . . . . . . .  49
+        3.11.1      Important considerations and suggestions . . .  53
+        3.12      Error reporting  . . . . . . . . . . . . . . . .  53
+        3.12.1      Reporting of hardware detected errors  . . . .  54
+        3.12.1.1      Reducing error printout  . . . . . . . . . .  54
+        3.12.2      User input errors at the terminal  . . . . . .  56
+        3.13      Maintenance areas on the media . . . . . . . . .  56
+        3.14      Program retry of commands  . . . . . . . . . . .  56
+        3.14.1      Write track descriptor (write TD)  . . . . . .  57
+        3.14.2      Read track descriptor (read TD)  . . . . . . .  57
+MAINDEC-10-DFRPM-B-D                                           Page iv
+Table of Contents                                            12 Sep 85
+
+
+        3.14.3      Write header and data (format) . . . . . . . .  57
+        3.14.4      Read headers and data (read H+D) . . . . . . .  57
+        3.14.5      Write Data (write) . . . . . . . . . . . . . .  57
+        3.14.6      Read Data (read) . . . . . . . . . . . . . . .  58
+        3.14.7      Recalibrate positioner (recal) . . . . . . . .  58
+        3.14.8      Seek command (seek)  . . . . . . . . . . . . .  58
+        3.14.9      Search command (search)  . . . . . . . . . . .  58
+        3.14.10     Offset command (offset)  . . . . . . . . . . .  58
+        3.14.11     Return to centerline command (return)  . . . .  59
+        3.15      Watchdog timing of tests . . . . . . . . . . . .  59
+
+        4.0     Interfaces . . . . . . . . . . . . . . . . . . . .  59
+        4.1       Diagnostic software interfaces . . . . . . . . .  59
+        4.2       Operating systems interfaces . . . . . . . . . .  59
+
+        5.0     Glossary . . . . . . . . . . . . . . . . . . . . .  59
+        6.0     Appendix-A . . . . . . . . . . . . . . . . . . . .  61
+MAINDEC-10-DFRPM-B-D                                            Page 1
+Program Abstract                                             12 Sep 85
+
+
+1.0  Program Abstract
+
+    1.1  Scope of this documentation
+
+    This is the documentation for the RP07 Formatter/Exerciser which  is
+    named  DFRPM.   To clarify the descriptions of user interfaces, this
+    document  makes  references  to  figures  that  depict  user/program
+    interface  dialogue.  All of the figures are arranged numerically in
+    Appendix-A.
+
+
+
+    1.2  General program description
+
+    DFRPM will function as the  formatter  and  multi-drive  performance
+    exerciser  for  RP07s attached to RH20 Massbus controllers on the KL
+    family of computers.  Although not an  original  requirement,  DFRPM
+    will  also  interface to RP06s.  DFRPM will support any electrically
+    possible configuration of RP06s/RP07s/RH20s.  DFRPM will run in EXEC
+    and USER mode under both TOPS-10 and TOPS-20 and unless specifically
+    stated in certain areas will provide identical functionality in both
+    EXEC   and  USER  mode.   The  program  is  designed  with  adequate
+    functionality and safeguards to allow its  operation  on  the  fixed
+    media  RP07  or  the RP06 disk pack drive in both exec and user mode
+    without loss of customer data that may be on the media.  DFRPM along
+    with  the  standard  diagnostic  subroutine package and monitor will
+    load and execute in less than 75k of memory.
+
+
+
+    1.3  Pre-requisite software
+
+    DFRPM assumes no solid faults exist in the CPU/Memory/RH20  hardware
+    for  it  to  operate predictably.  The following diagnostics must be
+    run prior to DFRPM:
+
+         o  CPU and Memory diagnostics (all)
+         o  RH20 fault isolation diagnostic (DFRHB)
+         o  RP07 basic diagnostic (DFRPN) which includes the running  of
+            all of the ISS microdiagnostics
+         o  RP06 basic diagnostic (DFRPK)
+
+
+
+
+    1.4  Program size
+
+    In the majority of system configurations DFRPM will load and execute
+    in  less  than  75k  of memory.  Approximately 16k of that memory is
+    dedicated to standard diagnostic software (Subrtn, Diamon,Klddt)  so
+    the  actual  diagnostic  segment will be less than 58k.  The program
+    may exceed 75k on systems containing many drives as it will  require
+    approximately  1k  additional  core  for  each  drive  that the user
+    selects for testing.  The additional space is required  for  storage
+MAINDEC-10-DFRPM-B-D                                            Page 2
+Program Abstract                                             12 Sep 85
+
+
+    of  BAT  block  tables,  error  logs,  and  statistical  information
+    particular to each drive.  The program is  optimum  in  the  respect
+    that   it  dynamically  expands  only  as  required  by  the  system
+    configuration.
+
+
+
+    1.5  Program run time
+
+    Program runtime varies according to the sequence of tests  that  are
+    chosen  and  the  number  of  drives  being tested.  In default mode
+    (acceptance mode) the average run  time  is  about  1.25  hours  per
+    drive.
+
+
+
+    1.6  User mode capability
+
+    DFRPM will run in user mode (timesharing)  under  TOPS-10(7.01)  and
+    TOPS-20(4.0).   Both  of  these  monitors must contain RP20 support.
+    Without RP20 support the DIAG JSYS/UUO has  insufficient  capability
+    to support this software.  User mode capability under older versions
+    of  the  monitor  is  not  supported.   The  user  mode   diagnostic
+    capability of the exerciser is accomplished entirely through the use
+    of the DIAG JSYS/UUO (program performs its own I/O in  a  real  time
+    privileged  environment).   There are some restrictions imposed upon
+    the diagnostic in user mode  that  are  listed  in  the  appropriate
+    section.
+
+
+
+    1.7  Fault detection and isolation
+
+    The purpose of DFRPM is not to diagnose but to subject the drive  to
+    rigorous   functional  activity  while  continually  monitoring  and
+    reporting transient errors or inconsistencies that occur in the disk
+    subsystem.   The program is functional in nature and relies on drive
+    registers, RH20 status, internal channel status and data  in  memory
+    as  a  means  of detecting subsystem errors.  Through an analysis of
+    status information printed with each error you can easily isolate to
+    a  failing  function  (read,  write,  seek,  etc).   There  are many
+    detailed error bits in the various hardware components of  the  disk
+    subsystem  that  will  help  in  further diagnosis of a fault but no
+    analysis is performed by the program.  The program does not  provide
+    module (FRU) isolation.
+
+
+
+    1.8  General user interface philosophy
+
+    On OUTPUT the messages will be clear and concise.   Decimal  numbers
+    are always followed by a point.  Numbers without the point are octal
+    with the exception of the dumping of RP07 maintenance  register  and
+    error codes which are 2 digit hexadecimal to be consistent with RP07
+MAINDEC-10-DFRPM-B-D                                            Page 3
+Program Abstract                                             12 Sep 85
+
+
+    documentation and manuals.  Many  of  the  numbers  output  will  be
+    dumped  in  both  octal  and and decimal as it is often desirable in
+    disk  diagnostics  to  work  in  both  bases  when  analyzing  error
+    printouts.   The  notation  for outputting in both octal and decimal
+    will be the octal value first followed by the decimal equivalent  in
+    parenthesis (eg.  144(100.) ).
+
+    All INPUT will be preceded with a prompt.  All input will be checked
+    for  legality and incorrect responses will be followed by a reprompt
+    and in some cases an additional error message.  All numerical  input
+    may  be  in  either  octal  or  decimal where a period following the
+    number  indicates  decimal.   Any  point  in  the  program  allowing
+    multiple  input  options  will  support  a  help  message to further
+    explain the options (see fig-1).  The program requests only 3  types
+    of input, numerical, yes or no, and sixbit.
+
+    When an error is detected on numerical input the  program  reprompts
+    not  only  with  an  error  message but also prints out the range of
+    legal input that it will except (see fig-2).
+
+    When an error is detected on a yes or no input, the user  is  merely
+    reprompted (see fig-3).
+
+    When an error is detected on sixbit input the prompt  is  re-issued.
+    The  user  can  then  query  the  program for further information by
+    asking for help (see fig-4).
+
+    The goal is to make the user interface so simple and  complete  that
+    he  can  run  the  program  without  any pre-requisite reading.  The
+    program will "LEAD" (see fig-5 as an example of leading dialogue).
+
+
+
+    1.9  Compatibility
+
+    1.9.1  CPU family
+
+    DFRPM will be compatible with all models of DECsystem 10/20  systems
+    having the RH20 as the system Massbus controller.
+
+
+
+    1.9.2  Standard diagnostic support software
+
+    DFRPM will  be  compatible  with  all  of  the  standard  diagnostic
+    loaders, monitors, subroutines.
+MAINDEC-10-DFRPM-B-D                                            Page 4
+Program Abstract                                             12 Sep 85
+
+
+    1.9.3  Operating systems
+
+    DFRPM will be fully supported  in  user  mode  under  the  following
+    monitors:
+
+         o  TOPS-10 release 7.01 (with RP20 support) or newer
+         o  TOPS-20 release 4.0 (with RP20 support) or newer
+
+    The program will not be supported on older versions of  the  monitor
+    since it requires the enhancements to the DIAG JSYS/UUO which do not
+    exist in earlier monitors.
+
+
+
+    1.10  CPU/Memory failures
+
+    Most CPU and Memory faults are FATAL errors to the  program  and  it
+    will  not  be able to continue.  The program may survive some memory
+    parity errors.  If the parity error is in the program  data  buffer,
+    the  program  will  be  allowed to continue.  If the error is in the
+    program area itself, the error is considered FATAL.
+
+
+
+    1.11  Power fail/restart
+
+    Not Supported
+
+
+
+    1.12  Disk drive failure
+
+    Failure in one or more of the disk drives under test is tolerated by
+    the  program.   The  program will attempt error recovery on any disk
+    subsystem related errors.  Hard and soft errors will be  logged  and
+    the program will continue.  In the event that an UNSAFE or permanent
+    error (RP07) condition occurs in the drive, the program will  merely
+    stop  testing  the  unsafe  unit(s)  and continue testing with other
+    drives.  A permanent error in the RP07 is defined to  be  any  error
+    condition that persists through 3 drive clear attempts.
+
+
+
+    1.13  Restrictions
+
+    1.13.1  User mode privileges
+
+    Under TOPS-10 the user will be required to be running  as  [1,2]  or
+    have the JP.POK privilege in order to run the program.
+
+    Under TOPS-20 a user must have at least  MAINTENANCE  privileges  to
+    run   the  program.   WHEELs  and  OPERATORs  also  have  sufficient
+    privileges to run the program in user mode.
+MAINDEC-10-DFRPM-B-D                                            Page 5
+Program Abstract                                             12 Sep 85
+
+
+    1.13.2  User mode transfer sizes
+
+    In user mode, all transfers are restricted  to  being  multiples  of
+    full  sectors  of data since zero fill cannot be programmed with the
+    DIAG JSYS/UUO.  This restriction is of  little  consequence  in  the
+    exerciser  and  is mentioned only to make the point that the program
+    will enforce the restriction automatically.
+
+
+
+    1.13.3  User mode timing tests
+
+    It is not possible to perform device  timing  tests  in  user  mode.
+    This   essentially   means  that  the  position  timing  tests,  and
+    read/write/next testing is possible only in exec mode.  The position
+    timing  tests  are  allowed  to  run  in  user  mode, but only as an
+    exercise of the hardware, the  actual  position  times  are  neither
+    measured or reported.
+
+
+
+    1.13.4  User mode priority interrupts
+
+    The diagnostic is not allowed to use the priority  interrupt  system
+    in  user  mode.   In  user  mode, the program will poll the hardware
+    registers for interrupt conditions.  The PI system IS used  in  exec
+    mode.
+
+
+
+    1.14  DDRPI compatibility
+
+    DFRPM makes no attempt to provide any  functional  compatibility  to
+    DDRPI.   Both  DFRPM and DDRPI contain a great deal of functionality
+    not found in the other program.
+
+
+
+    1.15  Support of the RP06
+
+    DFRPM is the RP07 formatter/exerciser  but  RP06  support  has  been
+    added  for  the  convenience  of  testing  disk  subsystems having a
+    mixture of both RP07s and RP06s.  The RP06 support in  this  program
+    is  intended  to  supplement  but  not  replace  the diagnostics and
+    exercisers currently available for RP06s.
+
+
+
+    1.16  Control and monitoring of ISS microdiagnostics
+
+    DFRPM contains no facility for controlling and monitoring  the  RP07
+    device resident microdiagnostics.  The resident microdiagnostics are
+    accessed only in the RP07 basic diagnostic (DFRPN).
+MAINDEC-10-DFRPM-B-D                                            Page 6
+Program Abstract                                             12 Sep 85
+
+
+    1.17  Support of the ISS CE cylinder for RP07
+
+    Cylinder 631 is the innermost cylinder on the drive and is  reserved
+    for  exclusive  use by the drive microdiagnostics and the RP07 basic
+    diagnostic (DFRPN) if desired.  There is only  one  routine  in  the
+    formatter/exerciser that is capable of even accessing that cylinder.
+    This limited support is found in the routine "TD631" that allows you
+    to  selectively  rebuild  track descriptor records on that cylinder.
+    To the remainder of DFRPM, this cylinder is not even  considered  as
+    existing on the media.
+
+
+
+2.0  Hardware Requirements
+
+    2.1  CPU family
+
+    DFRPM will run on any KL processor with an RH20 Massbus controller.
+
+
+
+    2.2  Memory
+
+    DFRPM requires at least 96K of memory of any type.   Memory  may  be
+    configured  in  any  manner (ie.  internal, external, interleaved in
+    any manner).  The key point is that the  programs  performance  will
+    not  be  effected  by memory and cache options other than an overall
+    program run time.
+
+
+
+    2.3  Load device
+
+    DFRPM will load from any standard load device.  Program  loading  is
+    is  a  function of the standard diagnostic loaders and monitors (ie.
+    Diamon, D20mon, Magmon, Kldcp etc.).
+
+
+
+    2.4  User interface to program
+
+    User interface to the  program  will  be  through  dialogue  at  the
+    terminal.  In exec mode, the console switches on the KL will be used
+    directly.  In  user  mode,  software  sense  switches  are  used  as
+    standard  procedure.   All operator/program dialogue is done through
+    the standard diagnostic subroutine package.   Sense  switch  options
+    are described in section-3.
+MAINDEC-10-DFRPM-B-D                                            Page 7
+Hardware Requirements                                        12 Sep 85
+
+
+    2.5  Operating systems
+
+    DFRPM runs in user mode under monitors supporting the DIAG JSYS/UUO.
+    The monitor feature is supported in the following monitors:
+
+         o  TOPS-10 (7.01) (With RP20 support) or newer.
+         o  TOPS-20 (4.0) (With RP20 support) or newer.
+
+    The program will not be supported on older versions of  the  monitor
+    since it requires the enhancements to the DIAG JSYS/UUO which do not
+    exist in earlier monitors.
+
+
+
+3.0  Functional Description
+
+    This section provides a description of the functionality  that  will
+    be   provided   by   DFRPM  at  various  program  levels  (start-up,
+    configuration, test level, etc).
+
+
+
+    3.1  Philosophical overview
+
+    The functionality provided in this exerciser  was  determined  after
+    examining   the  needs  for  the  RP07  and  a  close  look  at  the
+    functionality provided by existing disk diagnostics, formatters, and
+    exercisers currently supported by diagnostic engineering.
+
+    Most  of  the  functional  enhancements,  compromises,  and  overall
+    functionality  of  DFRPM  can  best be understood by some very broad
+    comparisons to the functionality  of  the  existing  disk  exerciser
+    DDRPI.
+
+     o  DDRPI  is  a  very  powerful  tool  in  exec  mode.   It  looses
+        considerable  power  in  user mode under TOPS-10 because it does
+        dump mode I/O and is limited by  dump  mode  I/O  properties  of
+        TOPS-10.  Under TOPS-20 the situation is far worse.  The program
+        can do very little in user mode under  TOPS-20  because  of  the
+        even  greater  limitations  of dump mode I/O under TOPS-20.  The
+        there are 3  separate  I/O  portions  of  DDRPI  exec,  TOPS-10,
+        TOPS-20 which complicates the program.
+
+        DFRPM will provide nearly identical functionality in  exec  mode
+        and  under  both  TOPS-10 and TOPS-20 by using the DIAG JSYS/UUO
+        features as opposed to dump mode I/O  to  accomplish  user  mode
+        testing.   Briefly put, DFRPM will do all of its own I/O in real
+        time  using  DIAG  features  and  will  not  be  restricted   to
+        limitations  particular  to  either  of  the  operating systems.
+        There will is  one  I/O  interface  module  for  EXEC,  TOPS-10,
+        TOPS-20 and from the point of view of the user, functionality of
+        the program will be nearly identical in all three cases.
+MAINDEC-10-DFRPM-B-D                                            Page 8
+Functional Description                                       12 Sep 85
+
+
+     o  DDRPI is not capable of running on any fixed media device or for
+        that  matter is very limited to what can (or could) be done on a
+        system structure.  A scratch pack is almost a must and the drive
+        must  be  removed from system resources to accomplish any useful
+        testing.  DDRPI does not take advantage of the maintenance areas
+        that exist on disk pack media.
+
+        DFRPM has the capability to run on the maintenance areas of  all
+        type  disks  (both pack and fixed media).  It is possible to run
+        any test on any drive, even system structures while the  monitor
+        is  using  the  same  device  for  timesharing.  This ability is
+        achieved through a combination of program design and  the  added
+        capability of the DIAG JSYS/UUO.
+
+     o  DFRPM will not have the ability  to  write  entries  to  SYSERR.
+        DDRPI  detected  errors  are  written to SYSERR by the operating
+        system, not through the fault  of  the  program  but  simply  by
+        coincidence because the program has the MONITOR doing the I/O in
+        dump mode.  In fact, under TOPS-20 because of the  limited  dump
+        mode  capability,  If  the  monitor did not make SYSERR entries,
+        there would be no way to get device status at all  and  thus  no
+        error  reporting  capability  at all.  Again, because DFRPM does
+        all of its own I/O it has complete control of  the  devices  and
+        can  capture all status.  DFRPM supports the ability to have all
+        diagnostic I/O recorded in a disk file somewhere in the  system.
+        This  feature  is a standard switch option with all diagnostics.
+        The standard diagnostic error report will  contain  more  status
+        information than a syserr entry for the same error condition.
+
+     o  DDRPI provides no practical capability to LOOP  ON  ERROR.   I/O
+        from  DDRPI  is  performed  via  a complex memory management and
+        cueing scheme which results in the program not being able to  do
+        any  better  than loop on the last 10 (or so) commands that were
+        issued to a drive.  DFRPM will fully implement loop on error  to
+        the point where scope looping and troubleshooting is possible in
+        any test.  The philosophy here is that if a program  is  capable
+        of detecting an error under a given set of conditions, it should
+        be possible to recreate the failing  situation  as  a  means  to
+        reproduce and troubleshoot a malfunction.
+
+     o  DDRPI has a some number  of  exercises/tests  that  it  executes
+        where  it generates command sequences and variables yet the user
+        gets no control of those parameters.  In  DFRPM  the  tests  are
+        structured  to  first  generate  parameters and then execute the
+        test using  the  parameters.   The  key  difference  is  in  the
+        parameter  generation.   DFRPM  has a variable mode of operation
+        that allows EVERY parameter in every test to be specified by the
+        user in hope that the program can be used not only as a go/no-go
+        tool (like DDRPI) but a repair level tool as well.
+
+     o  DDRPI has 2 options when it comes to  mapping  the  media.   The
+        program  marks  hard errors as bad spots and in addition, allows
+        you the option to map out ALL of the soft errors or, NONE of the
+        soft  errors.   There  have  been many field requests to provide
+MAINDEC-10-DFRPM-B-D                                            Page 9
+Functional Description                                       12 Sep 85
+
+
+        some capability to map out soft spots on a selective basis since
+        even  a  soft  spot  can  cause  sufficient  system  performance
+        degradation if located in an area that gets accessed enough (ie.
+        the swapping space).
+
+        DFRPM has much more flexibility in  the  mapping  of  errors  by
+        nature  of  the  fact  that  the  program  keeps a more detailed
+        description of errors in core (both hard and soft) and the  user
+        has  the  ability to manipulate the program from his terminal to
+        determine exactly which errors will cause BAT block entries.
+
+     o  DFRPM will provide the ability to reconfigure the program at any
+        time  and later return to the original combination of drives and
+        controllers without loosing any statistical information  in  the
+        process.   In  general, all statistical information is saved for
+        all drives until you  either  tell  the  program  to  reset  its
+        counters  or,  restart  the  program  from  the initial starting
+        address.
+
+     o  DDRPI does not associate errors to a  particular  disk  address.
+        The consequence is that a single soft error spot is treated as a
+        new error each time the program stumbles upon it which makes the
+        programs  statistical  information  misleading (ie.  the program
+        may indicate 50 data checks over a period of time when  in  fact
+        they  were  all at the same disk address).  Needless to say this
+        gives a somewhat false indication of the actual  error  rate  of
+        the drive being tested.
+
+        DFRPM will keep track of errors  by  disk  address.   This  will
+        allow the program to keep more accurate statistical information.
+        This feature is also tied closely to error reporting and mapping
+        schemes   within   the   program  and  will  result  in  greater
+        functionality in these areas.
+
+     o  DDRPI has  code  that  attempts  to  keep  multiple  drives  and
+        controllers busy at the same time.  While the program advertises
+        to do this all the time there are actually only a  few  isolated
+        places  in  the  program where it works.  DDRPI is successful in
+        performing  multiple  controller  operations  during  read  only
+        (RONLY),  formatting (FORMAT), and random command test (RCTEST).
+        The other tests actually talk to one drive controller pair at  a
+        time  but  the  pairs are picked in such a way that if you watch
+        the drives moving you get  the  illusion  that  the  program  is
+        driving in full parallel.
+
+        This area is being mentioned now because it is one of the  areas
+        that is compromised in DFRPM.  DFRPM will in fact talk to only a
+        single drive/controller pair at a time.
+
+        This compromise will sacrifice some program speed in return  for
+        program   reliability   and   simplicity.    The   majority   of
+        deficiencies and bugs in DDRPI are a consequence of its  complex
+        cueing  scheme,  memory management, and its command executor all
+        which are in there to  achieve  parallel  controller  operation.
+MAINDEC-10-DFRPM-B-D                                           Page 10
+Functional Description                                       12 Sep 85
+
+
+        The  prime  advantage  of  DDRPI  in this scheme was during high
+        volume formatting of disk packs such as  producing  KLAD  packs.
+        DDRPI  can  format  and  map  packs  very  rapidly with parallel
+        processing which saves lots of time when you consider the number
+        of  KLAD packs produced.  Formatting and mapping with DFRPM will
+        be performed one drive at a time and will of course  be  slower.
+        With  the  RP07,  formatting  operations  are  performed  only a
+        fraction of the time we  format  and  map  disk  packs  and  the
+        increased time should not present a problem.
+
+     o  DDRPI has the limitation (built into the code) that it can  only
+        support  up  to  2  types  of  drives  at  a time.  It currently
+        supports RP04 and RP06 and if you wish to add a  new  drive  you
+        must give up either the RP04 or RP06 support.
+
+        DFRPM is designed for expandability.  The  addition  of  similar
+        Massbus  disks is simply the expansion of the programs parameter
+        tables.  The term similar is rather subjective.  The RP04, RP06,
+        RP07  are  similar  and  in fact are almost identical in the way
+        they are programmed.  The RP20 is not  functionally  similar  to
+        existing Massbus devices and is not supported in DFRPM.
+
+MAINDEC-10-DFRPM-B-D                                           Page 11
+Functional Description                                       12 Sep 85
+
+
+    3.2  Console sense switch options
+
+    The only switches used by the program are a subset of  the  standard
+    (left hand) sense switch options and are listed here.
+
+    400000  If set: abort program at end of this pass
+    200000  Not used
+    100000  Not used
+
+    040000  Inhibit all but FORCED printouts
+    020000  Output to LPT in exec mode, DFRPM.PNT in user mode
+    010000  Ring bell on error (bell is force printed)
+
+    004000  If set: loop upon first occurrence of error
+    002000  Halt on error (switch is ignored in user mode)
+    001000  If set: print all repetitions of errors in a scope loop
+            If reset: print only on first occurrence of error in loop
+
+    000400  Not used
+    000200  If set: use abbreviated printouts where possible
+    000100  If set: inhibit operation of KL paging hardware
+
+    000040  Not used
+    000020  If set (at startup): inhibit operation of cache
+    000010  Not used
+
+    000004  Not used
+    000002  Not used
+    000001  Not used
+
+    There are no right hand switch options in this program.   All  other
+    program options are selected through dialogue at the terminal.
+
+
+
+    3.3  Program start and restart philosophy
+
+    DFRPM provides an alternate starting address that allows you to  get
+    gracefully  back  into  the  program  following hardware or software
+    malfunctions or in many cases after a power down/up sequence if  the
+    program is in core memory.
+
+
+
+    3.3.1  Initial program start up
+
+    The inital starting address is at 30000.  Starting  the  program  at
+    30000 (the normal address) causes the program to be completely reset
+    along  with  the  reinitialization  of  the  diagnostic   subroutine
+    package.   This  step  actually  needs  to  be  done only once after
+    initial program load.  Starting at 30000 is identical to typing  the
+    STD command to KLDCP and results in maximum dialogue at the terminal
+    (see fig-6).
+MAINDEC-10-DFRPM-B-D                                           Page 12
+Functional Description                                       12 Sep 85
+
+
+    3.3.2  Optional restart address
+
+    The optional starting address at 30004 gives you ability to restart,
+    reconfigure  if  desired,  and  preserve already accumulated program
+    statistics.  In addition, dialogue is very brief if  you  choose  to
+    keep  the same configuration.  If you choose not to reconfigure, you
+    will have to enter only minimum dialogue to get the program  running
+    again (see fig-7 and fig-8).
+
+
+
+    3.3.3  Control-C capability (Ctrl-C)
+
+    The program supports the CTRL-C and CONTINUE commands in  user  mode
+    only  for both TOPS-10 and TOPS-20.  The CTRL-C intercept is honored
+    by the program at the completion of its  next  I/O  operation.   The
+    program  honors  the  CTRL-C  by cleanly terminating the program and
+    returning to monitor level.  If a CONTINUE command  is  issued  from
+    monitor  level,  the program will resume execution as if it were not
+    interrupted.
+
+
+
+    3.3.4  Stopping the program
+
+    There is only 1 recommended  way  to  terminate  the  program.   The
+    program  should  be stopped by typing (altmode, esc) and allowing it
+    to come back to the "What Test" prompt.  Once you are at the  prompt
+    you  may  want  to  consider how you wish to deal with the following
+    possibilities:
+
+     o  If you've been running on a non-structure you may  wish  to  run
+        mapout  before  you're  done.   Keep  in  mind  that  under this
+        situation your BAT blocks may have been wiped  by  some  of  the
+        testing  you've  been  doing and running mapout will remedy this
+        situation.  Another reason for wanting to run mapout is  to  get
+        current  bad  spot  information transferred from the mapout data
+        base to the BAT blocks.  When the program finds  bad  spots,  it
+        puts  them  in its data base but its up to you (the user) to get
+        them transferred to the BAT blocks.
+
+     o  You may want to obtain totals at the end of a session.   If  you
+        are  running in default mode you get an automatic totals dump of
+        all of the originally selected drives before the program returns
+        to the "what test" prompt.
+
+
+    Once you are satisfied that you are  through,  you  may  leave  with
+    either a control-c or an exit command from the prompt.
+MAINDEC-10-DFRPM-B-D                                           Page 13
+Functional Description                                       12 Sep 85
+
+
+    3.4  Configuration of program and subsystem
+
+    This section outlines the operations of configuring the  program  to
+    the  system  at  run  time.  There is a whole section of the program
+    dedicated to configuration.  Several functional steps  are  executed
+    in configuring the program (see fig-10):
+
+     o  The program goes out and polls  the  system  in  an  attempt  to
+        determine  which  Massbus controllers and drives are attached to
+        the system (this step is also performed in user mode).
+
+     o  The program then reports the configuration on the terminal.   By
+        now  the  program  has  built  tables that identify the hardware
+        configuration.
+
+     o  The program then allows the user to select  the  controllers  he
+        wishes to use during the diagnostic.
+
+     o  The program will then allow the user to run  down  the  list  of
+        selected  controllers  and  pick the drives he wishes to test on
+        each.
+
+     o  The program then goes to each of the selected drives and does  a
+        status  check  of  the  hardware, reports some properties of the
+        device, and allows the  user  to  select  some  of  the  program
+        options  that  are  applied  on  a  per  drive  basis.  When the
+        dialogue is complete, the programs data base and options will be
+        complete.   During the configuring of the individual drives, the
+        program expands in memory building tables, status  areas,  error
+        logging  areas,  and  statistics  storage  areas.   The  program
+        requires about 1k for each drive  that  is  selected  for  test.
+        This  status  area is known as the device status block (DSB) and
+        holds all information that is stored on a per-drive basis.  Once
+        established,  the  DSB  area  for  a  drive  will never go away.
+        Additional DSBs can be added by  re-configuring  (with  CONFIG).
+        By  de-selecting  a  particular drive (using CONFIG) the program
+        just avoids looking at the DSB area.  You get DSB data  back  by
+        re-selecting (again with CONFIG).
+
+
+
+
+    3.4.1  Finding RH20s and Drives
+
+    In user mode the program reads the CONI status for each of the 8 RHs
+    and if NON-0, assumes the controller exists.
+
+    In exec mode the program looks for any of the 8 possible RH20s.  The
+    existence  of  a particular RH20 is tested for by first clearing him
+    and then setting his PIA bits and checking for proper response.  The
+    program  will  allow  an RH20 to be used if the following conditions
+    are met:
+MAINDEC-10-DFRPM-B-D                                           Page 14
+Functional Description                                       12 Sep 85
+
+
+     o  Bit-0 of the RH20 CONI status is clear (zero)
+
+     o  The PIA bits can be set to 7 and cleared with an RHCLR
+
+     o  No RH20 error conditions exist following the RHCLR
+
+
+    There are several criteria that must  be  met  for  the  program  to
+    recognize  the  existence of a testable, useable drive on any of the
+    Massbus controllers.  Drives are only looked for on controllers that
+    passed  the controller criteria mentioned in the previous step.  The
+    following criteria is then used for finding drives that are  allowed
+    by the program:
+
+     o  The drive must handshake properly when the drive  type  register
+        is read.
+
+     o  The drive type must match an entry in a list of drive types that
+        DFRPM is capable of testing.
+
+     o  RP07s must not be interleaved
+
+     o  The drive must be on-line (MOL=1)
+
+    The program is capable of detecting  and  reporting  the  fact  that
+    there  may  be  RP20s  on  the  system  but thats the extent of RP20
+    support.  The program will not allow you to test  them  even  though
+    they are detectable pieces of hardware.
+
+
+
+    3.4.2  Choosing devices and run time options
+
+    After selecting the drives and controlers  you  wish  to  test,  the
+    program  will  go  into  a  dialogue  mode  for each of the selected
+    devices (see fig-10).  This is the dialogue that allows you to  pick
+    and  choose the options that are applied on a per-drive basis.  Some
+    of the interactive functions are:
+
+     o  Determining if HOME and BAT blocks are on the media.
+
+     o  Establishing if there is user data on  the  media  and  how  the
+        program will protect that data.
+
+     o  Establishing proper hardware status (ie.  getting write  protect
+        switch  in  the  correct  state  and  insuring  that  medium  is
+        on-line).
+
+MAINDEC-10-DFRPM-B-D                                           Page 15
+Functional Description                                       12 Sep 85
+
+
+    3.4.3  Reconfiguration capability
+
+    The entire configuration package is constructed so it looks  like  a
+    test  within  DFRPM.   This  provides  the capability at any time to
+    change the configuration and/or modify your run time options without
+    re-initializing the program (see fig-11).
+
+
+
+    3.4.4  Automatic configuration (Auto-config)
+
+    Each time the program attempts to configure, either  at  startup  or
+    when  you run "config" you are asked if you wish to Auto-config.  If
+    you answer "no" you will have to respond to the normal configuration
+    questions and dialogue.
+
+    If you choose to Auto-config, the program merely goes through all of
+    the  same dialogue but automatically answers all of the questions to
+    satisfy a pre-determined set of  default  conditions.   No  operator
+    response  is  required  until the program asks you to select the run
+    mode (MAN, VAR, DEF).
+
+    The default conditions for Auto-config are as follows:
+
+     o  All RHs and Drives that are detected  by  the  program  will  be
+        selected for test.  These are currently RP04/6/7s.
+
+     o  All of the drives will run under OPTION-1 which  means  "writes"
+        will  be  performed only on the maintenance cylinder but "reads"
+        and "positions" will be allowed all over the media.   This  mode
+        protects any data that may be on the media.
+
+
+
+
+    3.4.5  Handling of user data on the media
+
+    During configuration of the program the software goes out and  reads
+    both  HOME  blocks  and both BAT blocks.  If any one of the 4 blocks
+    looks valid, the diagnostic assumes there MAY be  customer  data  on
+    the  media  and will prompt the user with a question to that effect.
+    If the user answers no to BOTH the prompt and the confirm  (are  you
+    sure) message, the diagnostic will use the media just like a scratch
+    media.  (see additional note below).
+
+    If the user indicates  that  there  is  data  on  the  media  to  be
+    preserved,  the  diagnostic  will  never  perform  write  operations
+    anywhere but on the maintenance cylinder which is the last  cylinder
+    on  the  media.   Some drives have a larger maintenance area but for
+    the sake of uniformity, DFRPM will use  only  the  last,  innermost,
+    cylinder  as  the  maintenance  cylinder  on  all  of  the drives it
+    supports.
+MAINDEC-10-DFRPM-B-D                                           Page 16
+Functional Description                                       12 Sep 85
+
+
+    Aside from writing only to the maintenance area there are actually 2
+    options  the  user  has to pick from when there is data on the media
+    that must be preserved:
+
+    1.  Option-1 allows the program to read and position anywhere on the
+        media but restricts all writes to the maintenance cylinder.
+
+    2.  Option-2  forces  the  program  to  do  all  operations  to  the
+        maintenance  area.   Nothing  will  be  done anywhere but on the
+        maintenance cylinder.
+
+
+
+                                    NOTE
+
+
+        There is another level  of  protection  in  the  diagnostic.
+        Under TOPS-20, the program does an MSTR JSYS to determine if
+        the selected drive is part of a currently mounted structure.
+        If so, the program will not allow write options anywhere but
+        the maintenance  cylinder.   Under  TOPS-10  the  diagnostic
+        reads  the  structure name out of the HOME block, and does a
+        DEVNAM UUO to determine if  a  structure  of  that  name  is
+        currently mounted.  If so, the program will not allow writes
+        anywhere but on the maintenance cylinder.  (fig-20  shows  a
+        typical example).
+
+
+
+    The determination of whether the data on the media must be preserved
+    is  part  of the configuration process and is applied on a per-drive
+    basis.  The options can always be reselected by running CONFIG  once
+    more.
+
+    The  actual  protection  of  the  areas  takes  place  at  parameter
+    generation  time  in each test.  All of the parameters are generated
+    at a common place in the program and this section of the  code  does
+    all  of  the  testing and adjusting of the test variables to protect
+    against the destruction of user data.
+
+    Finally,  there  is  one  more  level  of  protection  against   the
+    accidental  destruction  of user data on the media.  This last check
+    is designed to  catch  any  unknown  program  bugs.   All  transfers
+    originate  from a common routine in the program called XFSTRT.  This
+    routine is supplied with the type of transfer (the command) and  the
+    disk  address  for that transfer.  The first thing that this routine
+    does is examine the command and the  address  to  determine  if  the
+    program  is  about  to  write  over  data  that  we  are supposed to
+    preserve.  We established this option at configuration  time  either
+    because  we  have  a  mounted  structure  or  the  user answered the
+    questions accordingly.  If the program decides that it is  about  to
+    clobber  some  user  data,  it first prints a message to that effect
+    (see fig-36) and then FATALS out (for the good of  everyone).   This
+    is  a  situation  that should never occur and if it does, diagnostic
+MAINDEC-10-DFRPM-B-D                                           Page 17
+Functional Description                                       12 Sep 85
+
+
+    engineering should be notified so the  bug  can  be  identified  and
+    repaired.
+
+
+
+    3.4.6  Dual port configurations
+
+    DFRPM does not contain explicit tests for the dual port  arbitration
+    logic.   The arbitration testing is provided in the basic diagnostic
+    for the particular drive:
+
+     o  RP07 Basic diagnostic is DFRPN
+     o  RP06 Basic diagnostic is DFRPK
+     o  RP04 Basic diagnostic is DFRPH
+
+
+    DFRPM will operate predictably on systems that are  configured  with
+    dual  ported  drives.   DFRPM exhibits the following properties with
+    respect to dual ported configurations.
+
+     o  Case-1:  A single CPU where some or all of the drives  are  dual
+        ported  in  some  fashion between the RHs on that system.  DFRPM
+        will treat each drive on each controller as if it were connected
+        only  to  that  controller.  The program realizes that the drive
+        may be dual ported to some other RH but doesn't  care.   If  for
+        example  we  have Drive-3 dual ported between RH-540 and RH-554,
+        DFRPM will test this  configuration  as  if  2  separate  drives
+        exist.   What  this  means  is that all of the tests will run on
+        each of the ports and the totals information will be  separated.
+        If  you  wish  to actually test the drive from only one port you
+        need only select that particular drive for test.
+
+     o  Case-2:  A multiple CPU system with  one  or  more  drives  dual
+        ported  between  those  systems.  In a multiple CPU system DFRPM
+        will be running in only one of those CPUs and will only be  able
+        to  see  the  drive  ports  attached to that CPU.  The choice of
+        which CPU is a question  that  is  asked  in  the  configuration
+        dialogue if you are running in user mode.  It is perfectly legal
+        to run one copy of DFRPM in each CPU and access  the  drives  in
+        that manner but consider:
+
+         o  In user mode we are using the Diag JSYS/UUO and  this  means
+            that  although 2 copies of the program are running, they can
+            never simultaneously access both ports of  a  drive  at  the
+            same time because of Job scheduling.
+
+         o  In exec mode you may have a copy of the program  running  in
+            each  CPU  and  their operation will be totally asyncronous.
+            In  this  instance  it  will  be  likely  that   some   port
+            arbitration  will  take  place  (but  cannot be guaranteed).
+            DFRPM has logic that allows it to perform correctly in  this
+            "Dynamic Dual Port" environment.
+
+MAINDEC-10-DFRPM-B-D                                           Page 18
+Functional Description                                       12 Sep 85
+
+
+     o  During configuration, DFRPM will print a map of the various  RHs
+        and  Drives that are on the system (see fig-8).  In user mode or
+        an exec mode multiple CPU system, there  is  a  low  probability
+        that  there  is  a  drive  out  there  that the program will not
+        detect.  This happens when the program goes out to  look  for  a
+        drive  at a particular address but the drive is currently in use
+        on the other port by the operating system or another diagnostic.
+        This  will  not prevent you from attempting to select that drive
+        for test.  This minor inconvenience is a consequence of the  way
+        we  must  test  for  the  presence of drives and there is no way
+        around the problem  as  long  as  2  independent  processes  are
+        allowed to accesses the drives asyncronously.
+
+
+
+
+    3.5  Modes of program operation
+
+    There are 3 major modes of test control are provided in  DFRPM  (see
+    fig-12).   The  modes  of operation are called default (DEF), manual
+    (MAN) and, variable (VAR).  You always know the current mode because
+    the program has a unique prompt in each mode:
+
+     o  DEF> (implies default mode)
+
+     o  MAN> (implies manual mode)
+
+     o  VAR> (implies variable mode)
+
+
+    In default (DEF) mode the test sequencing and parameter  choice  are
+    entirely  under  control of the program.  The only user options will
+    be to choose single or multiple passes.  This is similar  to  ACCEPT
+    from  DDRPI.   The  program  merely executes a pre-determined set of
+    tests on each of the drives that have been selected for test.
+
+    Manual (MAN) mode allows the user to select  tests  individually  in
+    response  to  the "What test (or help) - " prompt.  The user selects
+    from the list of all possible tests that are implemented.
+
+    The variable (VAR) mode of operation allows the user to select tests
+    from  prompt level just as he does in manual mode.  In variable mode
+    however, the user has complete control over all parameters that  are
+    variable  in  the  test  he  has  selected.   In  this  instance the
+    parameters will be taken from the users terminal as opposed  to  the
+    random  number  generator  that  is  used in DEF and MAN modes.  The
+    variable mode provides the user with the capability to have complete
+    control over any test in the exerciser, a feature, which is intended
+    to be a valuable trouble shooting aid.
+MAINDEC-10-DFRPM-B-D                                           Page 19
+Functional Description                                       12 Sep 85
+
+
+    3.6  Test dispatching
+
+    The program has 2 test dispatchers, one for default mode and one for
+    manual  and  variable  mode.   The  dispatcher  used  in  manual and
+    variable  modes  provides  the  additional  dialogue,  control,  and
+    parsing  that  is required when the user is picking and choosing the
+    tests.
+
+    The function of the dispatcher (regardless of which) is to  properly
+    get  you  from  command  level to one of the implemented tests.  The
+    dispatcher merely scans a series of tables to determine things  like
+    legality  of test name, starting address, and iteration counts.  The
+    dispatcher knows nothing about the  particulars  of  the  test.   By
+    separating  the functions of dispatching and testing it is very easy
+    to add,  delete,  or  modify  tests  without  changing  the  control
+    structure  of  the  program.   The  handling  of  all test dependent
+    operations is done at the test level.
+
+
+
+    3.7  General test philosophy
+
+    The disk drive is viewed as a box that can perform only a few  basic
+    functions  (read, write, seek, search, etc).  The program is made up
+    of a series of tests/exercises that link these  operations  together
+    in  some  predetermined  sequences  in  order to cover the different
+    combinations of ways the functions can be performed.   Each  of  the
+    functions  has  various  parameters  associated with them (ie.  cyl,
+    surf, sect, size, etc) which in turn become the  variables  in  each
+    test.  The overall goals are then:
+
+     o  Provide a diagnostic that is made up of a  series  of  exercises
+        that  can  be run and monitored in order to determine drive data
+        and mechanical reliability reliability.
+
+     o  Provide (in the form of tests)  some  useful  utility  functions
+        that  are commonly used to support disk drives (ie.  formatters,
+        mappers, bad spot manipulator, etc).
+
+     o  Provide a level of test control that allows the  program  to  go
+        out and test the drives with a minimum of user dialogue.
+
+     o  Provide a level  of  test  control  which  allows  the  user  to
+        selectively  choose  a  test  from  the  programs  repertoire of
+        exercises and utilities.
+
+     o  Provide another level of manual test  control  that  allows  the
+        user to control the individual parameters for each test.
+
+     o  Report errors that  are  detected  during  the  running  of  the
+        exerciser and tally the counts in a log.
+
+MAINDEC-10-DFRPM-B-D                                           Page 20
+Functional Description                                       12 Sep 85
+
+
+    3.8  Test specification and terminology
+
+    This is an introduction to some of the terminology used to  describe
+    tests  both in this specification and in the actual program (through
+    dialogue at the terminal).   Each  test  has  a  name  of  up  to  6
+    characters  in length.  These names are recognized by the program as
+    being valid tests.  There are 2 levels of test description a general
+    description and a detailed description.
+
+    The general description is very  functional  and  is  used  at  test
+    dispatch  level  to give you an idea of what functions are performed
+    by the test.  A more detailed message is available at the test level
+    when  the  program is running in variable mode which guides the user
+    in the use of the variables for a  particular  test.   A  couple  of
+    examples:
+
+                              Example-1
+                              ---------
+
+        A test (or exercise) to seek between to cylinders using a SEARCH
+        command is described at the top (dispatch) level as follows:
+
+        EX5 - SEEK-X, SEEK-Y (USING A SEARCH)
+
+        This describes the function of the test without going  into  the
+        details  of  the  particular  parameters  and  is  all  that  is
+        necessary to run the test in either default or manual mode.
+
+        In variable mode there is another level of help  that  describes
+        the  test  in  more  detail.  This more detailed level tells the
+        user exactly which parameters he can control in a test  and  how
+        they are used.  Our example of EX5 translates to the following:
+
+        SEARCH - CYL1,SURF1,SECT1
+        SEARCH - CYL2,SURF2,SECT2
+
+        The Variables in this test are CYL1, SURF1, SECT1, CYL2,  SURF2,
+        SECT2  and will all be asked for by name at the terminal.  These
+        variables are actually names of locations in  the  program  that
+        are part of a larger parameter pool used by all of the tests.
+
+                              Example-2
+                              ---------
+
+        Another typical specification may be for test FOO and look  like
+        this:
+
+        FOO - WRITE, WRITE, READ, VERIFY (OPTIONAL)
+
+        Test FOO will first do 2 writes followed by a read  and  then  a
+        verification  of  data which is optionally specified by the user
+        if he is in variable mode.  The more detailed  test  level  help
+        message may look like this:
+MAINDEC-10-DFRPM-B-D                                           Page 21
+Functional Description                                       12 Sep 85
+
+
+        WRITE - CYL1, SURF1, SECT1, SIZE1, PAT1
+        WRITE - CYL2, SURF2, SECT2, SIZE2, PAT2
+        READ - CYL1, SURF1, SECT1, SIZE1
+
+        The uses of the variables here indicate that the first operation
+        will be a write to some disk address and the user has control of
+        the address, the size of the transfer and the data pattern  that
+        will  be  used.  The second command will be a write to some disk
+        address and and again the  user  has  complete  control  of  the
+        address,  the  transfer  size  and the data pattern that will be
+        used.  The third  function  uses  the  same  parameters  as  the
+        initial  write and therefore the test in this instance will read
+        and verify the data written by the first write command.
+
+    These 2 examples are typical of the way the tests are  specified  in
+    the  descriptions of the tests/exercises.  There are some tests that
+    of course that have no parameters that vary and there are some  that
+    have  a  lot  more  and  require more user/program dialogue.  In all
+    cases,  sufficient  help,  prompting  and  input  checking  will  be
+    provided by the program.
+
+
+
+    3.9  Test flow (cycling through devices)
+
+    Each test/exercise has a number of iterations  associated  with  it.
+    In  default  mode,  a drive is chosen and then the test is run until
+    the iteration count is exhausted.  The next drive is chosen and  the
+    test  is  then  run  on  that  drive  until  the  iteration count is
+    exhausted.  This continues until the test  has  been  performed  the
+    correct  number  of  iterations  on all of the selected drives.  The
+    test then returns control to the dispatcher who will determine  what
+    to  do next (usually dispatch to next test).  While in default mode,
+    any parameters required by the test will be generated randomly  (ie.
+    cyl, surf, sect, size, data pattern, etc).
+
+    In manual mode, the test dispatcher gets you to a particular test, a
+    drive  is  chosen  and  then the test is run on that drive until the
+    iteration count is exhausted.  The next  drive  is  chosen  and  the
+    process  continues  until the test has been run the proper number of
+    iterations on all the drives selected for test.   After  running  on
+    all the selected drives, the test returns control to the manual mode
+    test diapatcher which asks the user again to select another test.
+
+    Handled somewhat differently is  variable  mode  when  the  user  is
+    specifying  both tests and parameters.  Built into the design of the
+    program is the assumption that we need a variable mode in  order  to
+    recreate  some  failing  condition  that we observed on a particular
+    drive so that it may be investigated and repaired.  The first effect
+    of this assumption is that when you enter a test, you do not want to
+    get out when an iteration count is exhausted.   Unless  specifically
+    stated in the test description, tests entered in variable mode never
+    return back to the  dispatcher  until  the  user  types  an  altmode
+    (escape) to the program.
+MAINDEC-10-DFRPM-B-D                                           Page 22
+Functional Description                                       12 Sep 85
+
+
+    The second consideration in variable mode is determining which drive
+    to use, keeping in mind the fact that once it starts it never stops.
+    When running in variable mode DFRPM choses the first drive of  those
+    selected  for  test  and  runs  the  test  only  on that drive.  The
+    cleanest way to use the program in variable mode  is  to  first  run
+    CONFIG  choosing  only  the drive you wish to test and then proceed.
+    This may sound cumbersome at first but  after  examining  a  lot  of
+    different  control  structures  this  scheme  results in the minimum
+    dialogue for the user and  the  most  reliable  way  to  reduce  the
+    functionality  to  code  without  running  a  risk  of confusing the
+    software.
+
+
+                                    NOTE
+
+        Realize that there ARE exceptions to the general  philosophy
+        of  variable mode.  For instance, it does not makes sense to
+        sit in a loop printing TOTALS or loop while running  CONFIG.
+        Some  of  the  program  utility  features are called up like
+        tests but are actually ONE-SHOT events if they  are  allowed
+        to be called in variable mode at all.
+
+
+
+
+
+    3.9.1  Starting the test
+
+    All tests are started automatically when arrived at  from  the  test
+    dispatcher.   All tests are self initializing and no particular test
+    order is mandatory.
+
+
+
+    3.9.2  Stopping the test
+
+    Tests can be stopped in several ways:
+
+     o  In default mode the test  dispatcher  sits  in  a  loop  cycling
+        through   a  list  of  tests  that  are  pre-determined  by  the
+        diagnostic.  The user can get back into  control  by  typing  an
+        altmode   to  the  program.   The  altmode  will  be  recognized
+        immediately if no printing is taking place and at the end of the
+        current error report if the program is in the middle of an error
+        report.
+
+     o  In manual mode, control will come back to the user  when  either
+        the  iteration  count  is exhausted or he types an altmode.  The
+        altmode will be recognized immediately if no printing is  taking
+        place  and at the end of the current error report if the program
+        is in the middle of an error report.
+MAINDEC-10-DFRPM-B-D                                           Page 23
+Functional Description                                       12 Sep 85
+
+
+     o  If the tests are being run in variable mode, the  only  way  for
+        the  user  to get back into control is to type the altmode.  The
+        altmode will be recognized immediately if no printing is  taking
+        place  and at the end of the current error report if the program
+        is in the middle of an error report.
+
+
+
+
+    3.9.3  Obtaining run time status (S)
+
+    The (S) function will be implemented as a method of  determining  if
+    the  program  is  still  running  or  stuck  in a loop of some sort.
+    Typing the character (S) while the program is  running  will  return
+    the  following  information  as  a way to insure that the program is
+    actively running (see fig-21).
+
+     o  Program run time (HH:MM:SS)
+     o  Name of current test
+     o  RH and DRIVE under test
+     o  Total read commands issued
+     o  Total write commands issued
+     o  Total position commands issued
+     o  Current Cylinder, Surface, Sector
+
+
+    These total counters are 36  bits  each  and  can  overflow  if  the
+    program  is  run for a long enough period.  There function is merely
+    to show that activity going on.  Their values are  of  no  practical
+    use.
+
+    The program services the (S) in a syncronus manner so there may be a
+    1  or  2 second delay before response takes place.  Like the altmode
+    response, you may have to wait for the  current  error  printout  to
+    complete before the (S) is honored.
+
+    Due to some minor differences  in  the  way  the  various  operating
+    systems and diagnostic support programs operate, it may be necessary
+    to type S<CR> in some configurations to obtain the runtime status.
+
+
+
+    3.9.4  Restarting the test
+
+    There is no way to jump back into the middle of a test once  it  has
+    been aborted with an altmode.
+
+    Typing an altmode in default mode  has  the  same  basic  effect  as
+    reaching  the  end of a pass.  If you abort out of default mode with
+    an altmode and then restart, the acceptance list will  be  restarted
+    from  the  beginning  but  totals  from  the  previous  run  will be
+    maintained unless the user intentionally chooses to  flush  them  by
+    executing TOTCLR.
+MAINDEC-10-DFRPM-B-D                                           Page 24
+Functional Description                                       12 Sep 85
+
+
+    In manual or variable mode you merely need to execute the test  once
+    more  and you'll have to re-specify the parameters if you're running
+    in variable mode.
+
+
+
+    3.9.5  Parameter generation
+
+    Parameters all come from a random number generator except  when  the
+    program  is  running  in  variable  mode.   In  the latter case, the
+    program will take input from the  terminal  instead  of  the  random
+    number  generator.  The validity of the parameters is always checked
+    regardless of where the numbers are originated.  As the numbers  are
+    generated  for the different variables, each is checked to see if it
+    will cause a data transfer or position operation to an area  of  the
+    media  that  was determined to be NOT USEABLE at configuration time.
+    In random number mode, bad or illegal numbers will be discarded  and
+    a  new  ones generated.  In the case of user input errors or invalid
+    numbers from the terminal, the user will get  an  error  message,  a
+    list of acceptable input and, a reprompt message (see fig-2).
+
+    There are a couple of general rules that are  key  to  understanding
+    the way parameters are generated during tests:
+
+     o  While the generation of cylinder numbers is random, it  is  also
+        closely  coupled  to,  and  influenced by, the flavor of command
+        (read, write, position) and a knowledge of whether  or  not  the
+        program is trying to preserve customer data on the media.
+
+     o  Once a cylinder number is known, the surface and sector for  the
+        start   of   the   transfer   is   generated  randomly  with  no
+        restrictions.  This implies that head switches  are  allowed  at
+        any point in the transfer.
+
+     o  The size of the transfer is generated after knowing the starting
+        address  of  the  transfer  and  is  restricted  somewhat by the
+        program such that the following rules apply:
+
+
+         o  The largest transfer allowed is a full tracks worth of  data
+            on any drive.
+
+         o  No transfer will be allowed to  cross  a  cylinder  boundry.
+            Mid-transfer seeks can not occur.
+
+         o  Transfers will be allowed to spiral between surfaces.
+
+         o  The minimum transfer size that the user  may  specify  is  1
+            36-bit  word,  however, inside the program a channel command
+            list is constructed that uses RH20 zero fill  to  round  the
+            transfer  to  the nearest full sector of data.  If this were
+            not done, the program would have to accept word count errors
+            as a NON error condition.
+MAINDEC-10-DFRPM-B-D                                           Page 25
+Functional Description                                       12 Sep 85
+
+
+         o  Some tests round out the  transfer  sizes  automatically  to
+            integral  multiples  of  full sectors or tracks (ie.  RONLY,
+            WONLY,  FORMAT,  etc).   This   is   noted   in   the   test
+            descriptions.
+
+
+     o  The choice of data patterns used for write operations is  pseudo
+        random.   The  program  contains  a  table  of  worst  case data
+        patterns for magnetic recording.  The random  pattern  selection
+        is  then really a random selection of one of the patterns in the
+        table.  In variable mode the same  philosophy  applies  but  the
+        user  also  has  the ability to specify a 36 bit data pattern of
+        his choice.
+
+
+
+
+    3.9.6  Scope looping
+
+    DFRPM supports the ability to loop on error  in  all  modes  if  the
+    appropriate sense switch is set and an error occurs.  Upon detection
+    of an error, The current parameters in the pool are frozen  and  the
+    program  will  be forced to loop in the particular I/O sequence that
+    caused the failure.  The loop uses only  the  controller/drive  pair
+    that  was  in  effect  at the time the error occurred.  Once a scope
+    loop is entered it can be interrupted by either clearing the loop on
+    error  switch  or  typing  an altmode to the program.  Note that the
+    altmode abort takes you all the way back to dispatch level while the
+    resetting of the switch allows you to proceed from wherever you were
+    looping.
+
+    When running in variable mode the loop  on  error  switch  has  very
+    little  effect  since your in an implicitly forced scope loop in the
+    first place.  The only effect of the loop on error  switch  in  this
+    mode  is  a  subtle  effect on the printing.  With the loop on error
+    switch set, only the first occurrence of an error is  printed  which
+    is standard procedure with this switch.
+
+
+
+    3.9.7  Error printouts
+
+    Error printouts closely resemble the error printouts  provided  with
+    existing disk diagnostics.  There are 4 basic parts:
+
+     o  The header of each message contains cosmetic information such as
+        test name, type of interrupt condition, program run time etc.
+
+     o  RH20 CONI status and registers are dumped
+
+     o  DRIVE registers are dumped
+MAINDEC-10-DFRPM-B-D                                           Page 26
+Functional Description                                       12 Sep 85
+
+
+     o  Channel command lists and logout data  will  be  dumped  if  the
+        CHANER bit was set in the CONI status
+
+     o  Certain tests such as NEXTST provide additional test information
+        as applicable
+
+    In all of the error printouts, the  registers  and  status  data  is
+    dumped  as  a  combination  of  ASCII, SIXBIT, and numerical data by
+    default.  The TXTINH sense switch (If set) will  force  all  of  the
+    status  to  be  dumped  in  raw  octal  as it appears in the various
+    hardware registers (see fig-15, fig-16).
+
+
+
+    3.10  Test and Utility descriptions
+
+    This section describes the functions,  parameters,  restrictions  of
+    each  test  contained  in  the  exerciser.  The descriptions in this
+    section cover all of those operations that may be input in  response
+    to the "WHAT TEST" prompt even though some of the operations are not
+    device tests.
+
+    The number of iterations for each exercise is arbitrarily chosen  at
+    this  time.   The final iteration counts will be tailored to provide
+    the best testing in the shortest time while keeping  the  read/write
+    ratio at about 2:1.
+
+
+
+    3.10.1  EX1 - recalibrate
+
+    This is a recalibrate exercise.  In MANUAL and  DEFAULT  mode  there
+    are  100  recalibrate  commands  issued  to each of the drives under
+    test.
+
+    There are no parameters to be input in VARIABLE mode and if  run  in
+    this  mode,  the  test  will  continue  to  issue recalibrates until
+    stopped.
+
+
+
+    3.10.2  EX2 - recalibrate, seek
+
+    This is an exercise of the recal, seek operation.  The test performs
+    the following function.
+
+    RECAL
+    SEEK - CYL1
+
+    In default and manual modes, this exercise is is performed  for  750
+    iterations on each of the selected drives.
+MAINDEC-10-DFRPM-B-D                                           Page 27
+Functional Description                                       12 Sep 85
+
+
+    In variable mode the user is asked to supply the cylinder number for
+    the seek.
+
+
+
+    3.10.3  EX3 - recalibrate, search
+
+    This test is an exercise of the recal, search operation and performs
+    the following function:
+
+    RECAL
+    SEARCH - CYL1,SURF1,SECT1
+
+    In default and manual mode  this  exercise  is  performaed  for  750
+    iterations on each of the selected drives.
+
+    In variable mode the user supplies the disk address  parameters  for
+    the search.
+
+
+
+    3.10.4  EX4 - seek, seek
+
+    This test performs the function of seeking between any  2  cylinders
+    and performs the following function:
+
+    SEEK - CYL1
+    SEEK - CYL2
+
+    In the default and manual modes, this exercise is performed for 1000
+    iterations on each of the selected drives.
+
+    In VARIABLE mode, the user is asked to supply the  cylinder  numbers
+    for each of the seeks.
+
+
+
+    3.10.5  EX5 - search, search
+
+    This exercises the ability to position between any 2 cylinders using
+    the SEARCH command and functions as follows:
+
+    SEARCH - CYL1, SURF1, SECT1
+    SEARCH - CYL2, SURF2, SECT2
+
+    In the default and manual modes, this exercise is performed for 1000
+    iterations on each of the selected drives.
+
+    In VARIABLE mode, the user is asked to specify  the  disk  addresses
+    for each of the search commands.
+MAINDEC-10-DFRPM-B-D                                           Page 28
+Functional Description                                       12 Sep 85
+
+
+    3.10.6  EX6 - seek, write, read, verify data
+
+    This test exercises the function of positioning,  then  writing  and
+    reading data.  After reading data an in core data comparison is made
+    and errors reported.  The test functions as follows:
+
+    SEEK - CYL1
+    SEEK - CYL2
+    WRITE - CYL2, SURF2, SECT2, SIZE2, PAT2
+    READ - CYL2, SURF2, SECT2, SIZE2, PAT2
+    DATA COMPARISON
+
+    NOTE:  If CYL1=CYL2, the first seek is not performed.
+
+    In default and manual modes this  exercise  is  performed  for  7000
+    iterations  on  each  of  the  selected drives.  The data compare is
+    always performed.
+
+    In variable mode the user supplies the cylinder for the initial seek
+    command  and  then the disk address, transfer size and data patterns
+    for the write, read verify portion.   In  variable  mode,  the  data
+    compare is optional.
+
+    This test is essentially performing the  standard  write/read/verify
+    operation  but  with  an  explicit  seek built into the front of the
+    command sequence.
+
+
+
+    3.10.7  EX7 - write, read, verify data
+
+    This test exercises the function of positioning,  then  writing  and
+    reading  data.   This  is  a variation of EX6 in the manner in which
+    positioning is done (uses implied seek).
+
+    After reading data an in core data comparison  is  made  and  errors
+    reported.  The test functions as follows:
+
+    SEEK - CYL1
+    WRITE - CYL2, SURF2, SECT2, SIZE2, PAT2
+    READ - CYL2, SURF2, SECT2, SIZE2, PAT2
+    DATA COMPARISON
+
+    NOTE:  If CYL1=CYL2, the first seek is not performed.
+
+    In default and manual modes this  exercise  is  performed  for  7000
+    iterations  on  each  of  the  selected drives.  The data compare is
+    always performed in default and manual modes.
+
+    In variable mode the user supplies the cylinder for the initial seek
+    command  and  then the disk address, transfer size and data patterns
+    for the write, read verify portion.   In  variable  mode,  the  data
+    compare is optional.
+MAINDEC-10-DFRPM-B-D                                           Page 29
+Functional Description                                       12 Sep 85
+
+
+    This test differs from EX6 in that it does not do an  explicit  seek
+    in  the  front  of the initial write.  The seek is then implicit and
+    the write is more difficult for the drive  because  the  heads  will
+    have less time to settle.
+
+
+
+    3.10.8  EX8 - seek, read
+
+    This exercise performs the seek, read data operation.  The  data  is
+    not  looked  at  and  may  be  anything.   The following function is
+    performed:
+
+    SEEK - CYL1
+    READ - CYL2, SURF2, SECT2, SIZE2
+
+    In manual and default modes this  exercise  is  performed  for  2500
+    iterations on each of the selected drives.
+
+    In variable mode the user is asked to supply  the  initial  cylinder
+    for the seek and then the parameters for the read data which are the
+    disk address and the size of the transfer.
+
+    The sequence is arranged so  that  the  read  operation  follows  an
+    implied seek and the heads will have less time to settle.
+
+
+
+    3.10.9  EX9 - data test a specific area of the media
+
+    This exercise is a special type of exercise designed  to  allow  the
+    user to direct his data testing to a specific area of the media.
+
+    This test runs in  variable  mode  only  and  provides  the  user  2
+    functions:
+
+     o  Read only on the selected area
+
+     o  Write/Read/Verify (optional verify) on the selected area
+
+
+    This test always transfers full tracks at a time starting  from  the
+    beginning.   When  performing  write/read/verify, the data is pseudo
+    random and is chosen from the table of standard  data  patterns.   A
+    new  pattern  is chosen at the start of each pass over the specified
+    test area if we are doing the write/read operation.
+
+    The user chooses the function (read or write/read/verify)  and  then
+    establishes  the  address  boundaries by entering CYL1, SURF1, CYL2,
+    SURF2.  The key to the way this test operates  is  in  understanding
+    the way the addresses are processed.
+MAINDEC-10-DFRPM-B-D                                           Page 30
+Functional Description                                       12 Sep 85
+
+
+    The test loop uses CYL1, SURF1 as the starting boundry of  the  area
+    to  be tested.  CYL2, SURF2 will mark the ending boundry (inclusive)
+    of the area being tested.  The best way to explain the way EX9 deals
+    with the address boundaries is through examples.
+
+    For our examples we assume that we are looking at a cross section of
+    a  hypothetical  disk  media containing 100 cylinders numbered 00-99
+    and 10 surfaces numbered 0-9.
+
+                              example-1
+                              ---------
+    CYL1=0      SURF1=5
+    CYL2=99     SURF2=5
+
+    This is the classic case of wanting to test an entire surface.   EX9
+    will  stay only on surface 5 but will test surface five on cylinders
+    00-99.
+
+                              example-2
+                              ---------
+    CYL1=20     SURF1=0
+    CYL2=20     SURF2=9
+
+    In this example, all testing will be done on  cylinder  20  and  all
+    surfaces will be tested.
+
+                              example-3
+                              ---------
+    CYL1=10     SURF1=7
+    CYL2=10     SURF2=3
+
+    In this example all of the testing will be on cylinder  10  but  EX9
+    will  go through the surfaces in the following order (7, 8, 9, 0, 1,
+    2, 3).  This is an important example to understand.
+
+                              example-4
+                              ---------
+    CYL1=5      SURF1=3
+    CYL2=7      SURF2=5
+
+    In this example EX9 will restrict testing to cylinders 5-7 and  will
+    test  surfaces 3-5.  The exercise starts at CYL1, SURF1 and iterates
+    from SURF1 to SURF2 before going to the next cylinder.  This is  the
+    standard incrementation scheme for EX9.
+
+                              example-5
+                              ---------
+    CYL1=97     SURF1=1
+    CYL2=3      SURF2=5
+
+    This is an important example also.  In this example we will restrict
+    our  testing to surfaces 1-5 but those surfaces will be processed in
+    conjunction with the following cylinder order (97, 98, 99, 0, 1,  2,
+    3).
+MAINDEC-10-DFRPM-B-D                                           Page 31
+Functional Description                                       12 Sep 85
+
+
+                              example-6
+                              ---------
+    CYL1=98     SURF1=8
+    CYL2=1      SURF2=1
+
+    This is the most complicated example to understand.  If we picture a
+    cross  section  of our hypothetical media we see that we are testing
+    the 4 corners of the cross section.  The following table is an exact
+    description  of  how  EX9  will  proceed to test within this address
+    boundry.
+
+                CYL     SURF
+                ---     ----
+                98      8
+                98      9
+                98      0
+                98      1
+
+                99      8
+                99      9
+                99      0
+                99      1
+
+                00      8
+                00      9
+                00      0
+                00      1
+
+                01      8
+                01      9
+                01      0
+                01      1
+
+
+
+
+    3.10.10  EX10 - seek, write
+
+    This exercise performs the seek,  write  operation.   The  following
+    function is performed:
+
+    SEEK - CYL1
+    WRITE - CYL2, SURF2, SECT2, SIZE2, PAT2
+
+    In default and manual modes this operation  is  performed  for  2500
+    operations on all of the selected drives.
+
+    In variable mode, the user is asked to supply  the  cylinder  number
+    for  the  seek  and  for  the  write  he  supplies the disk address,
+    transfer size and data pattern.
+
+    The write follows an implied seek operation giving  the  heads  less
+    time to settle.
+MAINDEC-10-DFRPM-B-D                                           Page 32
+Functional Description                                       12 Sep 85
+
+
+    3.10.11  EX11 - read, write, read
+
+    This exercise performs the read, write, read operation and functions
+    in the following manner:
+
+    READ - CYL1, SURF1, SECT1, SIZE1
+    WRITE - CYL2, SURF2, SECT2, SIZE2, PAT2
+    READ - CYL3, SURF3, SECT3, SIZE3
+
+    In default and manual modes this exercise is run for 2500 iterations
+    on each of the selected drives.
+
+    In variable mode user supplies the disk address and  transfer  sizes
+    for  all  3  operations,  and  for  the  write  he supplies the data
+    pattern.
+
+    All of the transfers are performed with  implied  seeks.   The  data
+    read  during  the  read  operation  is whatever happens to be on the
+    media.
+
+
+
+    3.10.12  EX12 - write, read, write
+
+    This  exercise  performs  the  write,  read,  write  operation   and
+    functions in the following manner:
+
+    WRITE - CYL1, SURF1, SECT1, SIZE1, PAT1
+    READ - CYL2, SURF2, SECT2, SIZE2
+    WRITE - CYL3, SURF3, SECT3, SIZE3, PAT1
+
+    In default and manual modes this  exercise  is  performed  for  2500
+    iterations on each of the selected drives.
+
+    In variable mode the user supplies the  complete  disk  address  and
+    transfer  size  for  each  of  the  operations and for the writes he
+    supplies the data pattern.  The same data pattern is used  for  both
+    writes.  The read returns whatever data happens to be on the media.
+
+    All operations are performed with implied seeks.
+
+
+
+    3.10.13  RONLY - read only
+
+    This exercise is a read only operation.  The test functions  in  the
+    following way:
+
+    READ - CYL1, SURF1, SECT1, SIZE1
+
+    In default and manual modes this exercise is used as  a  PACK  SCAN.
+    The  parameters  do  not  vary randomly.  All transfers start at the
+    beginning of the track and are a full track long.   In  default  and
+    manual  mode  this  exercise  is  run  for 1 iteration on all of the
+MAINDEC-10-DFRPM-B-D                                           Page 33
+Functional Description                                       12 Sep 85
+
+
+    selected drives.
+
+    In variable mode, the user has control of the  entire  disk  address
+    and the size of the transfer.
+
+    Note that you can get almost the same  effect  by  running  EX8  and
+    entering the same values for CYL1 and CYl2.  The difference would be
+    that EX8 would contain an explicit zero cylinder seek  in  front  of
+    each read.
+
+
+
+    3.10.14  WONLY - write only
+
+    This exercise is a write only operation.  The test functions in  the
+    following way:
+
+    WRITE - CYL1, SURF1, SECT1, SIZE1, PAT1
+
+    This exercise is not currently set to run in default mode since very
+    little information is gained from a write only operation.
+
+    In manual mode this exercise writes the entire pack.  The parameters
+    do  not  vary randomly.  All transfers start at the beginning of the
+    track and are a full track long.  In manual mode  this  exercise  is
+    run for 1 iteration on all of the selected drives.
+
+    In variable mode the user gets to specify the complete disk address,
+    transfer size and and the data pattern.
+
+    Note that you can get almost the same effect  by  running  EX10  and
+    entering the same values for CYL1 and CYl2.  The difference would be
+    that EX10 contains an explicit zero cylinder seek in  front  of  the
+    write.
+
+
+
+    3.10.15  FORMAT - format the media
+
+    This portion of the program is responsible for formatting  the  disk
+    media  in  18-bit  mode.   The  test  is  specified in the following
+    general manner:
+
+    FORMAT - CYL1, SURF1
+
+    The first important property of the  formatter  is  that  only  full
+    tracks are formatted at a time.
+
+    This routine is not currently run in default mode  since  the  media
+    formatting operation is only required once, and not on every pass.
+
+    In manual mode the formatter is run for 1 iteration on each  of  the
+    selected  drives.   The  entire  disk  is formatted with this single
+    iteration in manual mode.  PAKINT performs the  format  function  by
+MAINDEC-10-DFRPM-B-D                                           Page 34
+Functional Description                                       12 Sep 85
+
+
+    calling FORMAT.
+
+    In variable mode the user specifies a single track to be formatted.
+
+                             On the RP06
+                             -- --- ----
+
+    The data is RP04/RP06 worst case data and is identical to  the  data
+    written  on  the  packs  when  formatted with DDRPI.  DFRPM does not
+    write the serial number in the key words of the header  but  instead
+    leaves  them  set  to  zero.  The rationale for this is that the key
+    fields appear to be of little or no use and to back that  up  I  use
+    the  argument  that  the  key fields have been done away with on all
+    drives since the RP06.  Writing the serial number in the  key  words
+    of  the  RP04s  and RP06s was instituted by DDRPI in early RP04 days
+    because it seemed like a nice thing at the  time  and  nobody  could
+    find a practical use for the keywords.
+
+                             On the RP07
+                             -- --- ----
+
+    The formatting operation for the  RP07  involves  a  process  called
+    defect  skipping.   A  short  record  called a track descriptor (TD)
+    record is recorded by the manufacturer at the start of  each  track.
+    The  TD  contains  a  header  like  any other sector and in addition
+    contains information that tells the formatter about the location  of
+    any  media  defects  that were identified by the manufacturers media
+    scanning process.
+
+    The position of the sectors on the RP07 is  variable  to  a  certain
+    degree  (called  SOFT  SECTORING).   In  a  very  general sense, the
+    formatter first reads the TD to find out where (if any) the  defects
+    lie  on  the  track.   The  formatter  and  the  RP07 microcode work
+    together  to  format  AROUND  the  defects.   The   formatter   does
+    calculations  based  upon  where  the manufactured defects occur and
+    lays out in core a tracks worth of headers for the  format  command.
+    Included in each header field for the RP07 sectors are words through
+    which  the  formatter  and  the  RP07  microcode  communicate.   The
+    formatter essentially tells the microcode (via header words over the
+    Massbus) how to lay down the track in a way that  positions  various
+    sector fields around the defects.  The track is now formatted and on
+    each read or write from this point on, the RP07 microcode will  read
+    the  header  fields for every sector that is transferred in order to
+    identify the layout of the sector (on the fly).
+
+    During the RP07 format operation, DFRPM  supplies  only  the  header
+    words  for  each sector and the RP07 microcode fills the data fields
+    of each sector with an all ones pattern.
+MAINDEC-10-DFRPM-B-D                                           Page 35
+Functional Description                                       12 Sep 85
+
+
+    3.10.16  NEWBAT - write new (clean) BAT blocks
+
+    NEWBAT is a short utility routine for writing new (clean) BAT blocks
+    on  the  media.   The  2  BAT  blocks  are  written with no bad spot
+    entries.
+
+    This routine is not run in default mode.
+
+    In manual mode, this routine writes clean BAT blocks on each of  the
+    selected  drives  and  then  returns  to the test dispatcher and the
+    prompt.
+
+    There are no variables in this  utility  and  it  does  not  run  in
+    variable mode.
+
+
+
+    3.10.17  MAPOUT - manipulate BAT blocks
+
+    MAPOUT is a utility whose prime function is to transfer the bad spot
+    information  accumulated  by  the  program into the proper BAT block
+    format and then write a new (updated)  set  of  BAT  blocks  on  the
+    media.   The  utility  works  with information contained in a buffer
+    area called the MAPOUT DATA BASE which is discussed in  more  detail
+    in section 3.11.
+
+    This utility provides a secondary function of allowing the  user  to
+    edit individual entries in the mapout data base.
+
+    This utility is not run in default mode.
+
+    This utility is automatically run when the PAKINT utility is run.
+
+    Functionaly speaking, the utility is  set  up  so  that  running  in
+    manual  mode  causes  the BAT blocks to get updated while running in
+    variable mode, gives the user access to the various edit commands.
+
+                       Manual mode of operation
+                       ------------------------
+
+    Running MAPOUT in manual mode causes the program to write an updated
+    set  of  BAT blocks on each of the selected drives.  The information
+    used for the BAT block update comes from the mapout data base.   All
+    data  base  entries  (up  to a maximum number of 61) whose bat block
+    update bit (BBU) is set will be transferred to the BAT blocks of the
+    appropriate drive.
+
+                      Variable mode of operation
+                      --------------------------
+
+    By running the MAPOUT utility in variable mode the user gains access
+    to  a 2 level command and editing system for dealing with the mapout
+    data base and its entries.  The top level (1st) level provides a set
+    of  commands to examine and manipulate the data base, go to a second
+MAINDEC-10-DFRPM-B-D                                           Page 36
+Functional Description                                       12 Sep 85
+
+
+    level for editing or, leave the mapout utility  and  return  to  the
+    test  dispatcher.   The 2nd level provides a command set that allows
+    the user to access, examine, add, delete, modify individual  entries
+    in  the data base and finally, return to the top level commands.  At
+    each level the program provides  a  help  capability  which  briefly
+    lists  the commands that are available within that level (see fig-23
+    and fig-24).
+
+    The 1st level is called DATA-BASE-EDIT mode and the program issues a
+    prompt to that effect (see fig - 23).
+
+    The 2nd level is called ENTRY-EDIT mode and the program  issues  the
+    appropriate prompt when you are in this mode (see fig 24).
+
+                    Data-Base-Edit level commands
+
+    H - provides a brief list of command  functions  available  at  this
+        level.
+
+    DONE - leave the mapout routine and go back to the test dispatcher.
+
+    CLRDB - clear the data base.  This causes all bad spot  data  for  a
+        particular  drive to be deleted.  Because of the consequences of
+        this command it requires confirmation.
+
+    LIST - lists all of the information in ALL of the data base entries.
+        This  is the most verbose form of obtaining status (see fig-25).
+        Figure 25 is a typical look at a data  base  containing  only  1
+        entry.
+
+    LSTHRD - lists all of the information for the entries  of  the  data
+        base  that  are HARD errors only.  These are the spots that will
+        actually go to the  bat  blocks  on  subsequent  updates.   (see
+        fig-29 for a typical printout).
+
+    LSTSFT - lists all of the information for the entries  of  the  data
+        base that are SOFT errors only.  These are the entries that will
+        not go to the bat blocks on subsequent updates.  (see fig-30 for
+        a typical printout).
+
+    LISTQ - provides a quick (less verbose) summary of all of  the  data
+        base entries.  The addresses and logical block numbers are given
+        in decimal along with the number of times this spot showed up as
+        either  a HARD or SOFT error (see fig-26).  The left hand column
+        has a single word HARD or SOFT indicating the current status  of
+        this  entry.   Again,  HARD  errors  go  to  the  BAT  blocks on
+        subsequent updates.
+
+    LISTQO - provides a quick (less verbose) summary of all of the  data
+        base entries.  The addresses and logical block numbers are given
+        in octal but the number of HARD and SOFT occurrences  are  still
+        given  in  decimal  (see  fig-27).   The  left hand column has a
+        single word HARD or SOFT indicating the current status  of  this
+        entry.   Again,  HARD  errors go to the BAT blocks on subsequent
+MAINDEC-10-DFRPM-B-D                                           Page 37
+Functional Description                                       12 Sep 85
+
+
+        updates.
+
+    WRTBAT - write an updated set of BAT blocks to  the  selected  drive
+        right  now.  Transfers all of the hard error spot information to
+        the BAT blocks.  Up to 61 BAT block  entries  are  allowed.   If
+        there are more than 61, the rest will be ignored.  This function
+        will not be allowed if, at configuration  time,  the  drive  was
+        either  part  of a mounted structure or, the user indicates that
+        there is good data on the media.  In these 2 instances, the  BAT
+        blocks  will  NOT  be  updated and the appropriate error message
+        will be given.
+
+    EDITL - stands for EDIT-LOGICAL and is a command that takes the user
+        to  ENTRY-EDIT  mode.  The name EDIT-LOGICAL applies because the
+        user specifies the entry by its LOGICAL  BLOCK  number.   If  no
+        entry  exists  for  the specified LBN, a new one will be created
+        and the user  will  then  be  allowed  to  execute  all  of  the
+        entry-edit  commands.   If  the  specified LBN is already in the
+        data base, the program immediately places the user in entry-edit
+        mode.
+
+    EDITP - stands for EDIT-PHYSICAL and is a  command  that  takes  the
+        user to ENTRY-EDIT mode.  The name EDIT-PHYSICAL applies because
+        the user specifies  the  entry  by  its  physical  disk  address
+        (Cylinder,  Surface,  Sector).   Aside form the way the entry is
+        specified, EDITL and EDITP are identical in every way.
+
+                         Entry-Edit commands
+
+    Entry edit mode allows the user access to a  group  of  commands  to
+    modify  the  individual  entries  of  the mapout data base.  Once an
+    entry is chosen, it is either created (if it does not already exist)
+    or is fetched from the data base (if existing) and placed in an edit
+    buffer.  The actual entry-edit commands are applied to the  copy  in
+    the edit buffer and unless otherwise specified, the data base is not
+    updated until either the NEXT, or DONE commands are given.
+
+    H - lists a brief description of commands and their  functions  (see
+        fig-24).
+
+    LIST - gives a complete description of the contents of the  selected
+        data base entry.  All bits and fields are listed (see fig-29).
+
+    DONE - leave entry edit mode after first  transferring  the  current
+        edits  to  the  data  base.   When you leave entry edit mode you
+        return to the data base edit mode.
+
+    NEXT - transfers the edits we have been doing into the data base and
+        then ask the user for the NEXT entry he wishes to work on.  This
+        merely provides a sequential mode of editing.
+
+    CANCEL - cancel the edits that have just taken place for this entry.
+        This  command  allows  the  user  to abort edits for the current
+        entry by leaving entry edit mode and NOT updating the data  base
+MAINDEC-10-DFRPM-B-D                                           Page 38
+Functional Description                                       12 Sep 85
+
+
+        for this entry.
+
+    CLRENT - clears  the  selected  data  base  entry.    This   command
+        IMMEDIATELY deletes the selected entry from the mapout data base
+        and leaves entry edit mode.
+
+    HARD - declares the entry to be a HARD error (sets the BBU bit to 1)
+        regardless  of its current state.  This entry will now go to the
+        BAT blocks on subsequent BAT block updates.  A status bit in the
+        entry  is  also  set  that  effects future LIST commands of this
+        entry.  Following LIST commands will give a message saying  that
+        the  operator  has declared that this block go to the BAT blocks
+        (see fig-29).
+
+    SOFT - declares the selected entry to be a SOFT error (sets the  BBU
+        bit  to  0)  regardless of its current state.  This address will
+        not be transferred to the  BAT  blocks  on  subsequent  updates.
+        This  command effects future operations of the LIST command.  If
+        the operator has actually changed an entry from HARD to SOFT,  a
+        status  bit  is  set so that future LIST commands give a message
+        indicating that the operator  has  performed  this  action  (see
+        fig-30).
+
+    CLRST - clears the error indicator type (DCK, OPI,  DTE,  etc)  bits
+        for  the  entry  along with the counters that have been counting
+        the number of hard  and  soft  occurrences  of  errors  at  this
+        address.
+
+    MR - modify the region that will be writen in the BAT  block  entry.
+        This  command  specifies  the  number  of  blocks  that are bad,
+        starting from the selected disk address.
+
+    PNT - print all errors that  occur  at  this  disk  address.   Under
+        normal  operation,  only  the first data error from a particular
+        address is printed as a way to reduce printout.  This default is
+        overridden  on  a  global basis by the use if the PALERS console
+        switch or, on a per-entry basis by the PNT command.
+
+    NOPNT - do not print future errors from  this  disk  address.   This
+        command exists to nullify the PNT command and return the program
+        to default mode.
+
+
+
+    3.10.18  PAKINT - media initialize
+
+    PAKINT is a utility to initialize the media (format,  verify,  map).
+    This  utility  does  nothing more than run FORMAT, RONLY, and MAPOUT
+    with the correct defaults so that dialogue in the  individual  tests
+    can be bypassed.
+
+    This utility is not run in default mode.
+MAINDEC-10-DFRPM-B-D                                           Page 39
+Functional Description                                       12 Sep 85
+
+
+    In manual mode, this  utility  runs  FORMAT,  RONLY,  MAPOUT  for  1
+    iteration on each of the selected drives with a set of predetermined
+    defaults.
+
+    The utility does not run in variable mode.  The routines to  format,
+    verify and map can be individually run in variable mode.
+
+
+
+    3.10.19  CONFIG - perform configuration dialogue
+
+    CONFIG is a part of the  program  that  is  coded  to  look  like  a
+    utility.   The function of config is to give the user the ability to
+    reconfigure his program to  the  hardware  or  change  some  of  the
+    program options that are currently in effect.  The user may:
+
+     o  Reselect RH20s
+
+     o  Reselect drives
+
+     o  Reselect the options of how to deal with user data on the media
+
+
+    Running  config  has  no  effect  on  the  totals  that  have   been
+    accumulated during previous passes of the diagnostic.
+
+    The config dialogue is executed once at initial start of the program
+    and optionally if the program is restarted from location 30004 which
+    is the alternate start address.
+
+    Config is not executed in default mode.
+
+    Config may be called as one of the tests when in manual mode.
+
+    Config may be called as one of the  tests  from  variable  mode  but
+    there  are  no  additional  features  in  this mode.  In default and
+    variable mode config performs the same function.
+
+
+
+    3.10.20  SKTST1 - Timing of incremental seeks
+
+    This is an exec mode only test.  This test performs the function  of
+    measuring  the  access  time  of  the  drive  in  response to single
+    cylinder  seeks.   Single  cylinder  seeks  are   handled   slightly
+    different   in   the  hardware  than  other  seeks  and  are  tested
+    separately.
+
+    All single cylinder forward and reverse  seeks  are  timed  and  the
+    minimum,  maximum,  and  average time is reported (see fig-34).  The
+    accuracy should be within 50 microseconds.  The program  will  tally
+    the  number  of seeks that are out of specification according to the
+    purchase specification and report the condition.  Seeks that  exceed
+    the  specification  will  not  contribute  to the hard or soft error
+MAINDEC-10-DFRPM-B-D                                           Page 40
+Functional Description                                       12 Sep 85
+
+
+    counts unless the drive posts a position error (ie.  SKI).
+
+    This test is not currently run in default mode.
+
+    In manual mode this test is run for 1 iteration on all the  selected
+    drives.
+
+    This test does  not  run  in  variable  mode.   There  are  no  user
+    controllable parameters.
+
+
+                                    NOTE
+
+        Seek timing cannot be measured when  running  in  USER  MODE
+        however,  the  test  is  allowed to run in user mode with no
+        TIMES measured or reported.   In  this  situation  the  test
+        still  functions  as  a  useful  mechanical exercise for the
+        hardware.
+
+
+
+
+
+    3.10.21  SKTST2 - Timing of the seek operation
+
+    This is an exec mode only test.  This test is used to determine  the
+    seek  time  of a drive.  This is a 2n seek test.  This test performs
+    all the possible lengths of seeks (both  forward  and  reverse)  and
+    reports  the  minimum,  maximum  and,  average  seek  times  for the
+    drives(see fig-35).  The program should be  accurate  to  within  50
+    microseconds.   The  program will tally the number of seeks that are
+    out of specification according to  the  purchase  specification  and
+    report  the condition.  Seeks that exceed the specification will not
+    contribute to the hard or soft error counts unless the drive posts a
+    position error (ie.  SKI).
+
+    AVE SEEK TIME = TOTAL SEEK TIME FOR ALL SEEKS / NUMBER OF SEEKS
+
+    This test does not currently run in default mode.
+
+    In manual mode this test is run for  1  iteration  on  each  of  the
+    selected drives.
+
+    There are no user controllable parameters and  this  test  will  not
+    work in variable mode.
+
+
+                                    NOTE
+
+        Seek timing cannot be measured when  running  in  USER  MODE
+        however,  the  test  is  allowed to run in user mode with no
+        TIMES measured or reported.   In  this  situation  the  test
+        still  functions  as  a  useful  mechanical exercise for the
+        hardware.
+MAINDEC-10-DFRPM-B-D                                           Page 41
+Functional Description                                       12 Sep 85
+
+
+    3.10.22  SKTST3 - Timing seeks between any 2 cylinders
+
+    This tests allows the user to measure the seek time between any  two
+    cylinders  for  a  given number of iterations.  The minimum, maximum
+    and average seek  times  are  reported  along  with  the  number  of
+    iterations.
+
+    The user specifies the cylinder numbers CYL1 and CYl2 along with the
+    number  of  seeks  to  perform and average.  The measurement is made
+    going from CYL1 to CYL2 and not from CYL2  to  CYL1.   There  is  an
+    approximate  16  Millisecond  delay  built into the software between
+    each seek that is transparent to the measurement.
+
+    This test runs in variable mode only.
+
+
+                                    NOTE
+
+        Seek timing cannot be measured when  running  in  USER  MODE
+        however,  the  test  is  allowed to run in user mode with no
+        TIMES measured or reported.   In  this  situation  the  test
+        still  functions  as  a  useful  mechanical exercise for the
+        hardware.
+
+
+
+
+
+    3.10.23  NEXTST - read/write/next test
+
+    This is an exec mode only test.  This test verifies that the  drives
+    are  capable  of performing next sector operations without missing a
+    revolution or making errors.   The  test  uses  the  backup  command
+    features  of the RH20 and tests the drives response to the following
+    command pairs:
+
+     o  Read followed by read
+     o  Read followed by write
+     o  Write followed by write
+     o  Write followed by read
+
+
+    The test is specified in the general form:
+
+    NEXTST - Test possible combinations of read/write next.
+
+    Nextst performs identically in manual and default modes.   The  test
+    executes  5000 iterations of each of the 4 possible command pairs on
+    each of the selected drives.  Here are some properties of  the  test
+    in default and manual mode.
+
+     o  Each iteration is made up of a command pair (1 of the 4 possible
+        combinations).   The first command is called the primary command
+        and the second is called the secondary (backup) command.
+MAINDEC-10-DFRPM-B-D                                           Page 42
+Functional Description                                       12 Sep 85
+
+
+     o  Both primary and secondary commands transfer 4 sectors  (1-page)
+        of  data  to  or  from  the  disk.  The secondary command always
+        starts on the sector immediately following  termination  of  the
+        primary command.
+
+     o  The data is random and not checked after the read.  The  program
+        assumes that the hardware will detect data errors through parity
+        checks, CRCs, and ECC checks.
+
+     o  The entire test is run on the maintenance cylinder.
+
+     o  While the sizes of the  transfers  remain  fixed,  the  starting
+        addresses are generated at random (surface and sector).
+
+     o  Because the starting addresses are picked at random and the size
+        of  the  transfer  is  fixed,  Head switches will occur randomly
+        during the test.  The  head  switch  may  occur  at  any  sector
+        boundry  during the primary or secondary command.  Head switches
+        may occur at the transition from primary to secondary command.
+
+     o  Because of sector skew between  surfaces  on  the  RP07  due  to
+        defects,  defective  surfaces  are not used during the test.  If
+        they were, the test would lead to false indication of failure.
+
+     o  For RP06s all surfaces are used.
+
+     o  During the execution of this test, the program retry algorithims
+        are  disabled.  This test can not take advantage of the standard
+        program retry schemes as its execution is time critical.
+
+
+    When running nextst in variable mode, the  same  general  operations
+    occur  but  the  user  has  some  control  over  the parameters (see
+    fig-17).  The following properties apply to the running of nextst in
+    variable mode:
+
+     o  Primary and secondary commands are  always  4  sectors  (1-page)
+        each and are back to back.
+
+     o  The user is able to specify the type of command pair (read/read,
+        write/read etc).
+
+     o  The user is allowed to pick  the  cylinder  that  will  be  used
+        (CYL1).
+
+     o  The user is allowed to pick the starting address for the primary
+        command (SURF1,SECT1).
+
+     o  The user is allowed to  specify  the  surface  (SURF2)  for  the
+        secondary command as a way to force a head switch.  The Starting
+        sector of the backup command is predetermined to  be  4  sectors
+        (1-page) from the start of the primary command.
+MAINDEC-10-DFRPM-B-D                                           Page 43
+Functional Description                                       12 Sep 85
+
+
+     o  While the user is  allowed  to  pick  the  starting  sector  and
+        surface  for  the  primary  command  and  the  surface  for  the
+        secondary command he  must  consider  the  consequences  of  his
+        choice.
+
+         o  The RP06 has no address restrictions for read write next and
+            you should be able to use the entire selected cylinder.
+
+         o  If he sets up a command that implicitly head switches from a
+            defect  free  surface,  to a surface having a defect (RP07),
+            the odds are good that he'll fail nextst merely  because  of
+            the sector skew between the good and the defective surface.
+
+         o  The same sort of sector skew problem exists with RP07 if  he
+            chooses  to issue the primary command to a defective surface
+            and an implicit head switch occures.
+
+         o  Nextst will work if you set up primary commands to start  on
+            a  defective  surface  and  you  insure  that no head switch
+            occurs.
+
+
+     o  In order to assist the user in the proper choice of commands and
+        addresses  for  RP07,  the  program  first reads all the TDs and
+        lists the surfaces (by number) that are defective.  The user can
+        then  determine  the  effects  of sector skew for each choice of
+        operation.
+
+
+                           Application note
+                           ----------- ----
+
+    The ultimate goals of nextst  are  to  guarantee  that  next  sector
+    operations  do  not take an extra revolution and, to insure that the
+    data has come from the  correct  disk  address.   The  problem  with
+    implementing  a  test  like  this  is dealing with other errors that
+    occur during the test.  If not sorted and reported  in  the  correct
+    fashion, read/write next could be incorrectly identified as having a
+    malfunction.
+
+    To deal with this situation nextst has its  own  error  handler  and
+    screening  process that is different than the rest of the exerciser.
+    Any of the following error messages can be generated from nextst  to
+    provide more accurate fault isolation.
+
+     o  BACKUP command taking an extra revolution
+     o  DA/DCY registers pointing to wrong addr after BACKUP command
+     o  PCRFUL failed to set with PRIMARY command
+     o  PCRFUL set without a SECONDARY command
+     o  Issuing the PRIMARY command has caused an error
+     o  Issuing SECONDARY command failed to set SCRFUL
+     o  Issued SECONDARY command and found PCRFUL clear
+MAINDEC-10-DFRPM-B-D                                           Page 44
+Functional Description                                       12 Sep 85
+
+
+     o  Issuing SECONDARY command has caused an error
+     o  ERROR during PRIMARY command
+     o  ERROR during SECONDARY command
+     o  Device HUNG during PRIMARY command
+     o  Device HUNG during SECONDARY command
+
+
+
+
+    3.10.24  PEEK - examine areas of the media
+
+    Peek is a utility that  allows  the  user  to  read  and  print  the
+    contents of any area of the disk.  The utility provides 4 functions:
+
+     o  Look at track descriptor record (RP07 only) This function causes
+        3 36-bit words to be transferred from the device to memory.
+     o  Look at header fields of  a  particular  sector.   For  RP06,  2
+        36-bit words are transferred from the device to memory.  For the
+        RP07, 3 36-bit words are transferred from the device to memory.
+     o  Look at data field for a particular sector.   128  36-bit  words
+        are transferred between the device and memory.
+     o  Look at header and data fields for a particular sector.  For the
+        RP06,  130  36-bit  words are transferred between the device and
+        memory.  For the RP07, 131 36-bit words are transferred  between
+        the device and memory.
+
+
+    The routine is specified as follows:
+
+    PEEK - FUNCTION, CYL1, SURF1, SECT1
+
+    The utility does not run in default or manual modes.
+
+    In variable mode  the  user  supplies  the  function  and  the  disk
+    addresses.  When a function is specified that includes examining the
+    data field of a sector, the user is allowed to supply starting  word
+    and  the  number  of  words  which  gives him the ability to display
+    either the entire data field or  a  specified  piece  of  that  data
+    field.  (see fig-19).
+
+
+
+    3.10.25  TOTALS - print accumulated totals
+
+    This utility prints statistics that have been accumulated by running
+    the  program.   In  addition  to the program performance statistics,
+    totals prints (in condensed form), a list of all the hard  and  soft
+    error  addresses currently contained in the program mapout data base
+    (see fig-22).
+
+    The TOTALS function does not run in variable mode.  The printing  of
+    totals  is  a  one-shot  event.   Totals are printed for each of the
+    initially  selected   drives.    In   default   mode,   totals   are
+    automatically printed at the end of each pass.
+MAINDEC-10-DFRPM-B-D                                           Page 45
+Functional Description                                       12 Sep 85
+
+
+    The following is a lists some of the items that are totaled  as  the
+    program runs:
+
+    writes =
+    bits written =
+    reads =
+    bits read =
+    recals =
+    seeks =
+    searches =
+    data compare errors =
+    ECC correctable errors =
+    unrecoverable ECC errors =
+    OPIs =
+    header errors =
+    position errors =
+    device errors =
+    extraneous interrupts =
+    read write next taking extra revolution
+      during read/read =
+        during read/write =
+        during write/write =
+        during write/read =
+
+    Totals for any category are not printed if the count is "0" for that
+    category.   Totals  for  each  device  are  saved  until explicitely
+    cleared by running TOTCLR or the program is restarted at loc 30000.
+
+
+
+    3.10.26  TOTCLR - clear/reset totals counters
+
+    TOTCLR is a utility that zeros the error logs and  statistics  areas
+    in  the  program  but  does NOT have any effect on the hard and soft
+    error information contained in the mapout data base.   TOTCLR  is  a
+    one-shot event that returns to command level immediately.
+
+    TOTCLR runs only in manual mode on all of the selected drives.
+
+
+
+    3.10.27  TDLST - list track descriptor records
+
+    TDLST is a utility for listing  the  contents  of  track  descriptor
+    records  on  the  RP07.   It  has no function for RP06.  The test is
+    specified in the following manner:
+
+    TDLST - read track descriptor for CYL1, SURF1
+
+    This utility is not run in default mode.
+
+    In manual mode this  utility  reads  all  of  the  track  descriptor
+    records  on the entire disk and prints the contents of those records
+    including flag bits that may be set.  The routine is performed for 1
+MAINDEC-10-DFRPM-B-D                                           Page 46
+Functional Description                                       12 Sep 85
+
+
+    iteration on each of the selected drives.  At the end of the list, a
+    brief summary is given that indicates the number of tracks  with  1,
+    2,  3, 4 defects along with the total number of defects on the media
+    (see fig-31).  The following data is printed from  the  contents  of
+    the 6 track descriptor words:
+
+     o  The serial number of the drive
+     o  The cylinder number from word-1
+     o  The surface and sector numbers from word-2
+     o  The defect displacements from words-3,4,5,6
+     o  The TD-MOVED flag from word-1
+     o  The H0-MOVED flag from word-1
+
+
+    In variable mode the user specifies a range of  disk  addresses  for
+    which  he would like the defect information listed.  The printout is
+    identical to running in manual mode but the list is  a  lot  shorter
+    (see fig-32).
+
+
+
+    3.10.28  TDBLD - write track descriptor record
+
+    TDBLD is a utility that  allows  the  user  to  write  a  new  track
+    descriptor on a specified track and specify the complete contents of
+    the track  descriptor  record  that  is  written.   The  utility  is
+    specified in the following way:
+
+    TDBLD - CYL1, SURF1
+
+    This utility runs in variable mode only
+
+    The user is asked to first supply the disk  address  (cyl1,  surf1).
+    The  program  then  reads  and  reports  the current contents of the
+    specified track descriptor record and  then  asks  the  user  if  he
+    wishes to still modify its contents.  If the response is "NO", there
+    is  nothing  more  to  do  and  control  will  return  to  the  test
+    dispatcher.  If the answer is "YES", the user is asked to specify:
+
+     o  If track descriptor (TD) is to be moved
+     o  If header zero (H0) is to be moved
+     o  The displacement value for defect-1
+     o  The displacement value for defect-2
+     o  The displacement value for defect-3
+     o  The displacement value for defect-4
+
+
+    After dialogue (see fig-33) is complete, the program:
+
+     o  Rewrites the track descriptor (TD)
+     o  Reformats the entire track with the new TD in place
+     o  Reads the entire track into a core buffer
+
+MAINDEC-10-DFRPM-B-D                                           Page 47
+Functional Description                                       12 Sep 85
+
+
+    3.10.29  TD631 - write track descriptor record
+
+    This test performs almost the same function as TDBLD except that the
+    cylinder  number  is not optional.  This routine is included for the
+    rare case of having to recreate  the  track  descriptor  records  on
+    cylinder-631 on an RP07.
+
+    Cylinder-631 is the c.e.  cylinder used by the ISS  microdiagnostics
+    and some of the data tests in the RP07 basic diagnostic DFRPN.  With
+    the exception of this routine there is no support  for  cylinder-631
+    in the formatter/exerciser program, DFRPM.
+
+    TD631 is a utility that  allows  the  user  to  write  a  new  track
+    descriptor on a specified track and specify the complete contents of
+    the track  descriptor  record  that  is  written.   The  utility  is
+    specified in the following way:
+
+    TD631 - SURF1
+
+    This utility runs in variable mode only
+
+    The user is asked to first supply the disk surface on CYL-631.   The
+    program then reads and reports the current contents of the specified
+    track descriptor record and then asks the user if he wishes to still
+    modify its contents.  If the response is "NO", there is nothing more
+    to do and control will return to the test dispatcher.  If the answer
+    is "YES", the user is asked to specify:
+
+     o  If track descriptor (TD) is to be moved
+     o  If header zero (H0) is to be moved
+     o  The displacement value for defect-1
+     o  The displacement value for defect-2
+     o  The displacement value for defect-3
+     o  The displacement value for defect-4
+
+
+    After dialogue (similar to that of fig-33) is complete, the program:
+
+     o  Rewrites the track descriptor (TD)
+     o  Reformats the entire track with the new TD in place
+     o  Reads the entire track into a core buffer
+
+
+
+
+    3.10.30  MODE - changing program run mode
+
+    This is not a test or exercise but a command entered in response  to
+    the  "What  Test"  prompt.   This  allows  the  user to get from the
+    current run mode  (MANual,  or  VARiable)  to  any  other  run  mode
+    (MANual, VARiable,DEFault).
+MAINDEC-10-DFRPM-B-D                                           Page 48
+Functional Description                                       12 Sep 85
+
+
+    3.10.31  RUNTME - obtaining program run time
+
+    This is not a test or exercise but a command entered in response  to
+    the  "What Test" prompt.  This merely returns the program runtime in
+    the form HH:MM:SS for convenience.  The runtime is set  to  zero  on
+    each  full restart/re-init of the program or when the RUNZRO command
+    is entered.
+
+
+                                    NOTE
+
+        Whenever a program runtime is reported by  this  program  in
+        USER  MODE,  the  time  represents CPU time rather than WALL
+        CLOCK time that is normally reported when  running  in  EXEC
+        mode.
+
+
+
+
+
+    3.10.32  RUNZRO - resetting program runtime to zero
+
+    This is not a test or exercise but a command entered in response  to
+    the  "What  Test"  prompt.   This  provides  the  user  a  method of
+    resetting  the   runtime   of   the   program   without   completely
+    reinitializing the program and its associated data tables.
+
+
+
+    3.10.33  PGMSIZ - print current core usage
+
+    This is not a test or exercise but a command entered in response  to
+    the "What Test" prompt.  This command does nothing in exec mode.  In
+    user mode, print the amount of core the program is currently  using.
+    The  size  is  printed  in  both  "K" and "Pages" used.  The program
+    normally expands core at start up  when  buffers  are  assigned  and
+    status   areas   for   drives   are   built   during  configuration.
+    Re-configuration will cause core  expansion  only  when  drives  are
+    selected  for  test  that  were  not  previously selected.  Once the
+    program has expanded in memory, the only way to reclaim that  memory
+    is to reload the program.
+
+
+
+    3.10.34  EXIT - exit the program
+
+    This is not a test or exercise but a command entered in response  to
+    the  "What  Test"  prompt.   This  command  causes  you to leave the
+    diagnostic and go back  to  the  command  level  of  the  diagnostic
+    monitor (DIAMON, etc)
+MAINDEC-10-DFRPM-B-D                                           Page 49
+Functional Description                                       12 Sep 85
+
+
+    3.11  BAT BLOCK handling philosophy
+
+    The BAT BLOCKS consist of 2 dedicated sectors on the disk  that  are
+    shared  by  the  diagnostic  and  either of the operating systems to
+    identify regions of the media that are unreliable and are not to  be
+    used by the operating system for the storage of valuable data.
+
+    The program contains a buffer area for each drive  which  is  called
+    the  MAPOUT  DATA  BASE.   The  data  base  is  a  buffer containing
+    information about errors  that  occur  as  the  program  runs.   The
+    primary  need for such information is to accurately record the error
+    information so that disk addresses  producing  HARD  (unrecoverable)
+    errors  can  be properly written into the BAT blocks when the MAPOUT
+    utility is run.  All of the data in the BAT blocks written by  DFRPM
+    is derived from the mapout data base contents.
+
+    The BAT block scheme used by DECsystem 10/20s allows for  a  maximum
+    of  61  bad regions to be mapped.  These entries contain the staring
+    address of the bad region (by logical block number  "LBN")  and  the
+    length  of  the  bad  region  (in  sectors  from  1  to  511.).   By
+    definition, bad spot entries are made only  for  regions  that  have
+    exhibited  non-recoverable  error  situations.  Each BAT block entry
+    also  contains  a  small  amount  of  CPU,  drive,  and   controller
+    information that is defined in the BAT specification.
+
+    The mapout data base can be thought of as an extension  of  the  BAT
+    blocking  scheme which provides the program with some advantages not
+    previously found in disk reliability exercisers.
+
+     o  The   diagnostic   is   capable   of   remembering   both   hard
+        (non-recoverable) and soft (recoverable) errors.
+
+     o  The diagnostic catalogues all of the data errors by disk address
+        which  allows  it to know such things as how many times an error
+        occurred at a particular disk address.
+
+     o  The diagnostic is also capable of remembering the fact  that  on
+        some  occasions  the  error  was  hard while on others it may be
+        soft.
+
+     o  The scheme allows certain error summary information not found in
+        other reliability diagnostics.
+
+     o  The diagnostic is able to remember a very large number of errors
+        in  the  data base because the limit in not the number of errors
+        that occur but actually the number of disk addresses that define
+        error  spots.   The  diagnostic is capable of handling up to 400
+        individual addresses (error entries).
+
+     o  The diagnostic updates the data base as it runs and in addition,
+        has  a mode of operation allows the operator to go in and modify
+        either the data base in its entirety or any  of  the  individual
+        entries (see the MAPOUT utility in variable mode).
+MAINDEC-10-DFRPM-B-D                                           Page 50
+Functional Description                                       12 Sep 85
+
+
+     o  For each entry, the  diagnostic  remembers  how  it  got  there.
+        There  are  3  possibilities  and  all  of  the combinations are
+        remembered.
+
+         o  The entry came from the Bat blocks at configuration time.
+         o  The entry was made by the diagnostic detecting an error.
+         o  The entry was created by the operator with MAPOUT.
+
+
+
+    The mapout data base is typically accessed in the following ways:
+
+     o  The diagnostic accesses the data base on the fly,  each  time  a
+        data  error occurs.  It will either create a new entry or update
+        an existing entry as required.
+
+     o  The user can access the data base through the MAPOUT routine and
+        perform a variety of editing functions (see MAPOUT).
+
+     o  The diagnostic updates the data base each  time  it  performs  a
+        configuration  on  any drive.  During configuration it reads the
+        BAT blocks from the media and transfers any already existing bad
+        spot information into the data base.
+
+     o  The diagnostic reads the data  base  each  time  it  writes  BAT
+        blocks  to  the  media.   BAT  blocks with data data entries are
+        written by either the MAPOUT utility or the PAKINT utility.
+
+
+    Each entry in the mapout data base consists of 3 PDP-10 words.   The
+    first  2 words are identical in format to a standard BAT block entry
+    and in fact it is the first 2 words of an entry that get sent to the
+    BAT  block when they are written.  The 3rd word contains some fields
+    and bits that give the program and the user, a better insight as  to
+    the  types of data errors that have occurred.  A general description
+    of the 3rd word is sufficient:
+
+     o  There is soft error count field that can store the maximum count
+        of    1023.     This    field    is    bumped    each   time   a
+        (DCK,ECH,DTE,OPI,HCRC,FER) error is detected.   If  the  counter
+        overflows,  it will start again and a soft error overflow status
+        bit will set in this word.  In a sense this field is a raw error
+        count rather than a soft error count.
+
+     o  There is hard error count field that can store the maximum count
+        of  1023.   This  field  is  bumped  each  time  a hard error is
+        detected.  If the counter overflows, it will start again  and  a
+        hard  error  overflow  status bit will set in this word.  A hard
+        error in  this  instance  is  the  failure  to  recover  from  a
+        (DCK,ECH,DTE,OPI,FER,HCRC)  after attempting all of the programs
+        retry algorithims.
+MAINDEC-10-DFRPM-B-D                                           Page 51
+Functional Description                                       12 Sep 85
+
+
+     o  There are 6 flag bits that are inclusively or-ed as required  to
+        give an indication of the types of errors that are taking place:
+
+         o  DCK - data check
+         o  ECH - ECC hard error
+         o  HCRC - header CRC error
+         o  HCE - header compare error
+         o  DTE - drive timing error
+         o  OPI - operation incomplete
+
+
+        As mentioned earlier each  time  one  of  these  error  bits  is
+        detected, the soft error counter field for this addresses mapout
+        entry is incremented.
+
+     o  There is a flag bit called the PNT (print) bit.  When  this  bit
+        is  set  for  a  particular  entry,  all errors detected at this
+        address will be printed.  If the bit is reset,  The  errors  are
+        counted,  the data base entry is updated and but error printouts
+        in  real  time  are  suppressed.   This  provides  a  method  of
+        bypassing  repeated  error messages for known problem areas.  In
+        the normal mode of operation, each error is reported  only  once
+        in  its long form and from that point on, repeated errors at the
+        same disk addresses are not  printed.   More  on  reduced  error
+        printouts  in  section  3.12.  The program honors the "print all
+        errors" console switch PALERS and if set,  all  errors  will  be
+        printed.
+
+
+                                      NOTE
+
+            Errors  other  than  DTE,OPI,HCRC,DCK,ECH,FER   from   a
+            particular  address  are printed regardless of the state
+            of the PNT bit.
+
+
+
+     o  There are 3 status bit that identify the source  of  the  mapout
+        entry  (who  discovered the spot).  The 3 bits may be set in any
+        combination.
+
+         o  BAT - The entry was found in the BAT blocks at configuration
+            time.
+         o  PGM - The entry was made by the diagnostic as it ran.
+         o  OPR - The user made this entry with the MAPOUT utility.
+
+
+     o  There is one  status  bit  that  determines  whether  or  not  a
+        particular  entry  will  be  transferred  to  the  BAT  block on
+        subsequent BAT  block  updates.   The  bit  is  BBU  (bat  block
+        update),  if  set,  this  entry  will  go  to  the BAT blocks on
+        subsequent updates.  If BBU is clear,  the  entry  will  not  be
+        transferred  to  the  BAT block.  In normal operation, only HARD
+        error spots will be transferred to the BAT blocks  however,  the
+MAINDEC-10-DFRPM-B-D                                           Page 52
+Functional Description                                       12 Sep 85
+
+
+        operator  can  use  commands  in  the MAPOUT utility not only to
+        create and delete entries, but to choose which entries go to the
+        BAT blocks.
+
+     o  There are 2 status bits that  indicate  when  the  operator  has
+        modified the BBU bit.
+
+         o  EBU user has enabled BAT block updating for this entry.
+         o  CBU user has cancelled Bat block updating for this entry.
+
+
+
+    The status of the data base or and  detailed  information  for  each
+    entry  (including the status bits and field values for the 3rd word)
+    is easily obtainable using the  commands  available  in  the  MAPOUT
+    utility (see fig 29,30).
+
+    Every time a data error (DCK, HCRC, OPI, HCRC, HCE, DTE) is detected
+    by  the  exerciser, the disk address is put in the data base.  There
+    is room for storing up to 400 disk addresses per  drive.   When  the
+    table  is  full, future error addresses will be ignored.  Along with
+    with the error address is information that identifies the  class  of
+    error.   There  are  2 classes of error, HARD and SOFT.  An error is
+    considered soft until it has failed all  attempts  at  retry.   When
+    retry is exhausted the error is marked HARD.
+
+
+                                    NOTE
+
+        The last thing you MUST do before turning a newly  formatted
+        drive  into  a system structure is run MAPOUT in manual mode
+        (this updates the BAT BLOCKS).  Failure to do  do  this  can
+        occasionally  cause  a  lot  of  grief.   The  users of this
+        diagnostic (and DDRPI) assume that PAKINT has  done  all  of
+        the  bat  block  updating and then they can't understand why
+        the operating system code complains  about  an  illegal  BAT
+        BLOCK  format.   What  people  fail  to realize is that both
+        MAPOUT and PAKINT write the BAT BLOCKS but many of the other
+        tests  in  the  diagnostic  are  capable of wiping them out.
+        Tests and exercises in both  DFRPM  and  DDRPI  choose  disk
+        addresses  from  a  random number generator and when the BAT
+        BLOCK  addresses  are  chosen,  they  may   be   overwritten
+        depending  on  what the test is doing.  Both DFRPM and DDRPI
+        maintain an in-core copy of what ought  to  be  in  the  BAT
+        BLOCKS  and if the last thing you do is write them, you will
+        never run into BAT BLOCK format problems.
+
+
+MAINDEC-10-DFRPM-B-D                                           Page 53
+Functional Description                                       12 Sep 85
+
+
+    3.11.1  Important considerations and suggestions
+
+    A common practice when re-formatting a media  in  the  field  is  to
+    flush  any  bad  spot  data and assume the formatter and mapper will
+    turn up all bad spots.  This is generally not a good idea and  DFRPM
+    does  not  work  this  way.  When DFRPM initially configures the the
+    drive at start up time it reads the existing BAT  block  information
+    into   the  mapout  data  base  and  then  only  adds  to  it  after
+    reformatting or doing "pakint".   This  is  with  good  reason.   In
+    general,  reformatting  does not make bad spots go away.  Real media
+    defects remain where they are and the major problem is that many  of
+    these   media   defects  are  data  pattern  sensitive.   You  could
+    conceivably run the diagnostic for a year, mapping the bad spots and
+    the operating system could stumble upon one on the first transfer it
+    attempts.  DFRPM preserves the original BAT block data because there
+    is  a  strong  possibility  that  there  really is a bad spot at the
+    particular address even if the diagnostic can't  seem  to  reproduce
+    it.  This reduces the risk that the operating system will once again
+    turn up this same spot at the expense of some users data.  There are
+    obviously  some cases when BAT block data may be thrown away because
+    someone knows the BAT block has entries that were  incorrectly  made
+    due to a hardware or software malfunction.
+
+    This explanation is to inform you of the  way  DFRPM  operates  when
+    reformatting  but  you  are  not  bound  this  scheme.   Using  your
+    knowledge of the  existing  situation  and  the  tools  provided  by
+    "mapout"  (in  variable  mode)  you  can  manipulate  the  BAT block
+    contents to any level you desire.
+
+    When running the program in the mode of preserving customer data  or
+    on  a  mounted  structure,  the diagnostic is capable of finding bad
+    spots but is not  capable  of  writing  BAT  blocks.   Allowing  the
+    writing  of  BAT  blocks  in this situation would be to write on the
+    customer data area which violates the current mode.  If  you  really
+    want  to  make a BAT block entry on a real structure you must either
+    dismount that structure or do it in exec mode.   Consider  also  how
+    the  operating  system deals with the BAT block data after the media
+    has been turned into a structure.  Each time the monitor comes up it
+    reads  the  BAT  blocks.   However, the only BAT entries monitor can
+    deal with are those that are in the swapping area.  If a  BAT  block
+    entry  indicates  a  bad spot in the file area it is ignored because
+    monitor assumes that he already knows about the spot (not always the
+    case).   Furthermore,  there  is  no  way the monitor can take a BAT
+    BLOCK entry pointing to the file area and  associate  this  physical
+    address to a particular file stored on the disk.
+
+
+
+    3.12  Error reporting
+
+    There are 2 types of errors considered:
+
+MAINDEC-10-DFRPM-B-D                                           Page 54
+Functional Description                                       12 Sep 85
+
+
+     o  Errors reported because the program detected a hardware fault
+     o  Input errors made by the user from his terminal
+
+
+
+
+    3.12.1  Reporting of hardware detected errors
+
+    Hardware error reports come in several flavors depending on the type
+    of  error  situation.   Components  of  a  typical error report (see
+    fig-18):
+
+     o  The first part of the error report is a general  header  message
+        indicating test name, time of day, sense switch options etc.
+
+     o  The next part of the error report will be a  dump  of  the  RH20
+        coni status and registers.
+
+     o  The RH20 status is followed by a dump of the  registers  in  the
+        drive.
+
+     o  If the RH20 status indicates that a channel error condition  was
+        posted at the time of the error, the 4 logout words and complete
+        channel command list will be printed.
+
+     o  If the error was correctable with ECC, the program will  give  a
+        breakdown as to how ECC was applied by listing:
+
+         o  ECC pattern
+         o  ECC position
+         o  Memory address where data was corrected
+         o  Data before ECC was applied
+         o  Data after ECC was applied
+
+
+     o  If  the  test  detects  a  data  comparison  error  following  a
+        transfer,  the  program  will  print  an  error  summary for the
+        compare error which includes good data, bad data, bits in error,
+        memory  address.   The data comparison routine prints all errors
+        if the PALERS sense switch is set, otherwise it prints only  the
+        first  3  words in error and merely counts the rest in the error
+        log.
+
+
+
+
+    3.12.1.1  Reducing error printout
+
+    Philosophically we wish to  eliminate  the  continual  reporting  of
+    nuisance  errors  (those  addresses that have known bad spots).  The
+    kind of errors that fall into this category are:
+
+MAINDEC-10-DFRPM-B-D                                           Page 55
+Functional Description                                       12 Sep 85
+
+
+        DCK a data check
+        ECH a data check not correctable with ECC
+        DTE a drive timing error
+        OPI a drive operation incomplete error
+        HCRC a header CRC error
+        FER a format error
+
+
+    These are the errors that are generally detected when there is a bad
+    spot  at  a  particular  address or, a bad spot on the servo surface
+    corresponding to a particular address.
+
+    The design goal is to give an error report on the first occurance of
+    of such an error.  On the second and following occurance of the same
+    type of error, the program will not report the error  but  will  log
+    the  event  internally  in  its mapout data base.  After running the
+    user can:
+
+    1.  Look at a totals printout (fig 26) which  gives  a  printout  of
+        each  address  for  which  there  is an entry in the mapout data
+        base.  The printout includes:
+
+         o  An indication of whether the address is currently a HARD  or
+            SOFT error.
+
+         o  A soft error count which  indicates  how  many  errors  were
+            actually detected (by the program) at this address.
+
+         o  A hard error count  indicating  how  many  times  the  retry
+            algorithims  were  unsuccessfull  at  recovering  from  this
+            error.
+
+
+    2.  Look at the individual entries in much greater detail using  the
+        MAPOUT  routine in variable mode (fig 29,30).  Running mapout in
+        variable mode  will  not  only  give  you  all  the  information
+        contained  in  the totals printout but will allow you to see the
+        types of errors that have been occuring (DCK, DTE, etc).
+
+
+    This reduced error report scheme is built into the program  but  can
+    be defeated if desired:
+
+     o  The user can see all errors from any address by  simply  running
+        MAPOUT  in  variable  mode  and telling the program to print all
+        errors from this address.
+
+     o  The user can see all errors by setting the "PALERS" sense swith.
+
+MAINDEC-10-DFRPM-B-D                                           Page 56
+Functional Description                                       12 Sep 85
+
+
+    3.12.2  User input errors at the terminal
+
+    All input at the terminal will be screened for correctness  and  the
+    program  will  respond  with  an  error  message and a reprompt (see
+    2.1.5).
+
+
+
+    3.13  Maintenance areas on the media
+
+    The maintenance area of any  disk  (pack  or  fixed  media)  is  the
+    innermost  cylinder.   This  is  the innermost cylinder of the media
+    that is accessible without having to  set  any  diagnostic  bits  or
+    issue special commands to gain access.
+
+    In addition, the RP07  has  2  maintenance  cylinders  that  can  be
+    accessed  by  setting the diagnostic mode bit.  The first of these 2
+    cylinders will be used as an additional  diagnostic  cylinder.   The
+    2nd  maintenance  cylinder is reserved for ISS and is not even known
+    to the program.
+
+
+
+    3.14  Program retry of commands
+
+    In general, a retry scheme is used to deal with  errors  that  occur
+    during the execution of commands.  The retry scheme for a particular
+    command  is  executed  the  appropriate  number  of  times  and   if
+    unsuccessful,  the  program  will attempt to continue, except in the
+    case where an UNSAFE or PERMANENT (unclearable) error  occures.   In
+    the  latter  2  cases the program will no longer attempt to use that
+    drive.  Testing on other selected drives will continue.
+
+    When we are unsuccessful in writing data to a particular sector  or,
+    when  data  cannot be recovered from a particular sector of the disk
+    following all the attempts at retry, the program will  automatically
+    make  an  entry in the mapout data base for the failing sector.  The
+    entry will be a HARD error and this logical block will become a  BAT
+    block entry when the BAT blocks are actually written.
+
+    During read error  recovery  of  any  type,  ECC  (error  correction
+    recovery)  is  always enabled and the data will be corrected as soon
+    as possible.
+
+    This retry scheme is not activated during program configuration  and
+    the execution of NEXTST.
+
+    Program retry is automatically inhibited if the LOOP-ON-ERROR  swith
+    is  set.   This  is  to  eliminate extraneous comands within a scope
+    loop.
+
+    The  following  sections  indicate  the  method  of  retry  that  is
+    attempted for each type command.
+MAINDEC-10-DFRPM-B-D                                           Page 57
+Functional Description                                       12 Sep 85
+
+
+    3.14.1  Write track descriptor (write TD)
+
+    This command is Exclusive to the RP07 and  the  sequence  of  RECAL,
+    SEEK, WRITE-TD is attempted 3 times.
+
+
+
+    3.14.2  Read track descriptor (read TD)
+
+    This command is exclusive to the RP07 and  the  sequence  of  RECAL,
+    SEEK, READ-TD is attempted 3 times.
+
+
+
+    3.14.3  Write header and data (format)
+
+    This command is supported in all drives.  The recovery  sequence  of
+    RECAL, SEEK, FORMAT is attempted 3 times.
+
+
+
+    3.14.4  Read headers and data (read H+D)
+
+    This command is supported in all drives although slightly  different
+    from  RP07  to  RP06.   The  recovery  sequence of RECAL, SEEK, READ
+    headers and data is attempted using the following algorithms:
+
+                               For RP06
+
+            1.  8 times with no offset and HCI=0
+            2.  8 times with no offset and HCI=1
+            3.  2 times with +400 u-in offset HCI=1
+            4.  2 times with -400 u-in offset HCI=1
+            5.  2 times with +800 u-in offset HCI=1
+            6.  2 times with -800 u-in offset HCI=1
+            7.  2 times with +1200 u-in offset HCI=1
+            8.  2 times with -1200 u-in offset HCI=1
+
+                               For RP07
+
+            1.  8 times with no offset and HCI=0
+            2.  8 times with no offset and HCI=1
+
+
+
+
+    3.14.5  Write Data (write)
+
+    This is the standard  command  to  write  data  fields.   The  retry
+    sequence  is RECAL, SEEK, WRITE.  This sequence is done 3 times with
+    HCI=0 and then 3 times with HCI=1.  (HCI is Header Compare Inhibit).
+MAINDEC-10-DFRPM-B-D                                           Page 58
+Functional Description                                       12 Sep 85
+
+
+    3.14.6  Read Data (read)
+
+    This is the standard command to read data fields.  The  sequence  is
+    different  for  RP07s  and RP06s because the RP07 has no head offset
+    capability.  The basic scheme says  RECAL,  SEEK,  Retry  using  the
+    following algorithm:
+
+                               For RP06
+
+            1.  8 times with no offset and HCI=0
+            2.  8 times with no offset and HCI=1
+            3.  2 times with +400 u-in offset HCI=1
+            4.  2 times with -400 u-in offset HCI=1
+            5.  2 times with +800 u-in offset HCI=1
+            6.  2 times with -800 u-in offset HCI=1
+            7.  2 times with +1200 u-in offset HCI=1
+            8.  2 times with -1200 u-in offset HCI=1
+
+                               For RP07
+
+            1.  8 times with no offset and HCI=0
+            2.  8 times with no offset and HCI=1
+
+
+
+
+    3.14.7  Recalibrate positioner (recal)
+
+    Three recovery attempts at recalibration are executed.
+
+
+
+    3.14.8  Seek command (seek)
+
+    Retry of the seek operation consists of the 3 attempts of the RECAL,
+    SEEK sequence.
+
+
+
+    3.14.9  Search command (search)
+
+    Retry of the search operation consists of  the  3  attempts  of  the
+    RECAL, SEARCH sequence.
+
+
+
+    3.14.10  Offset command (offset)
+
+    The offset command is particular to the RP06.  This retry  for  this
+    command consists of 3 attempts at issuing the offset command.
+MAINDEC-10-DFRPM-B-D                                           Page 59
+Functional Description                                       12 Sep 85
+
+
+    3.14.11  Return to centerline command (return)
+
+    The return to centerline command is particular to the RP06  and  its
+    recovery  is  3  attempts  of  re-issuing the command.  If the three
+    attempts fail, a  RECAL,  SEEK  sequence  is  issued  to  bring  the
+    positioner back to track centerline.
+
+
+
+    3.15  Watchdog timing of tests
+
+    DFRPM has a nominal 4 second watch dog  timer  which  monitors  each
+    command for hung hardware.  When a device hangs, the program reports
+    the situation, attempts to clear the condition and continues.
+
+
+
+4.0  Interfaces
+
+    4.1  Diagnostic software interfaces
+
+    All input  and  output  at  the  terminal  is  handled  through  the
+    diagnostic subroutine package.
+
+
+
+    4.2  Operating systems interfaces
+
+    The program makes use of the DIAG UUO  interface  to  the  operating
+    system when running in a timesharing mode under TOPS-10 release 7.01
+    (with RP20 support) or newer.
+
+    The program makes use of the DIAG JSYS interface  to  the  operating
+    system  when  running  in timesharing mode under TOPS-20 release 4.0
+    (with RP20 support) or newer.
+
+
+
+5.0  Glossary
+
+
+    DFRPM - The formatter/exerciser for RP06/RP07 on DECsystem 10/20.
+
+    DDRPI - Existing  disk  reliability  diagnostic  and  formatter  for
+        RP04/RP06 on DECsystem 10/20.
+
+    DIAG JSYS - Special diagnostic interface to the TOPS-20 monitor used
+        for producing diagnostics that run while timesharing.
+
+    DIAG UUO - Special diagnostic interface to the TOPS-10 monitor  used
+        for ngroducing diagnostics that run while timesharing.
+
+    FRU - Field replaceable unit.
+MAINDEC-10-DFRPM-B-D                                           Page 60
+Glossary                                                     12 Sep 85
+
+
+    EXEC MODE - Program running on a stand-alone system.
+
+    USER MODE - Program runs on a timesharing system  while  the  system
+        continues to timeshare.
+
+    REMOTE DIAGNOSIS - The ability to diagnose or exercise a device from
+        a location other than the site of the timesharing system.
+
+    TD - Abbreviation for Track Descriptor Records recorded on the front
+        of each track of the RP07.
+
+    BAT BLOCKS - Sectors 2 and 13 (octal) on every DECsystem 10/20 media
+        used  to  log  defective  spots  on  the media.  Diagnostics and
+        operating systems communicate through the BAT blocks.
+
+    OPI - Drive error condition for Operation Incomplete.
+
+    ECC - Abbreviation for Error Correction Code.
+
+    HUNG DEVICE - Program watchdog timer has timed out while waiting for
+        a command to a drive to complete.  Nominally set to 4 seconds.
+MAINDEC-10-DFRPM-B-D                                           Page 61
+Appendix-A                                                   12 Sep 85
+
+
+6.0  Appendix-A
+
+This appendix contains the figures that are  referenced  throughout  the
+body of the document arranged in numerical order.
+MAINDEC-10-DFRPM-B-D                                           Page 62
+Appendix-A                                                   12 Sep 85
+
+
+ENTER MODE (DEF,MAN,VAR,HELP) - HELP
+
+HELP - THIS MESSAGE
+DEF - DEFAULT MODE - DIAGNOSTIC WILL USE DEFAULT TESTS AND PARAMETERS
+ (YOU MAY SPECIFY SINGLE OR MULTIPLE PASSES)
+MAN - MANUAL MODE - YOU SPECIFY TEST
+VAR - VARIABLE MODE - YOU SPECIFY TEST AND PARAMETERS
+EXIT - BACK TO "DIAMON"
+TYPE: "S<CR>" WHEN TESTS ARE RUNNING TO GET RUNTIME STATUS
+TYPE: "$" (ALTMODE) TO TERMINATE TEST AT END OF NEXT ITERATION
+TYPE: CTRL-C (CONTROL-C) TO GET TO MONITOR LEVEL. (CONTINUE WILL WORK)
+
+ENTER MODE (DEF,MAN,VAR,HELP) - MAN
+
+MAN> WHAT TEST (OR HELP): HELP
+
+HELP - THIS MESSAGE
+CONFIG - ALLOWS YOU TO RESELECT DEVICES AND OPTIONS
+MODE - ALLOWS YOU TO CHANGE RUN MODE
+TYPE: "S<CR>" WHEN TESTS ARE RUNNING TO GET PROGRAM STATUS
+TYPE: "$" (ALTMODE) TO TERMINATE TEST AT END OF NEXT TEST ITERATION
+FORMAT - FORMAT
+PAKINT - MEDIA INITIALIZE (RUNS FORMAT, RONLY, MAPOUT) 
+NEWBAT - WRITES A NEW SET OF BAT BLOCKS (NO ENTRIES)
+MAPOUT - MAKES BAD SPOT ENTRIES INTO BAT BLOCKS
+RONLY -  READ ONLY
+WONLY - WRITE ONLY
+EX1 - RECAL
+EX2 - RECAL,SEEK-X
+EX3 - RECAL,SEARCH-X
+EX4 - SEEK-X,SEEK-Y
+EX5 - SEARCH-X,SEARCH-Y
+EX6 - SEEK-X,SEEK-Y,WRITE-Y,READ-Y,VERIFY DATA
+EX7 - SEEK-X,WRITE-Y,READ-Y,VERIFY (IMPLIED SEEKS)
+EX8 - SEEK-X,READ-Y RANDOM
+EX9 - EXERCISE A SPECIFIC AREA OF MEDIA
+EX10 - SEEK-X,WRITE-Y RANDOM
+EX11 - READ-X,WRITE-Y,READ-Z RANDOM
+EX12 - WRITE-X,READ-Y,WRITE-Z RANDOM
+NEXTST - READ/WRITE NEXT (TESTS ALL COMBINATIONS OF BACKUP COMMANDS)
+
+        (Fig - 1  continued on next page)
+MAINDEC-10-DFRPM-B-D                                           Page 63
+Appendix-A                                                   12 Sep 85
+
+
+
+SKTST1 - MEASURES SINGLE CYLINDER SEEK TIMES. FORWARD AND REVERSE.
+         (IN USER MODE, TIMES ARE NOT REPORTED)
+SKTST2 - MEASURES SEEK TIMES FOR ALL LENGTH SEEKS. POSITIVE & NEGATIVE.
+         (IN USER MODE, TIMES ARE NOT REPORTED)
+SKTST3 -  MEASURES SEEK TIME BETWEEN ANY 2 CYLINDERS
+         (IN USER MODE, TIMES ARE NOT REPORTED)
+PEEK - DISPLAY (IN OCTAL) VARIOUS FIELDS OF A TRACK OR SECTOR
+TDLST - LIST TRACK DESCRIPTOR RECORDS FOR RP07'S
+TD631 - BUILD TD'S ON RP07 C.E. CYLINDER-631. 
+TDBLD - WRITES A TRACK DESCRIPTOR RECORD FOR AN RP07
+TOTALS - PRINT TOTALS FOR SELECTED DRIVES 
+TOTCLR - CLEAR TOTALS LOG FOR SELECTED DRIVES
+         (THE MAPOUT  INFORMATION IS NOT CLEARED)
+RUNTME - PRINT PROGRAM RUN TIME
+RUNZRO - RESET PROGRAM RUN TIME
+PGMSIZ - PRINT CURRENT MEMORY USEAGE (USER MODE ONLY)
+EXIT - BACK TO DIAMON
+
+MAN> WHAT TEST (OR HELP): RONLY
+
+                Fig - 1
+MAINDEC-10-DFRPM-B-D                                           Page 64
+Appendix-A                                                   12 Sep 85
+
+
+ENTER  CYL1: -  ?
+
+** -- INPUT ERROR FOR "CYL1".THE FOLLOWING IS ALLOWED:
+        0(0.) THRU  1456(814.)
+ENTER  CYL1: -  400.
+ENTER  CYL2: -  ?
+
+** -- INPUT ERROR FOR "CYL2".THE FOLLOWING IS ALLOWED:
+        1456(814.) THRU  1456(814.)
+ENTER  CYL2: -  814.
+ENTER  SURF2: -  3.
+ENTER  SECT2: -  4.
+ENTER  SIZE2: -  ?
+
+** -- INPUT ERROR FOR "SIZE2".THE FOLLOWING IS ALLOWED:
+        1(1.) THRU  1000(512.)
+ENTER  SIZE2: -  512.
+ENTER  PAT2: -  h
+
+** -- INPUT ERROR FOR "PAT2".THE FOLLOWING IS ALLOWED:
+        0(0.) THRU  10(8.)
+
+THIS IS AN INDEX INTO A STD PATTERN TABLE. ENTERING AN 8. ALLOWS
+ "YOU" TO SPECIFY THE OCTAL PATTERN (UP TO 36 BITS).
+
+INDEX   PATTERN
+0       575333,,333333          WORST CASE
+1       777777,,777777
+2       565252,,525253
+3       365735,,673567
+4       633333,,155554
+5       326661,,533306
+6       466152,,330651
+7       070360,,741703
+8       YOU WILL BE ASKED TO SUPPLY PATTERN
+
+ENTER  PAT2: -  0
+THE FOLLOWING PATTERN WILL BE USED:  575333 333333 
+
+                Fig - 2
+MAINDEC-10-DFRPM-B-D                                           Page 65
+Appendix-A                                                   12 Sep 85
+
+
+XXXX-XXXX-XXXX
+CONFIGURING -  DRIVE-5 RH-540 
+DRIVE TYPE=024022 RP06 DUAL PORTED  SER. NO.=0639.
+DRSR    REG-01  540-5: DRAES TRA PARBIT MOL DPR DRY VV 
+MEDIA CONTAINS VALID "BAT" BLOCKS.
+MEDIA CONTAINS VALID "HOME" BLOCKS.  VOL-ID IS "TOPS-20 - Z"
+IS THERE DATA ON THE MEDIA THAT MUST BE SAVED  Y OR N <CR> - XYZ
+
+ Y OR N <CR> - N
+ARE YOU SURE  Y OR N <CR> - XYZ
+
+ Y OR N <CR> - N
+IS THERE DATA ON THE MEDIA THAT MUST BE SAVED  Y OR N <CR> - Y
+YOU HAVE 2 OPTIONS
+ENTER:(1,2 OR HELP) - 1
+XXXX-XXXX-XXXX
+
+                Fig - 3
+
+
+
+
+
+MAN> WHAT TEST (OR HELP): ROONLY
+???
+MAN> WHAT TEST (OR HELP): 
+???
+MAN> WHAT TEST (OR HELP): 123
+???
+MAN> WHAT TEST (OR HELP): RONLY
+
+
+
+                Fig - 4
+MAINDEC-10-DFRPM-B-D                                           Page 66
+Appendix-A                                                   12 Sep 85
+
+
+IS THERE DATA ON THE MEDIA THAT MUST BE SAVED  Y OR N <CR> - Y
+YOU HAVE 2 OPTIONS
+ENTER:(1,2 OR HELP) - H
+
+OPTION #1 - READ ANYWHERE ON MEDIA BUT WRITE ONLY TO MAINT AREA
+OPTION #2 - ALL READS AND WRITES ARE DONE  WITHIN MAINT AREA
+ENTER:(1,2 OR HELP) - 1
+
+ENTER MODE (DEF,MAN,VAR,HELP) - HELP
+
+HELP - THIS MESSAGE
+DEF - DEFAULT MODE - DIAGNOSTIC WILL USE DEFAULT TESTS AND PARAMETERS
+ (YOU MAY SPECIFY SINGLE OR MULTIPLE PASSES)
+MAN - MANUAL MODE - YOU SPECIFY TEST
+VAR - VARIABLE MODE - YOU SPECIFY TEST AND PARAMETERS
+EXIT - BACK TO "DIAMON"
+TYPE: "S<CR>" WHEN TESTS ARE RUNNING TO GET RUNTIME STATUS
+TYPE: "$" (ALTMODE) TO TERMINATE TEST AT END OF NEXT ITERATION
+TYPE: CTRL-C (CONTROL-C) TO GET TO MONITOR LEVEL. (CONTINUE WILL WORK)
+
+ENTER MODE (DEF,MAN,VAR,HELP) - VAR
+
+VAR> WHAT TEST (OR HELP): PEEK
+ RUNNING - PEEK DRIVE-5 RH-540  RP06 DUAL PORTED  SER. NO.=230. 
+ RUNTIME(HH:MM:SS) 00:12:23   INFO ??   Y OR N <CR> - y
+PEEK - DISPLAY COMBINATIONS OF HEADER AND DATA FIELDS FOR
+ANY DISK SECTOR, TD'S ARE ALSO ALLOWED FOR RP07. DATA IS IN RAW OCTAL
+
+ENTER FUNCTION CODE (0-3 OR HELP <CR>) - H
+0=TD'S (RP07 ONLY), 1=HEADER FIELDS,
+2=DATA FIELDS, 3=HEADER AND DATA FIELDS
+ENTER FUNCTION CODE (0-3 OR HELP <CR>) - 3
+DO YOU WANT TO PRINT DATA ? Y OR N <CR> - N
+ENTER  CYL1: -  0
+ENTER  SURF1: -  0
+ENTER  SECT1: -  13
+
+                Fig - 5
+MAINDEC-10-DFRPM-B-D                                           Page 67
+Appendix-A                                                   12 Sep 85
+
+
+RH20/RP07/RP06/RP04 FORMATTER/EXERCISER (DFRPM)
+VERSION 0.12, SV=0.15, TOPS-20, KL10, CPU#=2263
+
+TTY SWITCH CONTROL ? - 0,S, Y OR N <CR> - n
+
+SWITCHES = 000000 000000 
+
+MEMORY MAP =
+FROM     TO         SIZE/K
+00000000 00120777       40
+
+THE FOLLOWING RH'S AND DRIVES ARE DETECTED
+
+RH'S    DRIVES
+540     5 (RP06)
+550     0 (RP07), 2(RP06), 3(RP06)
+
+SELECT RH'S (540,544,550,554,560,564,570,574,A=ALL ARE LEGAL)
+RH'S = 550
+
+SELECT DRIVES (0-7, A=ALL, N=NONE) ON RH-550 = 0
+
+XXXX-XXXX-XXXX
+CONFIGURING -  DRIVE-0 RH-550 
+DRIVE TYPE=024042 RP07 DUAL PORTED  SER. NO.=0639.
+DRSR    REG-01  550-0: DRAES TRA PARBIT MOL DPR DRY VV 
+ 8080 U-CODE REV-04    2901 U-CODE REV-04
+MEDIA CONTAINS VALID "BAT" BLOCKS.
+MEDIA CONTAINS VALID "HOME" BLOCKS.  VOL-ID IS "TOPS-20 - Z"
+****** THIS UNIT IS CURRENTLY A MOUNTED STRUCTURE ******
+THE PROGRAM WILL ALLOW WRITES ONLY TO THE MAINTENANCE CYLINDER(S)
+YOU HAVE 2 OPTIONS
+ENTER:(1,2 OR HELP) - H
+OPTION #1 - READ ANYWHERE ON MEDIA BUT WRITE ONLY TO MAINT AREA
+OPTION #2 - ALL READS AND WRITES ARE DONE  WITHIN MAINT AREA
+ENTER:(1,2 OR HELP) - 1
+XXXX-XXXX-XXXX
+
+ENTER MODE (DEF,MAN,VAR,HELP) - HELP
+
+
+                (Fig - 6  continued on next page)
+MAINDEC-10-DFRPM-B-D                                           Page 68
+Appendix-A                                                   12 Sep 85
+
+
+
+HELP - THIS MESSAGE
+DEF - DEFAULT MODE - DIAGNOSTIC WILL USE DEFAULT TESTS AND PARAMETERS
+ (YOU MAY SPECIFY SINGLE OR MULTIPLE PASSES)
+MAN - MANUAL MODE - YOU SPECIFY TEST
+VAR - VARIABLE MODE - YOU SPECIFY TEST AND ITS PARAMETERS
+EXIT - BACK TO "DIAMON"
+TYPE: "S<CR>" WHEN TESTS ARE RUNNING TO GET RUNTIME STATUS
+TYPE: "$" (ALTMODE) TO TERMINATE TEST AT END OF NEXT ITERATION
+TYPE: CTRL-C (CONTROL-C) TO GET TO MONITOR LEVEL. (CONTINUE WILL WORK)
+
+ENTER MODE (DEF,MAN,VAR,HELP) - MAN
+
+MAN> WHAT TEST (OR HELP): RONLY
+
+                Fig - 6
+MAINDEC-10-DFRPM-B-D                                           Page 69
+Appendix-A                                                   12 Sep 85
+
+
+
+RECONFIGURE ? Y OR N <CR> - N
+
+ENTER MODE (DEF,MAN,VAR,HELP) - MAN
+
+MAN> WHAT TEST (OR HELP): RONLY
+
+
+                Fig - 7
+
+
+
+RECONFIGURE ? Y OR N <CR> - Y
+
+THE FOLLOWING RH'S AND DRIVES ARE DETECTED
+
+RH'S    DRIVES
+540     5 (RP06)
+570     0 (RP07)
+550     0 (RP04), 2(RP06), 3(RP06)
+
+SELECT RH'S (540,544,550,554,560,564,570,574,A=ALL ARE LEGAL)
+RH'S = 540
+
+SELECT DRIVES (0-7, A=ALL, N=NONE) ON RH-540 = 5
+ON RH-540 = 5
+
+XXXX-XXXX-XXXX
+CONFIGURING -  DRIVE-5 RH-540 
+DRIVE TYPE=024022 RP06 DUAL PORTED  SER. NO.=0639.
+DRSR    REG-01  540-5: DRAES TRA PARBIT MOL DPR DRY VV 
+MEDIA CONTAINS VALID "BAT" BLOCKS.
+MEDIA CONTAINS VALID "HOME" BLOCKS.  VOL-ID IS "TOPS-20 - Z"
+****** THIS UNIT IS CURRENTLY A MOUNTED STRUCTURE ******
+THE PROGRAM WILL ALLOW WRITES ONLY TO THE MAINTENANCE CYLINDER(S)
+YOU HAVE 2 OPTIONS
+ENTER:(1,2 OR HELP) - 1
+XXXX-XXXX-XXXX
+
+ENTER MODE (DEF,MAN,VAR,HELP) - MAN
+
+MAN> WHAT TEST (OR HELP): RONLY
+
+
+                Fig - 8
+
+
+                Fig - 9
+
+MAINDEC-10-DFRPM-B-D                                           Page 70
+Appendix-A                                                   12 Sep 85
+
+
+XXXX-XXXX-XXXX
+CONFIGURING -  DRIVE-5 RH-540 
+DRIVE TYPE=024022 RP06 DUAL PORTED  SER. NO.=0639.
+DRSR    REG-01  540-5: DRAES TRA PARBIT MOL DPR DRY VV 
+MEDIA CONTAINS VALID "BAT" BLOCKS.
+MEDIA CONTAINS VALID "HOME" BLOCKS.  VOL-ID IS "TOPS-20 - Z"
+****** THIS UNIT IS CURRENTLY A MOUNTED STRUCTURE ******
+THE PROGRAM WILL ALLOW WRITES ONLY TO THE MAINTENANCE CYLINDER(S)
+YOU HAVE 2 OPTIONS
+ENTER:(1,2 OR HELP) - h
+
+OPTION #1 - READ ANYWHERE ON MEDIA BUT WRITE ONLY TO MAINT AREA
+OPTION #2 - ALL READS AND WRITES ARE DONE  WITHIN MAINT AREA
+ENTER:(1,2 OR HELP) - 1
+XXXX-XXXX-XXXX
+
+                Fig - 10
+
+WHAT TEST (OR HELP): CONFIG
+
+THE FOLLOWING RH'S AND DRIVES ARE DETECTED
+
+RH'S    DRIVES
+540     5 (RP06)
+570     0 (RP07)
+550     0 (RP04), 2(RP06), 3(RP06)
+
+SELECT RH'S (540,544,550,554,560,564,570,574,A=ALL ARE LEGAL)
+RH'S = 540
+
+SELECT DRIVES (0-7, A=ALL, N=NONE) ON RH-540 = 5
+
+XXXX-XXXX-XXXX
+CONFIGURING -  DRIVE-5 RH-540 
+DRIVE TYPE=024022 RP06 DUAL PORTED  SER. NO.=0639.
+DRSR    REG-01  540-5: DRAES TRA PARBIT MOL DPR DRY VV 
+MEDIA CONTAINS VALID "BAT" BLOCKS.
+MEDIA CONTAINS VALID "HOME" BLOCKS.  VOL-ID IS "TOPS-20 - Z"
+IS THERE DATA ON THE MEDIA THAT MUST BE SAVED  Y OR N <CR> - y
+YOU HAVE 2 OPTIONS
+ENTER:(1,2 OR HELP) - 1
+XXXX-XXXX-XXXX
+
+ENTER MODE (DEF,MAN,VAR,HELP) - MAN
+
+MAN> WHAT TEST (OR HELP): RONLY
+
+
+                Fig - 11
+
+MAINDEC-10-DFRPM-B-D                                           Page 71
+Appendix-A                                                   12 Sep 85
+
+
+
+ENTER MODE (DEF,MAN,VAR,HELP) - HELP
+
+HELP - THIS MESSAGE
+DEF - DEFAULT MODE - DIAGNOSTIC WILL USE DEFAULT TESTS AND PARAMETERS
+ (YOU MAY SPECIFY SINGLE OR MULTIPLE PASSES)
+MAN - MANUAL MODE - YOU SPECIFY TEST
+VAR - VARIABLE MODE - YOU SPECIFY TEST AND PARAMETERS
+EXIT - BACK TO "DIAMON"
+TYPE: "S<CR>" WHEN TESTS ARE RUNNING TO GET RUNTIME STATUS
+TYPE: "$" (ALTMODE) TO TERMINATE TEST AT END OF NEXT ITERATION
+TYPE: CTRL-C (CONTROL-C) TO GET TO MONITOR LEVEL. (CONTINUE WILL WORK)
+
+ENTER MODE (DEF,MAN,VAR,HELP) - DEF
+
+
+                Fig - 12
+MAINDEC-10-DFRPM-B-D                                           Page 72
+Appendix-A                                                   12 Sep 85
+
+
+
+MAN> WHAT TEST (OR HELP): HELP
+
+HELP - THIS MESSAGE
+CONFIG - ALLOWS YOU TO RESELECT DEVICES AND OPTIONS
+MODE - ALLOWS YOU TO CHANGE RUN MODE
+TYPE: "S<CR>" WHEN TESTS ARE RUNNING TO GET PROGRAM STATUS
+TYPE: "$" (ALTMODE) TO TERMINATE TEST AT END OF NEXT TEST ITERATION
+FORMAT - FORMAT
+PAKINT - MEDIA INITIALIZE (RUNS FORMAT, RONLY, MAPOUT) 
+NEWBAT - WRITES A NEW SET OF BAT BLOCKS (NO ENTRIES)
+MAPOUT - MAKES BAD SPOT ENTRIES INTO BAT BLOCKS
+RONLY -  READ ONLY
+WONLY - WRITE ONLY
+EX1 - RECAL
+EX2 - RECAL,SEEK-X
+EX3 - RECAL,SEARCH-X
+EX4 - SEEK-X,SEEK-Y
+EX5 - SEARCH-X,SEARCH-Y
+EX6 - SEEK-X,SEEK-Y,WRITE-Y,READ-Y,VERIFY DATA
+EX7 - SEEK-X,WRITE-Y,READ-Y,VERIFY (IMPLIED SEEKS)
+EX8 - SEEK-X,READ-Y RANDOM
+EX9 - EXERCISE A SPECIFIC AREA OF MEDIA
+EX10 - SEEK-X,WRITE-Y RANDOM
+EX11 - READ-X,WRITE-Y,READ-Z RANDOM
+EX12 - WRITE-X,READ-Y,WRITE-Z RANDOM
+NEXTST - READ/WRITE NEXT (TESTS ALL COMBINATIONS OF BACKUP COMMANDS)
+SKTST1 - MEASURES SINGLE CYLINDER SEEK TIMES. FORWARD AND REVERSE.
+         (IN USER MODE, TIMES ARE NOT REPORTED)
+SKTST2 - MEASURES SEEK TIMES FOR ALL LENGTH SEEKS. POSITIVE AND NEGATIVE.
+         (IN USER MODE, TIMES ARE NOT REPORTED)
+SKTST3 -  MEASURES SEEK TIME BETWEEN ANY 2 CYLINDERS
+         (IN USER MODE, TIMES ARE NOT REPORTED)
+PEEK - DISPLAY (IN OCTAL) VARIOUS FIELDS OF A TRACK OR SECTOR
+TDLST - LIST TRACK DESCRIPTOR RECORDS FOR RP07'S
+TD631 - BUILD TD'S ON RP07 C.E. CYLINDER-631. 
+TDBLD - WRITES A TRACK DESCRIPTOR RECORD FOR AN RP07
+TOTALS - PRINT TOTALS FOR SELECTED DRIVES 
+TOTCLR - CLEAR TOTALS LOG FOR SELECTED DRIVES
+         (THE MAPOUT  INFORMATION IS NOT CLEARED)
+RUNTME - PRINT PROGRAM RUN TIME
+RUNZRO - RESET PROGRAM RUN TIME
+PGMSIZ - PRINT CURRENT MEMORY USEAGE (USER MODE ONLY)
+EXIT - BACK TO DIAMON
+
+
+                Fig - 13
+MAINDEC-10-DFRPM-B-D                                           Page 73
+Appendix-A                                                   12 Sep 85
+
+
+VAR> WHAT TEST (OR HELP):EX6
+ RUNNING - EX6 DRIVE-5 RH-540  RP06 DUAL PORTED  SER. NO.=230. 
+ RUNTIME(HH:MM:SS) 00:12:23   INFO ??   Y OR N <CR> - y
+SEEK - CYL1
+WRITE - CYL2,SURF2,SECT2,SIZE2,PAT2
+READ - CYL2,SURF2,SECT2,SIZE2
+DATA COMPARE IS OPTIONAL
+
+WANT DATA COMPARES Y OR N <CR> - n
+ENTER  CYL1: -  400.
+ENTER  CYL2: -  814.
+ENTER  SURF2: -  3.
+ENTER  SECT2: -  4.
+ENTER  SIZE2: -  512.
+ENTER  PAT2: -  0
+THE FOLLOWING PATTERN WILL BE USED:  575333 333333 
+
+
+                Fig - 14
+
+MAINDEC-10-DFRPM-B-D                                           Page 74
+Appendix-A                                                   12 Sep 85
+
+
+
+
+
+
+*-*-*-* RUNTIME(HH:MM:SS) 00:12:23
+ERROR DETECTED ON DONE INTERRUPT
+ RUNNING - RONLY DRIVE-5 RH-540 RP06 DUAL PORTED   SER. NO.=134. 
+
+CONI    540: EXCEP CHN-ER CNR MBCENB ATTN DONE PIA=0 
+RHPTCR  REG-73  540: RCLP STORE  DRIVE=5  + BLOCK CNT=4. FNCTN+GO=71
+RHIVR   REG-74  540: INT VECT ADDR=000 
+
+DRCR    REG-00  540-5: DRAES TRA PARBIT DVA FNCTN(30-34)=READ GO-BIT=0 
+DRSR    REG-01  540-5: DRAES TRA PARBIT ATA ERR MOL DPR DRY VV 
+DRER1   REG-02  540-5: DRAES TRA DCK 
+DRMR    REG-03  540-5: DRAES TRA 000400 
+DRATA   REG-04  540-5: DRAES TRA PARBIT ATA-05 
+DRDA    REG-05  540-5: DRAES TRA  SURFACE=0(0.) SECTOR=4(4.)
+DRDT    REG-06  540-5: DRAES TRA PARBIT RP06 DUAL PORTED
+DRLA    REG-07  540-5: DRAES TRA PARBIT  SECTOR=4(4.)
+DRSN    REG-10  540-5: DRAES TRA PARBIT  DRIVE SER. NO.=0639.
+DROFST  REG-11  540-5: DRAES TRA SGNCHG 
+DRDCY   REG-12  540-5: DRAES TRA PARBIT  DESIRED CYLINDER=0(0.)
+DRRG13  REG-13  540-5: DRAES TRA PARBIT 000000 
+DRRG14  REG-14  540-5: DRAES TRA PARBIT 
+DRRG15  REG-15  540-5: DRAES TRA PARBIT 
+DRECPS  REG-16  540-5: DRAES TRA PARBIT  ECC POSITION=7323(3795.)
+DRECPT  REG-17  540-5: DRAES TRA PARBIT  ECC PATTERN=2000 
+
+CCW'S   CHAN-0 
+ LOC      +WC     ADR       MISC.
+ ---      ---     ---       -----
+030600   512.   00122000   OPDATA LSTXFR 
+
+CHAN-0 LOGOUT DATA
+LOC   
+000    ICW: 620001 243000 
+001    SW1: LOGOUT -ADRPE -WCZRO LNG-WC   CLP POINTS TO: 70072
+002    LAST UPDATED CCW: 610001 243400    +WC=256.  ADR=1243400
+
+                Fig - 15
+MAINDEC-10-DFRPM-B-D                                           Page 75
+Appendix-A                                                   12 Sep 85
+
+
+*-*-*-* RUNTIME(HH:MM:SS) 00:12:23
+ERROR DETECTED ON DONE INTERRUPT
+ RUNNING - RONLY DRIVE-5 RH-540 RP06 DUAL PORTED   SER. NO.=134. 
+
+CONI    540: 000000 222610 
+RHPTCR  REG-73  540: 732205 177471 
+RHIVR   REG-74  540: 740000 000000 
+
+DRCR    REG-00  540: 000605 204070 
+DRSR    REG-01  540: 010605 350700 
+DRER1   REG-02  540: 020605 100000 
+DRMR    REG-03  540: 030605 000400 
+DRATA   REG-04  540: 040605 200040 
+DRDA    REG-05  540: 050605 000004 
+DRDT    REG-06  540: 060605 224022 
+DRLA    REG-07  540: 070605 200440 
+DRSN    REG-10  540: 100605 203071 
+DROFST  REG-11  540: 110605 100000 
+DRDCY   REG-12  540: 120605 200000 
+DRRG13  REG-13  540: 130605 200000 
+DRRG14  REG-14  540: 140605 200000 
+DRRG15  REG-15  540: 150605 200000 
+DRECPS  REG-16  540: 160605 207323 
+DRECPT  REG-17  540: 170605 002000 
+
+CCW'S   CHAN-0 
+ LOC       CCW
+ ---       ---
+030600   620000 122000 
+
+CHAN-0 LOGOUT DATA
+LOC   CONTENTS
+000    620001 504000 
+001    540100 070061 
+002    610001 504400 
+
+                Fig - 16
+
+VAR> WHAT TEST (OR HELP): NEXTST
+ RUNNING - NEXTST DRIVE-5 RH-540  RP06 DUAL PORTED  SER. NO.=230. 
+ RUNTIME(HH:MM:SS) 00:12:23   INFO ??   Y OR N <CR> - y
+NEXTST - TESTS RH20 BACKUP COMMAND OPERATION (ANY COMBINATION)
+DOING 2 SECTOR TRANSFERS AT A TIME.
+1ST CMD  -  CYL1,SURF1,SECT1
+2ND CMD  -  CYL1,SURF2 (2 SECTORS FROM 1ST CMD)
+SELECT A PAIR OF COMMANDS BY ENTERING 0-3<CR>
+0=READ/READ, 1=WRITE/WRITE, 2=READ/WRITE, 3=WRITE/READ
+ENTER NUMBER <CR> - 0
+ENTER  CYL1: -  0
+ENTER  SURF1: -  0
+ENTER  SURF2: -  10
+ENTER  SECT1: - 0
+
+                Fig - 17
+MAINDEC-10-DFRPM-B-D                                           Page 76
+Appendix-A                                                   12 Sep 85
+
+
+
+*-*-*-* RUNTIME(HH:MM:SS) 00:12:23
+ERROR DETECTED ON DONE INTERRUPT
+ RUNNING - RONLY DRIVE-5 RH-540 RP06 DUAL PORTED   SER. NO.=134. 
+
+CONI    540: EXCEP CHN-ER CNR MBCENB ATTN DONE PIA=0 
+RHPTCR  REG-73  540: RCLP STORE  DRIVE=5  + BLOCK CNT=4. FNCTN+GO=71
+RHIVR   REG-74  540: INT VECT ADDR=000 
+
+DRCR    REG-00  540-5: DRAES TRA PARBIT DVA FNCTN(30-34)=READ GO-BIT=0 
+DRSR    REG-01  540-5: DRAES TRA PARBIT ATA ERR MOL DPR DRY VV 
+DRER1   REG-02  540-5: DRAES TRA DCK 
+DRMR    REG-03  540-5: DRAES TRA 000400 
+DRATA   REG-04  540-5: DRAES TRA PARBIT 
+DRDA    REG-05  540-5: DRAES TRA  SURFACE=0(0.) SECTOR=4(4.)
+DRDT    REG-06  540-5: DRAES TRA PARBIT RP06 DUAL PORTED
+DRLA    REG-07  540-5: DRAES TRA PARBIT  SECTOR=4(4.)
+DRSN    REG-10  540-5: DRAES TRA PARBIT  DRIVE SER. NO.=0639.
+DROFST  REG-11  540-5: DRAES TRA SGNCHG 
+DRDCY   REG-12  540-5: DRAES TRA PARBIT  DESIRED CYLINDER=0(0.)
+DRRG13  REG-13  540-5: DRAES TRA PARBIT 000000 
+DRRG14  REG-14  540-5: DRAES TRA PARBIT 
+DRRG15  REG-15  540-5: DRAES TRA PARBIT 
+DRECPS  REG-16  540-5: DRAES TRA PARBIT  ECC POSITION=7323(3795.)
+DRECPT  REG-17  540-5: DRAES TRA PARBIT  ECC PATTERN=2000 
+
+CCW'S   CHAN-0 
+ LOC      +WC     ADR       MISC.
+ ---      ---     ---       -----
+030600   512.   00122000   OPDATA LSTXFR 
+
+CHAN-0 LOGOUT DATA
+LOC   
+000    ICW: 620001 243000 
+001    SW1: LOGOUT -ADRPE -WCZRO LNG-WC   CLP POINTS TO: 70072
+002    LAST UPDATED CCW: 610001 243400    +WC=256.  ADR=1243400
+
+
+---- ECC CORRECTION APPLIED
+ DRIVE-5 RH-540 POSITION=3795.  PATTERN=2000 
+BUFF ADDR       00122351 
+DATA BEFORE ECC 000000 000000 
+DATA AFTER ECC  000000 000100 
+------------
+
+                Fig - 18
+MAINDEC-10-DFRPM-B-D                                           Page 77
+Appendix-A                                                   12 Sep 85
+
+
+
+VAR> WHAT TEST (OR HELP): PEEK
+ RUNNING - PEEK DRIVE-5 RH-540  RP06 DUAL PORTED  SER. NO.=230. 
+ RUNTIME(HH:MM:SS) 00:12:23   INFO ??   Y OR N <CR> - y
+PEEK - DISPLAY COMBINATIONS OF HEADER AND DATA FIELDS FOR
+ANY DISK SECTOR, TD'S ARE ALSO ALLOWED FOR RP07. DATA IS IN RAW OCTAL
+
+ENTER FUNCTION CODE (0-3 OR HELP <CR>) - h
+0=TD'S (RP07 ONLY), 1=HEADER FIELDS,
+2=DATA FIELDS, 3=HEADER AND DATA FIELDS
+ENTER FUNCTION CODE (0-3 OR HELP <CR>) - 3
+DO YOU WANT TO PRINT DATA ? Y OR N <CR> - y
+ENTER  CYL1: -  0
+ENTER  SURF1: -  0
+ENTER  SECT1: -  13
+CHOOSE DATA FIELD PRINTING OPTIONS
+ENTER STARTING WORD, 0 THRU 177(127.) <CR> - 0
+ENTER TOTAL # OF WORDS 1. THRU 200(128.) <CR> - 62.
+
+
+ DRIVE-5 RH-540   SERIAL NO. = 0639.
+CYL = 0(0.)  SURF = 0(0.)
+
+HEADER FIELD  SECT = 13(11.)
+000000 000013   001522 000000   
+
+DATA FIELD  SECT = 13(11.)
+0.      424164 000000   777606 000004   000000 544000   000000 000007 
+4.      003001 142051   000000 035704   003004 142051   000000 002300 
+8.      003044 044327   000000 206650   003062 044327   000000 207444 
+12.     003020 242005   000000 000012   003020 242005   000000 000002 
+16.     003100 044327   000000 647160   000000 000000   000000 000000 
+20.     000000 000000   000000 000000   000000 000000   000000 000000 
+24.     000000 000000   000000 000000   000000 000000   000000 000000 
+28.     000000 000000   000000 000000   000000 000000   000000 000000 
+32.     000000 000000   000000 000000   000000 000000   000000 000000 
+36.     000000 000000   000000 000000   000000 000000   000000 000000 
+40.     000000 000000   000000 000000   000000 000000   000000 000000 
+44.     000000 000000   000000 000000   000000 000000   000000 000000 
+48.     000000 000000   000000 000000   000000 000000   000000 000000 
+52.     000000 000000   000000 000000   000000 000000   000000 000000 
+56.     000000 000000   000000 000000   000000 000000   000000 000000 
+60.     000000 000000   000000 000000 
+
+======
+
+                Fig - 19
+MAINDEC-10-DFRPM-B-D                                           Page 78
+Appendix-A                                                   12 Sep 85
+
+
+
+SELECT RH'S (540,544,550,554,560,564,570,574,A=ALL ARE LEGAL)
+RH'S = 544
+
+SELECT DRIVES (0-7, A=ALL, N=NONE) ON RH-540 = 4
+
+XXXX-XXXX-XXXX
+CONFIGURING -  DRIVE-4 RH-544 
+DRIVE TYPE=024022 RP06 DUAL PORTED  SER. NO.=0804.
+DRSR    REG-01  544-4: DRAES TRA PARBIT MOL DPR DRY VV 
+MEDIA CONTAINS VALID "BAT" BLOCKS.
+MEDIA CONTAINS VALID "HOME" BLOCKS.  VOL-ID IS "TOPS-20 - VULCAN"
+****** THIS UNIT IS CURRENTLY A MOUNTED STRUCTURE ******
+THE PROGRAM WILL ALLOW WRITES ONLY TO THE MAINTENANCE CYLINDER(S)
+YOU HAVE 2 OPTIONS
+ENTER:(1,2 OR HELP) - 1
+XXXX-XXXX-XXXX
+
+ENTER MODE (DEF,MAN,VAR,HELP) - 
+
+
+                Fig - 20
+
+
+
+
+
+s  RUNNING - EX6 DRIVE-5 RH-540  RP06 DUAL PORTED  SER. NO.=230. 
+ RUNTIME(HH:MM:SS) 00:12:23
+RD=15(13.)  WT=15(13.)  POS=1012(522.)
+CYL=234(156.)  SURF=3(3.)  SECT=10(7.)
+
+
+s  RUNNING - EX6 DRIVE-5 RH-540  RP06 DUAL PORTED  SER. NO.=230. 
+ RUNTIME(HH:MM:SS) 00:17:04
+RD=17(15.)  WT=22(18.) POS=1012(522.)
+CYL=144(100.)  SURF=1(1.)  SECT=24(20.)
+
+                Fig - 21
+MAINDEC-10-DFRPM-B-D                                           Page 79
+Appendix-A                                                   12 Sep 85
+
+
+
+ENTER MODE (DEF,MAN,VAR,HELP) - MAN
+
+MAN> WHAT TEST (OR HELP): TOTALS
+
+
+***** TOTALS SUMMARY *****     RUNTIME(HH:MM:SS) 00:00:01  
+ DRIVE-0 RH-550   RP07 DUAL PORTED   SER. NO.=0131.
+ 8080 U-CODE REV-04    2901 U-CODE REV-04
+
+READS = 3.
+WORDS READ = 390.
+
+MAPOUT-DATA-BASE-SUMMARY:
+ DRIVE-0 RH-550  RUNTIME(HH:MM:SS) 00:00:01  
+THERE ARE 0. HARD REGIONS AND 0. SOFT REGIONS KNOWN TO PGM
+------------------------
+
+***** TOTALS SUMMARY *****     RUNTIME(HH:MM:SS) 00:00:01  
+ DRIVE-5 RH-540   RP06 DUAL PORTED   SER. NO.=0131.
+
+READS = 3.
+WORDS READ = 390.
+
+MAPOUT-DATA-BASE-SUMMARY:
+ DRIVE-5 RH-540  RUNTIME(HH:MM:SS) 00:00:01  
+THERE ARE 0. HARD REGIONS AND 0. SOFT REGIONS KNOWN TO PGM
+STARTING ADDRESSES FOR THE REGIONS ARE:
+        LBN     CYL     SURF    SECT    #-HARD  #-SOFT
+        ---     ---     ----    ----    ------  ------
+* HARD  57554   100     5       10      0.      0.
+* HARD  203724  261     16      0       0.      0.
+* HARD  260170  355     10      14      0.      0.
+* HARD  543214  736     15      0       0.      0.
+* HARD  601364  1007    7       4       0.      0.
+* HARD  601374  1007    7       14      0.      0.
+* HARD  601560  1007    15      10      0.      0.
+------------------------
+
+                Fig - 22
+
+
+MAINDEC-10-DFRPM-B-D                                           Page 80
+Appendix-A                                                   12 Sep 85
+
+
+
+
+VAR> WHAT TEST (OR HELP): MAPOUT
+ RUNNING - PEEK DRIVE-7 RH-554  RP06 DUAL PORTED  SER. NO.=320. 
+ RUNTIME(HH:MM:SS) 00:12:23   INFO ??   Y OR N <CR> - y
+MAPOUT - ALLOWS YOU TO EXAMINE AND MODIFY MAPOUT-DATA-BASE
+
+NOW EDITING DATA-BASE
+
+DATA-BASE-EDIT CMD (OR H<CR>) - H
+
+LSTHRD - LIST ENTRIES THAT WILL GO TO BAT BLOCKS (1ST 61 GO TO BAT)
+LSTSFT - LIST ENTRIES THAT WILL NOT GO TO THE BAT BLOCKS
+LIST - LIST ALL ENTRIES IN DATA BASE
+LISTQ - SUMMARY AND QUICK LIST BY DISK ADDR (DECIMAL)
+LISTQO - SUMMARY AND QUICK LIST BY DISK ADDR (OCTAL)
+CLRDB - CLEAR THE DATA BASE (ALL BAD SPOT DATA IS LOST)
+WRTBAT - WRITES BAT BLOCKS NOW
+DONE - EXIT THE MAPOUT ROUTINE
+EDITL - EDIT ENTRIES BY LOGICAL BLOCK NUMBERS
+EDITP -  EDIT ENTRIES IN PHYSICAL ADDRESS MODE
+H - BLURB OF THIS LIST
+
+
+                Fig - 23
+
+
+
+
+
+NOW EDITING INDIVIDUAL DATA-BASE-ENTRIES
+LOGICAL BLOCK (LBN) - 1234
+CREATING A NEW ENTRY
+ENTRY-EDIT CMD (OR H<CR>) - H
+
+LIST - LIST STATE OF THE CURRENT (EDITED) ENTRY
+MR - MODIFY REGION (# OF BAD BLOCKS IN REGION)
+HARD - ENTRY BECOMES HARD ERROR AND WILL GO TO BAT BLOCK
+SOFT - ENTRY BECOMES SOFT ERROR AND WILL NOT GO TO BAT BLOCK
+CLRST - CLEAR ERROR STATUS AND COUNTERS 
+PNT - ALLOWS FURTHER REPORTING OF ERRORS FROM THIS DISK ADDRESS
+NOPNT - INHIBITS FURTHER PRINTING OF ERRORS FROM THIS DISK ADDRESS
+CLRENT - DELETE THIS ENTRY FROM THE DATA BASE (IMMEDIATELY)
+CANCEL - LEAVE ENTRY EDIT MODE (NOW) AND DON'T UPDATE THE DATA BASE
+DONE - LEAVE ENTRY EDIT MODE AFTER UPDATING THE DATA BASE
+NEXT - UPDATE THE DATA BASE AND PROCESS ANOTHER ENTRY 
+H - THIS MESSAGE
+
+
+                Fig - 24
+MAINDEC-10-DFRPM-B-D                                           Page 81
+Appendix-A                                                   12 Sep 85
+
+
+
+DATA-BASE-EDIT CMD (OR H<CR>) - LSTHRD
+RUNNING-MAPOUT  DRIVE-7 RH-544  RUNTIME(HH:MM:SS) 00:00:03  
+MAPOUT ENTRY:  CHAN(RH)-1  ON DRIVE(S) 7   MULTI-RH:NO   APRID=2263.
+LBN=7404(3844.) CYL=12(10.)  SURF=2(2.)  SECT=4(4.)
+ENTRY CAME FROM: OPR     BLOCKS IN REGION=34.
+HARD ERRORS DETECTED=0.    SOFT ERRORS DETECTED=0.
+ENTRY WILL BE PUT IN BAT BLOCK (OPR REQUESTED UPDATE)
+FURTHER ERRORS FROM THIS ADDRESS WILL NOT BE REPORTED
+----
+
+
+                Fig - 25
+
+
+
+DATA-BASE-EDIT CMD (OR H<CR>) - LISTQ
+
+MAPOUT-DATA-BASE-SUMMARY:
+ DRIVE-7 RH-544  RUNTIME(HH:MM:SS) 00:00:03  
+THERE ARE 0. HARD REGIONS AND 0. SOFT REGIONS KNOWN TO PGM
+STARTING ADDRESSES FOR THE REGIONS ARE:
+        LBN     CYL     SURF    SECT    #-HARD  #-SOFT
+        ---     ---     ----    ----    ------  ------
+  SOFT  668.    1.      14.     8.      0.      0.
+* HARD  3844.   10.     2.      4.      0.      0.
+* HARD  69412.  182.    12.     12.     0.      0.
+
+                Fig - 26
+
+
+
+
+DATA-BASE-EDIT CMD (OR H<CR>) - LISTQO
+
+MAPOUT-DATA-BASE-SUMMARY:
+ DRIVE-7 RH-544  RUNTIME(HH:MM:SS) 00:00:03  
+THERE ARE 0. HARD REGIONS AND 0. SOFT REGIONS KNOWN TO PGM
+STARTING ADDRESSES FOR THE REGIONS ARE:
+        LBN     CYL     SURF    SECT    #-HARD  #-SOFT
+        ---     ---     ----    ----    ------  ------
+  SOFT  1234    1       16      10      0.      0.
+* HARD  7404    12      2       4       0.      0.
+* HARD  207444  266     14      14      0.      0.
+
+
+                Fig - 27
+
+
+MAINDEC-10-DFRPM-B-D                                           Page 82
+Appendix-A                                                   12 Sep 85
+
+
+
+LIST - LIST STATE OF THE CURRENT (EDITED) ENTRY
+MR - MODIFY REGION (# OF BAD BLOCKS IN REGION)
+HARD - ENTRY BECOMES HARD ERROR AND WILL GO TO BAT BLOCK
+SOFT - ENTRY BECOMES SOFT ERROR AND WILL NOT GO TO BAT BLOCK
+CLRST - CLEAR ERROR STATUS AND COUNTERS 
+PNT - ALLOWS FURTHER REPORTING OF ERRORS FROM THIS DISK ADDRESS
+NOPNT - INHIBITS FURTHER PRINTING OF ERRORS FROM THIS DISK ADDRESS
+CLRENT - DELETE THIS ENTRY FROM THE DATA BASE (IMMEDIATELY)
+CANCEL - LEAVE ENTRY EDIT MODE (NOW) AND DON'T UPDATE THE DATA BASE
+DONE - LEAVE ENTRY EDIT MODE AFTER UPDATING THE DATA BASE
+NEXT - UPDATE THE DATA BASE AND PROCESS ANOTHER ENTRY 
+H - THIS MESSAGE
+
+
+                Fig - 28
+
+
+
+
+DATA-BASE-EDIT CMD (OR H<CR>) - LSTHRD
+RUNNING-MAPOUT  DRIVE-7 RH-544  RUNTIME(HH:MM:SS) 00:00:03  
+MAPOUT ENTRY:  CHAN(RH)-1  ON DRIVE(S) 7   MULTI-RH:NO   APRID=2263.
+LBN=7404(3844.) CYL=12(10.)  SURF=2(2.)  SECT=4(4.)
+ENTRY CAME FROM: OPR     BLOCKS IN REGION=34.
+HARD ERRORS DETECTED=0.    SOFT ERRORS DETECTED=0.
+ENTRY WILL BE PUT IN BAT BLOCK (OPR REQUESTED UPDATE)
+FURTHER ERRORS FROM THIS ADDRESS WILL NOT BE REPORTED
+----
+
+                Fig - 29
+
+
+
+
+DATA-BASE-EDIT CMD (OR H<CR>) - LSTSFT
+RUNNING-MAPOUT  DRIVE-7 RH-544  RUNTIME(HH:MM:SS) 00:00:03  
+MAPOUT ENTRY:  CHAN(RH)-1  ON DRIVE(S) 7   MULTI-RH:NO   APRID=2263.
+LBN=7404(3844.) CYL=12(10.)  SURF=2(2.)  SECT=4(4.)
+ENTRY CAME FROM: PGM BAT     BLOCKS IN REGION=34.
+HARD ERRORS DETECTED=3.    SOFT ERRORS DETECTED=0.
+ENTRY WILL NOT BE PUT IN BAT BLOCK (OPR CANCELED UPDATE)
+FURTHER ERRORS FROM THIS ADDRESS WILL NOT BE REPORTED
+----
+
+                Fig - 30
+
+
+MAINDEC-10-DFRPM-B-D                                           Page 83
+Appendix-A                                                   12 Sep 85
+
+
+
+MAN> WHAT TEST (OR HELP): TDLST
+ RUNNING - TDLST DRIVE-5 RH-540  RP07 DUAL PORTED  SER. NO.=131. 
+ RUNTIME(HH:MM:SS) 00:12:23
+
+SER #   CYL #   SURF #  DISP-1  DISP-2  DISP-3  DISP-4
+0131.   0.      1.      12578.
+0131.   0.      6.      13794.
+
+                :
+                : typical
+                :
+                :
+
+0131.   6.      15.     878.    H0-MOVED
+0131.   6.      31.     82.     11174.  TD-MOVED
+
+                :
+                :
+                : typical
+                :
+                :
+
+TOTAL NUMBER OF DEFECTS = 2457.
+TRACKS WITH 0. DEFECTS = 17946.
+TRACKS WITH 1. DEFECTS = 2050.
+TRACKS WITH 2. DEFECTS = 182.
+TRACKS WITH 3. DEFECTS = 13.
+TRACKS WITH 4. DEFECTS = 1.
+
+
+                Fig - 31
+
+MAINDEC-10-DFRPM-B-D                                           Page 84
+Appendix-A                                                   12 Sep 85
+
+
+VAR> WHAT TEST (OR HELP): TDLST
+ RUNNING - TDLST DRIVE-5 RH-540  RP07 DUAL PORTED  SER. NO.=131. 
+ RUNTIME(HH:MM:SS) 00:12:23
+LIST DEFECT INFORMATION FROM RP07 TD'S WITHIN THE RANGE OF
+CYL1,SURF1 AND CYL2,SURF2 INCLUSIVELY
+ENTER  CYL1: - 0
+ENTER  SURF1: - 0
+ENTER  CYL2: - 0
+ENTER  SURF2: - 6
+
+ RUNNING  - TDLST DRIVE-5 RH-540
+ RUNTIME(HH:MM:SS:) 00:02:10
+
+SER #   CYL #   SURF #  DISP-1  DISP-2  DISP-3  DISP-4
+0131.   0.      1.      12578.
+0131.   0.      6.      13794.
+
+TOTAL NUMBER OF DEFECTS = 2.
+TRACKS WITH 0. DEFECTS = 5.
+TRACKS WITH 1. DEFECTS = 2.
+
+
+                Fig - 32
+
+
+VAR> WHAT TEST (OR HELP): TDBLD
+ RUNNING - TDBLD DRIVE-5 RH-540  RP07 DUAL PORTED  SER. NO.=131. 
+ RUNTIME(HH:MM:SS) 00:12:23
+TDBLD - CREATE A NEW TD RECORD FOR CYL1, SURF1
+THEN REFORMAT AND REREAD THE TRACK CHECKING FOR ERRORS
+ *** YOU BEST UNDERSTAND WHAT YOU ARE DOING ***
+ENTER  CYL1: - 0.
+ENTER  SURF1: - 6.
+
+DATA CURRENTLY IN THIS TD:
+CYL = 0(0.)   SURF = 6(6.)
+DISP-#1 = 32742(13794.)
+DISP-#2 = 140000
+DISP-#3 = 140000
+DISP-#4 = 140000
+DO YOU STILL WISH TO MODIFY ? Y OR N <CR> - Y
+DO YOU WISH TO INCLUDE ANOTHER DEFECT ? Y OR N <CR> - Y
+ENTER DISTANCE (16 BIT WDS) FROM INDEX
+THESE VALUES ARE ALLOWED 251(169.) THRU 42100(17472.) - 13794.
+
+DO TO STILL WISH TO MODIFY ? Y OR N <CR> - N
+
+VAR> WHAT TEST (OR HELP): 
+
+
+                Fig - 33
+
+MAINDEC-10-DFRPM-B-D                                           Page 85
+Appendix-A                                                   12 Sep 85
+
+
+ RUNNING - SKTST1 DRIVE-5 RH-540  RP06 DUAL PORTED  SER. NO.=230. 
+ RUNTIME(HH:MM:SS) 00:12:23
+2516. SINGLE CYLINDER SEEKS WERE MEASURED
+MINIMUM SINGLE CYLINDER SEEK TIME = 3.24 MS
+AVERAGE SINGLE CYLINDER SEEK TIME = 3.66 MS
+MAXIMUM SINGLE CYLINDER SEEK TIME = 4.39 MS
+THERE WERE 94. SINGLE CYLINDER SEEKS ABOVE THE MAX OF 4. MS
+
+
+                Fig - 34
+
+
+ RUNNING - SKTST2 DRIVE-5 RH-540  RP06 DUAL PORTED  SER. NO.=230. 
+ RUNTIME(HH:MM:SS) 00:12:23
+2516. SEEK LENGTHS WERE MEASURED
+MINIMUM SEEK TIME = 3.51 MS
+AVERAGE SEEK TIME = 25.12 MS
+MAXIMUM SEEK TIME = 37.40 MS
+
+                Fig - 35
+
+
+
+
+
+******************************
+FATAL PROGRAM BUG.  PGM ABOUT TO WRITE ON CUSTOMER DATA AREA.
+PROGRAM WILL FATAL OUT TO PREVENT THIS FROM HAPPENING.
+ DRIVE-1 RH-540   RP04 DUAL PORTED  SN=0145.  ID=MULWIR
+
+PROGRAM DEVICE STATUS WORD (DSW) = 002247 162773 
+AC1 = 000000 073012    AC2 = 000000 035241    AC3 = 000000 000000 
+PLEASE SAVE THIS INFORMATION
+******************************
+
+FATAL PGM ERROR AT PC - 074774 
+
+                Fig - 36
+
+
+                          [End of Document]
+

@@ -1,0 +1,254 @@
+[Help file on DDT%41; J. Hammer; P. DeWolf; last edited C. Hedrick 7-Sept-80]
+
+Modes:
+
+	$H		Half words.
+	$S		Symbolic instructions.
+	$R		Use relocatable addresses.
+	$A		Use absolute addresses.
+	$10R		Decimal radix.
+	$8R		Octal radix.
+	$F		Floating point.
+	$C		Constants, not symbols.
+	$T		ASCII text.
+	$5T		RADIX50 text.
+	$6T		SIXBIT text.
+	$7T		ASCII text (same as $T).
+	$8T		8 bit bytes displayed as ASCII.
+	$9T		9 bit bytes displayed as ASCII.
+	$NO		Type as N bit bytes.  If N is 0, use the byte mask
+			 ($3M).
+
+	Use two altmodes to permanently change mode.
+
+Data entry:
+
+	1234		Octal.
+	123.		Decimal (must have period).
+	78.1		Floating point (must follow period with a digit).
+	"/ABCDE/	ASCII text.  / is delimiter.  May be multiple words.
+	"A$		Single ASCII character (right justified in word).
+	$"/ABCDEF/	SIXBIT text.  / is delimiter.  May be multiple words.
+	$"A$		Single SIXBIT character (right justified in word).
+	TEXT$5"		RADIX50 input.
+
+Symbols:
+
+	NAME$:		Unlock program symbols.
+	$:		Cancel previous NAME$: (leave no program open).
+	BLOCK$&		Unlock block symbols (must unlock program first).
+	VALUE<NAME:	Create NAME with VALUE.
+	NAME$$K		Permanently delete NAME.
+	NAME$K		Allow NAME on typein only.
+	$D		Delete last symbol typed; retype.
+	NAME#		Allow NAME to be undefined for now.
+	?		Type out all undefined symbols.
+	NAME?		Type all modules defining NAME.
+	NAME:		Define NAME with value of .
+
+Patching:
+
+	sym$<		Patch before this instruction, put patch at
+			sym and update the value of sym at end
+	exp$<		Patch before this instruction, put patch ad
+			exp
+	$<		Patch before this instruction, put patch at
+			first defined of FFF (monitor DDT only),
+			PAT.., PATCH, PAT, and update symbol.  If no such
+			symbol, uses address at RH(.JBFF) and updates it
+			and LH(.JBSA)
+	$$<		Patch after this instruction.
+	$>		End patch.  Redefine patch address.
+Miscellaneous commands:
+
+	<LF>		Move down one location.
+	<Backspace>	Move up one location.
+	^		Move up one location.
+	<TAB>		Open address last typed; set . to new address.
+	\		Open address last typed; leave . the same.
+	;		Retype last quantity typed.
+	/		Without typing an address, looks at address given by
+			 last typed out thing.  Doesn't change .
+	NAME[		Same as / , except forces use of current radix.
+	NAME]		Force symbolic instruction typeout.
+	_		Retype in symbolic mode.
+	$<CR>		Return to last address.
+	$<LF>		Return to last address + 1.
+	$<Backspace>	Return to last address - 1.
+	$Q		Last value typed.
+	$$Q		Last value typed, halves swapped.
+	$"/NAME/$Y	Read NAME.DDT as a file of DDT commands, using
+			  channel 17 (Tops-10 only)
+	$Y		As above, prompts for file name.
+	4(5)$/		Look at 4 off of register 5 (but -1(5) loses).
+	$U		Unmapped virtual addressing
+	$$U		Unmapped physical addressing
+	ept$[$][0]U	Select executive virtual addressing
+	upt$[$]1U	Select user virtual addressing
+	sec$[$]2U	Select single section
+	flg$3U		Select (deselect) internal fake registers
+	acb$4U		Select hardware ac block
+	acs$5U		Load internal fake registers
+	spt$6U		Select base of SPT
+	bas$8U		Set base relocation address
+	prt$9U		Set protection address
+	flg$10U		Select (deselect) KI-paging
+	flg$11U		Select (deselect) KL-paging
+		acb := integer ac block number
+		acs := address of 20-word register block
+		bas := base relocation address
+		ept := executive process table page number
+		flg := selection flag, zero to deselect, non-zero to select
+		prt := protection (maximum allowable) address
+		sec := section map page number
+		spt := address of SPT
+		upt := user process table page number
+	$W		If trying to change write-protected memory, unprotect
+	$$W		If trying to change write-protected memory, error
+	$1W		If trying to access non-existent page, create it
+	$$1W		If trying to access non-existent page, error
+
+   On addressing modes:
+	The commands that "open" locations, e.g. /, take any of several
+	prefixes.  / will be shown, but the same works for \, <tab>, etc.
+	Mostly this only matters in multiple-section programs
+	    n/		Treat n as a 36-bit address.
+	    n$/		Treat n as if it were an instruction located at .
+	    n$$/	Treat n as if it were gotten to by indirect
+			addressing from an instruction located at .
+	    If a space is typed somewhere before the /, or if no
+	    explicit address is typed (e.g. just a <tab>), then only the
+	    right halfword of the address is used, and the section number
+	    is taken from .
+	Locations where info is saved on entry/exit to exec mode DDT
+	   $I-01/		APR CONI word
+	   $I+00/		PI CONI word
+	   $I+01/		Mask of PI channels turned off by EDDT
+	   $I+02/		Executive virtual address of EPT
+	   $I+03/		Executive virtual address of UPT
+	   $I+04/		Executive virtual address of CST
+ 	   $I+05/		Executive virtual address of SPT
+	   $I+06/		Original AC-block word (DATAI PAG) if acb$4U
+
+Breakpoints:
+
+	opn<bpt$nB	Set breakpoint number n at 36-bit address bpt. When
+			breakpoint is reached open and display 36-bit address
+			opn.  "opn<" and "n" are optional.
+	0$nB		Remove breakpoint n.
+	$B		Remove all breakpoints.
+	$nB+0/		If nonzero the address for breakpoint n
+	$nB+1/		The conditional break instruction (break if skips)
+	$nB+2/		The proceed count (break on transition to 0)
+	$nB+3/		If greater than or equal to zero then the address to
+			   be displayed
+	In user program, JSR $0BPT will cause DDT to act as if a breakpoint
+	  had been reached.
+	$P		Proceed from break.
+	100$P		Stop before the 100th break at this point.
+	$X		Single step next instruction.
+	17$X		Single step 17 times.
+	$.		Returns value of next instruction to be $X'ed
+	$$.		Returns previous $. value.
+	17$$X		Same as above except suppress output until last time.
+	$$X		Proceed indefinitely until return to .+1 to .+3
+			(useful in subroutine calls).  During $$X, typing ?
+			will show current status.
+	lwr<upr$$X	Proceed until return to within the region between lwr
+			and upper.  If upr is omited, it is lwr+3.
+	INST AC,E$X	Execute INST AC,E.  E may have indexing and indirection.
+	$G		Start at address in .JBSA
+	NAME$G		Start at NAME.
+Searching:
+
+	LOWER<UPPER>KEY$W	Word search (type matches).
+			N	Word search (type non matches).
+			E	Search for instructions addressing key.
+	    If lower and upper are omitted, will default to all of
+	    whatever you are searching, except that when debugging a
+	    program with virtual addressing, only the current section is used.
+	    Type ? during search to see what is currently being looked at.
+	adr$V		Wait for contents of ADR to change.  (Checks once
+			every 1/60 sec.  Typing ? shows what is being watched.
+			Any other character stops the watch.  (Only useful
+			when something is going on asynchronously.)
+	$M		Mask.  Will compare key with bit positions that are
+			one in mask.
+	N$M		Put N in $M register.
+
+$M offsets:
+
+	$<num>M		Contents of specified mask register.
+	<exp>$<num>M	Store into specified mask register.
+
+	$0M		(default) Search mask.
+	$1M		Bit 17: 0 (default) use 3 spaces for <TAB>
+				1 - use a tab
+			Bit 34: 0 - for tabs use a real tab character
+				1 - simulate tabs with spaces
+			Bit 35: 0 - hardcopy mode for rubouts
+				1 - display mode
+	$2M		First offset before absolute addresses are typed.
+	$3M		Byte mask for $0O.  A one bit is used at the right
+			end of each byte.
+
+Zeroing:
+
+	FIRST<LAST$$Z		Zero everything between first and last.
+	lwr<upr>exp$Z		Set all locations from lwr to upr to exp.
+				? shows how far it has gotten.
+
+Editing:
+
+	RUBOUT		Delete the last character typed.
+	^W		Delete the last field typed.
+	^U		Delete the whole line just typed.
+
+Locations:
+
+	PAT..		Patch area.  Always present.
+	.JBREL		44 (Octal)
+	.JBDDT		74
+	.JBSYM		116
+	.JBSA		120
+	.JBFF		121
+	.JBREN		124
+	.JBOPC		130
+	.JBVER		137
+
+
+Commands to Tops-20 FILDDT initial command scanner.
+
+
+    DRIVE (FOR PHYSICAL I/O IS ON CHANNEL) c (UNIT) u
+	Examine physical disk drive (need not be mounted)
+    ENABLE DATA-FILE
+	Treat file as data, not program
+    ENABLE PATCHING
+	Allow changing what you are looking at.  (Not possible for
+	PEEK.)
+    EXIT
+	Return to EXEC.  If you then SAVE, any symbols will be 
+	there when run again.
+    GET (FILE) filespec (optional switches)
+	Examine a disk file.
+		/DATA - equiv to ENABLE DATA-FILE
+		/PATCH - equiv to ENABLE PATCHING
+		/SYMBOL - get symbols from the file first
+    HELP
+	Print summary of these commands
+    LOAD (SYMBOLS FROM) filespec
+	Get symbols from this file (but don't DDT it)
+    PEEK
+	Examine currently running monitor.  You can only see monitor
+	exec virtual address space from 0 to 777777.
+    STRUCTURE (FOR PHYSICAL I/O IS) str:
+	Examine a disk structure.
+
+
+The STRUCTURE command instructs FILDDT to use as the address space  to
+be "DDT'ed"  the entire  disk file  structure str  independent of  any
+"file structure mapping" normally  imposed by the  monitor. This is  a
+privileged command.
+
+[End of DDT.HLP]

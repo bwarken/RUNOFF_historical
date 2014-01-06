@@ -1,0 +1,572 @@
+
+
+
+DN92.MEM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a  comitment by Digital Equipment
+Corporation.  Digital Equipment Corporation assumes no  responsibility
+for and errors that may appear in this document.
+
+The software described in this document is furnished under  a  license
+and  may  be  used or copied only in accordance with the terms of such
+license.
+
+Copyright (C) 1977,1978 by Digital Equipment Corporation
+
+The following are trademarks of Digital Equipment Corporation:
+
+          DIGITAL        DECsystem-10   MASSBUS
+          DEC            DECtape        OMNIBUS
+          PDP            DIBOL          OS/8
+          DECUS          EDUSYSTEM      PHA
+          UNIBUS         FLIP CHIP      RSTS
+          COMPUTER LABS  FOCAL          RSX
+          COMTEX         INDAC          TYPESET-8
+          DDT            LAB-8          TYPESET-11
+          DECCOMM        DECSYSTEM-20   TMS-11
+          ASSIST-11      RTS-8          ITPS-10
+DN92.MEM                                                        Page 2
+
+
+1.0  INTRODUCTION
+
+The purpose of this document is to outline the various  parts  of  the
+DC72NP  coding  which were modified to develop the DN92.  Parts of the
+document are probably disjointed giving too much or too little  detail
+on  the  various  changes  that  were  made.   However,  it  might  be
+beneficial to have this generalized outline when looking at  the  DN92
+source  file.   This  document  contains  the  DDCMP  and  NCL message
+protocols.  It briefly outlines the  methods  used  to  implement  SET
+HOST,  STATION  CONTROL  messages,  and modem support.  Since The DN92
+Installation Guide describes the ROM'S operating procedures,  the  ROM
+loader is not discussed in this document.
+
+
+1.1  DN92 Components
+
+The DN92 is based on a PDP8A processor with 16K core.  It has  a  VT52
+as  a  console terminal, one synchronous line, and 1K ROM for downline
+loading.  OPTIONS INCLUDE:  one line printer, (either an  LP05  300LPM
+printer  or  an LA180), a card reader, and a maximum of 16 TTY'S.  The
+asynchronous lines on the DN92 are  driven  by  the  KL8A  multiplexor
+which  drives 4 TTY lines per module.  This module also provides modem
+support for the TTY lines.  One TTY line per KL8A module provides full
+modem  support,  and  the  other  3  TTY  lines  provide partial modem
+support.  The DN92 also provides a driver for the LA180 printer  using
+the parallel interface on the PDP8A DKC8-AA I/O option board.
+
+
+
+2.0  OBJECTIVES OF THE DN92
+
+The DN92 was developed to replace the DC72NP remote station.  The DN92
+is  based on the DC72NP software and is still a sequential node in the
+network.  It assumes its  NCL  messages  are  sent  to  it  in  proper
+sequential order and does not ACK, NAK, or REP NCL messages.  However,
+the DN92 has  implemented  NCL  CONNECT  messages  and  the  SET  HOST
+command.   If a TTY line gets disconnected from a host, it will try to
+connect to some host when input is received on the line.  The DN92 has
+implemented  station  control  messages so locations in a running node
+can be monitored using DDT92.  It has a 1K ROM  which  in  conjunction
+with  NETLDR  allows the station to be downline loaded.  The DN92 also
+has the following features:
+
+     -Local dump  to  line  printer  or  console  included  in  system
+      software (Starting Address 201)
+     -Station Control messages implemented in system software so DDT92
+      can be used to monitor a running DN92 station
+     -SET TTY WIDTH implemented
+     -SET HOST implemented
+     -Downline loading ROM
+DN92.MEM                                                        Page 3
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+Image and ASCII mode on TTY  lines  are  not  working  properly.   The
+problem occurs when the two modes are alternating frequently in a data
+stream.
+
+
+3.1  Core Utilization and Buffering
+
+The synchronous line in the DN92 is set up to receive in field  2  and
+to  transmit  from  field 1.  The buffer area is divided into a linked
+list of 8-12 bit word chunks and is located in field 2.  The  original
+DC72NP  code  assumed  all data, DDB tables, and chunks resided in the
+same field (usually field 1).  In order  to  increase  the  number  of
+chunks available for buffering data, the DN92 moved its chunk field to
+field 2.  The synchronous line's receive field was also moved to field
+2.  The synchronous line's transmitter buffers were left in field 1 as
+well as the DDB table, literal strings, line printer VFU  table,  card
+reader  table, and CRC constant table.  The instruction which sets the
+data field to field 2  is  "RCKFLD"(RECEIVE  AND  CHUNK  FIELD).   The                                    _             _   _  _  __
+instruction    which   sets   the   data   field   to   field   1   is
+"TABFLD"(TRANSMITTER AND TABLE FIELD).  All the transmitter logic i.e.         _                __   _  __
+the  code  to  format a message to be transmitted over the synchronous
+line is now located in field 1.  It is all the code which is called by
+"XSTART"  and  is executed whenever the synchronous line is idle.  Due
+to the addressing structure of  the  PDP8  CPU,  the  easiest  way  to
+transpose  these  instructions  from field 0 where they resided in the
+DC72NP code to field 1 was to  duplicate  or  use  field  0's  page  0
+symbols.   The  PAL10 assembler does not differentiate between field 0
+and field 1 addresses.  Therefore, field 1 page 0 is left blank in the
+listing.   However,  all the instructions in field 1 use the TEMP area
+in the same way as the instructions in field 0.  For example,  "TEMP1"
+is a location both in page 0 of field 0 and field 1.  When the code in
+field 1 actually needs a value stored in a location in field  0  which
+is  not  a  temporary  value, it changes its data field to field 0 and
+uses indirect addressing via a page 0 literal to get the needed value.
+It then changes back to the default data field 1.
+
+
+
+4.0  NCL PHILOSOPHY
+
+The DN92 is a sequential node in the network.  There is only one  path
+from  it  to the network.  Its synchronous line must be connected to a
+PDP11 based DC75NP, DAS85, DN87, OR  DN87S  front  end;   or  a  DAS80
+series  remote station.  The PDP11 based node is a non-sequential node
+and insures  that  the  DN92  receives  its  NCL  messages  in  proper
+sequential  order.  The DN92 assumes that its NCL numbering is correct
+and doesn't keep track of the NCL message numbers.   It  inserts  fill
+characters (0) in the NCL header and lets the PDP11-based node put the
+proper numbers into the NCL header.  The DN92 does not issue  NCL-ACK,
+NCL-NAK,  OR  NCL-REP  messages.   Unlike  the  DC72NP,  it does issue
+NCL-CONNECTS,  NCL-REQUEST  CONFIGURATIONS,  and  NCL-STATION  CONTROL
+messages.
+DN92.MEM                                                        Page 4
+
+
+5.0  NCL DDCMP PROTOCOL MESSAGE FORMAT
+
+The following two sections define the DDCMP and NCL message formats.
+
+
+5.1  DDCMP Messages (all but  DATA  are  preceded  by  synchronization
+sequence.)
+
+DATA --     SOH  CC1    CC2   MSG#  NMSG  A0  BCC1  n*DATA   BCC2
+ACK --      ENQ  <001>  FILL  MSG#  FILL  A0  BCC1
+NAK --      ENQ  <002>  RNAK  MSG#  FILL  A0  BCC1
+REP --      ENQ  <003>  FILL  FILL  NLST  A0  BCC1
+RESET* --   ENQ  <004>  FILL  FILL  NNXT  A0  BCC1
+RESACK* --  ENQ  <005>  FILL  NEXP  FILL  A0  BCC1
+STRT --     ENQ  <006>  FILL  FILL  NBEG  A0  BCC1
+STACK --    ENQ  <007>  FILL  NREC  NXMT  A0  BCC1
+
+BOOT --     DLE  CC1    CC2   <000> <000> A0  BCC1  BOOTDATA BCC2
+
+     "n" =the number of data bytes, a 16-bit quantity made up  of  CC1
+          and CC2.
+     A0  =1 (Station number;  always one for point to point.)
+     ADDR=4 byte field containing the address for the core-image  data
+          being loaded or dumped.
+     BCC1=16 bits of BCC computed on the first 6 bytes of the message.
+     BCC2=16 bits of the BCC computed on the "n" data bytes.
+     BNUM=2 byte field containing number of bytes to be dumped.
+     CC1 =the low order 8 bits of the  character  count  of  the  data
+          portion.
+     CC2 =the high order 8 bits of the character  count  of  the  data
+          portion.   The  two  high order bits of this byte are really
+          flags for the multi-point case, but will always be zero  for
+          the point-to-point case.
+     DLE =220    (This  is  the   starting   character   for   station
+          management messages.)
+     ENQ =005    (This  is  the   starting   character   for   control
+          messages.)
+     FILL=0 (Filler;  is checked and must be zero.)
+     IDAT="n" bytes of image data, which the station will put  at  the
+          address contained in ADDR.
+     MSG#=number of the last good message received (implies ACK of all
+          lower numbered messages).
+     NBEG=first  message  number  this  station  will  transmit  after
+          startup is completed.
+     NEXP=message number expected to be sent next(usually  NNXT  field
+          of REP message).
+     NLST=number of last transmitted data message.
+     NMSG=the number of this message.
+     NNXT=next numbered message to be transmitted (i.e. lowest message
+          that has not been acked).
+     NREC=next message number for reception (usually NBEG field of the
+          STRT message).
+     RNAK=Reason for negative acknowledgement:
+          1=Header BCC incorrect
+          2=Data BCC incorrect
+DN92.MEM                                                        Page 5
+
+
+          3=The last REP message received indicates  we  lost  one  or
+          more messages.
+          10=Buffer space temporarily unavailable
+          11=Receive overrrun (data lost)
+          20=Data message is too long
+          21=Header format error (e.g. non-zero fill)
+     SNAM=software system defined data identifying  which  program  to
+          load.
+     SNUM=a sequential numbering of successive boot messages.
+     SOH =201    (This is the starting character for data messages.)
+
+     BOOTDATA will be one of the following formats:
+          BOOT           SNA    <000>
+          EXAMINE        SNA    <001>   <adr1> <adr2>
+          DEPOSIT        SNA    <002>   <adr1> <data>
+          GO TO          SNA    <003>   <adr>
+          CLEAR          SNA    <004>   <adr1> <adr2>
+          DEBUG          SNA    <005>
+          ACCEPT         DNA    <011>   <adr>
+          EXAMINE DATA   DNA    <012>   <adr>  <data>
+          REJECT         DNA    <013>
+          REQUEST BOOT   DNA    <014>   <type> <serial> <description>
+          REQUEST LOAD   DNA    <015>   <type> <serial> <description>
+
+     DESCRIPTION=extensible Ascii;  text which describes program to be
+          loaded, usually a file description.
+     DNA=extensible binary, node number the bootstrap  message  should
+          be routed to.  Zero means default.
+     SERIAL=extensible binary;  the serial number for the  node  being
+          booted.
+     SNA=extensible binary;  the node  number  of  the  station  which
+          originated the bootstrap message.
+     type=extensible binary;  code for the  type  of  node  requesting
+          load:
+
+                    1=DC71 (PDP8I with DP01).
+                    2=DC72 (PDP8E with DP8E).
+                    3= (PDP11/40 with DU11).
+                    4=DAS82 (PDP11/40 with DQ11).
+5.2  NCL Formats
+
+unnumbered control -- NCT  DNA  SNA  NCA  NCN  OPD
+numbered control --   NCT  DNA  SNA  NCA  NCN  0    CM
+DATA --               NCT  DNA  SNA  NCA  NCN  DLA  DEVCTL
+
+     DEVCTL=device control.  (see 04.3)
+     DLA=destination message link address,  i.e. the  index  into  the
+          node's   connection   database.   Extensible  binary  field,
+          maximum of 12 bits, zero is illegal.
+     DNA=destination NNM
+     NCA=Network Control Ack;  last network message received ok.
+     NCN=Network Control message Number.  One byte binary field.
+     NCT=network control message type and flags, extensible field.
+          bits 0-2=type field
+                 0=data message
+DN92.MEM                                                        Page 6
+
+
+                 1=ack.
+                 2=nak.
+                 3=rep.
+                 4=start.  OPD is NNM SNM SID.
+                 5=stack.  OPD is NNM SNM SID.
+                 6=node id.  OPD is NNM SNM SID.
+          bit 3=SNA and DNA present.
+          bit 4=trace
+          bit 5=interrupt msg(i.e.  don't adjust data request count)
+          bit 6=Non-sequential node.
+          bit 7=extensible bit
+     NNM=node name, a binary extensible field,  maximum  of  12  bits,
+          identifying  node.   Zero  means  next node over synchronous
+          line.
+     OPD=optional data.
+     SID=software identification, extensible ASCII with two subfields:
+          1)  name and version of operating system and DEMOS software,
+          2) creation date.
+     SNA=source NNM.
+     SNM=station name is an extensible ASCII field.
+
+CM = one of the following:
+
+CONNECT --         CNT  <001>  DLA   SLA   DPN   SPN   MML  FEA
+DISCONNECT --      CNT  <002>  DLA   SLA   RSN
+NEIGHBOURS --      CNT  <003>  (NNM  LVL)
+REQ CONFIG --      CNT  <004>
+CONFIGURATION --   CNT  <005>  (OBJ  NDV   PID)
+DATA REQUEST --    CNT  <006>  DLA   DRQ
+STATION CONTROL -- CNT  <007>  STC
+
+     CNT=count of remaining bytes in message.
+     DCM=data code and mode:
+          b0=ASCII
+          b1=EBCDIC
+          b2=Image
+          b3=Hollerith(CDR only)
+          b4=DEC image (CDR only)
+          b5=reserved
+          b6=compressed format
+     DLA= (defined above).
+     DPN=destination PN.
+     DVT=device specific attributes:
+        =attributes for card reader:
+          c1,b0+b1=speed
+                 0=don't care
+                 1=300
+                 2=between 300 and 600
+                 3=>600)
+            ,b2=mark sense
+            ,b3=hdw EOF required
+            ,b4=suppress EOF card detection
+        =attributes for line printer:
+          c1,b0+b1=speed(see DCD)
+            ,b2=lower case req
+DN92.MEM                                                        Page 7
+
+
+            ,b3=remov.  char set req
+            ,b4=multi-part paper req
+            ,b5=12 chan skipping req
+            ,b7=1
+          c2,b0+b1=skip requirements
+                 0=don't care
+                 1=changeable from handler
+                 2=changeable at site
+                 3=changeable but don't care how
+            ,b2=req overprint
+            ,b3+b4=6/8 lines/inch
+            ,b5=changeable form width
+        =attributes for teletypes:
+          c1,b0=modem control
+            ,b1=auto-baud
+            ,b2=handler can set baud rates
+            ,b3=2741
+            ,b4=baudot
+            ,b5=auto dial line.
+     FEA=features:  DCM+RLN+DVT
+     LVL=link value is a one-byte binary value used to  determine  the
+          perferred  path.   (Preferred path is that whose sum of link
+          values is lowest.)
+     MML=maximum NCL message  length  for  connection,  including  NCL
+          header, but not including DDCMP.
+     OBJ=object type for process:
+          0=tty handler
+          1=tty
+          2=card reader
+          3=line printer
+          4=paper tape reader
+          5=paper tape punch
+          6=plotter
+          7=magnetic tape
+          10=dectape
+          11=task (job)
+          12=rdx, data entry terminal.
+          200-377=reserved
+     OPD=optional data (extensible characters).
+     PID=process identification.  For devices this  is  an  extensible
+          binary  field, 177 means default choice, 0 - n means unit #.
+          For tasks this is a single extensible ASCII  string  usually
+          name and qualifier (e.g.  UIC or PPN).
+     PN =process name, having 2 parts:  1) OBJ, 2) PID.
+     RSN=reason
+          0=normal disconnection
+          1=object type not available
+          2=too many connects to node
+          3=too many connects to process
+          4=process does not exist at this node
+          10=reassign, next ext field is dest node number
+     SLA=source  message  link  address.   Extensible  binary   field,
+          maximum of 12 bits, zero is illegal.
+     SPN=source PN.
+     STC=station control.
+DN92.MEM                                                        Page 8
+
+
+6.0  SET HOST IMPLEMENTATION
+
+
+6.1  NEITAB
+
+In order to implement SET HOST the DN92 had to set up a  table  called
+NEITAB to save the nodes in the network and to indicate which ones had
+an MCR handler.   It  adds  entries  to  this  table  when  a  REQUEST
+CONFIGURATION  message is received and the node is not currently found
+in the table.  If the node is added to the table  two  bits  are  set;
+(1)  400  to  issue  a  CONFIGURATION message, and (2) 4000 to issue a
+REQUEST CONFIGURATION.  If the node is already in the table  only  the
+configuration  bit  (400)  is  set.  Deletions are made from the table
+when a NEIGHBORS message is received and the node is no  longer  found
+in  the  current  neighbor's  message.   If a CONFIGURATION message is
+received, the bit to issue a REQUEST CONFIGURATION (4000)is  set  off.
+Bit  (1000)  is  set  if  the node has an MCR handler.  When a REQUEST
+CONFIGURATION message is sent the 4000 bit is set off.  Also, when the
+CONFIGURATION message is sent, the 400 bit is set off.
+
+
+6.2  CONNECT, DISCONNECT, AND OTHER  MESSAGE  IMPLEMENTATION  FOR  SET
+HOST
+
+
+6.2.1  DISCONNECT
+
+When the DN92 receives a DISCONNECT message it checks for a reason  of
+10  i.e.  to see if SET HOST is the reason for the disconnect.  If the
+reason is 10 the DN92 gets the node number to which it is to  issue  a
+connect and places it in the TTY line's DDB table entry called DEVRCN.
+It sets the connect bit (2000) off in the DEVSTS entry  and  sets  the
+disconnect  confirm  bit (1000) on in DEVSTS.  If the reason is not 10
+and the entry at DEVRCN is 0, a disconnect was caused  by  some  other
+reason  (This  should  never happen on a tty line!!) In any event, the
+code frees the connect table entries (i.e.  0  to  CTRLTB,  RCVKRD  to
+RCVDSP table, and connect bit 2000 off in DEVSTS, 1000 bit on to issue
+confirmation).  If a DISCONNECT message  is  received  and  DEVRCN  is
+nonzero,  the  code assumes the CONNECT issued to that node failed and
+the next entry in the NEITAB which has an MCR is stored in the  DEVRCN
+entry.  The connect bit and the confirmation bit (1000) are set on.
+
+
+6.2.2  CONNECT
+
+If a DN92 receives a CONNECT message with a DLA which is  nonzero,  it
+assumes  that  it  is  a  CONNECT  CONFIRM.   It  uses  the  DLA  as a
+displacement into its SLATAB.  The next word in  the  message  is  the
+displacement  into the 10's tables.  It saves this value at the SLATAB
+table entry.   It  calculates  the  address  of  the  DEVSTS  for  the
+connection, sets the connect bit (2000) on, accept bit off (1000), and
+need to send status bit on (1).  The DATA  REQUESTS  are  zeroed,  the
+DDCMP status word is zeroed, and the DEVRCN is zeroed.
+DN92.MEM                                                        Page 9
+
+
+6.2.3  TTY INPUT ON DISCONNECTED TTY
+
+If DEVRCN is zero the DN92 will type "TTY NOT CONNECTED"  and  try  to
+find  an  MCR  handler  in  the  NEITAB.  The node number found in the
+NEITAB is stored at DEVRCN.  The connect confirm bits (3000)  are  set
+in  DEVSTS  so  the transmit logic will issue a CONNECT.  If DEVRCN is
+nonzero, it assumes a CONNECT has been issued to the  node  in  DEVRCN
+and  is  waiting for a CONNECT CONFIRM.  In this case, it simply types
+"TTY NOT CONNECTED".
+
+
+6.2.4  ISSUING CONNECTS AND CONFIRMS
+
+If the disconnect confirm bits (1000) are set,  the  DN92  issues  the
+DISCONNECT  CONFIRM.   If  the  DEVRCN  entry  is nonzero, it sets the
+connect confirm bits on (3000) so a connect will be issued on the next
+pass.
+
+If the status bits are set for a CONNECT CONFIRM (3000)  the  software
+checks  for  DEVRCN  = 0.  If DEVRCN is zero the DN92 issues a CONNECT
+CONFIRM as was done in the DC72NP.  However, if DEVRCN is nonzero,  it
+means  a  CONNECT  is to be issued to the node number found in DEVRCN.
+First the entry at DEVRNN is checked to see if the line is restricted.
+If  the  line  is restricted the DN92 will only issue a CONNECT to the
+restricted node number.  The DN92 then checks to be sure the  link  to
+the   connect   tables  in  the  DN92  is  set  up  correctly.   After
+establishing a proper entry into the connect tables, it zeroes the SLA
+table  entry,  stores RCVTTY into the RCVDSP table, and stores the the
+link to the connect tables at the CTRLTB table entry.  A check is made
+to see if the DEVRCN entry is still in the NEITAB.  If it is no longer
+in the table, a zero is stored at DEVRCN and RCVKRD is stored  in  the
+RCVDSP  table entry.  The 3000 bits are set off in the DEVSTS word and
+no CONNECT message is sent.  If the  DEVRCN  entry  is  found  in  the
+NEITAB, a CONNECT message is set up to be transmitted.
+
+
+
+7.0  MODEM SUPPORT
+
+To implement modem support on the DN92, two  status  bits  had  to  be
+added  to  the DEVDDC word.  Since the PDP8 has a 12 bit word size and
+the 12 bits used were already defined, two extra bits  were  added  to
+the  DDCMP  status and stored in the DEVDSL entry in the DDB.  The 100
+bit is CARRIER/RING status and the 40  bit  is  DATA  TERMINAL  READY.
+Since 3 of the lines on the KL8A module have hardware DTR always high,
+it was decided to answer the phone locally on line 3 by asserting  the
+DTR  when  a  ring occurs.  The ring is set on in the DDCMP status and
+sent to the host.  The host should then respond with the DTR on in the
+DDCMP  status  word.   Once  every second the DN92 checks all data set
+lines (DEVDSL entry has 4000 bit on) to see if the CARRIER is OK.   If
+the CARRIER goes away for six seconds, a status message is sent to the
+host with the CARRIER status bit off and on line 3 the hardware DTR is
+set  off.   Once  per  second  logic is also used to turn the software
+CARRIER bit on when the hardware CARRIER bit first comes on.
+DN92.MEM                                                       Page 10
+
+
+8.0  STATION CONTROL MESSAGES
+
+The DN92 has implemented  EXAM,  DEPOSIT,  and  GOTO  station  control
+messages.   A  table  (BTTAB) was set up to allow five station control
+messages to be queued.  However, only one GOTO can be queued.  If  the
+DN92 receives multiple GOTO'S, it will reject them until the first one
+is completely processed.  Each entry  in  this  table  consists  of  6
+words.   The  first word is the node number who initiated the message.
+The second word is the message type to be sent  as  a  response.   The
+next  four  words  are  the beginning and ending addresses.  The field
+specification of the address is stored as the software instruction  to
+set  the data to the specified field N (i.e.  6201 + N0).  The station
+control messages are scheduled to be processed on the transmitter side
+after  CONFIGURATION  and  REQUEST  CONFIGURATION  messages.   When an
+accept message is built in the tranmit buffer in response  to  a  GOTO
+message,  a  flag  has  to  be set so the actual change in the program
+counter can be made after the transmission.  This flag is set  in  two
+stages.   When  the accept message is built in the transmit buffer the
+high order bit of the first word in the message is set on  (ie  4201).
+When  SNDMSG is called, it checks the high order bit of the first word
+of the message.  If it finds it on, it bumps a field  0  page  0  flag
+GFLG.   The  message  is  sent  at  interrupt level.  After a numbered
+message is transmitted, the interrupt level code checks GFLG to see if
+it is nonzero.  If GFLG is nonzero it transfers control to the address
+stored in the GTTAB table.
+
+
+
+9.0  ADDITIONAL DOCUMENTS ON THE DN92
+
+Various documents pertaining to the DN92 or  its  hardware  components
+are available and are listed below:
+      1.  PDP8A MINIPROCESSOR HANDBOOK
+
+      2.  PDP8A MINIPROCESSOR USER'S MANUAL
+
+      3.  KL8-A USERS MANUAL
+
+      4.  DP8E,8F,8M MAINTENANCE MANUAL VOL 3
+
+      5.  DECSYSTEM10 ANF-10 ADVANCED NETWORK  FUNCTIONS  PROGRAMMER'S
+          GUIDE AND REFERENCE MANUAL
+
+      6.  NETLDR.RND FILE
+
+      7.  PAL10.RNO FILE
+
+      8.  DC72CK.RNO FILE
+
+      9.  DC72NP.RND FILE
+DN92.MEM                                                       Page 11
+
+
+     10.  DAS82.RNO FILE
+
+     11.  DN92.RND (THIS FILE)
+
+     12.  DN92.SIG (INSTALLATION GUIDE)
+
+
+
+[End of DN92.MEM]

@@ -1,0 +1,333 @@
+.hd.headers mixed.flags space.flags accept
+.title ##########Conversion TOPS10/20 COBOL-74 to VAX-11 COBOL
+.ft.no flags space
+.lm 10.rm 75
+.ts 10,20,30,40,50,60,70
+.NF.S 2.CENTER
+----------------------------------
+.CENTER
+TOPS10/20 COBOL-74 to VAX-11 COBOL
+.CENTER
+----------------------------------
+.s 3.f;These notes can be usefull and helpfull tools with other
+conversions to VAX-11 COBOL.
+.br;The remarks were sampled from the following projects:
+.ls '='.le;Conversion from TOPS20 COBOL-74 to VAX-11 COBOL, done by
+Jude_ Braden, Dublin-office. (EASINET MAIL-address: DUB01::BRADEN)
+.le;Conversion from TOPS10 COBOL-74 to VAX-11 COBOL, done by
+Jan_ Postmus, Utrecht-office. (EASINET MAIL-address: UTR01::POSTMUS)
+.els;Please contact one of the above mentioned persons, concerning
+remarks on projects like these.
+.hl 1 GENERAL REMARKS
+.hl 2 File Specifications
+.ls '='.le;The periode between file-name and file-ext in file-spec, has to be
+specified in VAX COBOL (was omitted in TOPS10 COBOL). The specification
+'VALUE "COB_ _ _ DAT"' has to be changed into 'VALUE "COB.DAT"'.
+.le;The file-specification passed to VAX/VMS on runtime, is a
+combination of 'ASSIGN file-spec' ('SELECT' statement) and 'VALUE
+OF ID file-spec' ('FD' specification). A file-spec field given with
+'VALUE OF ID' clause overrides the corresponding field in the
+'ASSIGN' clause.
+.br;For more information, see Chapter "I/O Processing" in "VAX-11 COBOL
+User's Guide".
+.els.hl 2 Clearing of Records
+Record clearing, prior to reading, or after writing, is not handled by
+VAX COBOL the way it is done by TOPS COBOL. One of the best is, use the
+'INITIALIZE' statement, if necessary together with 'MOVE' instruction(s).
+.br;See also remarks on 'INITIALIZE', 'READ' and 'WRITE'.
+.hl 2 Quotes
+All single quotes (_ '_ ) should be changed to double quotes (_ "_ ).
+.hl 2 Spaces with '=' and ','
+VAX-11 COBOL likes to see spaces around '=' and after ','.
+.hl 1 IDENTIFICATION DIVISION
+.hl 2 IDENTIFICATION DIVISION
+VAX-11 COBOL wants the name 'IDENTIFICATION_ DIVISION' full,
+not short 'ID_ DIVISION'.
+.hl 1 ENVIRONMENT DIVISION
+.hl 2 SOURCE-COMPUTER
+Of course this has to be changed to 'VAX-11'.
+.hl 2 OBJECT-COMPUTER
+.ls '='.le; Of course this has also to be changed to 'VAX-11'.
+.le;'MEMORY' clause is for documentation only on VAX, in TOPS COBOL
+it is presently ignored.
+.els.hl 2 SPECIAL-NAMES
+.ls '='.le;Special attention should be taken with the SPECIAL-NAMES SECTION.
+.le;Change 'CHANNEL (1)' into 'C01' for use of skip output to top-of-form.
+.els.hl 2 SELECT
+.ls '='.le;The SELECT statement may have to be changed for VAX.
+.le;To be able to use logical names with 'ASSIGN' and 'VALUE OF ID'
+the same as implemented on TOPS, put the logical name in quotes and
+use a colon, p.g. change:
+.nf.s 1.ls;'ASSIGN TO DISK01' into 'ASSIGN TO "DISK01:"'
+.els.f;See also the remarks about File Specifications.
+.le;The 'RECORDING MODE' in the file description has been discontinued,
+it cannot be used on VAX.
+.els.hl 1 DATA DIVISION
+.hl 2 FD
+.ls '='.le;'BLOCK CONTAINS 0 RECORDS', used on TOPS10 to indicate unblocked
+mode, cannot be used on VAX, this statement can be deleted.
+.le;VAX COBOL likes to see a 'RECORD CONTAINS' clause, when 'BLOCK CONTAINS'
+is used.
+.le;'VALUE OF IDENTIFICATION' should be changed to 'VALUE OF ID'.
+.le;With respect to 'VALUE OF ID', see also the remarks about File
+Specifications.
+.le;The 'RECORDING MODE' in the file description has been discontinued,
+it cannot be used on VAX.
+.le;'USER-NUMBER' to specify [PPN] is unknown on VAX, it has to be deleted.
+Take care about directory-specification through file-spec or logical
+name with 'ASSIGN' or 'VALUE OF ID' (see remarks about File Specifications).
+.els.hl 2 LINE-COUNTER/PAGE-COUNTER
+'LINE-COUNTER' and 'PAGE-COUNTER' are reserved names in VAX-11 COBOL,
+change these names if present in code.
+.hl 2 OCCURS
+.ls '='.le;You may need to check the use of 'REDEFINES' with 'OCCURS'.
+.le;VAX does not allow the use of 'OCCURS' with a level-number 01 or 77,
+TOPS10/20 COBOL-74 does allow this.
+.le;When specifying key and index in the 'OCCURS' clause, the VAX wants it
+in the order: key first, then index, like:
+.nf.s 1.ls;ASCENDING KEY IS ......
+INDEXED BY ......
+.els.f.els.hl 2 REDEFINES
+.ls '='.le;Make sure that the REDEFINES item is not bigger than the
+item REDEFINED.
+.le;You may need to check the use of 'REDEFINES' with 'OCCURS'.
+.els.hl 2 SIGN
+When using the 'SIGN' clause you have to include the character 'S'
+in your numeric data description picture.
+.hl 2 USAGE IS INDEX
+The VAX reacted different as the TOPS did, with respect to
+items declared 'USAGE IS INDEX'. All references in the code to these
+index-items (like 'SET', 'MOVE', subscripts, indexing), were rejected by
+the compiler. Changed the definition from 'USAGE INDEX'
+into 'PICTURE 9(5) COMPUTATIONAL'. Technically, the item is not
+an index-item, then. See also the section 'INDEX HANDLING' further on.
+.hl 1 PROCEDURE DIVISION
+.hl 2 Paragraph header after 'PROCEDURE DIVISION'
+VAX COBOL likes to see a paragraph header directly after the 
+'PROCEDURE DIVISION' statement.
+.hl 2 Group-items
+VAX COBOL strictly treates a group-item as alpha-numeric, regardless
+how the subsequent items are declared. Some points to take care for,
+concerning group-items:
+.ls '='.le;Because treated as alpha-numeric, moving from a field declared
+numeric with sign and/or decimal point, p.g. S9(13)V9(5), to a group-item,
+does work different as it does on TOPS COBOL.
+.le;When a group-item exists out of several signed numeric items, checking
+the group-item against 'ZERO' cannot be performed, each item has to be
+checked individually.
+.els.hl 2 Remarks on Testing for Certain Values
+.ls '='.le;VAX does not like the testing of a numeric field for spaces.
+Use 'IF FIELD NOT NUMERIC' instead.
+.le;When testing items, they have to be of the same type, VAX is very strict
+on this, so testing a field, defined as 'PICTURE X(8)', against a numeric
+constant nnn, is not allowed, while TOPS COBOL will take care about
+translation. In this case the numeric constant has to placed between
+double quotes, as "nnn".
+.le;When a group-item exists out of several signed numeric items, checking
+against 'ZERO' cannot be performed.
+.els.hl 2 ACCEPT
+When using the 'ACCEPT' statement, VAX COBOL always treates the 
+receiving field as an alpha-numeric field, and justifies the received
+data always left (extended with spaces to the right), even when
+the field is declared 'JUSTIFIED RIGHT' or numeric.
+.br;One of the ways of accepting numeric values or get the data right
+justified, is to create subroutines to handle these situations.
+During the Utrecht project, it was necessary to make a subroutine
+to handle alpha-numeric input and get it right justified, and
+another subroutine to receive alpha-numeric data and translate
+it into numeric, including some basic checking. Both called
+after accepting the data from the terminal.
+.hl 2 COPY
+Care should be taken, because there are differences in using 'COPY' in
+VAX COBOL or in TOPS COBOL. When using 'COPY' statement in TOPS COBOL,
+always code from a source-library, created with LIBARY, is taken.
+In VAX COBOL, there are 3 possibilities:
+.ls '=';.le;from a file, p.g. : 'COPY ABCD' - code from file ABCD.LIB
+is inserted.
+.le;from a library, p.g. : 'COPY ABCD FROM BCDE' - code from text
+module ABCD in library BCDE.TLB is inserted; library should be a text
+library, created by VAX LIBRARIAN.
+.le;record definition from CDD, p.g. : 'COPY ABCD FROM DICTIONARY' -
+the record definition is inserted from Common Data Dictionary;
+only record definitions can be used this way.
+.els.hl 2 CLOSE
+'CLOSE file-name WITH DELETE' is unknown on VAX, deleting a file,
+in case of a detected error in the program, should be handled
+outside the program. See the remarks concerning "Program Detected
+Errors and Handling.
+.hl 2 DISPLAY
+In VAX COBOL, index data items and integers (numeric/computational),
+cannot be used in 'DISPLAY' statement straight away, they have to be
+moved to a field declared for DISPLAY USAGE. Example:
+.nf.lt;
+  TOPS COBOL statement:
+      DISPLAY " TOTAL " INDEX.
+
+  declare display-field, and change code into:
+      DISPL    PIC 99.
+
+      SET DISPL TO INDEX.
+      DISPLAY " TOTAL " DISPL.
+
+.el.f;Use 'MOVE INDEX TO DISPL' instead of 'SET DISPL TO INDEX', in case
+an integer is involved.
+.hl 2 EQUALS
+The word 'EQUALS' should be changed to ' = ' or 'IS EQUAL'.
+.hl 2 HIGH-VALUES/LOW-VALUES
+These values can be used, as long as testing is done against the same
+value the field was previously set to. Resetting fields with 'LOW-VALUES'
+can cause trouble, better use 'INITIALIZE' or 'MOVE ZERO' to reset fields.
+.hl 2 INITIALIZE
+.ls '='.le;It is advised to use the 'INITIALIZE' verb, where possible
+and sensible, as spaces and zeroes are not regarded the same on VAX.
+We found during our conversions that spaces were moved to numeric fields
+and zeroes to alphabetic fields quite regularily.
+.le;However, there are some points to regard, using the 'INITIALIZE'.
+It works very nice for normal records and fields, also when using
+'OCCURS' without 'DEPENDING', computational fields, etc.
+Care should be taken with the following:
+.ls '-'.le;Using 'OCCURS' clause with 'DEPENDING' phrase in the field to be
+initalized, is not allowed.
+.le;It does not work on 'index data items'.
+.le;Items declared 'FILLER' are not affected. When they have to be cleared
+too, use 'MOVE SPACES' and 'INITIALIZE'.
+.le;Mind, the contents, set up with 'VALUE' phrase in the DATA DIVISION,
+is cleared too, except for items defined 'FILLER'.
+.le;Take care with fields which are REDEFINED. When the field, to be
+initialized, is REDEFINED, the instruction works O.K., but when one
+or more sub-ordinate items have 'REDEFINES', 'INITIALIZE' does not
+affect them.
+.els.els.hl 2 INSPECT
+The 'INSPECT' verb requires that the compare-value and the replace-value
+be of the same type (i.e. Numeric, Alphabetic, etc.).
+.hl 2 MOVE
+Special care should be taken with 'MOVE SPACES' and 'MOVE ZERO',
+use 'INITIALIZE' where possible and sensible, instead of these
+instructions (see also the remarks concerning 'INITIALIZE').
+.hl 2 READ
+.ls '='.le;Using 'AT END' clause, like 'READ file-name AT END statement',
+the statements can only be "imperative", so no 'IF' can be used.
+If necessary, create a paragraph to handle the 'IF' after 'AT END'.
+.le;Care should be taken with record clearing, prior to a 'READ'
+operation. VAX COBOL does not always clear fields, better take care
+of it yourself, by using the 'INITIALIZE', but mind the specifics
+concerning this statement.
+.els.hl 2 SEARCH
+.ls '='.le;Testing a table element in the 'WHEN' clause, VAX COBOL expects the
+element directly behind 'WHEN', while TOPS COBOL allows to have them swapped.
+For example, VAX COBOL wants:
+.nf.s 1.ls;'WHEN table-element = value'
+.els.f.le;More complex conditions (like using '_ <_ ', '_ >_ ', etc.) in the
+'WHEN' clause, were rejected for use in the 'SEARCH ALL' statement.
+It was allowed for the 'SEARCH' statement.
+.els.hl 2 SORT
+Only section names are allowed by VAX-11 COBOL in 'INPUT PROCEDURE'
+and 'OUTPUT PROCEDURE'.
+.hl 2 WRITE
+.ls '='.le;Take care about the clearing of the record, after writing and
+before filling it, specifically when partly filled, because VAX COBOL might
+not clear it for you. One of the best ways is to use the 'INITIALIZE' verb,
+but mind the specifics about this instruction.
+.le;In case the total conversion included also conversion from
+TOPS10/20 COBOL-68 to -74, mind the 'ADVANCING BEFORE 1 LINE'.
+Because default differences between -68 and -74, changes had to be
+made for ASCII files, not for SIXBIT. On VAX COBOL, SIXBIT is unknown,
+therefore mind the 'WRITE' statement, for files, which use to be
+SIXBIT in TOPS COBOL, and on VAX in ASCII.
+.els.hl 1 Index Handling
+During the Utrecht project, this showed to be a very difficult matter,
+causing a lot of conversion problems.
+.hl 2 USAGE IS INDEX
+The VAX reacted different as the TOPS did, with respect to
+items declared 'USAGE IS INDEX' (in the DATA DIVISION). All
+references in the code to these items ('SET', 'MOVE', subscripts,
+etc.) were rejected by the compiler. Changed the definition from
+'USAGE INDEX' into 'PICTURE 9(5) COMPUTATIONAL', which worked O.K. then.
+In this case, the item was not an index-item, but an integer.
+.hl 2 Manipulating index
+Items could be proper indices, by having them declared with the clause
+'INDEXED BY .....' in the 'OCCURS' statement. With respect to
+manipulation, the following should be regarded:
+.ls '='.le;TOPS COBOL allows to handle indices with normal 'MOVE', 'ADD' and
+'SUBTRACT'. VAX-11 COBOL is more strictly, only the 'SET' instruction has
+to be used.
+.br;Change these, when indices are involved, like:
+.nf.lit;
+  'MOVE x TO index'        into  'SET index TO x'
+  'ADD x TO index'         into  'SET index UP BY x'
+  'SUBTRACT x FROM index'  into  'SET index DOWN BY x'
+.el.f.le;'MOVE 0 TO index' was allowed in TOPS COBOL, VAX COBOL does not
+allow to set an index to '0', use 'SET index TO 1' and change the code
+to be able to use it this way.
+.le;Using indices in the 'DISPLAY' statement, to show their value,
+is not allowed in VAX COBOL, see remark concerning 'DISPLAY'.
+.els.hl 1 Program detected errors and handling
+By displaying the error character, while running the program in BATCH
+or MIC under TOPS, an error condition could be signalled, causing the
+stream to be aborted.
+.br;The command sequence in VAX-11 does not have a simular
+facility, but VAX/VMS offers the possibility to pass codes through
+$STATUS, indicating normal end (value "1") or certain error-codes.
+.br;Standard error-codes can be used, or own codes can be created by the
+user, specifying the $STATUS value, these codes can be passed, and
+examined in the COM sequence.
+.hl 2 Passing value to $STATUS (Error Exit)
+When using 'STOP RUN', automatically $STATUS will get the value "1",
+indicating normal, successfull exit.
+.br;In case an abnormal end, p.g because of a program detected error,
+has to be passed through to $STATUS,
+the system subroutine 'SYS$EXIT' can be used. It is called by:
+.s 1.ls;CALL "SYS$EXIT" USING BY VALUE WK-ERROR.
+.els;'WK-ERROR' has to be defined as numeric/computational (it has to
+be an integer), holding the appropiate error code value.
+.br;No return to the program is made, the effect is the same as 'STOP RUN',
+except the value of 'WK-ERROR' is placed into $STATUS. Unfortunately
+in COBOL no hexa-decimal values for constants can be used, so the
+decimal value of the code has to be known (DCL-command: $ SHOW SYMBOL).
+.hl 2 Creating own error codes and messages
+For information, how to create own messages, see the manual "VAX-11 Utilities
+Reference Manual", Chapter "Message Utility".
+.br; In short the procedure is:
+.ls.le;Create a message source file, using a text editor, called p.g.
+'OWNMESS.MSG'.
+.le;Compile the source file with the message-compiler (DCL-command:
+$_ MESSAGE), creating an object file 'OWNMESS.OBJ'. Also a listing
+with the codes, including the hexa-decimal values, can be obtained.
+.le;Link the object file (DCL-command: $_ LINK), creating an
+non-executable message file 'OWNMESS.EXE'.
+.le;Tell DCL to look into this message file, by typing the DCL-command
+$_ SET_ MESSAGE_ OWNMESS
+.le;Use the DCL-command $_ SHOW_ SYMBOL_ 'code' to investigate the
+value of the several codes.
+.le;Use these decimal values in the program(s) to specify the particular
+error-code.
+.els.hl 2 Remarks concerning Message File
+Linking the message object file to the program is possible (see the
+"Message Utility" manual), but implementation can be difficult, as
+seen during the Utrecht project. To make it flexible, the following
+could be a good way (as done in the Utrecht project):
+.ls '='.le;Own message file was created, according the above
+mentioned procedure.
+.le;The programs were updated, that in case of a detected error,
+the program called a subroutine, passing through a normal numeric value,
+indicating the error, but according an internal list.
+.le;The called subroutine took care about the translation of this internal
+code into the correct error message code, according the message file.
+After translation this subroutine also performed the call to 'SYS$EXIT'.
+.els;In case the message file has to be updated, very likely on
+the long run, it is not necessary to update and recompile all programs,
+possibly updating and recompiling of the error handling subroutine
+is the only necessity.
+.hl 1 Runtime error conditions
+.hl 2 'DIVISION BY 0' error
+A 'DIVISION BY 0' error occurred very frequently during the Dublin
+project. Incorporated therefore an appropriate 'IF' statement, which
+rectified the error.
+.hl 2 'INVALID DECIMAL DATA' error condition
+'INVALID DECIMAL DATA' error condition occurred very frequently also.
+This error was generated because spaces were moved to numerics and
+zeroes to alphabetic fields.
+.br;Also moving 'LOW-VALUES' to group-items
+caused this error condition, during the Utrecht project.
+.s 3.c
+================ 

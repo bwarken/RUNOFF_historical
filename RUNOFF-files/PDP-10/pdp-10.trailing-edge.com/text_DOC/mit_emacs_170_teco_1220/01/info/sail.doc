@@ -1,0 +1,257 @@
+
+			Using SAIL at LOTS
+
+
+SAIL is a high level programming language based on ALGOL-60.  It
+is extended to  provide string handling,  structured data  types
+(records), associative data (LEAP),  easy access to the  TOPS-20
+input/output features and operating system, and much else.
+
+
+I.   Documentation
+
+This document contains hints on how  to write, run, and debug  a
+Sail program.  It is oriented towards users who already know  an
+Algol-like language, but who are  not familiar with the  version
+of Sail at LOTS.  Other documentation available includes:
+
+	SAIL User Manual (CSD  report STAN-CS-76-574).  This  is
+the basic reference source for programming in Sail, available at
+the Stanford Bookstore.
+
+	SAIL tutorial  (CSD  report STAN-CS-76-575).   A  fairly
+readable introduction to programming in Sail.
+
+If  you  are  familiar  with  ALGOLW  and  would  like  a  short
+discussion of the differences between the two languages you  may
+be interested in the  file DOC:ALGOLW-SAIL.DIFFERENCES at  LOTS.
+You may read this  file with the TYPE  command.  If you are  not
+familiar with  any Algol-like  language,  try reading  the  file
+DOC:SAIL-EXAMPLES.TUT at LOTS.
+
+For more information on LEAP, say HELP LEAP.
+
+Note:  You will find in the manuals that there is a  distinction
+between TENEX and TOPS-10 SAIL.  Since this is TOPS-20, you will
+not know which to expect.  The answer is that TOPS-20 is  nearly
+the same as TENEX.  So use TENEX SAIL input/output routines!  Or
+even better, use a set of prepackaged input/output routines; see
+below for a description of one such package, IOSAIL.
+
+
+II.   Writing Sail programs
+
+The first step in running a Sail program is to place the  source
+of your program in a file at LOTS.  To do so, you would normally
+use the EDIT program (via  the system commands CREATE and  EDIT)
+to enter and  correct the  text of  the program.   See the  LOTS
+Overview Manual for more information on using EDIT.
+
+This source file  should have the  extension ".SAI" to  indicate
+that it contains a Sail source program.  All file specifications
+for Sail consist  of a  name-part, a period,  and an  extension,
+plus optional fields to refer to files belonging to other users.
+For source  programs,  the  EXEC  requires  that  the  name-part
+contain six characters or less, and that the extension be  three
+characters or less.   Data files,  on the other  hand, may  have
+names and extensions of up to  39 characters each (though it  is
+conventional to use a .DAT extension for data files).
+
+
+III.  Running a Sail program
+
+To run  your program,  you must  first compile  the source  into
+relocatable object code,  then load this  object code plus  that
+for any external routines into your core image, and then  either
+begin execution  or save  a copy  of the  core image  for  later
+execution.   There  are  EXEC  commands  that  perform   various
+combinations of these steps.
+
+The commands  used  to  run Sail  programs  are  COMPILE,  LOAD,
+EXECUTE, START, and DEBUG.  Most  of the time, though, you  will
+only need  to  use EXECUTE  or  DEBUG.  Consider  the  following
+sample terminal session:
+
+    @create fib.sai
+    Input: FIB.SAI.1
+    00100   BEGIN "Fibonacci numbers"
+    00200       REQUIRE "<sail>iosail.hdr" SOURCE!FILE;
+    00300       INTEGER a,b,c,i;
+    00400       a:=1;    b:=1;
+    00500       FOR i:=1 STEP 1 UNTIL 10 DO
+    00600       BEGIN 
+    00700           Print( a,"  " );
+    00800           c:=a+b;
+    00900           a:=b;
+    01000           b:=c
+    01100       END;
+    01200       Print(crlf,"All done",crlf)
+    01300   END "Fibonacci numbers"
+    01400
+    *e
+    [FIB.SAI.1]
+    @execute fib
+    FIB.SAI.1 1
+	  <SAIL>IOSAIL.HDR.23 1
+    End of compilation.
+    LINK:   Loading
+    [LNKXCT FIBONA Execution]
+    1  1  2  3  5  8  13  21  34  55  
+    All done
+    End of SAIL execution
+
+A file  FIB.SAI  was  created containing  a  simple  program  to
+calculate Fibonacci numbers.
+
+Sail is a block-structured  language:  each program begins  with
+BEGIN (case is irrelevant) and ends with END.  Variables may  be
+declared in any block,  but must be  declared before use  (among
+the types of  variable available are  INTEGER, REAL, LONG  REAL,
+STRING, BOOLEAN and RECORD!POINTER.  If you follow BEGIN with  a
+string (String constants  are text  that is  enclosed in  double
+quotes, e.g., "sdemo1" on line 100), then that string will  name
+the block.  If you follow an END with a string, SAIL will verify
+that the string  following the  END exactly  matches the  string
+following the corresponding  BEGIN.  If they  don't match,  SAIL
+complains.  The strings must  match exactly, including the  case
+of each letter.
+
+Line 200 instructs Sail to include the header file IOSAIL.HDR in
+our program.  This header file contains declarations for various
+standard  procedures  and  constants,   for  example  the   CRLF
+(newline) that is used in line 1200 to instruct Sail to start  a
+new line in the output.
+
+After writing  the  program,  we give  the  EXECUTE  command  to
+instruct the system to compile and run the program.  The EXECUTE
+command searched for a file with one of the standard source file
+extensions, found a .SAI, and therefore called Sail.  You  could
+have  optionally  typed  the   file  name  including  the   .SAI
+extension.  (The '.' must be left off or the entire .SAI must be
+included though--a plain '.'  indicates a null extension,  which
+counts as  having specified  an  extension.) The  Sail  compiler
+produced a  relocatable (object)  file with  an extension  .REL,
+which the linkage editor loaded into memory and started running.
+When execution has finished, we return to the EXEC.
+
+Some optimization is done in processing the command.  If a  .REL
+exists that is more recent than the source ( .SAI ) file, then a
+new .REL  file  is  not  created.   This  includes  the  COMPILE
+command, which then does nothing.
+
+
+IV.  IOSAIL
+
+IOSAIL is a package of procedures and macros designed to provide
+simple input/output for Sail programs.  It includes  definitions
+of commonly used string constants such as CRLF (carriage  return
+followed by  line feed)  and TAB,  a set  of easy  to use  input
+procedures, and a set of miscellaneous conversion and  debugging
+procedures.  For  details, consult  the file  DOC:IOSAIL.DOC  at
+LOTS.
+
+To get all the macros and procedures declared, put the statement
+REQUIRE "<SAIL>IOSAIl.HDR"  SOURCE!FILE;   in  the  declarations
+section of the outermost block of your SAIL program.  This  will
+automatically include <SAIL>IOSAIL.REL in the list of files  for
+the  LOADER.   The  SAIL  sources  for  the  procedures  are  in
+<SAIL>IOSAIL.SAI,   the   macros   and   declarations   are   in
+<SAIL>IOSAIL.HDR.
+    
+
+V.  Sail character set
+
+In SAIL,  special handling  of characters  not included  in  the
+ASCII  standard   keyboard  set   is  needed.    The   following
+equivalents apply when comparing the  SAIL manual with what  you
+type on a LOTS keyboard:
+
+   SU-AI character		    standard ASCII
+     circle times			XOR
+     membership (epsilon)		IN
+     equivalence			EQV
+     _ (in identifiers)			!
+     left arrow				:=  -or-  _
+
+
+VI.  Profil
+
+It is  possible to  get an  execution count  profile of  a  SAIL
+program  (indicating  the number  of  times each  statement  was
+executed), displayed on a listing which is indented to show  the
+block  structure  of   the  program.   The   method  is  a   bit
+complicated, but the result is so often an aid in debugging that
+it's worth  it.  The  execution counts  and the  display of  the
+block structure each have their own merits.
+
+[1] Compile  and execute  the program,  specifying the  /PROFILE
+switch.  For example, recall our FIB program above:
+
+	@EXEC FIB.SAI/PROFILE
+
+The /profile switch  causes Sail  to write a  file of  execution
+counts, FIB.KNT , when it finishes execution.  This file  will
+be used by the profile program, below.
+
+[2] Call the PROFIL program as follows:
+
+	@PROFIL
+	*FIB_FIB
+
+[3] Now print  the profile  file on  the line  printer.  It  has
+extension ".PFL" as in "FIB.PFL" and is of 120 column width.
+
+[2 Alternative] Call the PROFIL program, and specify that output
+should go directly to the terminal:
+
+	@PROFIL
+	*TTY:_FIB/T
+
+The /T switch  instructs profil to  produce a listing  formatted
+for terminal viewing -- 80 columns wide.
+
+For more  information, see  page 156,  Appendix F,  of the  SAIL
+Manual.
+
+
+VII.  BAIL
+
+Bail exists!  (Hooray,  hooray!) It is  an interactive  debugger
+for sail programs.  You can do things like inserting breakpoints
+(to stop  at particular  places  in your  program), look  at  or
+change the values of variables at a breakpoint, trace  procedure
+calls, single-step through the  execution of your program,  etc,
+etc, etc.  You will  find it a big  help in debugging.  All  the
+winning features of Bail are  described in pages 144-149 of  the
+Sail manual.
+
+Using Bail:  just (re)compile your program.
+
+    @DEBUG FOO.SAI
+
+If you have a recent version  of your program, you will have  to
+force Sail to recompile by saying DEBUG/COMP FOO.SAI instead.
+
+You can get into Bail in four ways.
+
+1.  By an explicit call in your program.  Declare Bail an
+    external procedure (via EXTERNAL PROCEDURE BAIL) first, then
+    call it like a procedure with no parameters.
+2.  After a Sail-detected error.  Type B to the error message.
+3.  From the monitor, say when you suspect there's an infinite
+    loop in your program.  This is harder so try not to get into
+    any infinite loops.
+4.  From a breakpoint, set in some previous Bail interrupt.  See
+    the writeup on the BREAK command in the Sail manual.
+
+Some minor  glitches:   Bail doesn't  know  about :=  .   Use  _
+(backarrow).  Use  of DEBUG  causes Sail  to create  a file  (or
+several)  with  extension  .SM1  for  Bail's  bookkeeping.    If
+creation of this file sends  you over your disk allocation,  you
+may get a message when Bail is entered during execution about it
+not being able to open some files.  In this case, the file  Bail
+is trying to open  is named in the  error message.  To  fix  the
+situation, type CTRL-C  and expunge  some files,  then type  the
+CONTINUE command and  type the name  of the file  that Bail  was
+previously  trying to open.
+  

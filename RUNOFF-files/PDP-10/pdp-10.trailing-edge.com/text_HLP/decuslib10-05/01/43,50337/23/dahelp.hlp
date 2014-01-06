@@ -1,0 +1,159 @@
+			DAHELP
+			------
+
+Author: Mats Ohlin, FOA 1, S-104 50 STOCKHOLM 80, SWEDEN.
+Version 1.0
+Date: 76-01-16
+
+The DAHELP class may be used in order to save core in
+application programs when the HELP texts are very long
+and/or many.
+
+If you prepare a number of sequential files with names equal to
+the respective keywords, the MAKHLP program may be used in order
+to create a DAHELP direct access file. This file could then
+be used by the DAHELP class in order to display any of the included
+(sub)files on the TTY (Sysout i.e.). It is also possible to
+make DAHELP list all entries (keywords) in the DAHELP file.
+
+Calling the boolean procedure HELPLIST("abc") will search for
+the first entry STARTING with "ABC" (starting at col. 10!)
+in the directfile specified by the single parameter to DAHELP
+(default extension is .HLP). If the file is not found,
+HELPLIST will return FALSE.
+
+HELPLIST("?") will produces a listing of available entries preceded
+by the text in the DAHELP text attribute DIRLINE.
+
+The text will be displayed SCREENLINES lines at a time
+(default value = 20). If SCREENLINES is set to zero the full text
+will be displayed without interrupt. At interrupt, a prompting
+message - the DAHELP text attribute PROMPTLINE is displayed
+and the user may either continue the output by pressing
+the RETURN key, or skipping output by pressing the ESCAPE key (ALTMODE).
+Any other answer will give a help message.
+
+
+Example of use:
+
+  BEGIN EXTERNAL CLASS dahelp;
+  EXTERNAL TEXT PROCEDURE conc,upcase;
+  EXTERNAL INTEGER PROCEDURE checkint,scanint;
+  EXTERNAL REF (Directfile) PROCEDURE finddirectfile;
+  
+  REF (dahelp) dah;
+
+      dah:- NEW dahelp("X");	! Uses file "X.HLP" ;
+      dah.helplist("Enter a");	! Gives info on lines 2-3 in
+ 				! example below;
+ 				! The texts will be Uppercased
+ 				! before comparison.
+      dah.helplist("?");	! Gives typeout of entries;
+      dah.stop;			! Closes the help file;
+ 				! If the attribute AUTOCLOSE
+ 				! is set to TRUE, then
+ 				! the file will be closed
+ 				! after every procedure call.
+ 				! DAHELP will thus run more
+ 				! efficiently if you use
+ 				! the STOP procedure when you
+ 				! are ready instead.;
+
+  END
+
+Calling HELPLIST will have the side-effect of setting
+Sysout.linecount := -1;  (no form feeds).
+
+The DIRED program may be used to modify the file.
+Again - the Imagesize of the directfile must be 73!
+
+The text in the HELP directfile (imagelength 73) should
+conform to the following format (which is obeyed automatically
+if you use MAKHLP):
+
+Col.1    Col.10
+ |        |
+ ~M       Enter a
+ ... help text for
+ ... question starting with "Enter a
+ ~0
+ ~N       Enter b
+ ... help text for
+ ... question starting with "Enter b
+ ~0
+
+The contents of each subsection should be:
+
+A. The first RECORD should contain:
+
+   1. ~ (tilde - ASCII 176 octal) in column 1
+
+   2. The Number Field - refering to start of next section.
+      The record number for the start of the next subsection
+      (in the example above M is 5) - if none then -1 (N),
+      should be placed in the field col.2 to 9.
+
+   3. The Entry Field - containg to Search Key.
+      This UPCASED text should start at pos. 10.
+
+
+B. The HELP text
+
+
+C. ~0 in col.1 and 2
+
+The Number Field for the last subsection should be -1.
+
+It is possible to add additional text to a subsection by
+ending it with ~xxx (instead of ~0) where xxx is the record
+number where the text continues.
+
+It is thus possible to have common final parts of several
+subsections. NOTE! It is possible to create eternal loops if
+you jump backwards in the file - so beware of such loops!
+
+
+The following example shows the outline of a more general
+Helping Program:
+
+BEGIN
+    TEXT file;
+    EXTERNAL TEXT PROCEDURE conc,rest,upcase,checkextension;
+    EXTERNAL BOOLEAN PROCEDURE dotypeout;
+    EXTERNAL CHARACTER PROCEDURE findtrigger;
+    EXTERNAL INTEGER PROCEDURE checkint,scanint;
+    EXTERNAL REF (Directfile) PROCEDURE finddirectfile;
+    EXTERNAL CLASS dahelp;
+
+    start:
+    Outtext("File:"); Breakoutimage;
+    IF Lastitem THEN GO TO quit;
+    file:- Intext(Sysin.Length-Sysin.Pos+1).Strip;
+    IF upcase(file) = "EXIT" THEN GO TO quit;
+
+    dahelp(file) BEGIN
+	TEXT q;
+	Outtext("DIR::"); Outimage;
+	! Listing available entries;
+	IF NOT helplist("?") THEN GO TO start;
+	nexthelp:   dotypeout(Sysout);
+	Outtext("*"); Breakoutimage;
+	IF Lastitem THEN GO TO exit;
+	q:- Intext(Sysin.Length-Sysin.Pos+1).Strip;
+	IF upcase(q) = "EXIT" THEN GO TO exit;
+	IF q = "END" THEN BEGIN  stop;    GO TO start   END;
+	GO TO IF NOT helplist(q) THEN start ELSE nexthelp;
+	exit: stop;
+    END;
+    quit:
+END
+
+Use of DAHELP together with SAFEI(O) and SAFMIN:
+
+If you use the call HELPLIST(MAINPROMPT) as actual 5th parameter
+to REQUEST procedures, the actual prompting question will be used
+as search key in the DAHELP file. Note that DAHELP will use the
+FIRST entry where the beginning of the Entry Field equals the
+Helplist parameter.
+
+		[End of DAHELP.HLP]

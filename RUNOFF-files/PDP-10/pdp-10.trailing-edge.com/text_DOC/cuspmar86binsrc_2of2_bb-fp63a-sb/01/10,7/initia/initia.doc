@@ -1,0 +1,244 @@
+
+
+
+INITIA.DOC -- Changes from V10(217) to V11(254)
+January 1986
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY ONLY BE USED
+OR COPIED IN ACCORDANCE WITH THE TERMS OF SUCH LICENSE.
+
+
+COPYRIGHT (c) DIGITAL EQUIPMENT CORPORATION 1971,1974,1975,1976,1977,1978,1979,1980,1982,1983,1985,1986.
+ALL RIGHTS RESERVED.
+INITIA.DOC                                                      Page 2
+
+
+INITIA.DOC -- Changes from V10(217) to V11(254)
+January 1986
+
+
+
+1.0  SUMMARY
+
+This release adds support  for  the  TOPS-10  version  7.03  operating
+system  and  incorporates  bug fixes.  No major functionality has been
+added since the previous version.  The support added for 7.03 includes
+new  terminal  parameters,  the  ability  to set the account string on
+INITIA logged in jobs and a  change  in  how  FRCLIN  input  has  been
+handled.
+
+All jobs logged in directly by INITIA will be given  account  strings.
+These jobs include the FRCLIN job (which copies SYSJOB.INI to FRCLIN),
+the TTY STOMPER and jobs started via the GALOPR,  SYSDPY,  OPSER,  etc
+commands.   The  account  string  for  each  of these jobs is given in
+TTY.INI using the new "ACCOUNT" option, as in
+
+CTY: NO REMOTE ACCOUNT "SYSTEM"
+
+The account string specified is delimited by either type of  quote  ("
+or  '),  and  is a maximum of 39 printable characters in length.  This
+account specifier may be applied to the "STOMP" command in TTY.INI for
+the  FRCLIN/TTY  STOMPER job.  If TTY STOMPER is not run, the new line
+specifier, FRCLIN, may be given instead.  For example, if TTY  STOMPER
+is  to be run with account "OPERATOR", the following line would appear
+in TTY.INI
+
+STOMP ACCOUNT "OPERATOR"
+
+If TTY STOMPR is not to be run, the FRCLIN job's account string  would
+be set by the following line in TTY.INI:
+
+FRCLIN ACCOUNT "OPERATOR"
+
+Note that the FRCLIN job and TTY STOMPER are the  same  job,  so  both
+options should not be specified.
+
+If the ACCOUNT specifier is not given, the job is assigned the  system
+default account string as given in SYSJOB.INI ("SET DEFAULT ACCOUNT").
+Since the TTY STOMPER/FRCLIN job logs in before  sending  the  default
+account  command  to  FRCLIN,  the  TTY  STOMPER account string should
+always be specified in  TTY.INI.   No  account  string  validation  is
+performed by INITIA.
+
+Under previous version of INITIA, text from  SYS:SYSJOB.INI  would  be
+passed to FRCLIN one line at a time.  This can cause input from INITIA
+to become mixed with that from other users of FRCLIN.  INITIA has been
+changed  to  pass all SYSJOB.INI text delimited by LOGIN commands as a
+single string to FRCLIN, thus eliminating any race condition as above.
+For example, a SYSJOB.INI file containing:
+
+LOGIN
+INITIA.DOC                                                      Page 3
+
+
+SET HPQ 1
+DAEMON
+LOGIN
+QUASAR
+
+would be sent as two strings to FRCLIN:  "LOGIN<CR>SET HPQ 1<CR>DAEMON
+<CR>"  and  "LOGIN<CR>QUASAR<CR>".  Note that this new behavior occurs
+only under version 7.03 or later systems;  the old processing will  be
+done on older monitors.
+
+The new TRMOP.  functions  added  are  implemented  as  parameters  in
+SYS:TTY.INI or the user's SWITCH.INI.  They are:
+
+EIGHTBIT/NOEIGHTBIT           Set or clear eight bit support for  this
+                              line
+
+ESCAPE:n                      Set the alternate  escape  character  to
+                              octal n.
+
+IDLEDISC:n                    Set the dataset idle disconnect timer to
+                              n seconds.
+
+QUOTE/NOQUOTE                 Enable or disable Control-V quoting.
+
+UNPAUSE:n                     Set the unpause character to octal n.
+
+
+
+2.0  EXTERNAL CHANGES
+
+221       FRCLIN will no longer set customer privilege bits.
+
+222       TTY0 of an MCR is no longer considered a remote OPR.
+
+223       Allow leading spaces on decimal arguments in TTY.INI
+
+226       Change how SYSJOB.INI works:  The .TOTYP  TRMOP.   will  now
+          send  the  entire  string it's given in a fashion that makes
+          any race condition impossible.  Send all text in  SYSJOB.INI
+          that  occurs  between  LOGIN  commands as a single string to
+          .TOTYP, so there is no threat of a  race  condition  on  the
+          FRCLIN command execution.
+
+227       Remove the code to read [1,2]'s search list from AUXACC.SYS,
+          now  that ACTDAE is in charge of this.  Since we log jobs in
+          before ACTDAE is running, we can't count of  ACTDAE  telling
+          us  what the search list should be, so just make do with the
+          system search list.
+
+230       Add  new  "EIGHTBIT",  "ESCAPE",  "QUOTE",  "IDLEDISC"   and
+          "UNPAUSE"   terminal   parameters  to  TTY.INI.   This  also
+          implements GCHVAL which reads character value arguments  for
+          "ESCAPE" and "UNPAUSE".
+
+232       Don't type anything on a line just slaved.
+INITIA.DOC                                                      Page 4
+
+
+233       Add VT220 and VT240 to  the  table  of  terminal  types  for
+          SYSDPY.
+
+235       Use %CNPRV to set the privilege word for  jobs  INITIA  logs
+          in.
+
+236       Add the "ACCOUNT" argument for TTY.INI to be applied to jobs
+          INITIA logs in.  Create a new "FRCLIN" TTY specifier to mean
+          the FRCLIN job.  Allow this argument on the "STOMP"  command
+          as well.
+
+237       Allow terminal specifiers of the form  NODE_nn  as  well  as
+          NODE_TTYnn
+
+          as documented in the Software Installation Guide.
+
+240       Don't type anything on dialup lines that aren't dialed into.
+
+241       Don't say "NOESCAPE"  or  "NOUNPAUSE"  when  the  respective
+          character  is  zero.   Use  the  "NO"  prefix  only when the
+          character is set to its default value.
+
+245       Set IPCQ PID and send/receive quotas to 511 for GALOPR  jobs
+          which we log in.
+
+247       Use NETOP.  when posible to type the real  location  of  the
+          terminal  (ANF/DECnet/LAT  node name and port id), and allow
+          these node/port ids to  appear  in  TTY.INI.   The  TTYnn-mm
+          format in TTY.INI will only work on ANF lines.
+
+251       If the port id being typed isn't a port number  (as  is  the
+          case  with  ANF-10 and CTERM connections), don't preceed the
+          id with " # ", as it isn't a number.
+
+253       Set physical and virtual page limits to  16384  (each)  when
+          logging in a job.  If this fails, try 512 pages instead.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+INITIA must be saved as a sharable program.  Due to a bug, INITIA will
+not function properly if saved with a non-sharable high segment.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+None.
+
+
+
+5.0  INTERNAL CHANGES
+
+224       Guard  against  malicious  WAKE  UUOs  which   may   prevent
+INITIA.DOC                                                      Page 5
+
+
+          NOTICE.TXT from being typed in its entirety.
+
+225       The initialization code is zeroing one too many words of low
+          segment.
+
+231       Make the TTY STOMPER look in the correct monitor section for
+          the LDBs.
+
+234       Lengthen the stack to accomodate the new HELPER.
+
+246       Re-implement 7.02 compatibility, using the "F.OLD"  flag  to
+          indicate systems older than 7.03.
+
+252       Check the creation dates of files stored in the high segment
+          against  what the real files say to prevent using stale high
+          segment files.
+
+254       Fix TTY STOMPR such that it  doesn't  zero  baud  lines  too
+          soon.
+
+
+
+6.0  SUGGESTIONS
+
+None.

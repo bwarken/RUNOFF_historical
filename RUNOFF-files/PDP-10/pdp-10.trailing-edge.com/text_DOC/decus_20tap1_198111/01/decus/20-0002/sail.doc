@@ -1,0 +1,848 @@
+
+
+
+                               SECTION  1                               _______  _
+
+                              New Features                              ___ ________
+
+
+
+
+
+This section describes  changes and additions  to Sail since  the August
+1976 manual, AIM-289.
+
+
+
+1.1 - Double Precision      ______ _________
+
+
+Double  precision  floating-point  arithmetic  is  available.   Use  the
+<type!qualifier> LONG in declarations.  For example,
+        LONG REAL X, Y, Z;
+        LONG REAL ARRAY XA[0:N];
+
+Currently LONG has  meaning only when it  appears as part of  LONG REAL.
+(At some future time LONG INTEGERs may also exist.)
+
+The runtime routines  LREALIN and LREALSCAN  operate the same  as REALIN
+and REALSCAN, except for  returning LONG REAL values.  The  routine CVEL
+takes a LONG REAL value and returns a string representation like that of
+CVE,  except that  "@@"  is used  to  signify LONG  when  delimiting the
+exponent.   Any  of  "@",  "@@", "E",  or  "D"  are  acceptable exponent
+delimiters to LREALIN and LREALSCAN.
+
+Variables which are declared LONG REAL are represented in  KI10 hardware
+format  double precision,  take two  consecutive words  of  storage, and
+provide  62  bits  of precision  (approximately  18  decimal  digits) to
+represent the  fraction part of  a floating-point number.   Regular REAL
+variables occupy a  single word and have  27 bits (8 decimal  digits) of
+precision.  The exponent range of  both REAL and LONG REAL  variables is
+from -128 to 127, where 2^127 is approximately 10^38.
+
+LONG REAL is a dominant type in arithmetic operations +-*/%^ MAX MIN and
+arithmetic relationals  <>= LEQ GEQ  NEQ.  If one  operand is  LONG REAL
+then both operands will be converted to LONG REAL (if  necessary) before
+performing  the  operation.   An exponentiation  involving  a  LONG REAL
+raised to a positive integer constant is an exception to this rule.  The
+type coercion path is linear:   STRING -> INTEGER -> REAL ->  LONG REAL.
+Conversion from REAL to LONG  REAL is performed by assigning  the (only)
+word of  the REAL  to the  most significant  word of  the LONG  REAL and
+setting the second  (least significant) word of  the LONG REAL  to zero.
+Conversion from LONG REAL to REAL is by UUO which rounds.
+
+Arithmetic and assignment operations are compiled into DFAD, DFSB, DFMP,
+DFDV, DMOVE,  DMOVEM instructions.  The  Sail operations ASH,  LSH, ROT,
+LAND, LOR,  EQV, XOR are  performed on both  words (ASHC, LSHC,  ROTC, 2
+ANDs, 2 IORs, etc.).  LOCATION of a LONG REAL variable gives  an address
+E such that  DMOVE AC,E fetches the  appropriate words of  memory.  When
+passed by value  as an actual parameter  to a procedure, both  words are
+placed on  the P stack:   PUSH P,X  ; PUSH P,X+1.   LONG REAL  fields in
+record  classes are  handled much  like STRING  fields, except  that the
+address in the record field points  to the first word of a  2-word block
+(rather than to the second word as in the case with STRINGs).
+
+
+
+LONG  REAL ARRAYs  are  stored as  contiguous blocks  of  2-word values.
+ARRTRAN done on two LONG REAL arrays is a transparent operation, but for
+ARRYIN, ARRYOUT,  or ARRBLT  the actual word  count is  specified; think
+about whether you should multiply by 2!  At runtime the array descriptor
+for a LONG ARRAY has bit  12 (40,,0 bit) set in MULT(n),  the multiplier
+for the last dimension (which would otherwise be =1).  Similarly, a LONG
+ARRAY is allocated by setting bit 12 (40,,0) bit in the  parameter which
+specifies the number of dimensions to ARMAK.
+
+Runtime support for LEAP items with LONG REAL datums does not yet exist,
+although the compiler does generate suitable code.  Runtime  support for
+double precision  exponentiation is  also limited  for the  moment.  Any
+exponentiation X^K where  K is a  positive integer constant  is compiled
+inline using  the binary ("Russian  peasant") method, regardless  of the
+type  of  X.   Other exponentiations  involving  LONG  REALs  are merely
+translated into procedure calls on
+
+        LONG REAL PROCEDURE DPOW (INTEGER EXPONENT; LONG REAL BASE);
+        LONG REAL PROCEDURE DLOGS (LONG REAL EXPONENT, BASE);
+
+depending on the type of the exponent.  The Sail runtime system does not
+yet contain such procedures, so you will have to roll your own.
+
+
+
+1.2 - Declarations and Scope      ____________ ___ _____
+
+
+Sail declarations must occur before use.  For example, in  the following
+program the argument to  PRINT is interpreted as  the K on line  2, even
+though by the ALGOL60 notion of scope it should be interpreted as  the K
+on line 5.
+
+        BEGIN "FOO"
+        INTEGER K;      COMMENT this is line 2;
+          BEGIN "RUB"
+          PROCEDURE BAR; BEGIN PRINT(K) END;
+          INTEGER K;    COMMENT this is line 5;
+          <statements>
+          END "RUB"
+        END "FOO"
+
+
+
+1.3 - Two-character Operators      _____________ _________
+
+
+The compiler now recognizes "**" for "^", ":=" for "_", "<="  for "LEQ",
+and ">=" for "GEQ".
+
+
+
+1.4 - Requires      ________
+
+
+REQUIRE  OVERLAP!OK;   will  suppress  the   message  which   occurs  at
+initialization when two programs have declared items.
+
+REQUIRE VERIFY!DATUMS; causes the compiler to generate  three additional
+instructions for each DATUM reference, to make sure (dynamically, at run
+time) that the type  of the item in the  DATUM construct is the  same as
+the compiler expected.  This is similar to (the unimplimented effect of)
+declaring all itemvars CHECKED.   It is planned that  VERIFY!DATUMS will
+soon be a bit in the  /A switch and that the corresponding  REQUIRE will
+disappear.
+
+REQUIRE   PROCESSES;  insures   that  MAINPR,   the  main   process,  is
+initialized.  You  need not  specify this  REQUIRE if  you use  APPLY or
+SPROUT, but if  the only use  of processes is  via INTSET then  you must
+REQUIRE PROCESSES;.
+
+
+
+1.5 - CASE statement      ____ _________
+
+
+In an explicitly numbered CASE statement the word ELSE can  appear where
+a bracketed case number  is normally used.  The statement  following the
+ELSE  is  a  catch-all  for any  case  number  not  mentioned, including
+anything  which  would  otherwise  generate  a  CASE  index  error.  For
+example,
+
+        CASE K OF BEGIN [3] J_3; ELSE J_4; [5] J_5 END
+
+is another way of accomplishing
+
+             IF K=3 THEN J_3
+        ELSE IF K=5 THEN J_5
+        ELSE J_4
+
+A CASE statement containing an ELSE case does not generate a call to the
+CSERR runtime routine, and  in addition the jump table  usually contains
+only max_case - min_case +1 words (rather than max_case +1).
+
+
+
+1.6 - Circular RECORD!CLASSes      ________ ______________
+
+
+To  define  two record  classes,  both of  which  contain RECORD!POINTER
+fields refering to the other class, say
+
+        FORWARD RECORD!CLASS BAR (RECORD!POINTER (ANY!CLASS) Q2);
+        RECORD!CLASS FOO (RECORD!POINTER (BAR) Q1);
+        RECORD!CLASS BAR (RECORD!POINTER (FOO) Q2);
+
+In general, declare one class to be FORWARD and list  its RECORD!POINTER
+fields as pointers to ANY!CLASS.  This breaks the circularity and allows
+maximum compile-time type checking.
+
+
+
+                               SECTION  2                               _______  _
+
+                          Support for Tops-20                          _______ ___ _______
+
+
+
+
+
+The "Tenex" version of SAIL has been modified slightly to  support Tops-
+20.  In  general SAIL  should work  the same  on Tops-20  as it  does on
+Tenex.  In particular, both the compiler and compiled SAIL  programs can
+be moved between vanilla Tenex  and Tops-20 sites and do  the equivalent
+things.   This  is possible  because  all tests  for  Tops-20  or Tenex-
+specific code are  made at run-time.  Code  for both will be  present in
+all Tenex versions.
+
+The one exception to this happy picture is with runtimes that  are named
+after JSYS's and are documented  as simply doing that JSYS.   SAIL makes
+no attempt  to insulate you  from subtle differences  in the  meaning of
+bits, or the  fact that some of  the JSYS's do not  exist in one  of the
+systems.  The  most infamous  of these  problems is  the removal  of the
+STDIR JSYS in Tops-20.  That  means that SAIL programs using  STDIR will
+blow up on Tops-20. (However  similar results may be obtained  using the
+RCDIR  and RCUSR  routines, which  support the  corresponding  JSYS's in
+Tops-20.)
+
+The following  differences in  behavior follow from  the desire  to make
+SAIL on Tops-20 look like a "real" Tops-20 system:
+
+     The SAIL compiler's command scanner has been totally rewritten
+          for  Tops-20.  The  old scanner  will still  be  used for
+          Tenex.  The most important feature of the new  scanner is
+          that it  links properly to  the EXEC's  commands COMPILE,
+          EXECUTE, LOAD,  and DEBUG.   Note that  in order  to make
+          DEBUG work, /BAIL:17 is forced for all  compilations done
+          with the  EXEC commands.  The  DEBUG command  then causes
+          the  program  to be  loaded  with BAIL  and  a breakpoint
+          inserted at the start of the program.
+
+     If you run SAIL  explicitly, you will find that  the top-level
+          parser follows the conventions of recent  Tops-20 command
+          interpreters.   It  will  expect a  list  of  source file
+          names, just as the Tenex one did, but switches are on the
+          same  line, rather  than appearing  as  subcommands.  The
+          switch names have been lengthened for readability, but we
+          trust no  one will  have trouble  matching the  new names
+          with the manual.  Arguments are now put after  the switch
+          name and  a colon,  as usual.   Instead of  ^R and  ^L to
+          select  the  output  file  names,  the  switches /BINARY,
+          /LIST,  and  /CREF  can  optionally  take  file  names as
+          arguments.   To  suppress  creation  of  an  output file,
+          specify /NOBINARY, /NOLIST,  or /NOCREF.  The  default is
+          /BINARY/NOLIST, as with Tenex.  Switches that  took octal
+          numbers  to specify  sets of  features now  allow keyword
+          arguments.   If  you  do  not  find  the  new  form self-
+          explanatory with a bit of  usage of ?, you can  still use
+          the old octal numbers.
+
+     On  Tenex,  certain files  are  expected to  be  on  <SAIL> or
+
+
+
+          <SUBSYS>.   The  most important  examples  are <SAIL>T-6-
+          SAISG8.SAV  and  <SUBSYS>LOADER.SAV.   On  Tops-20,  such
+          files are  looked for  on logical  devices SAI:  and SYS:
+          respectively.   It is  assumed that  any site  using SAIL
+          will  define  SAI:  as  a  system-wide   logical  device,
+          probably referring to  PS:<SAIL>.  By using  SAI: instead
+          of <SAIL>, we allow  users to redefine SAI:,  for testing
+          private versions of  the sharable segment, etc.   It also
+          means that it is not necessary to have a  separate <SAIL>
+          directory on each mountable structure, as would be needed
+          if <SAIL>  were used.  Also,  files having  the extension
+          .SAV on Tenex are assumed to have .EXE on  Tops-20.  E.g.
+          the sharable  segment is gotten  from SAI:T-6-SAISG8.EXE,
+          and the loader from SYS:LINK.EXE.
+
+     On Tops-20,  the default  line-editors for  TTY input  use the
+          RDTTY  JSYS.   RDTTY  will  be  used  whether   the  user
+          specifies  the  "Tenex-style"  or  "Tops-10  style"  line
+          editor, since RDTTY is  sort of a merging of  features of
+          both.   The RDTTY  JSYS implements  the  standard Tops-20
+          editing characters, for which we refer you to DEC's Tops-
+          20 User's Guide.
+
+In  some cases,  user  programs may  wish to  determine  which operating
+system they are running on.  At startup time, the SAIL  runtimes execute
+a special GETTAB  UUO that is supposed  to return a code  indicating the
+operating system.   This GETTAB  is implemented  on all  known operating
+systems  that use  PDP-10  hardware, except  for the  Stanford  A.I. Lab
+monitor, and  possible certain  out-of-date Tenex  systems.  It  is even
+implemented on ITS!  The value returned by this UUO is put in a variable
+$OS, which may be declared as an EXTERNAL INTEGER by your program so you
+can look at it.  The codes are returned in bits 18-23:
+
+        1 - Tops-10
+        2 - ITS
+        3 - Tenex
+        4 - Tops-20
+        5 - Stanford A.I. Lab monitor
+
+
+The other bits in this  word are reserved for indicating  subversions of
+these various operating systems.
+
+For  the  Tenex SAIL  system  only, there  is  another  EXTERNAL INTEGER
+variable, $OSTYP.  This is set to  0 for Tenex and 2 for  anything else.
+This is the variable actually used by the runtimes to  determine whether
+to execute Tenex or Tops-20 code.
+
+
+
+2.1 - New runtimes for Tops-20      ___ ________ ___ _______
+
+
+In an effort to  support programming on Tops-20, the  following runtimes
+have been added.   Note that they will  result in errors if  executed on
+Tenex systems, since  they call JSYS's that  do not exist on  Tenex.  No
+attempt is made to prevent  these errors, on the theory that  some Tenex
+system might  decide to  implement one  of them.   So we  recommend that
+these  be used  only in  programs that  test $OS  or $OSTYP  and provide
+special code for both Tenex and Tops-20.
+
+
+
+*******************************  ACCES  ******************************;
+
+
+SUCCESS __ ACCES("DIRECTORY","PASSWORD",FLAGS,JOBNO)
+
+This runtime calls the ACCES JSYS. It gives the specified job  access to
+the requested directory.  Only the first argument is required.  Defaults
+are
+
+     Password null
+
+     Flags    '400 000 000 000 (Connect)
+
+     Jobno    the current job.
+
+Note that because of the  implementation of defaults in SAIL, it  is not
+possible to specify a jobno of  0.  However on Tops-20 job 0 is  part of
+the operating system, so this does not seem to be a  serious limitation.
+(A SAIL  program running as  part of job  0 would of  course be  able to
+specify the current job.)
+
+FLAGS are:
+
+     '400 000 000 000   Equivalent to CONNECT monitor command
+
+     '200 000 000 000   Equivalent to ACCESS monitor command
+
+     '100 000 000 000   Equivalent to END-ACCESS monitor command
+
+JOBNO  is the  number of  the  job, or  -1 for  current  job.  (Requires
+privileges to set for other jobs).
+
+On success, returns  true; on failure, false,  with TENEX error  code in
+!SKIP!.
+
+
+
+
+*******************************  RCDIR  ******************************;
+
+
+DIRNUM __ RCDIR(@"DIRECTORY",@DIRNO,@FLAGS)
+
+This  procedure calls  the  RCDIR JSYS.   A 36-bit  directory  number is
+returned  as  the  value of  the  call  and also  put  in  the reference
+parameter  DIRNO   (useful  for   stepping  through   directories).   If
+recognition is not specifically disabled, the reference string DIRECTORY
+is updated.
+
+Input FLAGS are:
+
+
+
+     '10 000 000   Allow partial recognition
+
+      '4 000 000   Step  to  next  directory  in   group  (Previous
+                    directory   number   is  in   DIRNO,   and  the
+                    "wildcard" bit must be set)
+
+      '2 000 000   Allow wildcards in "DIRECTORY"
+
+      '1 000 000   Match    given   string    exactly   (suppresses
+                    recognition)
+
+The flags  returned by the  monitor are put  in the  reference parameter
+FLAGS.
+
+On failure, zero is returned with !SKIP! set to:
+
+     1   string does not match
+
+     2   string is ambiguous
+
+     3   no more in this group (while stepping)
+
+On error,  zero is  returned with !SKIP!  set to  the TENEX  error code.
+(Note the subtle difference  here:  an error involves an  illegal format
+for a  directory name, or  some other invalid  argument.  Such  an error
+generates a Tenex error code of the usual sort.  A directory  name which
+is valid,  but just does  not happen  to exist on  this system  does not
+generate a Tenex error code, but is simply called a failure.)
+
+
+
+
+*******************************  RCUSR  ******************************;
+
+
+USRNUM __ RCUSR(@"USER",@USRNO,@FLAGS)
+
+This translates a user name  string to its corresponding user  number in
+the identical manner as RCDIR does for directory strings.  See RCDIR for
+details.  Note  that a valid  directory name always  has < >  around it,
+while a user name does not.
+
+
+
+
+*******************************  RSCAN  ******************************;
+
+
+SUCCESS __ RSCAN(FUNCTION,STRING)
+
+This procedure calls the RSCAN JSYS.  This allows the program to replace
+the string in the rescan buffer, set input to come from that  buffer, or
+determine how many characters are still to be read from that buffer.
+
+Both arguments are optional.  If omitted, the values used are
+
+
+
+     function 0
+
+     string null
+
+The values of FUNCTION mean:
+
+     0   Set input to come from the rescan buffer.
+
+     1   Return number  of characters  still to  be read  from that
+          buffer.
+
+The value returned by the call is the number of characters in the buffer
+for FUNCTION 0, and number of characters left for FUNCTION 1.
+
+If STRING is non-null, FUNCTION is ignored, the string is placed  in the
+rescan  buffer, and  the value  returned  by the  call will  be  true on
+success.
+
+On failure or  error, zero is  returned and !SKIP!  is set to  the TENEX
+error code.
+
+
+
+
+******************************  ERSTRING  ****************************;
+
+
+errmessage _ ERSTRING(ERRNO, FORKNO)
+
+This is similar to ERSTR.   It will get the error  message corresponding
+to  the  given error  number  on  the given  fork.   However  instead of
+printing it on the terminal, as  ERSTR does, it returns it as  a string.
+!SKIP! will  be set if  the error  number is illegal.   In that  case no
+guarantee is  made about what  is returned.  ERRNO  and FORKNO  are both
+optional.  The default values are the most recent error (-1)  for ERRNO,
+and the current fork for FORKNO.
+
+
+
+2.2 - Changes to existing procedures to support Tops-20      _______ __ ________ __________ __ _______ _______
+
+
+
+
+
+*******************************  CLOSF  ******************************;
+
+
+CLOSF  now takes  an  optional extra  argument,  CLOSF(chan,bits).  This
+argument is an integer.  Its left  half will be put in the left  half of
+AC1 in the  CLOSF jsys.  The most  useful option is  bit '4 000 000 000.
+This  specifies that  the  file is  to  be aborted,  rather  than closed
+normally.  If the  file is on  disk, it will  not appear (unless  it has
+been closed and reopened).   If it is on tape,  the 2 EOF's will  not be
+written.
+
+Note  that  the  SAIL  runtimes have  a  strange  habit  of  closing and
+reopenning files, to try to get read/write mode.  If you want to be able
+to abort creation of a file, you will have to open it "RW".  If  you do,
+
+
+
+then CLOSF with bit '4000000000 set will cause it not to show up on disk
+at all.   If you  had specified only  "W", SAIL  would have  created the
+file, closed it, and reopened it, in order to get it in "RW" mode, which
+the runtimes  prefer to  use.  Then it  would not  be possible  to abort
+creation of the file by doing an abort close, since it has  already been
+closed normally.
+
+Note that  CLOSF always  sets bit '400 000 000 000  (do not  release the
+jfn).  To release the jfn, you  can do a RLJFN after the CLOSF.   If the
+extra argument is omitted, no bits other than '400 000 000 000 are set.
+
+
+
+
+********************************  DELF  ******************************;
+
+
+DELF  now  takes  an  extra  optional  argument,  DELF(chan,bits).  This
+argument specifies bits to go in the left half of AC1 in the  DELF jsys.
+The most useful  bit is '200 000 000 000.   Setting this bit  will cause
+the file to be expunged as well as deleted.  Note that DELF  always sets
+bit '400 000 000 000 (do not release the jfn).  To release the  jfn, you
+can do a  RLJFN after the  DELF.  If the  extra argument is  omitted, no
+bits other than '400 000 000 000 are set.
+
+
+
+
+*******************************  IDTIM  ******************************;
+
+
+IDTIM now  takes an extra  optional argument,  IDTIM(datime,bits).  This
+argument specifies certain details  of the format expected by  the jsys.
+The default value if this argument is omitted is 0.
+
+
+
+
+******************************  OPENFILE  ****************************;
+
+
+Openfile uses a somewhat  obscure algorithm to determine the  setting of
+bit '400 000 000 000 in the GTJFN jsys.  This is the bit that determines
+whether an existing version will be used if there is one, or whether the
+next higher  version number will  be used.  If  you specify "O"  or "N",
+this  bit  is  never  used,  since  it  is  meaningless  in  that  case.
+Otherwise, the next higher version  is always used when "W" is  set, and
+the highest existing version when "W" is not set.  (The one exception is
+that  "W" with  "A"  will still  use  an existing  version,  for obvious
+reasons.)  This causes problems for people who wish to open  an existing
+file for "RW" access, since "RW" will cause the bit to be set that moves
+one  to a  new version.   "ORW"  will cause  you to  update  an existing
+version, but it will then give an error if there is no existing version.
+In many cases you want to use the existing version if there is one, else
+create a new file.  This  corresponds to setting no special bits  in the
+GTJFN at all.
+
+To  allow this  useful case,  we have  added an  option "U"  (Update) to
+OPENFILE.   This is  like "RW",  except  that it  does not  set  the bit
+
+
+
+causing the version number to  be advanced.  So it will use  an existing
+version if there is one, else create a new file.
+
+
+
+
+*******************************  RUNPRG  *****************************;
+
+
+RUNPRG will now supply  a default extension if  you leave it out  in the
+string.  This  is to allow  people to write  programs that will  work on
+both Tenex and Tops-20 without changing the file name, since  the normal
+extensions for executable files are different on these two systems.  The
+default extension supplied will be .SAV for Tenex and .EXE for Tops-20.
+
+
+
+                               SECTION  3                               _______  _
+
+                          New Tops-10 Features                          ___ _______ ________
+
+
+
+
+
+Current versions of SAIL  now support standard DEC Tops-10  systems more
+fully than in the past.  Tops-10 is no longer treated as a poor relation
+of Stanford  WAITS.  Descriptions  of the  features specific  to Tops-10
+follow:
+
+
+
+3.1 - SFD's      _____
+
+
+Any routine that  accepts a file  spec will allow  SFD's as part  of the
+directory.  Note that CVFIL has a problem in this regard, as it tries to
+return  the PPN  in a  reference integer  parameter.  If  the  file spec
+includes SFD's, there is no obvious place to put them.  I have taken the
+quick and dirty route of returning a pointer to the path block  in place
+of a PPN.  This strategy  is reasonable because the monitor  will accept
+such  a  pointer in  any  context where  it  wants a  PPN.   Because old
+programs may  be expecting a  real PPN,  I do set  !SKIP! in  this case.
+However I set  it to +1 for  SFD's, and -1 for  a real error.   Thus new
+programs can be written to accept SFD's.
+
+The project and  programmer numbers can be  omitted, as with  PIP.  Thus
+[,,FOO] is the  SFD FOO in your  area.  [,] is your  area. But []  is 0,
+i.e. your default path.
+
+
+
+3.2 - Using SAIL from batch jobs      _____ ____ ____ _____ ____
+
+
+SAIL knows  whether your  job is  a batch job  or not.   (It looks  at a
+GETTAB  bit set  up by  the batch  job controller.)   This  is desirable
+because of SAIL's error handling.  It normally goes into  an interactive
+error  handler  that  asks  the user  what  to  do.   This  is obviously
+undesirable in a batch job, because the error handler is liable  to read
+characters intended  as input or  commands.  Thus the  interactive error
+handler is not called for  batch jobs.  In the compiler, SAIL  assumes a
+line  feed  response  to  the  error  handler.   I.e.   the  compilation
+continues.  This allows you to  see the maximum number of errors.   In a
+user program, SAIL aborts the program on the first error.
+
+
+
+3.3 - USETI and USETO      _____ ___ _____
+
+
+There  has been  a  problem previously  with  using USETI  and  USETO in
+buffered I/O modes.  The problem is that the corresponding monitor calls
+do not clear your I/O buffers.   Thus you can do a USETI, but  you won't
+see  any data  from the  new block  until you  exhaust the  data  in you
+current buffer ring.  (Of course there  is no easy way to know  how much
+
+
+
+data you would  have to skip over.)   Similarly, after a  USETO, nothing
+will  go out  to the  block  you specified  until the  current  block is
+filled.  Under the new version  of SAIL, USETI and USETO both  clear the
+buffer ring.  USETI clears the  input ring.  USETI and USETO  both force
+out anything in the output ring that hasn't gone out yet, if  any.  Thus
+the  next SAIL  I/O call  will use  the block  you specified.   Do USETI
+before input and USETO before output.
+
+Note that at Stanford the monitor clears the buffers as described above.
+Thus this  change is  mostly simulating what  would happen  at Stanford.
+However there output is only forced by a USETO.  Thus I am not  sure how
+one  would switch  from output  to input  at Stanford.   Here  one would
+simply do  USETI to  the desired block,  but at  Stanford that  will not
+work.
+
+USETI -1 is a  special case.  It gets you  to the end of the  file under
+TOPS-10.  (At Stanford  another method must be  used for this.)   If the
+normal buffer clearing were done, USETI -1 would set your  EOF variable.
+Since it is normally  used as a prelude to  output, you do not  want EOF
+set, probably.   Thus USETI -1,  as a special  case, does not  clear the
+buffer ring.
+
+Mag tape positioning commands  (MTAPE) have a problem with  buffers that
+is  exactly  the same  as  the problem  solved  by the  USETI  and USETO
+patches.  Nothing has been done  about this, however.  Should you  be in
+the middle of reading  a tape and do a  rewind, the next read  would get
+the next buffer in  the ring, rather than  the first thing on  the tape.
+This  can apparently  be  solved by  closing and  reopening  the device,
+however, so it  did not seem to  be worth troubling about.   (That would
+not work  for USETI and  USETO because closing  the disk also  loses the
+file one is working with.)
+
+
+
+3.4 - Changes to buffering      _______ __ _________
+
+
+It was discovered that SAIL gave a different interpretation to  the byte
+count in the routines intended for ASCII files (INPUT, OUT, NUMIN, etc.)
+and those intended for binary files (WORDIN, ARRYIN, INOUT, etc.).  This
+meant that  one could not  mix those routines.   E.g. one could  not use
+both INPUT and WORDIN  for the same file.   Trying to do so  resulted in
+losing characters from the file.  This problem has been fixed, so  it is
+now  OK  to  use WORDIN  with  ASCII  files.  It  will  return  the next
+character from the  file, as an integer.   Be warned that  under TOPS-20
+WORDIN will always return the next 36 bits, even for ASCII files, so use
+of WORDIN to  get a character will  make your program  incompatible with
+TOPS-20 SAIL.  (There  is another function  under TOPS-20 to  return the
+next character, however, so the incompatibility is not serious.)
+
+
+
+3.5 - Non-blocking I/O      ____________ ___
+
+
+It  should now  be possible  to do  non-blocking I/O.  The  only problem
+before  was  that you  couldn't  tell  when an  I/O  operation  had been
+prematurely terminated  due to no  input being available.   The runtimes
+would think  they had set  EOF, but input  failures in  non-blocking I/O
+don't set any error bits.  Thus the runtimes carefully set EOF  to zero!
+I have fixed the runtimes to guarantee that EOF will be non-zero when an
+I/O function takes the error return.  If all of the error bits  are zero
+(bits 760000), I  set bit 010000,  which previously the  runtimes always
+cleared.  Thus bit 010000 will always be set for a non-blocking failure.
+Probably this will be the only case when it is set, though  physical end
+of tape may also do it.   Note that it is perfectly possible for  EOF to
+be set in this way and for  you to still have valid data.  All  it means
+is that the operation was terminated prematurely (before your  count was
+exhausted) because an input failure occurred.  You should save  how much
+you got and try to get the rest when the next input  available interrupt
+comes along.
+
+
+
+3.6 - TMPIN and TMPOUT      _____ ___ ______
+
+
+TMPIN now deletes  nulls and line numbers  from the tempcore  file being
+read.  TMPOUT has been fixed so it no longer randomly sets bit 35 in the
+words outputted.
+
+
+
+3.7 - /A      __
+
+
+The default value of /A is /0A.  This gives you the  linkage appropriate
+for F40  for FORTRAN PROCEDURES,  and does  not use KI  or KL  op codes.
+This  is  probably   wrong  for  most   places,  but  is   retained  for
+compatibility with  the manual.   An individual user  can reset  this by
+specifying /nA  in a  REQUIRE COMPILER!SWITCHES  statement.  A  site can
+change  the  default  by  patching the  compiler.   To  do  this without
+recompiling, just look  at XINI4+7.  You  will find MOVEI  TEMP,0; MOVEM
+TEMP,ASWITCH.  You can change the MOVEI TEMP,0 to use whatever value you
+want as default.  To change this in the source, see the file SAIL.
+
+Users should consider  setting /26A.  In  addition to F10  linkage, this
+causes KI-10 instructions to be used for converting between  integer and
+real numbers.  However it causes rounding to be used, while  the default
+is trucation (FLOOR).
+
+
+
+3.8 - COMPIL      ______
+
+
+We are supplying a .COR file for COMPIL, to improve the handling of SAIL
+by  COMPILE-class commands.   The following  assumes that  these changes
+have been made.
+
+
+
+*******************************  /BAIL  ******************************;
+
+
+You may use the  switch /BAIL:nn  It will  pass /nnB to the  compiler in
+the appropriate  place.  It will  also cause COMPIL  to look for  a .SM1
+file rather than a .REL  file.  Thus your program will be  recompiled if
+it had not originally been compiled with BAIL.  If you use  /BAIL alone,
+i.e. without an argument, /BAIL:17 will be assumed.
+
+
+
+
+*******************************  DEBUG  ******************************;
+
+
+The DEBUG command  now uses BAIL as  its debugger by default.   You need
+not have any declarations or  calls for BAIL in your program.   My magic
+linkage will automatically put a call to BAIL in your program before the
+first executable instruction.  When you get in this BAIL  breakpoint you
+can then set any other breakpoints you want.  That breakpoint that I set
+up is immediately removed, by the way.  DEBUG forces /BAIL:17,  which in
+turn  forces  recompilation  if your  program  had  not  originally been
+compiled with /BAIL.   To debug with  DDT, specify DEBUG/DDT.  Note that
+the linkage to  BAIL used by DEBUG  causes the descriptors to  be loaded
+for all SAIL runtimes.  Thus it  simulates the 20 bit in the  /B switch.
+However, these  descriptors are  loaded only when  the DEBUG  command is
+used, whereas /20b would have them in your core image even during normal
+executions.  Thus our implementation saves some core.
+
+
+
+
+*********************************  /Y  *******************************;
+
+
+Using /Y  will cause your  program to be  loaded with the  SAIL sharable
+high segment  (SAISG8).  Note that  /Y must appear  before or  after the
+first program name in the command.  Any later and it will not  work.  /Y
+may be used with DEBUG as  well as LOAD and EXECUTE.  (It has  no effect
+for COMPILE, of course.)
+
+
+
+                               SECTION  4                               _______  _
+
+                          Documentation Errors                          _____________ ______
+
+
+
+
+This is a list of known bugs in the August 1976 Sail manual, AIM-289.
+
+PAGE                    DESCRIPTION
+abstr.  "varaiables" is a misspelling   [JFR 10-22-76]
+
+iiiL    no period after LEAP (line 6 of paragraph)      [LES 10-22-76]
+
+162L    "i.e" in the line "2. Recursive entry"  [JFR 10-23-76]
+
+1R      "Nauer" for "Naur" (also References)    [JFR 11-2-76]
+
+22L,26L "disjunct" -> "conjunct"                [JMC 11-12-76]
+
+31L     line -9 "its" -> "it's"                 [JMC 11-12-76]
+
+162R    The word PDA+'13 contains something other than indicated.
+        The parameter descriptor words actually start at PDA+'14,
+        but the way to find them is to follow the pointer in
+        the right half of PDA+7.                [JFR 12-9-76]
+
+9L      Another restriction on SIMPLE procedures: They should not do
+        up-level addressing themselves (in addition to point 4.) unless
+        the user really understands what is going on with the stack.
+        It is possible to "screw up" without complaints from the
+        compiler. SIMPLE ought to mean "I know what I am doing, so let
+        me do it.". [JFR/DON 12-xx-76]
+
+56L     CRLF="('15 & '12)", not '12 & '15       [JFR 1-15-77]
+
+10R     It should be made clear that  LET A=B;  works even if
+        A is a reserved word.  In particular, LET DEFINE=REDEFINE;
+        Also note that B can be any reserved
+        word except COMMENT. [COMMENT ALWAYS means "ignore through
+        the next semicolon".]
+
+4R      POLLING!POINTS is not a valid <require!spec>    [WFW 1-21-77]
+
+50R     In FILEINFO, hidate2 occupies 3 bits    [JFR 2-3-77]
+
+152L    CHNCDB and FILEINFO are defined everywhere except TENEX.
+        [JFR 2-3-77]
+
+65R     A better way of getting around the array problem is as follows:
+
+        REQUIRE "<><>" DELIMITERS;
+
+        DEFINE NewArray(type,name,bounds)=<
+                BEGIN
+                type ARRAY proxy bounds;
+                MEMORY[LOCATION(name)] _ MEMORY[LOCATION(proxy)];
+                MEMORY[LOCATION(proxy)] _ 0;
+                END>;
+
+
+
+        which hides all the hair of a poor facility and is perfectly
+        general. unlike the present scheme in the manual. A typical
+        call would be:
+
+        RECORD!CLASS RC(STRING ARRAY SA);
+        RECORD!POINTER (RC) rp;
+
+        rp _ NEW!RECORD(RC);
+        NewArray(STRING,RC:SA[rp],[0:1,-2:3]); [MWK for KS 01-13-77]
+
+27L     DIV and MOD use integer divide and are meant as a "integer
+        divide" and "integer divide and remainder". This is NOT the
+        real mod as written in Knuth volume 1. In fact, MOD would
+        better have been named REM. [MWK 01-13-77]

@@ -1,0 +1,1380 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            TOPS-20 FTP USER GUIDE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                David Eppstein
+
+
+
+                 with minor changes for Rutgers University by
+
+                                Charles Hedrick
+
+                                  3 May 1985
+
+
+
+
+
+                    Copyright (C) 1985  Stanford University
+
+1. Introduction
+  This   document  describes  FTP,  a  multi-protocol  File  Transfer  Program.
+Currently FTP can transfer files  using  the  TCP  protocol  developed  by  the
+Department  of  Defense for the ARPAnet(File Transfer Protocol, J. Postel, ISI,
+available on the ARPAnet as [SRI-NIC]<RFC>RFC765.TXT),  and  the  Pup  protocol
+developed  at the Xerox Palo Alto Research Center"A File Tranfer Protocol Using
+the    BSP,    John    Schoch,    Xerox,    available    at     Stanford     as
+[Lassen]<Pup>FTPSPEC.PRESS".  FTP was developed from the PUPFTP program written
+by Ed Taft at Xerox PARC for the TENEX operating system.
+
+  The  purpose  of  FTP  is  to  perform various manipulations of files on host
+systems across the network.  Using FTP you  can  retrieve  files  from  another
+system  (hereafter  referred to as ``remote files'' when it would not otherwise
+be clear whether they are local or remote), copy  local  files  (files  in  the
+filesystem  of  the  computer  on which you are running FTP) into remote files,
+rename files, delete files, and list information about files onto the  terminal
+or into a file.
+
+  Many  of the commands in FTP implement these operations.  Other commands tell
+FTP to which computer (also referred to as  a  ``host'')  to  open  an  network
+connection,  what  your  username  on  that computer is, and other such things.
+Still other commands control the operation of the FTP program  and  do  nothing
+directly  with  the  network  or  with  the  remote  filesystem.  The available
+commands are described below.
+
+2. Basic Use of FTP
+  To use FTP, type FTP <hostname> to the EXEC.  FTP will type  a  message  with
+its  name  and version number, the name and version number of the FTP server at
+the other end, and then the FTP prompt (``FTP>''):
+
+
+    @FTP SU-SIERRA
+    Stanford TOPS-20 FTP 3.0, type HELP if you need it.
+    < SU-SIERRA FTP Server Process 5T(14)-7 at Sat 10-Mar-84 14:39-PST
+    Setting default transfer type to paged.
+    FTP>
+
+  Once you are in FTP, you need to tell it what your username is on  the  other
+system.    You  do this using the LOGIN command.  The computer at the other end
+will reply with a message confirming that you are properly logged in.
+
+
+    FTP>LOGIN (user) KRONJ
+    Password:
+    < User KRONJ logged in at Sat 10-Mar-84 14:40-PST, job 16.
+    FTP>
+
+  Now you can send and retrieve files.  These operations are done with the SEND
+and GET commands.  For either command, type the name of the source  file,  that
+is,  the  file  you  are  sending  or  getting.  Follow this by the name of the
+destination file, that is, where you want to put the file.  FTP will  type  the
+names of the files again, just like the EXEC COPY and RENAME commands.
+
+
+    FTP>SEND (local file) FINGER.PLAN (to remote file) FOO.BAR
+     FINGER.PLAN.1 => <KRONJ>FOO.BAR.3 !! [OK]
+    FTP>GET (remote file) BAR.BAZ (to local file) BAR.SIERRA
+     <KRONJ>BAR.BAZ.4 => BAR.SIERRA.1 !!! [OK]
+    FTP>
+
+  When  you  have finished transferring files, leave FTP and return to the EXEC
+with the EXIT command.  This will automatically close your network  connection,
+so if you CONTINUE the FTP program you will have to re-open a new connection.
+
+
+    FTP>EXIT (to EXEC)
+    @
+
+  FTP  will  sometimes give you a prompt other than its normal one.  This means
+that it needs confirmation for some action it is about  to  take,  or  that  it
+needs some more information to complete an action.  If you don't want to supply
+this  information,  or  if  you  don't  want  the  action to be confirmed, type
+Control-G.  Control-G will also abort multiple-file transfers, but  it  is  not
+likely to stop the transfer of an individual file.
+
+3. RHOSTS: how to automate logging in
+  If  you use a particular computer a lot, you may want to create a file RHOSTS
+giving your user name on that system.  The first time you issue a command  that
+requires  you  to  login, FTP will automatically generate a LOGIN command.  For
+example, suppose that your user  name  on  the  hosts  RUTGERS,  RU-GREEN,  and
+RU-BLUE  is  HEDRICK.  You would create a file called RHOSTS.  In order for the
+example below to work, you must have this file in your top-level  directory  ON
+ALL THREE SYSTEMS.  It would contain
+
+    RUTGERS HEDRICK SYSPROG
+    RU-GREEN HEDRICK GREEN-SYSTEMS
+    RU-BLUE HEDRICK
+
+  SYSPROG  and  GREEN-SYSTEMS  are the accounts to use on RUTGERS and RU-GREEN.
+(On RU-BLUE, no account is specified.  This  will  work  only  if  you  have  a
+default  account set on that host.)  Here is what the dialog would look like in
+that case.
+
+
+    @ftp green
+    < RU-GREEN FTP Server Process 5T(7013)-7 at Sat 27-Oct-84 19:52-EDT
+    Setting default transfer type to paged.
+    FTP>dir login.cmd
+    < Please log in first, with USER, PASS and ACCT.
+    [Automatic login to hedrick]
+    < User HEDRICK logged in at Sat 27-Oct-84 19:52-EDT, job 7.
+    LOGIN.CMD.2
+
+
+  The reason you have to have the file on all of the systems  is  very  simple:
+RHOSTS is used twice for any given connection: once by FTP on this end and once
+by the FTP server on the other end.  On this end it is used to generate a LOGIN
+command.    In the example above, FTP notices that you have connected to GREEN,
+and generates a command "LOGIN HEDRICK  GREEN-SYSTEMS".    The  FTP  server  on
+RU-GREEN  uses the copy of RHOSTS on your directory there to make sure that you
+are allowed to access that directory without typing a password.  If the  RHOSTS
+file  is  missing  on  this end, you will have to type a LOGIN command.  If the
+RHOSTS file is missing on the other end, you will have to type a password.
+
+  It is possible to separate those two functions.  If you put a switch /I or /O
+at the end of a line in RHOSTS, that  line  will  apply  only  to  incoming  or
+outgoing  connections.   That is, if you have /O at the end of a line, FTP will
+still generate login commands automatically  when  you  connect  to  that  host
+("outgoing").    However  if are on that host running FTP to this one, you will
+have to type your password.  If you have /I at the end of a line, then  if  you
+are on the other host connecting to this one ("incoming"), you will not have to
+type  your  password, but FTP will not generate an automatic login command when
+you connect to the host.
+
+  We recommend that you use /O for hosts when you do not trust their  security.
+For  example,  suppose your RHOSTS file contains an entry "MIT-MC HEDRICK".  If
+someone claiming to be HEDRICK connects to us from the host MIT-MC, he will  be
+able to access all of your files.  Our server verifies the identify of the user
+by  asking  an  authentication  server  on the other end.  However if the other
+system does not have good security, it is possible that  an  unauthorized  user
+could  create  his  own  version  of  the authentication server.  He could then
+pretend to be you.  So you should only list hosts that you trust.  A line  with
+/O  is  not  a problem, since this only causes an automatic login command to be
+generated when you connect to that site.  It does not affect attempts by  users
+at that site to access your files here.
+
+4. Commands
+
+
+
+4.1. The BYE command
+  The  BYE  command  closes  your  current  network connection.  To do any more
+remote file operations you will have to open a new connection.
+
+
+    FTP>STATUS (of) CONNECTION
+    Connected to TCP host SU-NAVAJO.ARPA
+    No transfer in progress
+    FTP>BYE (break connection with remote host)
+    FTP>STATUS (of) CONNECTION
+    No connection is open
+    FTP>
+
+
+
+4.2. The CONNECT command
+  The CONNECT command tells the remote host that you  want  full  access  to  a
+given  directory  in  its file system, and to assume that any filenames without
+specified directories must be in that directory.  FTP may prompt for a password
+on a separate line; if you don't think you  need  a  password  to  access  that
+directory,  just  press  RETURN.    If  you want to set a default directory for
+filenames but you do not need full access to a directory, use the SET DIRECTORY
+command.
+
+
+    FTP>DIRECTORY (of remote files) EMACS.INIT
+
+       PS:<KRONJ>
+    EMACS.INIT.1
+    FTP>CONNECT (to directory) <EMACS162>
+    FTP>DIRECTORY (of remote files) EMACS.INIT
+
+       PS:<EMACS162>
+    EMACS.INIT.43
+    FTP>
+
+  The CONNECT command does not open connections to network hosts.  Use the OPEN
+command to perform that operation.
+
+
+
+4.3. The DELETE command
+  The DELETE command asks the remote host to remove a file from its filesystem.
+There is no FTP command to expunge a directory, nor is there one to undelete  a
+deleted  file.  If the command SET CONFIRMATION (required for) DELETE was given
+previously (see section 4.17.3), FTP will prompt again for each individual file
+specified by the filename you specified.  Press RETURN to delete the file; type
+any non-blank line or Control-G to abort the deletion of that particular file.
+
+
+    FTP>DELETE (remote file) FTP.*
+    Deleting <KRONJ>FTP.DOC [Confirm]
+    < File <KRONJ>FTP.DOC deleted
+    Deleting <KRONJ>FTP.INIT [Confirm] ^G
+    Not confirmed, delete aborted
+    Deleting <KRONJ>FTP.MSS [Confirm] NO
+    Not confirmed, delete aborted
+    FTP>
+
+
+
+4.4. The DIRECTORY command
+  The DIRECTORY command tells FTP to find out the names of all files matching a
+given specification and type them to the terminal.
+
+
+    FTP>DIRECTORY (of remote files) M*.*
+
+       PS:<KRONJ>
+    MAIL.TXT.1
+    MM.INIT.2
+    FTP>
+
+  If  you  follow  the  remote file specification with a comma, you can specify
+options to the DIRECTORY command on another line.  Subcommands are:
+
+    AUTHOR         types the username of each file's last writer.
+    CREATION       types the creation date of each file.
+    EVERYTHING     includes all optional fields.
+    HELP           lists available subcommands.
+    NO             negates any option (except QUIT or HELP).
+    ORIG-AUTHOR    types the username of each file's creator.
+    OUTPUT         sends the directory to a file rather than the terminal.
+    PROTECTION     types each file's access protection bits.
+    QUIT           aborts the DIRECTORY command (like Control-G).
+    READ           types the date when each file was last examined.
+    SIZE           types the number of bytes in each file.
+    TIMES          types times along with read, write, or creation dates.
+    TYPE           types each file's type (binary or text) and bytesize.
+    VERBOSE        includes AUTHOR, READ, WRITE, TYPE, and SIZE.
+    WRITE          types the date each file was last changed.
+
+  The prompt for these options is ``FTP>>''.  Finish typing options by pressing
+RETURN to leave a blank line, or abort  the  DIRECTORY  command  with  QUIT  or
+Control-G.    If  any  options are selected, FTP will type a header line at the
+start of the listing to tell you which column corresponds to which option.   If
+this  listing  is  redirected to a file (with the OUTPUT option), the file will
+include another header line saying what files it is a directory of.
+
+
+    FTP>DIRECTORY (of remote files) FOO.*,
+    FTP>>VERBOSE
+    FTP>>
+                          Type   Size   Prot  Write     Read     Author
+       PS:<KRONJ>
+    FOO.FAH.1             B(36)   160 775202 25-Aug-82    ---    KRONJ
+    FOO.FOO.1             Text   2204 777752 12-Jun-82    ---    KRONJ
+    FTP>
+
+
+
+4.5. The EXIT command
+  The EXIT command returns from FTP to the EXEC.  EXIT closes any open  network
+connection; to return to the EXEC without closing your connection use QUIT.
+
+
+    FTP>EXIT (and close connection)
+    @
+
+
+
+4.6. The GET command
+  The  GET  command is used to retrieve files from the remote filesystem.  Type
+the name of the remote file, followed by the name of the local file you wish to
+copy it into.  If you leave the local file blank, FTP will prompt on a separate
+line for it.  To abort the transfer of that file, type ^G to this prompt.
+
+
+    FTP>GET (remote file) BAR.BAZ (to local file) BAR.SIERRA
+     <KRONJ>BAR.BAZ.4 => BAR.SIERRA.1 !!! [OK]
+    FTP>GET (remote file) FTP.*
+    <KRONJ>FTP.EXE.357 (to local file) ^G
+    Ok, ignoring that file.
+    <KRONJ>FTP.INIT.3 (to local file) FTP.INIT.1
+     <KRONJ>FTP.INIT.3 => FTP.INIT.1 !! [OK]
+    FTP>
+
+  When transferring files, FTP will type an  exclamation  mark  (``!'')    once
+every  ten  file  pages; see SET HASH-MARK for details.  See the UPDATE command
+for a way to retrieve only those files which are more recent than  their  local
+versions.    See  SET  STATISTICS  for  a way to get more information about the
+length and speed of your file transfers.
+
+
+
+4.7. The HELP command
+  The HELP command allows you to find out information about FTP from within FTP
+itself.  Type just HELP for examples of basic use of  FTP.    For  help  on  an
+individual  command,  type  HELP  followed  by  that command name.  The various
+subcommands of the SET command all have individual help  available;  type  HELP
+SET followed by a subcommand name to find out about that subcommand.
+
+
+    FTP>HELP (on FTP command) BYE
+    The BYE command breaks the connection to the other computer.
+    A new connection will have to be specified by typing the foreign
+    host name or with the OPEN command before any more files can
+    be transferred.
+
+    FTP>HELP (on FTP command) SET (subcommand) STATISTICS
+    SET STATISTICS tells FTP to remember information about how long
+    each file transfer took.  After the transfer, the time (CPU and real),
+    file size, and baud rates of the transfer will be typed.
+
+    FTP>
+
+
+
+4.8. The INSTALL command
+  The  INSTALL  command  is  identical  to the SEND command (q.v.)  except only
+files written more recently than their remote counterparts will be transferred.
+If no such file exists, FTP will always transfer the file.  If for some  reason
+FTP  can not find out whether the remote file exists or what its write date is,
+it will ask for confirmation before transferring the file.
+
+
+
+4.9. The LOGIN command
+  Use the LOGIN command to tell FTP your username and password  on  the  remote
+host.  Follow LOGIN with your username and press RETURN; FTP will prompt you on
+a  separate  line  for your password.  The password will not be echoed when you
+type it.  Unlike the EXEC's LOGIN command, FTP cannot accept a password on  the
+same line as your username.
+
+
+    FTP>LOGIN (user) KRONJ
+    Password:
+    < User KRONJ logged in at Sat 10-Mar-84 14:40-PST, job 16.
+    FTP>
+
+  Note that for Pup connections your username and password are not checked when
+you  type  them  in,  but only when you attempt a file transaction.  If at that
+point FTP discovers that your username or password is invalid, it  asks  again.
+For TCP connections your login will be checked immediately.  For either type of
+connection  FTP may prompt you to log in if you have not done so and the remote
+host requires a user name to perform some operation.
+
+
+    FTP>DIRECTORY (of remote files) FINGER.PLAN
+    < Invalid Password
+    LOGIN (user) KRONJ
+    Password:
+
+       PS:<KRONJ>
+    FINGER.PLAN.3
+    FTP>
+
+  Many systems have an ANONYMOUS account to facilitate file copying.  Typically
+any password will be successful for logging in as ANONYMOUS, but  you  will  be
+restricted to examining publicly-readable files.
+
+  Some  systems  require account strings for logins.  Normally you would have a
+default account string, and so you would not need to specify it.    If  you  do
+need  to  specify  an  account,  type it on the same line as the LOGIN command,
+after your username.
+
+
+    FTP>LOGIN (user) KRONJ (account) SYS
+    Password:
+    < User KRONJ logged in at Sat 10-Mar-84 14:40-PST, job 16.
+    < Account OK.
+    FTP>
+
+  If you login to a computer, disconnect from it, and open a  connection  to  a
+new  computer,  FTP  will  remember your old username and password.  If the new
+computer is not the same as the old one, FTP will ask for confirmation to  keep
+the old username.  If not confirmed, FTP will forget any username it knew.  See
+the  SET  OLD-LOGIN command to find out how to control this behavior.  There is
+also a way to automatically log in to a  predetermined  username  whenever  you
+open  a  connection to a given host; see the SET USER command for more details.
+Both of these options can be overridden by logging  in  before  you  open  your
+connection.
+
+
+
+4.10. The MULTIPLE command
+  There  are  two  ways of retrieving files over TCP connections:  you can do a
+MULTIPLE GET, in which case FTP first asks the remote host for a list of  files
+to  retrieve  and then asks to retrieve each of the file names returned; or you
+can do a non-MULTIPLE GET in which FTP merely asks the server for the  filename
+you specify.  In the latter case the file name must refer to only one file.
+
+  FTP has various options for which style of GET to use:
+
+
+    ALWAYS         (the default) always tries to use MULTIPLE GET.
+    NEVER          always uses non-MULTIPLE GET.
+    HEURISTIC      uses MULTIPLE if there are wildcards in the name.
+
+  You  can set which of these options to use with the SET MULTIPLE-GET command,
+and you can temporarily override them with the MULTIPLE command.  If FTP thinks
+the remote host can not do MULTIPLE GETs it will stop using them  until  a  new
+connection  is  made;  either of the above commands forces it to try again.  If
+the SMART-DIRECTORY option is enabled (see  section  4.17.14)  then  that  will
+always be used instead of MULTIPLE GETs.
+
+
+
+4.11. The OPEN command
+  The  OPEN  command makes an network connection to a given host; type the host
+name after OPEN.  It will also work to type  the  host  name  to  the  ``FTP>''
+prompt, but then you will have to be careful that the name you type is not also
+a  FTP  command.   FTP will choose which protocol to use to reach the host with
+the given name; currently Pup is preferred over TCP because file transfers tend
+to run faster using Pup.  You can force a particular protocol by suffixing  the
+host  name  with a domain name; for instance ``Sierra'' lets FTP choose between
+Pup and TCP, ``Sierra.ARPA'' forces it to use TCP, and  ``Sierra.#Pup''  forces
+it to use Pup.  You can also type host numbers if the name of the host you want
+is not listed; e.g. ``50#325#'' on the Stanford Pup network connects to Sierra,
+as does ``[36.40.0.213]'' on the ARPAnet.
+
+  If  at  any  point  you  attempt  a  file transaction without first opening a
+connection, FTP will ask you for a host to which to open a  connection.    Type
+the  host  name,  or  abort with Control-G if you decide that you don't want to
+specify a computer in this way.
+
+
+    FTP>DIRECTORY (of remote files) FINGER.PLAN
+    No connection has been opened yet
+    OPEN (connection to) SIERRA
+    < SU-SIERRA FTP Server Process 5T(14)-7 at Sat 10-Mar-84 14:39-PST
+    Logged in as KRONJ [Confirm]
+    < User KRONJ logged in at Sat 10-Mar-84 14:40-PST, job 16.
+
+       PS:<KRONJ>
+    FINGER.PLAN.3
+    FTP>
+
+  If you open a connection to a TOPS-20 host, OPEN will automatically set  your
+default  transfer  type to paged if it was not already specified.  Otherwise if
+the transfer type was paged, OPEN will set it back to unspecified.  See section
+5 for more details.
+
+  In some circumstances FTP will ask you to supply a password for an  automatic
+login  or  to confirm that you want to keep your old username and password when
+you OPEN a new connection.  See  the  LOGIN  command  (section  4.9)  for  more
+details.
+
+  You  can  supply  a  socket  number or name after the host name.  The default
+socket to use is FTP, but see the SET ALTERNATE-SOCKETS command for  a  way  to
+change that default.
+
+
+
+4.12. The PRINT command
+  The  PRINT  command sends a file to the lineprinter of the remote host.  This
+is done by sending the file to remote filename  ``LPT:''.    Most  TOPS-20  and
+Tenex  computers  recognize  this  filename  as  referring  to the lineprinter.
+Computers running other operating systems don't obey this convention; for these
+computers the PRINT command will ask for special confirmation, since it is  not
+likely to work.
+
+
+    FTP>PRINT (local file) FINGER.PLAN
+     FINGER.PLAN.3 => LPT:FINGER !! [OK]
+    FTP>
+
+  It  is  better  to  use  the  PRINT command than to send the file to the LPT:
+device with the SEND command because, if you are connected to a  TOPS-20  host,
+SEND  will normally try to use paged mode transfers, which will not work to the
+lineprinter.  The PRINT command, on the other hand, makes sure you are using  a
+text mode transfer.
+
+
+
+4.13. The PUSH command
+  The  PUSH command creates an EXEC inferior to FTP and runs it.  Return to FTP
+by giving the POP command to this EXEC.  PUSH is useful when you  want  to  run
+some other program but need to make sure you don't accidentally reset your FTP.
+
+
+    FTP>PUSH (to EXEC)
+
+     TOPS-20 Command processor 5(712)-4
+    @POP (command level)
+    FTP>
+
+
+
+4.14. The QUIT command
+  The QUIT command returns to the EXEC without closing any open connection.  If
+you have finished using FTP you should leave with the EXIT command; that closes
+the  connection  cleanly.  Use QUIT if you want to use some EXEC commands for a
+while but do not wish to lose your current connection.   Return  to  FTP  after
+leaving with QUIT by using the EXEC's CONTINUE command.
+
+
+    FTP>QUIT (to EXEC)
+    @CONTINUE (fork) FTP
+    FTP>
+
+
+
+4.15. The RENAME command
+  The  RENAME  command  lets you give a remote filename a different name.  Type
+the current name of the file, followed by the new  name.    If  you  leave  the
+second name blank, FTP will prompt you for a new name.
+
+
+    FTP>RENAME (remote file) FOO.BAR (to be) FOO.BAZ
+    < Rename to <KRONJ>FOO.BAZ.1 successful
+    FTP>RENAME (remote file) FOO.BAZ
+    FOO.BAZ (to be) FOO.BAR
+    < Rename to <KRONJ>FOO.BAR.1 successful
+    FTP>
+
+
+
+4.16. The SEND command
+  The  SEND  command  copies  a  local  file  into  a file on the remote host's
+filesystem.  Type the name of the file you are sending, followed by the name of
+the remote file you want to copy it to.  If you leave the  remote  file  blank,
+FTP  will  prompt you as necessary for the remote filename(s).  As with the GET
+command,  FTP  will  type  one  exclamation  mark  for  every  ten  file  pages
+transferred.
+
+
+    FTP>SEND (local file) FINGER.PLAN (to remote file) FINGER.NEW
+     FINGER.PLAN.3 => <KRONJ>FINGER.NEW.1 !! [OK]
+    FTP>SEND (local file) M*.*
+    MAIL.TXT.1 (to remote file) ^G
+    Ok, ignoring that file.
+    MM.INIT.2 (to remote file) MM.INIT
+     MM.INIT.2 => <KRONJ>MM.INIT.23 !! [OK]
+    FTP>
+
+
+
+4.17. The SET command
+  The  SET  command sets various parameters for the FTP program.  Some of these
+parameters affect file transfers, and others affect FTP operation.  To find out
+which parameters are set, use the SHOW command.  If a parameter is not set  and
+it  is  needed for a file transfer, FTP may prompt you for it (as shown below).
+If you don't want to  set  that  parameter,  or  you  think  that  a  different
+parameter should be changed instead, type Control-G to abort the prompt and the
+transfer that caused it.
+
+
+    FTP>GET (remote file) AYEWBF.BIN
+    < Type specification needed to retrieve <KRONJ>AYEWBF.BIN.143
+    SET TYPE (of transfer) PAGED
+    <KRONJ>AYEWBF.BIN.143 (to local file)
+
+  If  a  SET subcommand name does not conflict with the name of a top-level FTP
+command, you can type it to the ``FTP>'' prompt  as  if  it  were  a  top-level
+command.    It  will  not  show up in the list of available commands you get by
+typing ``?'', however.
+
+
+4.17.1. SET ALTERNATE-SOCKETS
+  Normally when talking to a TCP host FTP uses the same socket number  for  all
+of  its  data  and TELNET connections.  When combined with the default MULTIPLE
+GET behavior or when transferring several files in succession in transfer types
+other than paged, this can lead to rapid opening and closing of connections  on
+the same local and remote socket combination.
+
+  Some hosts do not treat this situation very well, and work much better with a
+different  socket  number  for  each  data  connection.  For this reason, FTP's
+default behavior is to get a new socket number each time, rather than to  guess
+which  hosts  need such treatment.  Use the command SET NO ALTERNATE-SOCKETS to
+turn off this behavior.
+
+
+4.17.2. SET CHECKSUMS
+  SET CHECKSUMS makes FTP use the checksumming facility  of  the  Pup  network.
+This  will involve some extra monitor overhead and therefore may slow down file
+transfers, but it will make it much less likely that a file will  be  corrupted
+in transit.  You can turn checksumming off with SET NO CHECKSUMS.  Checksumming
+is normally turned on.
+
+
+4.17.3. SET CONFIRMATION
+  SET  CONFIRMATION  makes  FTP  ask you to confirm possibly dangerous actions.
+For instance, if confirmation is not required for the file  transfer  commands,
+then   instead   of  prompting  you  for  an  unspecified  filename,  FTP  will
+automatically default the  filename  to  something  it  thinks  is  reasonable.
+Confirmation  is initially required for all commands.  To turn off confirmation
+for a command use SET NO CONFIRMATION.  Available arguments are:
+
+
+    ALL        sets or clears confirmation for all of the below options.
+    DELETE     makes FTP ask twice before deleting a remote file.
+    GET        asks for local files in GET rather than auto-defaulting.
+    SEND       asks for remote files in SEND rather than auto-defaulting.
+    UPDATE     asks for extra confirmation in INSTALL and UPDATE.
+
+
+4.17.4. SET DIRECTORY
+  SET DIRECTORY sets a default directory to use for file transfers, rather than
+using your login directory or connected directory.   Files  specified  with  no
+directory will be assumed to be in this directory.  To clear a default set with
+SET  DIRECTORY,  use  SET  NO  DIRECTORY.  Directory defaults are automatically
+cleared if you close your connection and open one to a different host.
+
+
+4.17.5. SET END-OF-LINE
+  SET  END-OF-LINE  tells  FTP  to  translate the end-of-line delimiters of the
+other host's text files in different ways.  See the section on  transfer  types
+for more detailed information on the end-of-line conventions available.
+
+  SET  END-OF-LINE  only has an effect when text-mode transfers are being done,
+and is only currently useful for Pup connections.  See the section on  transfer
+types for information about the the different file transfer modes.
+
+
+4.17.6. SET FANCY-QUIT
+  SET  FANCY-QUIT  changes  FTP's behavior in the QUIT command.  Normally, QUIT
+will simply exit to the EXEC without changing any of FTP's state.  However,  if
+you  want  to  keep a FTP fork lying around for a long time, the server you are
+connected to is likely to time out your connection and close it.  This  command
+makes FTP close your connection when you QUIT, and re-open it when you continue
+FTP again.
+
+
+4.17.7. SET HASH-MARK
+  Normally  FTP will print an exclamation mark for every ten disk pages sent or
+received to show that the connection  is  still  active.    The  SET  HASH-MARK
+command  lets  you  set  the number of pages between these ``hash marks'' to be
+some other number; by setting it to zero or by using SET NO HASH-MARK  you  can
+disable their typeout altogether.
+
+  If  the  verbosity  level  (see  SET VERBOSITY) is set to DEBUGGING then this
+count will be ignored and  one  hash  mark  will  always  be  typed  per  page;
+otherwise  the count is used and an extra hash mark is printed before and after
+the file transfer.  For instance, if a 12-page file is transferred you will see
+three hash marks: one at the start of the transfer, one when the  10-page  mark
+is reached, and one at the end of the transfer.
+
+
+4.17.8. SET INCLUDE-VERSIONS
+  The   TOPS-20  command  completion  support  automatically  includes  a  file
+generation when completing a file name.  Some operating systems will  interpret
+this  generation  number  as  merely  another  part  of  the file name, leaving
+incautious users with the string ``.-1'' at the end of their file names.  Other
+operating systems will not understand the ``.-1'' at  all  and  complain  about
+malformed  filenames.    FTP  goes  to  great  lengths  to  make  this unwanted
+completion not happen, but in  cases  where  the  filename  is  longer  than  6
+characters  or  the  extension  longer  than  3,  there  is no way to avoid it.
+Because of this, if escape completion includes a generation in a filespec  then
+FTP will automatically edit it out.
+
+  If  you  really  want  ``.-1''  or some other such generation at the end of a
+filename, you can type it out without  using  escape  completion,  or  you  can
+enclose the whole filename in doublequotes.  To make this editing never happen,
+use  SET  INCLUDE-VERSIONS.  In the following example, the user typed an escape
+immediately after each ``(to remote file)''.
+
+
+    FTP>SEND FINGER.PLAN (to remote file) FINGER.PLAN.-1
+     FINGER.PLAN => /csd/kronj/FINGER.PLAN !! [OK]
+    FTP>SET INCLUDE-VERSIONS
+    FTP>SEND FINGER.PLAN (to remote file) FINGER.PLAN.-1
+     FINGER.PLAN => /csd/kronj/FINGER.PLAN.-1 !! [OK]
+    FTP>
+
+
+4.17.9. SET KEEP
+  SET KEEP tells FTP to keep certain properties of files in  a  given  type  of
+file  transfer.  Not all FTP servers will keep these properties when you SEND a
+file, and some properties require WHEEL capabilities to keep on file retrieval.
+Type the name of the property you want to keep, followed by the command to keep
+it in:
+
+
+    FTP>SET KEEP (attribute) READ-DATE (in command) SEND
+    FTP>
+
+  The commands that can keep properties are SEND, GET, and  RENAME.    You  can
+also type ALL to mean all three of the above.  INSTALL uses the kept properties
+list for SEND, and similarly UPDATE uses the list for GET.  The properties that
+can be kept are:
+
+
+    ALL            keeps all of the below properties.
+    CREATION-DATE  keeps the date the file was first written.
+    DATES          keeps CREATION-DATE, READ-DATE, WRITE-DATE.
+    PROTECTION     keeps the file's access protection bits.
+    READ-DATE      keeps the date the file was last referenced.
+    USERNAMES      keeps the names of the file's author and last writer.
+    VERSION        keeps the file's generation number.
+    WRITE-DATE     keeps the date the file was last written.
+
+  You  can  also  use the SET PRESERVATION command to set kept properties.  SET
+PRESERVATION is exactly equivalent to SET KEEP (attribute) VERSION (in command)
+ALL.  FTP initially keeps all file properties except VERSION.
+
+
+4.17.10. SET LOWERCASE
+  SET LOWERCASE makes FTP send remote file names filled in by wildcards in  the
+SEND  command  with  lowercase letters instead of the normal uppercase letters.
+This is useful for sending files to computers such as those  running  the  UNIX
+operating system, where case matters and lowercase filenames are the standard.
+
+
+    FTP>SEND (local file) FOO.BAR (to remote file) *.*
+     FOO.BAR.3 => /csd/kronj/FOO.BAR !!! [OK]
+    FTP>SET LOWERCASE (file names for UNIX sites)
+    FTP>SEND (local file) FOO.BAR (to remote file) *.*
+     FOO.BAR.3 => /csd/kronj/foo.bar !!! [OK]
+    FTP>
+
+  The  SET  LOWERCASE  actually  makes  FTP  send  lowercase  filenames  to all
+computers except those  running  TOPS-20,  not  just  those  running  the  UNIX
+operating  system.    On  many  computers,  such as those running TOPS-20, such
+filenames are automatically re-capitalized by the operating system.  On others,
+case is remembered but filenames will be looked up independantly of case.
+
+
+4.17.11. SET MODE
+  SET MODE tells FTP in what format to send  bits  across  a  data  connection.
+Possible transfer modes are:
+
+STREAM          This  mode  merely  sends  the bits and bytes of a file as they
+                are.    This  has  the  advantage  of   simplicity,   but   the
+                disadvantage  that it requires the data connection to be opened
+                and closed for each file transfer.  This is the only  mode  FTP
+                servers  are  required  to  implement  and  so most FTP servers
+                support only this mode.
+
+BLOCK           This mode is a more structured format  which  allows  one  data
+                connection  to  remain open throughout a file transfer session.
+                The extra overhead of using BLOCK mode over STREAM mode is very
+                little.
+
+COMPRESSED      This mode  is  like  stream  mode  except  that  if  there  are
+                repetitions  of some byte in a file, it will send only one copy
+                of  the  byte  along  with  a  repetition  count.    This  mode
+                sacrifices   some   gains   in  speed  for  quite  a  bit  more
+                computation, but could be useful for  sending  files  across  a
+                very slow data link.
+
+AUTO-BLOCK      This  is  not  a  transfer  mode  in  itself;  rather  it is an
+                abstraction in FTP whereby BLOCK mode is tried  first,  but  if
+                that  is  unimplemented  by  the  remote  server FTP reverts to
+                STREAM mode without bothering to ask the user what to do  about
+                the mode.  This is the default setting for the transfer mode.
+
+
+4.17.12. SET NO
+  SET  NO  turns  off some parameter that had been turned on by default or with
+the SET command.   See  the  paragraph  on  the  appropriate  parameter  for  a
+description  of  what  SET  NO does with it.  Parameters that can be turned off
+with  SET  NO  are  ALTERNATE-SOCKETS,  CHECKSUMS,   CONFIRMATION,   DIRECTORY,
+FANCY-QUIT,  HASH-MARK,  INCLUDE-VERSIONS,  KEEP, LOWERCASE, SMART-DIRECTORIES,
+STATISTICS, and USER.
+
+
+4.17.13. SET OLD-LOGIN
+  SET OLD-LOGIN tells FTP what to do when you  open  a  connection  to  another
+computer  after  having logged in to one computer.  The default, CONFIRM, makes
+FTP ask for  confirmation  before  logging  in  as  the  same  user.    If  the
+confirmation  is  not given FTP will look for a default user name for that host
+or not log you in.  ALWAYS makes FTP log in  as  the  same  user  without  ever
+asking  for  confirmation,  and  NEVER  makes FTP ignore the previous login and
+merely go on to look for a default login.
+
+  If you log in while you are not connected to any remote host, FTP will act as
+if the setting were ALWAYS,  that  is,  keep  that  login  information  without
+requiring any confirmation.
+
+
+4.17.14. SET SMART-DIRECTORIES
+  SET  SMART-DIRECTORIES  makes FTP try to get a formatted directory listing in
+the DIRECTORY command when using a TCP connection.  There is no general way  in
+the  TCP  protocol do this but for most TOPS-20 and Tenex hosts the output from
+certain listing commands is regular enough that it can be  parsed  by  FTP  and
+used to create a formatted listing.
+
+  It  may  be  useful  for  debugging purposes, or in cases where a host is not
+responding according to FTP's expectations, to turn this behavior  off.    This
+can  be  done with SET NO SMART-DIRECTORIES.  Note that then INSTALL and UPDATE
+can no longer work, and that GETs will have to use  MULTIPLE  GET  rather  than
+getting  the  same  information  through  the  smart  directory  lister.  Smart
+directories are always enabled for Pup connections.
+
+
+4.17.15. SET STATISTICS
+  SET STATISTICS makes FTP tell you more information about each  file  transfer
+than  you  can get just from the exclamation marks it always prints.  Currently
+SET STATISTICS types the length of the transfer, the total time taken, and  the
+transfer  rate  in  bits  per second.  SET NO STATISTICS turns this option off.
+For  non-disk  files  SET  STATISTICS  can  not  find  the  size  of  the  file
+transferred,  and so in that case it prints out only the amount of real and CPU
+time the transfer took.
+
+
+4.17.16. SET TYPE
+  SET TYPE tells FTP in which of various formats to transfer files  across  the
+network.  The normal format between TOPS-20 systems is for PAGED transfers.  If
+FTP  is  not talking to a TOPS-20 computer, it sets the default to UNSPECIFIED,
+which means that it picks which transfer type to use on a  file-by-file  basis.
+The  other  available  transfer  types are TEXT, BINARY, IMAGE, and EBCDIC; see
+section 5 for more information.
+
+  For  the  TEXT and EBCDIC types, FTP will then ask for a format to use.  This
+controls the actions of the remote host (for TCP connections) if  it  prints  a
+file.   Similarly, the BINARY and IMAGE transfer types will ask for a byte size
+(which can also be set using SET BYTE-SIZE).  The default byte  size  is  zero,
+which  tells FTP to use the byte size of the file being transferred.  If a file
+has no byte size and the default is zero then FTP will ask for an explicit byte
+size before it transfers that file.  If a file has a different byte  size  than
+specified,  then FTP will ask for confirmation before sending the file off with
+the set byte size.  If this confirmation is not given FTP will prompt for a new
+type and byte size specification.
+
+  Various other options can be given at the end of the SET TYPE command to tell
+FTP when and how to use the new setting.  The first is which end  of  the  data
+connection  to  set  these  options for.  Normally this is set to BOTH, but for
+special effects you might want to set different types for the LOCAL and  REMOTE
+connection  ends.    The second option is which transfer this option is to take
+effect for.  Normally ALL transfers will be affected,  but  you  can  make  the
+command  affect only the CURRENT transfer, or affect the DEFAULT for all future
+transfers but not the current one.
+
+
+4.17.17. SET USER
+  SET USER tells FTP that when you open a connection to a given host, it should
+automatically log you in as the specified user.  Type the host name  after  SET
+USER,  followed  by your username on that host.  SET NO USER followed by a host
+name removes any default for that host.  SET USER is not particularly useful as
+a command typed directly to FTP, but it is extremely useful  for  including  in
+FTP.INIT files; see section 6 for more details.
+
+
+    FTP>SET USER (default for login at) SUMEX (to) EPPSTEIN
+    FTP>SUMEX
+    < SUMEX-AIM FTP Server Process 5T(14)-7 at Sat 10-Mar-84 14:39-PST
+    Default login as EPPSTEIN
+    Password:
+    < User EPPSTEIN logged in at Sat 10-Mar-84 14:40-PST, job 16.
+    FTP>
+
+
+4.17.18. SET VERBOSITY
+  SET  VERBOSITY  tells  FTP how much of various information to type out on the
+terminal at various points in  its  execution.    There  are  several  possible
+settings of this parameter:
+
+SUPER-TERSE     With  this  verbosity  FTP  will  type  almost  nothing on your
+                terminal. This option is intended for use  mostly  by  programs
+                that run FTP automatically.
+
+TERSE           Very little will be typed on the terminal.  Most error messages
+                will  still  be  typed,  but  (for instance) the names of files
+                transferred and the hash marks showing the  transfer  will  not
+                be.
+
+NORMAL          This  is the default verbosity.  Everything you should normally
+                need to see will be typed, but not much more will.
+
+VERBOSE         More text  will  be  typed,  especially  most  positive  server
+                replies that would normally not be displayed.
+
+EXTRA-VERBOSE   Like VERBOSE, except that the machine-readable numbers returned
+                by  the  FTP  server  are printed along with the human-readable
+                text replies.
+
+DEBUGGING       All  interactions  with  the  FTP  server  will  be  displayed.
+                Caution:  if  you  log in over a TCP connection, or attempt any
+                Pup file transaction, while this  is  in  effect,  your  remote
+                password  will be displayed on the terminal.  You can also type
+                SET DEBUG as an abbreviation for SET VERBOSITY DEBUGGING.
+
+
+
+4.18. The STATUS command
+  The STATUS command types out information about the state of the FTP  program,
+including  your  logged-in  username,  the  name  of  the host you have an open
+connection to, and the various parameters  changeable  with  the  SET  command.
+There  are  various  subcommands  to  list  only part of the status information
+available; the default is to display it all.
+
+
+4.18.1. STATUS (of) CONNECTION
+  This option displays the name and protocol of the host you are connected  to,
+and  some  connection-dependant information.  For instance, for TCP connections
+it asks the FTP server for the status of the connection.
+
+
+    FTP>STATUS (of) CONNECTION
+    Connected to TCP host SU-SIERRA.ARPA
+    The current data transfer parameters are:
+        MODE S
+        STRU F
+        TYPE A N
+    A connection is open to host SU-SIERRA
+    The data connection is CLOSED.
+    FTP>
+
+
+4.18.2. STATUS (of) LOGIN
+  This command displays any user name, account, and  connected  directory  that
+you  are  currently  using, as well as any login defaults set with the SET USER
+command.
+
+
+    FTP>STATUS (of) LOGIN
+    Remote username is Kronj
+    Login defaults to Kronj on Sierra, Navajo, MIT-MC
+    Login defaults to DE on SAIL
+    FTP>
+
+
+4.18.3. STATUS (of) PROGRAM
+  This command lists the version of  FTP  that  you  are  using,  when  it  was
+compiled,  and  the  file  commands  are  being  read  from  (if  it is not the
+terminal).
+
+
+    FTP>STATUS (of) PROGRAM
+    Stanford TOPS-20 FTP user process
+    Version 3.0, compiled  6-Mar-84 21:07:39 by KRONJ at SU-SIERRA.ARPA
+    FTP>
+
+
+4.18.4. STATUS (of) SETTINGS
+  This lists all the parameter settings that have been changed  using  the  SET
+command.  If a parameter is at its default setting, it will not be displayed.
+
+
+    FTP>STATUS (of) SETTINGS
+    Keeping all properties for GET, RENAME, SEND
+    Transfer type is paged, byte size 36
+    Confirmation required for no commands
+    Generation numbers of remote file specs are included
+    Statistics of transfer rates are collected
+    Wildcard filenames are translated to lower case
+    FTP>
+
+
+
+4.19. The TAKE command
+  The  TAKE  command  tells  FTP  to  read  commands from a file containing FTP
+commands.  For more details about the TAKE command and command files in general
+see section 6.
+
+
+
+4.20. The TYPE command
+  The TYPE command retrieves a remote file to your terminal.  It  is  identical
+to  using GET to local file TTY: except that it will always use a transfer type
+of text (see the section on transfer types for more details) and that  it  will
+not  type  the names of the remote file and local file or the exclamation marks
+that show how far your transfer has progressed.
+
+
+
+4.21. The UPDATE command
+  The UPDATE command is identical to the GET command except that, for each file
+it would transfer, it makes sure that no local version exists.    If  there  is
+already  a local file with the name that GET would transfer the file to, UPDATE
+compares the write dates of the local file and of the  remote  file.    If  the
+local  file  was  more recently written than the remote file, FTP will not make
+the transfer.
+
+  This command is useful for merging  directories  of  source  files  from  two
+computers, or for making sure you have the latest version of a file.
+
+5. Transfer Types
+  There  are  several different formats in which FTP can transfer files:  text,
+binary, image, EBCDIC, and paged.  You can tell FTP which transfer type to  use
+with  the  SET TYPE command; normally you won't need to do this, since FTP will
+automatically set the transfer type to whichever type it thinks is appropriate.
+
+  Text mode transfers treat a file as a stream of eight bit bytes, and send  it
+as such over the network.  On TOPS-20, text files normally use seven bit bytes,
+so  FTP  will  add an extra bit when sending files and will lose the eighth bit
+when retrieving them.  If you want to keep the eighth bit of a text file stored
+on a computer which uses all eight bits, use binary mode  instead.    Transfers
+made with the PRINT command are always done in text mode.
+
+  With  Pup  text  transfers,  end-of-line characters are translated within the
+transfer.  Thus if the remote host uses a different convention for  end-of-line
+in  its  text  files  than  TOPS-20 does, the file will still be readable.  The
+normal TOPS-20 end-of-line  delimiter  is  a  carriage  return  followed  by  a
+linefeed,  commonly  called  a  CRLF.    Acceptable  values for the name of the
+convention to use are CR, CRLF, and TRANSPARENT.  CR removes the linefeed of  a
+CRLF  in  outgoing  files,  and  puts  it  back in in incoming files.  CRLF and
+TRANSPARENT both leave files alone; they differ in that with  CRLF  the  remote
+host  is  required  to  make sure its ends of lines are sent as a CRLF, whereas
+with TRANSPARENT ends of lines are sent in whatever format they are  stored  at
+the  remote  file.   The only convention other hosts are required to support is
+CR, so this is the default for FTP.  The loss in efficiency caused by using  CR
+instead  of CRLF is not usually significant because text transfers are uncommon
+between TOPS-20 computers.
+
+  TCP text and EBCDIC transfers don't use an end-of-line convention,  but  they
+do  have a similar parameter: the print format for the file.  This controls the
+actions of the remote host (for TCP connections) if it  prints  a  file.    The
+possible options (as described in RFC765) are:
+
+CARRIAGE-CONTROL
+                The   file  contains  ASA  (FORTRAN)  vertical  format  control
+                characters.  In a line formatted according to the ASA standard,
+                the first character is not to be printed.  Instead it should be
+                used  to  determine  the  vertical  movement of the paper which
+                should take place before the rest of the line is printed.
+
+NON-PRINT       The file need contain no vertical format information.  If it is
+                passed to a printer process, this process may  assume  standard
+                values for spacing and margins.
+
+TELNET          The  file  contains  ASCII/EBCDIC  format controls (i.e., <CR>,
+                <LF>,  <NL>,  <VT>,  <FF>)  which  the  printer  process   will
+                interpret  appropriately.    <CRLF>,  in exactly this sequence,
+                also denotes end-of-line.
+
+  EBCDIC transfers convert text to the EBCDIC code used on IBM machines  before
+sending it, and convert back from EBCDIC to text when receiving files.  This is
+not available on Pup connections.  The print formats listed above also apply to
+EBCDIC transfers.
+
+  Binary transfers send files as a stream of bits.  This will usually result in
+the  destination  file having exactly the same bits as were in the source file.
+The byte size of the transfer and of the destination file is normally  that  of
+the  source file, but it can be changed with the SET BYTE-SIZE command.  If the
+byte sizes of the transfer and file are not the same, there  is  no  guaranteed
+that all the bits of the source file will be transferred.
+
+  Image transfers are very similar to binary transfers, but for TCP connections
+the remote server is not told how many bits there are to a byte but rather must
+pack  the  bits  into  words  without  respect  for  byte  boundaries.   On Pup
+connections image transfers are identical to binary transfers.
+
+  Paged mode transfers send files a page (512 36-bit words) at a time.  This is
+extremely efficient, but can only be used for  disk-to-disk  transfers  between
+TOPS-20  and  TENEX  computers.    If  you connect to a TOPS-20 host, OPEN will
+automatically set your default transfer type to paged if the transfer type  was
+not  already  specified.  If you connect to a host that cannot understand paged
+transfers but the transfer type has been set to paged, OPEN will set it back to
+unspecified.  In any case, FTP will tell you when it  is  setting  the  default
+transfer type for you.
+
+
+    FTP>OPEN (connection to) KESTREL
+    < KESTREL FTP Server Process 5T(3)-7 at Sat 10-Mar-84 19:29-PST
+    Setting default transfer type to paged.
+    FTP>
+
+  There   are   two   different  paged  transfer  types  for  Pup  connections:
+Tenex-paged and MEIS-paged.  They differ only in how 36-bit  words  are  packed
+into 8-bit bytes; Tenex-paged transfers use a somewhat complex scheme to pack 4
+words  into  20  bytes, whereas MEIS-paged transfers pack 2 words into 9 bytes.
+MEIS-paged transfers are more efficient, but they can only be used  on  TOPS-20
+machines  with MEIS network interfaces.  Tenex-paged transfers must be used for
+Tenex computers and for some TOPS-20 computers.  For  both  Tenex  and  TOPS-20
+connections  FTP will initially set the transfer type to MEIS-Paged, but if the
+server ever complains about an unrecognized  transfer  type  or  if  the  local
+monitor  does not support MEIS data modes, the transfer type will automatically
+be changed to Tenex-paged.  For TCP connections there is only one kind of paged
+connection, with yet another format from the two available for Pup connections.
+
+  Unspecified, the default for non-TOPS-20 computers, is not really a  transfer
+type  in  itself.  Rather, if the transfer type is unspecified, FTP will choose
+between text and binary transfers for each transfer, basing its decision on the
+properties of the individual files.
+
+  There is also another pseudo-transfer-type that FTP uses: directory.   It  is
+impossible  to  retrieve  any files using this transfer type, but it is used in
+the DIRECTORY command to distinguish files that are directories.
+
+6. Command Files and Command Lines
+  You can create a file of FTP commands before running FTP, and  then  use  the
+TAKE  command  to  make  FTP read and execute these commands.  To make FTP read
+commands from a given file, type TAKE followed by the name of the file.  Do not
+include any passwords in these files; FTP will always ask  for  them  from  the
+terminal, even if it is reading commands from a command file.
+
+  You  can  use  the  TAKE  command  from within another command file; when the
+second file is finished execution will resume in the first one.   If  an  error
+occurs  during  execution  of  a  command file, FTP will abort all command file
+input and start reading from the terminal again.   There  is  a  limit  on  how
+deeply  command  files  may be nested, so you will eventually get an error if a
+command file tries to TAKE itself.  FTP will also abort any  command  files  in
+progress when you type Control-G.
+
+  When  it  starts  up,  FTP  will  automatically  look for a file in your home
+directory called FTP.INIT, and if it finds it, read commands from it.  This  is
+useful  for  setting  parameters  such  as  CONFIRMATION or STATISTICS, and for
+telling FTP your username at the various sites with the SET USER command.
+
+  You can give FTP a command to run on the same line that you tell the EXEC  to
+run  FTP.    If  the  command  did  not  perform any action but rather set some
+parameter (like the SET command), FTP will start taking  commands  immediately,
+but  if  it  was  some file transfer or some other action, FTP will exit to the
+EXEC after the command is completed.  The most common use of this feature is to
+tell FTP which host you want to connect to.
+
+
+    @FTP MC
+    < MIT-MC ITS 1367,  FTP server 280 on 10 MAR 1984 2233 EST
+    < Bugs/gripes to BUG-FTP  MIT-MC
+    FTP>
+
+  If FTP reads a command file or processes any JCL, it will not type its normal
+banner when it starts reading input from the terminal.    This  is  because  it
+assumes  you  know  what  you are doing, and don't need to be told that you are
+running FTP.
+
+  If you use the EXEC REENTER command to return to FTP from the EXEC,  it  will
+stop  whatever  command it might have been doing, read any JCL, and then return
+to top level and wait for new commands.  Thus if you use the EXEC  command  SET
+PROGRAM  FTP KEEP REENTER you will be able to type JCL commands and not have to
+wait every time for the overhead of a full start-up:
+
+
+    @SET PROGRAM FTP KEEP (and) REENTER (when invoked as a command)
+    @FTP
+    [Keeping FTP]
+    Stanford TOPS-20 FTP 3.0, type HELP if you need it.
+    FTP>QUIT (to EXEC)
+    @FTP SRI-NIC
+    [Reentering]
+    < SRI-NIC FTP Server Process 5T(14)-7 at Sat 10-Mar-84 19:35-PST
+    Setting default transfer type to paged.
+    FTP>
+
+7. Operating System Dependencies
+  The FTP program tries to be as operating-system independent as it can, but in
+some cases FTP will exhibit special behavior when  you  connect  to  a  TOPS-20
+computer.    The  most  blatant example is page mode file transfers; these will
+work only when you are connected to a TOPS-20 or TENEX  computer,  and  are  in
+fact the default transfer type for those computers.
+
+  Another  example is filename defaulting.  When you are connected to a TOPS-20
+site you do the following, for instance:
+
+
+    FTP>SEND (local file) FTP.EXE (to remote file) SYS:
+     FTP.EXE.4 => PS:<SUBSYS>FTP.EXE.7 !!!!!!! [OK]
+    FTP>
+
+  FTP knows you need a filename after the SYS:, so it automatically fills it in
+from the local filename.  When FTP is connected to  a  host  with  a  different
+operating system, however, it can't do that.  This is because on some operating
+systems  the  directory name comes after the filename instead of before it.  If
+FTP always filled out filenames consisting of  directories  with  no  following
+text, it could make the remote filename unsyntactic when it was perfectly valid
+the way it was typed in.
+
+  The  above  example also illustrates a feature of the TOPS-20 Pup FTP server:
+you can include system-wide logical names in your filenames and  they  will  be
+expanded  for  you.    If  you use a logical name which you have defined on the
+local computer, it will not be expanded before the  filename  is  sent  to  the
+remote host.
+
+  Yet  another  operating  system  dependency  is  in  the  PRINT  command.  As
+described earlier, PRINT simply sends the given  file  to  the  special  remote
+filename LPT:.  Actually, this will only work for computers running TOPS-20 and
+TENEX; most other operating systems will not recognize this filename.
+
+8. Debugging the FTP Program
+
+
+
+8.1. Alternate sockets
+  You  may  want to run a new version of the FTP server and user on a different
+socket to make sure it does not confuse the regular user  or  server  programs.
+The  way  to do this is to specify the socket number after the host name in the
+OPEN command.  For instance, with Pup the usual socket  for  FTP  debugging  is
+333,  so  you  would  set  up  a server listening on that socket, and then type
+``333'' after the name of the host on  which  you  have  set  up  this  server.
+Remember that Pup socket numbers are octal but TCP socket numbers are decimal.
+
+
+
+8.2. Debugging typeout
+  The  SET DEBUG command (short for SET VERBOSITY DEBUGGING) will make FTP type
+out detailed information on every transaction it makes.  FTP will type out your
+password if SET DEBUG is set, so make sure not to use this option if  you  want
+your password to remain secure.
+
+  The  format  of  the debugging typeout for an individual FTP command on a Pup
+connection is ``Who: [Mark] <Num>  Text'',  where  Who  is  either  ``U''  (for
+``User'')  to  show  that this command is something FTP is sending, or ``S'' to
+show that it is being sent by the remote FTP server.  Mark is the name  of  the
+mark  byte  that was sent; this specifies which FTP command this is.  Num is an
+optional numeric argument to the command, and Text is a human-readable  comment
+sent  along with the command.  Sometimes this text would be typed out by FTP in
+the format `` < Text'' if debugging typeouts weren't enabled;  this  text  will
+not  printed  in this way if debugging is enabled, since that would be printing
+it twice.
+
+
+    FTP>SET DEBUG (printouts enabled)
+    FTP>OPEN (connection to) SAIL
+    U: [Version] <1> Stanford TOPS-20 FTP 3.0 7-Mar-84
+    U: [End-of-command]
+    S: [Version] <1> SU-AI FTP Server 0.4P
+    S: [End-of-command]
+    FTP>
+
+  For TCP connections, the debugging typeout is similar but  all  communication
+along  the  control  channel  is  with  strings  so they are what is typed out.
+Control signals (``IACs'') used to maintain TELNET protocol  are  also  printed
+out:
+
+
+    FTP>BYE (break connection with remote host)
+    U: QUIT
+    S: 212 QUIT command received. Goodbye.
+    S: [IAC] [Do] [Timing-Mark]
+    U: [IAC] [Won't] [Timing-Mark]
+    S: [IAC] [Do] [Timing-Mark]
+    U: [IAC] [Won't] [Timing-Mark]
+    FTP>
+
+
+
+8.3. Entering DDT
+  There  is a DDT command within FTP to help in stepping through buggy routines
+and commands.  There are several different possible ways to return to  FTP  top
+level;  the recommended ones are R$G and RET$X.  Don't type $G alone unless you
+don't mind resetting any connection you may have open.   An  alternate  way  of
+entering DDT is to use the QUIT command to exit to the EXEC and then to use the
+EXEC's  DDT  command.    As  with  the FTP DDT command, the recommended ways of
+returning to top level are R$G and RET$X.
+
+
+    FTP>DDT (self)
+    DDT
+    RET$X
+    FTP>
+
+9. Nonstandard Pup Protocol Used
+  FTP currently does not use any nonstandard mark bytes.  It is  possible  that
+bytes  corresponding  to  the  EXEC UNDELETE and EXPUNGE commands will be added
+eventually.
+
+  FTP will always use the New-Store protocol instead of Store to send files  to
+those hosts that can handle it.  This is so that remote filenames may be echoed
+as  they  will  appear  on the remote filesystem, rather than as the user typed
+them in.  If a host signals that it cannot handle New-Store by sending  back  a
+No data byte of 1 (``Command undefined or unimplemented'') then FTP will revert
+to using the Store protocol.
+
+  There  are  two  new  file transfer types: directory and MEIS-paged.  See the
+section on transfer types for more details.
+
+  There have been several new file properties added to support the SET KEEP and
+INSTALL commands.  SET KEEP operates by including the kept  properties  in  the
+property  list  sent to the server for the SEND command.  It is expected that a
+server will try to preserve those properties  in  the  filesystem.    Some  FTP
+servers  and programs can not handle unrecognized properties; when using FTP to
+talk to these servers, you must give the SET NO KEEP  command  to  prevent  FTP
+from sending nonstandard properties.  The new properties are:
+
+Group-Access    The  contents  of  this  property  are  a  sequence  of letters
+                describing the access to the given file allowed to a member  of
+                a  user  group  corresponding  to  the  directory  group of the
+                directory in which the file resides (the 007700 bits in TOPS-20
+                file protections).  Letters understood by FTP are:  R (read), W
+                (write), X (execute), L (list), and  A  (append).    Any  other
+                letters will be ignored.
+
+Original-Author This  is  the username of the file's creator, as opposed to the
+                Author property which is the user who last modified the file.
+
+Owner-Access    This property describes the access allowed to the file's owner;
+                on TOPS-20 the owner of a file is the user in  whose  directory
+                the file resides.  The contents of the property are the same as
+                those for Group-Access.
+
+Previous-Write-Date
+                The  TOPS-20  FTP  server  includes  this property in this list
+                generated by New-Store, so that the INSTALL command may compare
+                it against the local write date and decide which file  is  more
+                recent.  If no Previous-Write-Date field is generated, then FTP
+                will always assume the local version is the most recent.
+
+Public-Access   This  property  describes  the access allowed to the file for a
+                user with no special owner or group access.  The  contents  are
+                the same as those for Group-Access and Public-Access.
+
+                               Table of Contents
+1. Introduction                                                               1
+2. Basic Use of FTP                                                           1
+3. RHOSTS: how to automate logging in                                         1
+4. Commands                                                                   1
+     4.1. The BYE command                                                     1
+     4.2. The CONNECT command                                                 1
+     4.3. The DELETE command                                                  1
+     4.4. The DIRECTORY command                                               2
+     4.5. The EXIT command                                                    2
+     4.6. The GET command                                                     2
+     4.7. The HELP command                                                    2
+     4.8. The INSTALL command                                                 2
+     4.9. The LOGIN command                                                   2
+     4.10. The MULTIPLE command                                               2
+     4.11. The OPEN command                                                   3
+     4.12. The PRINT command                                                  3
+     4.13. The PUSH command                                                   3
+     4.14. The QUIT command                                                   3
+     4.15. The RENAME command                                                 3
+     4.16. The SEND command                                                   3
+     4.17. The SET command                                                    3
+          4.17.1. SET ALTERNATE-SOCKETS                                       3
+          4.17.2. SET CHECKSUMS                                               3
+          4.17.3. SET CONFIRMATION                                            3
+          4.17.4. SET DIRECTORY                                               3
+          4.17.5. SET END-OF-LINE                                             4
+          4.17.6. SET FANCY-QUIT                                              4
+          4.17.7. SET HASH-MARK                                               4
+          4.17.8. SET INCLUDE-VERSIONS                                        4
+          4.17.9. SET KEEP                                                    4
+          4.17.10. SET LOWERCASE                                              4
+          4.17.11. SET MODE                                                   4
+          4.17.12. SET NO                                                     4
+          4.17.13. SET OLD-LOGIN                                              4
+          4.17.14. SET SMART-DIRECTORIES                                      4
+          4.17.15. SET STATISTICS                                             4
+          4.17.16. SET TYPE                                                   4
+          4.17.17. SET USER                                                   5
+          4.17.18. SET VERBOSITY                                              5
+     4.18. The STATUS command                                                 5
+          4.18.1. STATUS (of) CONNECTION                                      5
+          4.18.2. STATUS (of) LOGIN                                           5
+          4.18.3. STATUS (of) PROGRAM                                         5
+          4.18.4. STATUS (of) SETTINGS                                        5
+     4.19. The TAKE command                                                   5
+     4.20. The TYPE command                                                   5
+     4.21. The UPDATE command                                                 5
+5. Transfer Types                                                             5
+6. Command Files and Command Lines                                            6
+7. Operating System Dependencies                                              6
+8. Debugging the FTP Program                                                  6
+     8.1. Alternate sockets                                                   6
+     8.2. Debugging typeout                                                   6
+     8.3. Entering DDT                                                        7
+9. Nonstandard Pup Protocol Used                                              7

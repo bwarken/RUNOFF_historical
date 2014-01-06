@@ -1,0 +1,398 @@
+
+
+
+SCDSET.MEM -- For Version 3 of SCDSET
+Jan 1978
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1977,1978 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+SCDSET.MEM                                                      Page 2
+
+
+SCDSET:  A Scheduler Parameter Setting Program
+     for use by the System Administrator
+
+
+
+1.0  OVERVIEW
+
+
+1.1  Purpose
+
+The purpose of this program is to allow the  System  Administrator  to
+easily use the SCHED.  Monitor call as implemented in the DECsystem-10
+6.02 monitor.  (This monitor call allows  a  privileged  user  to  set
+system  usage  quotas  as  well  as  adjust scheduler parameters.) The
+program is written so that the System Administrator can  exercise  the
+monitor call easily without having to know how it was implemented.  In
+addition SCDSET:
+
+     1.  Allows the System Administrator to create/modify a SCDMAP.SYS
+         file (which maps Scheduler Types to Scheduler Classes).
+
+     2.  Allows the System Administrator to move any  SCDMAP.SYS  file
+         to  the  SYS  area  (so that the new map is being used by new
+         LOGIN's).
+
+     3.  Allows the System Administrator to automatically  update  the
+         class of all logged in jobs.
+
+
+1.2  Relation to Other Programs
+
+This Version of SCDSET  is  valuable  only  for  a  site  running  the
+scheduler  LIR  and  Version  6.03  or  6.04 and later versions of the
+DECsystem-10 monitor.  Several of SCDSET's auxiliary functions require
+Version  4  of  ACCT.SYS.   This  requires new versions of three other
+systems/programs that access ACCT.SYS:  LOGIN (Version 56A or  later),
+REACT (Version 31 or later) and SPRINT-10 (Version 2A(1056) or later).
+
+
+1.3  DESIGN Goals
+
+     1.  Write a simple, easy to use program that has enough hooks  to
+         do anything that the SCHED.  monitor call can do.
+
+     2.  Implement  it  in  some  higher  level   language   so   that
+         modification of SCDSET by the System Administrator is easier.
+         (FORTRAN-10 was chosen arbitrarily.)
+SCDSET.MEM                                                      Page 3
+
+
+1.4  Bibliography
+
+See the System Administrator's Guide to the 6.02  Scheduler,  and  the
+appropriate documentation of REACT, LOGIN, and SPRINT-10.
+
+
+
+2.0  PRIVILEGES REQUIRED
+
+For manipulating a SCDMAP.SYS file, no privileges are required (except
+as needed to move that file to the SYS area).
+
+For exercising the SCHED.  monitor call, all privileges are  required.
+The  user  must  be  logged  in as [1,2], or the program must be JACCT
+priviledges.  These are the restrictions of the monitor call.
+
+The READ/SET functions of SCDSET assume the user  is  [1,2]  and  will
+otherwise fail.
+
+
+
+3.0  CAUTIONS
+
+The System Administrator is strongly advised to run SCDSET in  a  high
+priority   queue  (HPQ).   This  will  assure  that  his/her  work  is
+unaffected by system quota's and system load.
+
+HPQ is not required when creating/modifying a SCDMAP.SYS file, and  is
+in  fact  discouraged  because it has a detrimental effect upon system
+performance.
+
+
+
+4.0  FUNCTIONS
+
+The program SCDSET prompts the  user  with  a  message  asking  for  a
+command  (and  optionally  a parameter selecting a particular function
+associated with the command).  The user  types  in  the  name  of  the
+command and if necessary the optional parameter.
+
+Commands:
+
+     1.  HELP - Types out help text.
+
+     2.  EXIT - Returns to the monitor
+SCDSET.MEM                                                      Page 4
+
+
+4.1  Update Jobs
+
+The UPDATE JOBS command calls the FIXJOB routine.  This routine  first
+reminds  the System Administrator that a new SCDMAP.SYS file should be
+on the SYS area by asking him if he wishes to move one there.  If  the
+System  Administrator  does want to move a map to the SYS area, FIXJOB
+calls the MOVMAP routine to do that work.  FIXJOB  then  runs  through
+each  logged in job, gets that job's PPN, determines whether or not to
+use the batch half of  the  SCDMAP.SYS  currently  on  SYS,  looks  in
+ACCT.SYS  for the Scheduler Type of that user, and executes the SCHED.
+monitor call to put that job in the right Scheduler Class.  It  prints
+out  an  error  message  for  each  logged in job it could not find in
+ACCT.SYS or for which the SCHED.  monitor  call  failed.   The  FIXJOB
+routine  does  not execute the SCHED.  monitor call for [2,5] jobs, or
+for its own job.
+
+
+4.2  EDIT
+
+The EDIT Command calls  the  MAKMAP  subroutine.   This  routine  will
+create/modify  a  SCDMAP.SYS  file.   There  are eight (8) subcommands
+available:
+
+     1.  HELP - Type out a help text.
+
+     2.  EXIT - Exit to top level.
+
+     3.  READ - Read in a SCDMAP.SYS file for modification.
+
+     4.  WRITE - Write out a SCDMAP.SYS file to any device or area.
+
+     5.  RANGE - Change any range  of  Scheduler  Types  to  scheduler
+         Classes in the map.
+
+     6.  ONE CLASS - Change one Scheduler Type to a Scheduler Class in
+         the map.
+
+     7.  TYPE - Type out any range of Scheduler Types.
+
+     8.  COPY/SET - The COPY command calls the MOVMAP  routine.   This
+         function  merely copies a file from any area or device to the
+         SYS area.  PIP should be able  to  do  this  work,  but  this
+         routine  is  provided  for  the  convenience  of  the  System
+         Administrator.
+SCDSET.MEM                                                      Page 5
+
+
+4.3  READ/SET Functions
+
+The user types READ or SET on the keyboard followed by a comma  and  a
+parameter  form  the following list.  These functions directly execute
+the SCHED.  monitor call.
+
+     1.  MS  INTERVAL - This  function  reads  or   sets   the   Micro
+         Scheduling  Interval.   (The  interval at which the scheduler
+         changes which class it will select from first during the next
+         scheduling interval).  The interval is in jiffies.
+
+     2.  PRIMARY PERCENTAGES - System usage percentage for a particlar
+         job  class.  The sum of all primary percentages may be fixed,
+         in which case a job will only be chosen to run when its class
+         has highest priority.
+
+     3.  TIME BASE - Base run  quanta  for  either  run  queue.   This
+         measurement  is  in  milliseconds.  (Internally the Scheduler
+         stores this value in local jiffies, so it may not be possible
+         to adjust the time slice by a few milliseconds.)
+
+     4.  JOB CLASS - This function reads or sets the  Scheduler  Class
+         of all logged in jobs.
+
+     5.  PROTOT - This function reads or sets the  Scheduler  constant
+         called  PROTOT.   It  is one of the three constants used when
+         calculating the Minimum Core Usage quota.  The measurement is
+         in microseconds.
+
+     6.  RUNTIME BY CLASS - This function reads the amount of  runtime
+         used by each class since the last time that a class quota was
+         changed.  The measurement is in jiffies.   The  routine  also
+         prints out the percentage of runtime each class has used.
+
+     7.  PROT - This function reads or sets the value of the Scheduler
+         constant  called  PROT.   It  is one of the constants used in
+         calculating the Minimum Core Usage quota.  The measurement is
+         in microseconds.
+
+     8.  DEFAULT CLASS - This is the default class that new  jobs  are
+         placed  into when they first login.  This class is used until
+         it is changed by LOGIN after LOGIN has read the specified job
+         class from SCDMAP.SYS.
+SCDSET.MEM                                                      Page 6
+
+
+     9.  PROT1 - The in-core timeslice  used  after  a  job  has  been
+         either  expired  its  initial  in-core  protect  time.   This
+         control the rate at which I/O bound jobs circulate around the
+         run queues.
+
+     10. PROTM - PROTM is the maximum in-core protect time  that  will
+         be  assigned  to a job.  It specifies an upper bound for very
+         large jobs.
+
+     11. TIME MULTIPLIER - Used to assign a larger quantum runtime for
+         large  jobs.   The  quantum runtime is computed by adding the
+         TIME BASE to the TIME MULTIPLIER multiplied by the job  size.
+         The  result  is  compared with a run quantum maximum, and the
+         smaller of the computed value or maximum is used.
+
+     12. TIME MAXIMUM - The maximum quantum runtime that is  used,  as
+         described above.
+
+     13. SECONDARY  ALLOCATION - The  secondary   allocation   for   a
+         scheduler  class.   When  no runnable job can be found in the
+         primary class that has been selected to be in  proportion  to
+         their secondary allocation.
+
+     14. RESPONSE FAIRNESS - The response fairness factor control  how
+         often  jobs will be run according to their order in the "just
+         swapped in list", in preference to the allocations  specified
+         by the job classes.
+
+     15. AVG SWAP TIME - This parameter is an estimate of the  average
+         swap  time  for a typical job in the system.  it controls the
+         rate at which the swapper changes from one class to the  next
+         in chosing jobs to swap in.
+
+     16. BB CLASS - Selects which class is background batch,  a  class
+         that is run whenever the system is otherwise idle.
+
+     17. BB SWAP TIME - Estimate  of  the  time  required  to  swap  a
+         background  batch  job.   This  is  used  by the scheduler to
+         decide when the system has been idle long  enough  to  permit
+         swapping in a background batch job.
+
+     18. SCHEDULER FAIRNESS - This parameter determines how  oten  PQ2
+         jobs  will  be  scheduled  ahead of PQ1 jobs.  This parameter
+         allows compute bound jobs to run (albeit  slowly)  even  when
+         there is an abundance of interactive jobs.
+SCDSET.MEM                                                      Page 7
+
+
+     19. SWAPPER FAIRNESS - This parameter determines  how  often  PQ2
+         jobs  are swapped in before PQ1 jobs.  It has the same effect
+         on the swapper as the scheduler fairness factor  has  on  the
+         scheduler.
+
+     20. INCORE FAIRNESS FACTOR - The parameter control how  often  an
+         out of core job is scheduled before for swapping before a job
+         that is already in core.  This allows jobs to be  swapped  in
+         when many jobs that are already incore are doing GETSEG's.
+
+     21. CORE SCHEDULING  INTERVAL - This  controls  how  quickly  the
+         system will assume that there is sufficient core for all jobs
+         and stop accounting for incore protect time and using  it  to
+         requeue jobs.  This happens on systems with a large amount of
+         core memory or when the system has very few users.
+
+
+
+5.0  COMPILING INSTRUCTIONS
+
+There are two modules necessary to compile and run SCDSET.   They  are
+SCDSET.FOR  and  SCDEXE.MAC.   SCDSET  contains  the top level command
+loop, the error message routine, all the functions, and routines to do
+all  the  work  required by the System Administrator.  SCDEXE contains
+the few MACRO routines necessary to execute the SCHED.   monitor  call
+and  to  gather  environmental information not available from FORTRAN.
+Version four (4) of the FORTRAN-10 compiler was used to  compile  this
+code.  Any MACRO should be able to handle the SCDEXE module.  A simple
+"LOAD SCDEXE, SCDSET" and then a save should be sufficient to  make  a
+copy of the SCDSET program.
+
+
+
+6.0  THE SCDMAP.SYS FILE
+
+The SCDMAP.SYS file should always be on the SYS area when your  system
+is  running  a  6.02 monitor and a LOGIN that sets 6.02 quotas.  LOGIN
+will complain if there is no SCDMAP.SYS file on SYS.
+
+The file contains 1024 (decimal) nine bit entries (256 decimal words).
+The  first  512  entries  constitute  the map for timeshare users, the
+second 512 entries constitute the map for  batch  users.   Each  entry
+contains  a  number  between  zero  and  thirty-one  inclusive  (0-31)
+specifying a Scheduler Class.  There is an entry for each of  the  512
+Scheduler  Types  for  both  timeshare and batch.  Thus at login time,
+LOGIN looks in ACCT.SYS for the Scheduler Type of  the  PPN  and  then
+looks in SCDMAP.SYS for the current Scheduler Class for that Scheduler
+Type and job type (timeshare or batch).  For sites that do not wish to
+differentiate  between timeshare and batch, the second half of the map
+should be identical to the first half.
+SCDSET.MEM                                                      Page 8
+
+
+The format of the SCDMAP.SYS file is as follows:
+
+                          bits
+
+               0-8       9-17      18-26    27-35
+           *****************************************
+word 0     *        *    n0   *    n1   *   n2     *
+n3   *     *                                       *
+           *****************************************
+word 1     *        *    n4   *    n5   *   n6     *
+n7   *     *                                       *
+           *****************************************
+word 2     *        *    n8   *    n9   *   n10    *
+n11  *     *                                       *
+           *****************************************
+           /                                       /
+           /                                       /
+           *****************************************
+word 127   *   n508 *    n509 *    n510 *   n511   *
+           *****************************************
+word 128   *   m0   *    m1   *    m2   *   m3     *
+           *****************************************
+word 129   *   m4   *    m5   *    m6   *   m7     *
+           *****************************************
+word 130   *   m8   *    m9   *    m10  *   m11    *
+           *****************************************
+           /                                       /
+           /                                       /
+           *****************************************
+word 255   *   m508  *   m509  *   m510  *  m511   *
+           *****************************************
+
+***where nXXX is the location of the  Scheduler  Class  for  timeshare
+users  of  Scheduler Type XXX (as stored in ACCT.SYS), and mXXX is the
+location of the Scheduler Class for batch users of Type XXX.
+
+
+
+7.0  WARNINGS
+
+It is very easy when using SCDSET to halt all  productive  work  being
+done  on  the  system.  Misunderstanings of how the scheduler works or
+typing errors  when  using  SCDSET  could  drastically  affect  system
+performance.  The System Administrator is strongly urged to experiment
+with  this  program  and  the  6.02  scheduler  during  non-production
+timesharing,  until  he/she  becomes familiar with both SCDSET and the
+scheduler.
+
+
+
+[End of SCDSET.MEM]

@@ -1,0 +1,1153 @@
+
+
+
+
+
+
+
+
+           TOPS10 USAGE Accounting Functional Specification
+                                 for
+         Computer Resource Utilization Data Gathering Project
+
+
+
+
+
+
+               Date:  28-Apr-83
+               File:  USGFUN.RNO
+               Edition:  0.2
+
+
+
+;COPYRIGHT (C) 1977,1978,1979,1980,1981,1983 BY
+;DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+;
+;
+;THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND COPIED
+;ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH LICENSE AND WITH THE
+;INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR ANY  OTHER
+;COPIES THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+;OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF THE  SOFTWARE  IS  HEREBY
+;TRANSFERRED.
+;
+;THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE WITHOUT  NOTICE
+;AND  SHOULD  NOT  BE  CONSTRUED  AS A COMMITMENT BY DIGITAL EQUIPMENT
+;CORPORATION.
+;
+;DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR RELIABILITY  OF  ITS
+;SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+                                                                Page 2
+
+
+1.0  PRODUCT OVERVIEW
+
+A glossary is included  in  this  specification.   If  the  reader  is
+confused  by  the  terms used, it is strongly reccommended that he use
+the glossary for clarification since definitions will not be given  in
+the text.
+
+
+
+1.1  Product Abstract
+
+This product provides a mechanism  for  DECsystem-10  computer  owners
+that  will  allow  them to effectively charge their computer users for
+the resources that the users have used.  This mechanism associates  an
+account  and user identification with billable data.  This information
+is recorded in an ASCII file we have called  USAGE.   The  USAGE  file
+format is extensible, is designed for both TOPS10 and TOPS20 operating
+systems and can be processed easily by a  downstream  billing  program
+written  in  a higher level language (e.g., COBOL).  The accounts used
+can be validated (an option of the system  administrator)  before  any
+data associated with these accounts is accumulated and recorded.
+
+The major tasks of this project are  to  define  a  comprehensive  and
+extensible  file  format  for recording computer usage data, to modify
+the TOPS10 monitor and monitor programs to support this  file  format,
+and  to  support  account  validation.   Account  validation  and  the
+recording of USAGE data is done by an accounting daemon called  ACTDAE
+via  the  QUEUE.   UUO  and IPCF messages.  The monitor programs which
+send the IPCF messages to  the  accounting  daemon  are  the  monitor,
+GALAXY,  LOGIN,  LOGOUT, all input and output spoolers and BACKUP.  In
+addition, DIRECT and REACT have been modified.
+
+
+
+1.2  Product Audience
+
+All of DEC's  new  customers  will  use  this  product.   The  current
+customers  who do not use a sophisiticated accounting package will use
+this product within half a year after this product is released.  Those
+who   have  spent  years  developing  their  own  data  gathering  and
+accounting probably will not use this product.
+
+
+
+2.0  PRODUCT GOALS
+
+The major goals for this project are:
+
+     1.  To provide the user with  system  information  needed  to  do
+         meaningful accounting and billing.
+
+     2.  To make the data gathering output on the -10 and -20  systems
+         as similar as possible so that one accounting program will be
+         usable on both systems.
+                                                                Page 3
+
+
+     3.  To fulfill the  requirement  that  the  Software  Development
+         computers run standard field image software.
+
+     4.  To keep the user  community  informed  and  to  solicit  user
+         input.
+
+Goals that were considered when designing the new  format  are  listed
+below;  it is an ordered list with respect to importance.
+
+     1.  Digital and its customers can extend USAGE  entries  and  add
+         new  USAGE  entries  without  invalidating  any program which
+         reads the USAGE files (assuming it was properly  coded  as  a
+         USAGE file-reading program).
+
+     2.  Maximum data can be recovered from damaged files.
+
+     3.  The data is self-identifying.
+
+     4.  The data is self-contained.
+
+     5.  A high level language, such as COBOL, can process a raw USAGE
+         file.
+
+     6.  An  installation  can  tailor  the  monitor  data   gathering
+         facilities  to  its requirements without modifications to the
+         monitor.
+
+     7.  A comprehensive  library  of  MACRO-10  subroutines  will  be
+         available  for  gathering  and  formatting  data entered into
+         USAGE files.
+
+     8.  The same USAGE format applies to TOPS10 and TOPS20.
+
+     9.  No distributed program  should  have  conditional  assemblies
+         based on the old FACT files.
+
+    10.  Adequate documentation on how  to  write  USAGE  file-reading
+         programs will be available in the future.
+
+    11.  Project administration and cost-to-date reporting will not be
+         precluded.
+
+    12.  The format provides a focal point  for  all  data  gathering,
+         thus  permitting  localized  modifications to standard Digita
+         software if required.
+
+    13.  The data is compact for on-line storage.
+
+The non-goals of this product are:
+
+     1.  In formatting the USAGE file, optimal thruput was traded  off
+         in favor of meeting the goals.
+                                                                Page 4
+
+
+     2.  To provide  each  customer  with  an  installation  dependent
+         downstream billing program.
+
+     3.  Implement support for project administration or  cost-to-date
+         reporting.
+
+
+
+
+2.1  Performance
+
+2.2  Support Objectives
+
+2.3  Environments
+
+3.0  FUNCTIONAL DESCRIPTION
+
+This  product   affects   system   administration,   computer   users,
+operations, and downstream billing processing.
+
+
+
+3.1  Functional Description For The Data Base, The USAGE File
+
+The following gives a description and  detailed  format  of  the  data
+base.   This  data  base  will  be  the input to downstream accounting
+programs.  This is probably the most important  change  and,  although
+the  format will not be affecting computer users, it will be important
+to the administrators and downstream programmers of the installation.
+
+
+
+3.1.1  General File Description - In this document  it  is  imperative
+that  the  reader  understand  the  semantics  of certain words (e.g.,
+account string, entry, record, and  session).   A  glossary  has  been
+provided  at  the  end of this document to clarify the meaning of some
+words used in this document.   Appendix  A  has  the  complete  format
+layouts of the USAGE file records.
+
+All USAGE file entries will be made by the accounting daemon,  ACTDAE.
+(ACTDAE  will  run  detached under [1,2].) Under no circumstances will
+the calling programs make their own entries.  The  data  mode  of  the
+USAGE  files  will be ASCII.  Each USAGE file entry will be made up of
+two or more records.  (A  record  is  a  string  of  ASCII  characters
+terminated   by   a   line-feed.)  The  numeric  fields  (n)  will  be
+right-justified, zero-filled;  the alphanumeric  fields  (a)  will  be
+left-justified, blank-filled.
+
+The first entry (file header entry) of each USAGE  file  will  contain
+file and system information.
+
+ACTDAE will maintain binary checkpoint files on disk.  When a  job  is
+logged  in  or  device media is mounted, information will be stored in
+the job's slot of the checkpoint file.   Checkpointing  will  be  done
+periodically  (the  time  period  is  dependent  on an ACTDAE assembly
+                                                                Page 5
+
+
+definition), updating the necessary data for each job or device.  When
+the  job  is  logged  out,  CSHIFT  is invoked or a session command is
+typed, the "session entry" will be translated to ASCII and appended to
+the  USAGE  file.   When  a  job  is  logged out, the job slot will be
+zeroed.  If a CSHIFT or session command is typed, pertinent data  will
+be kept in the checkpoint files.
+
+When ACTDAE is started after a monitor reload,  all  checkpoint  files
+will be translated to ASCII and appended to the USAGE file.  This will
+be done before any other job attempting to make USAGE file entries  is
+allowed  to  proceed.  The system will enforce this action by blocking
+IPCF messages until the file update has been completed.   The  session
+entries  will be incomplete and be identified as such.  all incomplete
+entries will have the same format as SESSION entries except the  entry
+type  code  will  be  '0003'.  The record revision numbers will be the
+same as the SESSION entry's current revision numbers.
+
+The device mount entries, spooler  entries,  batch  entries  and  disk
+storage  entries will be appended to the USAGE file by ACTDAE whenever
+these events happen.
+
+The current USAGE file will be renamed to a unique filename and a  new
+USAGE  file  created when a "CHIFT" is generated specifically to close
+the current USAGE file and begin a new one.   All  checkpoint  entries
+will  be  written  out  as  session  entries.  In the case of multiple
+CSHIFTs or  SESSION  command  during  a  user's  LOGIN-LOGOUT  period,
+auxilliary checkpoint files will be kept to prevent redundant data.
+
+
+
+3.1.2  Common Data Descriptions - This section will define all  common
+data descriptions used in entries.
+
+
+
+3.1.2.1  Dates And Times - All dates will be of the form
+
+          YYYYMMDDHHMMSS
+
+which is the ANSI standard.  This format will be referred  to  as  the
+abbreviation (sf) in the entry record descriptions.
+
+
+
+3.1.2.2  Program Version Numbers - All program version numbers will be
+in the format of
+
+          nnnaa(nnnnnn)-n
+
+left-justified in compressed format.   For  example,  if  the  version
+number  data  field  occurs  in  columns 40-54, version 1(3)-1 will be
+positioned in columns 40-45 and the remaining columns, 46-54, will  be
+blank.
+                                                                Page 6
+
+
+3.1.2.3  Disposition Items - A   disposition   is    a    method    of
+communicating  what  happened  during  an  event  to  the  down-stream
+processing.  All disposition items will contain a six character  field
+provided  by  the  calling  program  indicating  what  happened.  A 39
+character field is provided for the calling program to relay a comment
+made  by  the system, operator, or user, specifying why the action was
+taken if the disposition was other than normal.
+
+
+
+3.1.3  Adding And Obsoleting Data Fields - The  following  rules  must
+hold  true  when  modifying  the  USAGE format to ensure that programs
+reading USAGE files will not be broken.
+
+     1.  An entry type is changed only if  data  fields  withing  that
+         entry are redefined.
+
+     2.  If a data item becomes obsolete, the record  revision  number
+         is  increased  by  one  and  the data field is filled in with
+         blanks.
+
+     3.  If a data item is added, the record revision number is  again
+         increased by one and the data field is appended to the end of
+         a record within the entry.   This  way  programs  which  were
+         written  to  process  USAGE files properly will just truncate
+         the record and continue.
+
+
+
+
+3.1.4  Overview Of The Active Job Checkpoint File - This    checkpoint
+file  called  USEJOB.BIN will be binary and will have one (1) block of
+disk space allocated to each possible job running on the system.  This
+checkpoint  file will be created by ACTDAE if one does not exist or if
+a  LOOKUP  fails.   Every  n  minutes  (a  parameter  of  ACTDAE)  the
+information  for  each active job slot of this checkpoint file will be
+updated by ACTDAE.
+
+On a monitor restart, the following steps will be done:
+
+     1.  The system comes up with account validation  turned  off  and
+         LOGINs  suppressed  until  the system PIDs have been created.
+         This ensures that the necessary system jobs, e.g., accounting
+         daemon (ACTDAE), DAEMON, QUASAR and ORION, are established.
+
+     2.  After the accounting PID has  been  created  by  ACTDAE,  the
+         system restart entry is appended to the USAGE file.
+
+     3.  If the checkpoint file exists, all non-zero entries  will  be
+         translated  to  ASCII  and appended to the USAGE file.  These
+         entries will have the same format as session entries but with
+         an  entry type code of 0003.  All non-zero device checkpoints
+         will be appended also;  the type codes will  not  change  for
+         these.
+                                                                Page 7
+
+
+     4.  Zeroes are moved to all blocks/pages of the checkpoint file.
+
+     5.  LOGINs and account validation is now allowed  if  the  system
+         status bit was set.
+
+Note that the jobs that are necessary for system  operation  will  not
+have their account, if given, validated.  So far this is the only hole
+in this accounting system with respect to  invalid  accounts.   It  is
+recommended  to  the  system  administrator  that  he double-check the
+accounts used by these jobs for validness.
+
+
+
+3.1.5  Overview Of Active Device Checkpoint File - This     checkpoint
+file  called USEDEV.BIN will be binary and will have one block of disk
+space allocated for the devices currently being used on  a  per  entry
+basis.   For  instance, if two jobs have a private pack mounted, three
+entries will eventually be appended to the  USAGE  file  --  one  disk
+spindle  usage  entry  and  two  file structure mount entries (one per
+job).  Multiple entries as just described will only occur for sharable
+access  devices.   For  single  access devices, only one entry will be
+made for each user mount/dismount command pair.
+
+As with the active job checkpoint file,  a  checkpoint  will  be  made
+every  n  minutes  (a  parameter  of ACTDAE) to update the appropriate
+data.  On a monitor restart, the same steps  will  be  done  for  this
+checkpoint file as with the active job checkpoint file.
+
+
+
+3.1.6  Entry Descriptions - All  data  is  ASCII  with   each   record
+terminated  by  a  carriage  return-line  feed.  Entry types from 0000
+through  5000  are  DEC-reserved  and  from  5001  through  9999   are
+customer-reserved.
+
+Each entry of the  file  has  two  logical  parts:   a  header  record
+followed by one or more data records.  The header record of each entry
+has the same format for all entries.  The subsequent data records vary
+among entry types.  The entries defined are:
+
+     1.  System restart entries
+
+     2.  Session entries
+
+     3.  Incomplete session entries
+
+     4.  USAGE file header entries
+
+     5.  Date/time change entries
+
+     6.  Batch processor entries (not available)
+
+     7.  Input spooler entries
+                                                                Page 8
+
+
+     8.  Output spooler entries
+
+     9.  Disk usage entries
+
+    10.  Spindle usage entries
+
+    11.  File structure mount entries
+
+    12.  Magtape mount entries
+
+    13.  DECtape mount entries
+
+    14.  DECtape file command entries
+
+A detailed description of the formats for each record are in  Appendix
+A.   Entries  are  discussed in the following sections.  Refer to each
+record description in Appendix A to find out what kinds  of  data  are
+recorded.
+
+
+
+3.1.6.1  System Restart Entry (Entry Type 0001) - A   system   restart
+entry  consists of an entry header record and a system restart record.
+This entry is written for every system  restart.   When  a  system  is
+restarted,  this entry is the first to be written.  Afterward, all the
+incomplete session entries are written from the checkpoint files.
+
+
+
+3.1.6.2  Session Entry (Entry Type 0002) - A session entry is  written
+whenever  a user logs out a job or types a successful SESSION command.
+This entry consists of an entry  header  record,  session  record  #1,
+session record #2, and a TOPS-10 user identification record.
+
+
+
+3.1.6.3  Incomplete Session Entry (Entry Type 0003) - Incomplete
+session  entries  are  written  only if the monitor has stopped and is
+being restarted again.  These entries have the same format as  session
+entries,  except the entry type is 0003 instead of 0002.  On a monitor
+restart, a system restart entry is made, then the checkpoint  file  is
+scanned  and  any job slots that have data in them are appended to the
+USAGE file.
+
+
+
+3.1.6.4  USAGE File Header Entry (Entry Type 0004) - The  USAGE   file
+header entry is always at the beginning of every USAGE file.  It gives
+system information where the file was made.  This entry consists of an
+entry header record followed by a USAGE file header entry record.
+                                                                Page 9
+
+
+3.1.6.5  Date/Time Change Entry (Entry Type 0005) - The      date/time
+change  entry  is  written  every  time  the system's date and time is
+changed by executing the SET DATE  or  SET  DAYTIME  commands.   These
+entries  consist  of  an  entry  header  record and a date/time change
+record.  The old date and time are recorded in  the  date/time  change
+record.  The new date and time are found in the date/time field in the
+entry header record.
+
+
+
+3.1.6.6  Batch Processor Entry (Entry Type 0006) - The batch processor
+entry  consists  of  an entry header record, a batch processor record,
+and a user identification record.  The date/time recorded in the entry
+header  record  is  the time the batch job was completed.  Note that a
+session entry was also made when  the  job  running  under  batch  was
+logged out.
+
+
+
+3.1.6.7  Input Spooler Entry (Entry Type 0007) - This  entry  consists
+of  an  entry  header  record,  an  input spooler record, and the user
+identification record.
+
+
+
+3.1.6.8  Output Spooler Entry (Entry Type 0008) - The  output  spooler
+entry  consists  of  an entry header record, an output spooler record,
+and a user identification record.   The  scheduled  date/time  of  the
+request  compared  with the date/time in the header record is the time
+an output device was busy and unavailable for other users.
+
+
+
+3.1.6.9  Disk Usage Entry (Entry Type 0009) - This  entry  enables  an
+installation  to keep track of permanent disk storage.  One disk usage
+entry is made for each non-empty UFD.  An entry consists of  an  entry
+record  header,  a disk usage directory record, and disk usage account
+string records.  There is one disk usage  account  string  record  for
+every  account  string  occurring  in  the  project-programmer  number
+specified in the disk usage directory record.  A count of  the  number
+of  account  string  records  is  included in the disk usage directory
+record.
+
+
+
+3.1.6.10  Device Mount Usage Entries - The device  mount  usage  entry
+records  applicable computer usage and connect time whenever a user is
+using a mountable peripheral device, such as magtape  drives,  DECTAPE
+drives,  and disk drives.  The first two are stand-alone entries.  The
+latter is a stand-alone entry in a sense, but is extended by the  disk
+spindle usage entries.
+                                                               Page 10
+
+
+3.1.6.10.1  Disk Spindle Usage Entry (Entry Type 0010) - The      disk
+spindle  usage  entry  gathers  data for analysis of disk drive usage.
+This entry consists of an entry header record and disk  spindle  usage
+records  (one  disk spindle usage record for each physical pack in the
+file structure).  Additionally, installations will have the ability to
+use  this  entry  in  conjunction  with  previous file structure mount
+entries to propagate another method of billing.   The  m  of  n  count
+tells which pack (and, therefore, which record) it is.
+
+
+
+3.1.6.10.2  File Structure Mount Entry (Entry Type 0011) - The    file
+structure  mount  entry  provides  data  whenever a user mounts a file
+structure.  It then is appended  to  the  USAGE  file  when  the  user
+dismounts or logs off.  This entry consists of an entry header record,
+a file structure mount record, and a user identification record.
+
+
+
+3.1.6.10.3  Magtape Mount Request Entry (Entry Type 0012) - This entry
+consists  of  an  entry header record, a magtape mount request record,
+and a user identification  record.   There  is  one  entry  for  every
+magtape mounted.
+
+
+
+3.1.6.10.4  DECTAPE Mount Request Entry (Entry Type 0013) - This entry
+for  TOPS-10  only  is  created  when  a  user mounts a DECTAPE.  File
+commands are recorded in the DECTAPE file command  entry.   A  DECTAPE
+mount  request  entry  consists  of  an entry record header, a DECTAPE
+mount request record, and a user identification record.  This entry is
+appended  to  the  USAGE file when the user dismounts the tape or logs
+off.
+
+
+
+3.1.6.10.5  DECTAPE File Command Entry (Entry Type 0014) - This  entry
+for TOPS-10 only is appended to the USAGE file for every file command.
+An entry consists of an entry header record, a  DECTAPE  file  command
+record, and a user identification record.
+
+
+
+3.1.7  Examples Of Usage Files - This section will  give  examples  of
+USAGE  files.   Dashes  denote  record boundaries;  equal signs denote
+entry boundaries.
+
+
+
+3.1.7.1  Example Of USAGE File On TOPS10 - This is a typical file with
+no system restarts occurring after the file has been created.
+
+!=====================================!
+!        Entry Header Record          !   Usage Header Entry
+!-------------------------------------!
+                                                               Page 11
+
+
+!        Usage Header Record          !     "       "     "
+!=====================================!
+!        Entry Header Record          !   Session Entry
+!-------------------------------------!
+!         Session Record #1           !      "      "
+!-------------------------------------!
+!         Session Record #2           !      "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !      "      "
+!=====================================!
+!        Entry Header Record          !   Session Entry
+!-------------------------------------!
+!         Session Record #1           !      "      "
+!-------------------------------------!
+!         Session Record #2           !      "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !      "      "
+!=====================================!
+!        Entry Header Record          !   Session Entry
+!-------------------------------------!
+!         Session Record #1           !      "      "
+!-------------------------------------!
+!         Session Record #2           !      "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !      "      "
+!=====================================!
+!         Entry Header Record         !   Output Spooler Entry
+!-------------------------------------!
+!        Output Spooler Record        !      "      "      "
+!-------------------------------------!
+!  User Identification Record TOPS10  !      "      "      "
+!=====================================!
+
+
+
+3.1.7.2  Example Of USAGE File With A Restart - This example is  shown
+with  TOPS10  entries.  The incomplete session entries in this example
+will have the same format as session entries.
+
+!=====================================!
+!        Entry Header Record          !   Usage Header Entry
+!-------------------------------------!
+!        Usage Header Record          !     "       "     "
+!=====================================!
+!        Entry Header Record          !   Session Entry
+!-------------------------------------!
+!         Session Record #1           !      "      "
+!-------------------------------------!
+!         Session Record #2           !      "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !      "      "
+!=====================================!
+!        Entry Header Record          !   Session Entry
+!-------------------------------------!
+!         Session Record #1           !      "      "
+                                                               Page 12
+
+
+!-------------------------------------!
+!         Session Record #2           !      "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !      "      "
+!=====================================!
+!        Entry Header Record          !   Session Entry
+!-------------------------------------!
+!         Session Record #1           !      "      "
+!-------------------------------------!
+!         Session Record #2           !      "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !      "      "
+!=====================================!
+!         Entry Header Record         !   Output Spooler Entry
+!-------------------------------------!
+!        Output Spooler Record        !      "      "      "
+!-------------------------------------!
+!  User Identification Record TOPS10  !      "      "      "
+!=====================================!
+* * * * * * C R A S H * * * * * * * * *
+!=====================================!
+!        Entry Header Record          !   System Restart Entry
+!-------------------------------------!
+!       System Restart Record         !     "       "     "
+!=====================================!
+!        Entry Header Record          !   Incomplete Session Entry
+!-------------------------------------!
+!         Session Record #1           !        "        "      "
+!-------------------------------------!
+!         Session Record #2           !        "        "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !        "        "      "
+!=====================================!
+!        Entry Header Record          !   Incomplete Session Entry
+!-------------------------------------!
+!         Session Record #1           !        "       "      "
+!-------------------------------------!
+!         Session Record #2           !        "       "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !        "       "      "
+!=====================================!
+!        Entry Header Record          !   Session Entry
+!-------------------------------------!
+!         Session Record #1           !      "      "
+!-------------------------------------!
+!         Session Record #2           !      "      "
+!-------------------------------------!
+! User Identification Record TOPS10   !      "      "
+!=====================================!
+                                                               Page 13
+
+
+3.2  System Administration And Operational Functional Changes
+
+3.2.1  TOPS10 Monitor 7.01 - There is a  MONGEN  question  which  will
+determine  the  maximum  length  allowed  for the account string.  The
+maximum possible is 39 characters, which is the default.
+
+
+
+3.2.2  Requiring An Account Or Remark From The User - The       system
+administrator can now force a user to type an account, remark, or both
+when the user logs in or types a SESSION command.  He can do  this  by
+having  his operator set the account (bit 25) and remark (bit 24) bits
+in the profile word of the user's entry in ACCT.SYS using  REACT.   If
+any  one of these bits is set, the user must enter something before he
+can proceed.
+
+
+
+3.2.3  ACT Ersatz Device - A   new   ersatz   device,   ACT,   project
+programmer  number  [1,7],  will  be  used to store various accounting
+files.  The USAGE file, account validation file, and checkpoint  files
+will be stored and updated here.
+
+
+
+3.2.4  Account Validation - In many shops the account a user has typed
+is  used  later,  in  a downstream process, to charge the user for the
+computer resources that he used during a session.  The most economical
+and  foolproof way of billing for computer usage is to ensure that the
+user typed a valid account BEFORE he used any computer resources.  The
+process  of  verifying  the  account  a  user  typed is called account
+validation.  (The difficulty with  account  validation  is  that  each
+customer will have a diverse accounting scheme.  Therefore, the format
+of PROJCT.SYS and the software doing validation  must  be  extensible;
+this is a difficult design and requires careful consideration.  During
+the design, project administration was not precluded;  however, we  do
+not  plan  to implement project administration during this development
+cycle.) The account a user types will be verified based on the account
+validation  system  states  bit  (ST%ACT  in CNSTS2) and a file called
+PROJCT.ACT.  
+
+
+
+3.2.4.1  Account Validation System States Bit - The account validation
+system  states bit is a bit set at MONGEN time.  If the bit is on, and
+a user has typed an account, the account will be verified.  If someone
+wants  to  take  the system stand alone without account validation, he
+can use the /NOVALIDATION switch to the STARTUP OPTION when he  brings
+the  monitor  up.  This will turn the account validation system states
+bit off suppressing account validation.
+
+If the account validation bit is set, validation  will  occur  if  the
+user  types  an  account  at  LOGIN  time  or  when he types a SESSION
+command;  validatiton will also occur when the user types an  /ACCOUNT
+switch to any QUEUE command.  If a QUEUE request has a parameter which
+                                                               Page 14
+
+
+will delay the servicing of  that  request  (e.g.,  AFTER:n),  account
+validation  must  be  done  twice.  Once at the time the user made the
+request and, again, at  the  time  the  request  is  serviced.   If  a
+validation  error  occurs  when  the  user  typed  the request, just a
+warning is given:
+
+          %ACVIVA Invalid account xxxxxx
+
+If a validation error occurs when the request is serviced, the request
+is cancelled with no USAGE entries begin made.
+
+The 7.01 control file examples of running MONGEN will be released with
+account validation turned on.
+
+
+
+3.2.4.2  Account Validation File, PROJCT.ACT - The account  validation
+file,   PROJCT.ACT,  will  be  created  and  modified  by  the  system
+administrator using a text editor.  After PROJCT.ACT is  created,  the
+program, PROJCT.EXE, must be run to convert the ASCII information into
+a mixed mode file called PROJCT.SYS.  (This file will be  designed  so
+that  programs  reading  the  file  will  go  faster than if they read
+PROJCT.ACT.)  PROJCT.SYS  will  reside  on  the  ersatz  device   ACT:
+(project-programmer number [1,7]).
+
+The format of PROJCT.ACT will be:
+
+[p,pn]/switctes=account1/switches,account2/switches,account3/switches
+
+Wildcarding will be supported using the characters ?  and *  with  the
+following definitions and restrictions:
+
+     1.  * matches any arbitrary string, including the null string
+
+     2.  ?  doesn't match a null;  therefore, for every question mark,
+         there must be a character.
+
+     3.  Restriction:  This  wildcarding  will  not  support  *'s   in
+         combination  with  numbers.   For  example,  [1,2*]  will  be
+         illegal.
+
+The project programmer entries in  PROJCT.ACT  must  be  in  ascending
+numerical order.  In the case of wildcarding, a ?  becomes a logical 7
+and a * becomes a logical 777777.  In  ascending  numerical  order,  a
+logical  7 occurs after a real 7.  Following is an example of hiearchy
+in PROJCT.ACT.
+
+          [10,10]=ABC
+          [10,2370]=DEF
+          [10,*]=GHI
+          [*,*]=JKL
+
+Note that the scheme used here makes it illegal for [10,10] to log  in
+using  account  JKL.   In  other words, if a ppn match is found and an
+account match is not found, an invalid account error message is  typed
+                                                               Page 15
+
+
+to the user -- scanning for another ppn match is not done.
+
+If the project programmer  entries  are  not  in  ascending  numerical
+order,   the  following  error  message  is  typed  when  the  program
+PROJCT.EXE is run:
+
+     SPECIFIED [P,PN] IS NOT IN ASCENDING [P,PN] SEQUENCE.
+
+Accounts can also be wildcarded.  In the following example,
+
+          [10,2162]=???ABC*
+
+all accounts typed with "ABC" beginning at character  position  4  and
+ending at character position 6 will be valid for [10,2162].  Note that
+if a "*" is used, the scan and compare of the  ASCIZ  account  strings
+will  stop;   this  implies  that  any  arbitrary number of characters
+(maximum is 39 total) typed after the "ABC" in the above example  will
+be considered valid.
+
+
+
+3.2.4.3  PROJCT.EXE - To run PROJCT.EXE, have PROJCT.ACT in your area,
+then type:
+
+          R PROJCT<CR>
+
+If there are no errors the message is typed:
+
+          END OF JOB
+          EXIT
+
+Other possible errors are:
+
+     NON-NUMERIC BYTE ENCOUNTERED IN [P,PN] FIELD.
+     [P,PN] FIELD TERMINATED BY CR!LF.
+     NON-OCTAL DIGIT ENCOUNTERED IN [P,PN] FIELD.
+     MULTIPLE COMMA'S ENCOUNTERED IN [P,PN] FIELD.
+     NULL PROJECT NUMBER ENCOUNTERED IN [P,PN] FIELD.
+     MULTIPLE EQUAL SIGNS ENCOUNTERED IN [P,PN] FIELD.
+     NULL PROGRAMMER NUMBER ENCOUNTERED IN [P,PN] FIELD.
+     LENGTH OF P!PN EXCEEDS 6 DIGITS.
+     MULTIPLE ['S ENCOUNTERED IN [P,PN] FIELD.
+     MULTIPLE ]'S ENCOUNTERED IN [P,PN] FIELD.
+     NULL ACCOUNT STRING ENCOUNTERED IN A.S. FIELD.
+     SPECIFIED [P,PN] IS NOT IN ASCENDING [P,PN] SEQUENCE.
+     [P,PN] ENTRY EXCEEDS BUFFER SIZE. ENTRY DELETED.
+     NULL /SWTCH. FIELD ENCOUNTERED IN A.S. FIELD.
+     ACCOUNT FIELD LENGTH EXCEEDS 39 CHARACTERS.
+     EQUAL (=) SIGN MISSING FROM ACCOUNT STRING FIELD.
+     ILLEGAL WILD-CARD SYNTAX IN [P,PN] FIELD.
+     WILD-CARD CHARACTERS  * AND ?  EQUAL ZERO.
+                                                               Page 16
+
+
+3.2.5  CSHIFT Command - In some cases, system administrators will want
+to  encourage  system  usage during non-prime hours so the system load
+can be spread over all  hours.   To  encourage  this,  users  may  get
+charged  less  after  17:00 than between the hours of 08:00 and 17:00.
+This is called charging by  shift.   A  mechanism  to  do  this  shift
+charging is provided via a command called CSHIFT.
+
+At the given date and time the accounting daemon, ACTDAE, will  "close
+out"  the  USAGE  file  that  is currently open and being appended to.
+Before the file is closed, all checkpoint files will be examined.   If
+there are any job slots in use, ACTDAE will do a checkpoint to get the
+information up-to-date, make a USAGE  entry,  and  then  remember  the
+accumulated data in case of another CSHIFT or SESSION event.
+
+The format of the CSHIFT command is:
+
+          CSHIFT day-of-week hh:mm:ss
+
+For example, the command 'CSHIFT SUNDAY 12:00' will  cause  ACTDAE  to
+close the current USAGE file on Sunday at noon.
+
+It has been suggested at Spring, 1978 DECUS to  have  a  command  file
+that  ACTDAE  can  read.   This file, CSHIFT.ACT, will reside on ACT:.
+The format will be as above with one CSHIFT entry per line.  This file
+will  be  read when ACTDAE first begins to run and will be part of its
+initialization procedure.  It will not read the file whenever the file
+changes.
+
+The CSHIFT command should be used before a USAGE file  is  copied  for
+processing.  This closes out the file, gives it a unique filename, and
+prevents redundant data.
+
+
+
+3.2.6  USAGE And FACT Files - USAGE  and  FACT  files  will  be   made
+simultaneously  with  release  7.01 for those customers who wish to do
+so.  The FACT files will not change in any way and will be created  in
+SYS:  as they are now.  The other option will be to produce only USAGE
+files.  A patch for DAEMON will be provided in the beware file to turn
+off FACT files.
+
+The USAGE files will be created by the ACTDAE  in  the  ersatz  device
+ACT:.    The  USAGE  file  currently  being  updated  will  be  called
+USAGE.OUT.   The  USAGE  file  format  is  discussed  in   the   USAGE
+specification section.
+
+FACT files will not be supported six months after the release of 7.01.
+                                                               Page 17
+
+
+3.2.7  BACKUP - There will be a new switch called  /USAGE  which  will
+make  disk  usage  entries  in  the  USAGE  file  based on account per
+directory.  See the USAGE file section for a description of the entry.
+This  switch  can  be  used  in conjunction with the /SAVE switch when
+doing a system-wide BACKUP.  After the entry for a directory is  made,
+the  current  date  and time is written into the "last accounting date
+and time" word of the UFD.  This date and  time  will  appear  in  the
+USAGE  entry  the next time the /USAGE switch is typed.  This date and
+time can be used to give a time interval for charging  permanent  disk
+storage.
+
+
+
+3.3  User Or Terminal Operator Functional Changes
+
+3.3.1  LOGIN Procedure - Two additional prompts will be added  to  the
+LOGIN  procedure.   One will ask for an account and the other will ask
+for a user remark.  The user remark is simply a comment  typed  in  by
+the  user  to describe what flavor of work he is doing on a particular
+project, e.g., debuggging,  inserting  code,  etc.   When  a  carriage
+return  is typed to the remark prompt, spaces will be the default.  If
+a control character is typed in  response  to  the  remark  prompt,  a
+backslash (\) will replace the character.  If the remark typed is more
+than 39 characters in length, the first 39 characters will be recorded
+in the USAGE file.
+
+An example of the LOGIN dialogue is:
+
+          LOG 10/2162
+          JOB 31    RZ3A7A KL10 SYS#1026  TTY0
+          PASSWORD:
+          ACCOUNT: FOO
+          REMARK: BAR
+          1003    20-JUL-78       THUR
+          
+          .
+
+The LOGIN error messages are:
+
+          ?LGNATL Account xxxxxx too long
+          ?LGNICA Illegal character in account
+          ?LGNNAS No account specified
+
+If account validation is in effect, the  following  validation  errors
+may occur.
+
+     ?ACVNCA No channels available
+     ?ACVNED Nonexistent ersatz device ACT:
+     ?ACVFRE FILOP. error (n)
+     ?ACVNDP No data in PROJCT.SYS
+     ?ACVEOF Unexpected end of file
+     ?ACVIOE I/O error (n) reading PROJCT.SYS
+     ?ACVFUE FILOP. USETI function error (n)
+     ?ACVPVS PROJCT.SYS version skew -- Currently is xxxx but should be yyyyy
+     ?ACVWEH Cannot write-enable the high segment
+                                                               Page 18
+
+
+     ?ACVGHS Cannot get core in high segment
+     ?ACVGLS Cannot get core in low segment
+     ?ACVCRT Cannot read table
+     ?ACVWLH Cannot write-lock the high segment
+     ?ACVNPP Nonexistent project-programmer number [xxxxxx,yyyyyy]
+     ?ACVIVA Invalid account yyyyyy
+
+
+
+3.3.2  ACCOUNT Command - This monitor command will report to the  user
+what account he is logged in under (via a LOGIN or a SESSION command).
+The format of this monitor command is:
+
+          .ACCOUNT<CRLF>
+
+After the <CRLF> is typed the monitor will type the account  the  user
+is logged in under.  If he does not have any account, a <CRLF> will be
+typed;  this is called a null account.
+
+
+
+3.3.3  SESSION Command - This command allows the user  to  change  the
+billing  profile  of  his  job.   There  currently  are two arguments,
+/ACCOUNT and /REMARK.  The format of the command is:
+
+          .SESSION /ACCOUNT:arg, /REMARK:arg
+
+If a <CR> is typed, the user will be prompted as if he was logging in.
+See  the "LOGIN procedure" for error messages.  This command will have
+the same effect as  if  the  user  logged  off  and  logged  back  in;
+however,  he  will keep the same profile of his job and any devices he
+currently owns.
+
+
+
+3.3.4  QUEUE Commands - A user will be able to type /ACCOUNT  switches
+to  all  QUEUE commands.  If necessary, the account he types will then
+be validated.  This valid account will then be entered  in  the  USAGE
+entry  it is associated with.  In the case of a SUBMIT command, a user
+will also be able to type a /REMARK switch which will  be  entered  in
+the session entry produced by the subsequent batch job.
+
+
+
+3.3.5  DIRECT - There will be a new switch in  DIRECT.   The  /ACCOUNT
+switch  will  type  out  the file and the account associated with that
+file.  The account is stored in the RIB with the account the  user  is
+logged  in  under  whenever the file is created or superseded.  In all
+cases, the account stored in the RIB  will  be  left-justified  padded
+with spaces.  The format is shown in the following examples.
+
+.DIRECT/ACCOUNT
+
+FOO     1       0  <055>   24-Jul-78    THIS IS AN ACCOUNT STRING       DSKC:   [10,2162]
+FOO     2       0  <055>   24-Jul-78    THIS IS AN ACCOUNT STRING
+                                                               Page 19
+
+
+FOO     3       0  <055>   24-Jul-78    THIS IS AN ACCOUNT STRING
+FOO     4       0  <055>   24-Jul-78    THIS IS AN ACCOUNT STRING
+  Total of 0 blocks in 4 files on DSKC: [10,2162]
+
+.DIRECT/SORT/ACCOUNT
+
+FOO     1       0  <055>    19780724                    THIS IS AN ACCOUNT STRING
+FOO     2       0  <055>    19780724                    THIS IS AN ACCOUNT STRING
+FOO     3       0  <055>    19780724                    THIS IS AN ACCOUNT STRING
+FOO     4       0  <055>    19780724                    THIS IS AN ACCOUNT STRING
+  Total of 0 blocks in 4 files on DSKC: [10,2162]
+
+.DIRECT FOO.1/DETAIL
+
+DSKC0:FOO.1[10,2162]
+Access date: 24-Jul-78
+Creation time, date: 10:35 24-Jul-78
+Access protection: 055
+Mode: 0
+Blocks allocated: 10.
+Written on: Unit(s) 0 on controller 1 on CPU 1026
+Data block in directory: 439150.
+Internal creation date,time: 24-Jul-78 10:35:30
+RIB block number: 133030.
+ACCOUNT: THIS IS AN ACCOUNT STRING
+  Total of 0 blocks in 1 file on DSKC: [10,2162]
+
+In addition the /DETAIL switch will report  the  expiration  date  and
+time and the last accounting date and time of the UFD.  The format is:
+
+.DIRECT [16,2162].UFD/DETAIL
+
+DSKB0:16,2162.UFD[1,1]
+Access date: 25-Jun-76
+Creation time, date:  5:16 25-Jun-76
+Access protection: 775
+Mode: 0
+Words written: 128.
+Blocks allocated: 5.
+Written on: Unit(s) 4 on controller 0 on CPU 514
+Logged in quota: 3000.
+Logged out quota: 2500.
+Blocks used: 585.
+Data block in directory: 1125.
+Internal creation date,time: 11-Jun-76  2:54:20
+Last accounting date,time: 30-Jun-76  18:45:29
+Directory expiration date,time: 11-Jan-96  0:30:00
+RIB block number: 69765.
+
+  Total of 1 block in 1 file on DSKB: [1,1]
+                                                               Page 20
+
+
+4.0  ISSUES TO BE RESOLVED.
+
+     1.  Do we ship this software with FACT files turned on or off.
+
+
+
+
+5.0  COMPATIBILITY
+
+The software distributed will support the FACT  file  format  for  six
+months after 7.01 release.
+
+
+
+6.0  EXTERNAL INTERACTIONS AND IMPACT
+
+See section 3.0 through 3.4.
+
+
+
+7.0  RELIABILITY/AVAILABILITY/SERVICEABILITY
+
+8.0  PACKAGING AND SYSTEM GENERATION
+
+9.0  DOCUMENTATION
+
+10.0  REFERENCES
+
+
+     1.  USAGE File Specification #100-012-001-00
+
+     2.  CRUDG Project Plan #100-012-002-00
+
+     3.  DECSYSTEM-10 Spring '75 Minutes, Accounting Session Memo
+                                                               Page 21
+
+
+                               GLOSSARY
+
+
+
+Account is a string  of  ASCII  characters  (48  octal  to  175  octal
+     inclusive)  that  can  be used by the installation for downstream
+     billing, reporting, charging, etc.  The string can be  broken  up
+     into  small data fields or be used as one field, depending on the
+     needs of the installation.
+
+Accounting daemon  -  A  program,  called  ACTDAE,  that  handles  all
+     accounting   functions,  namely,  account  validation,  appending
+     accounting data to the USAGE file, checkpointing, etc.
+
+Account validation is  the  process  that  ensures  that  any  account
+     recorded  with any billable event will be accurate.  This process
+     needs to happen before any computer access or events take place.
+
+Billing profile of a user is used by downstream  billing  programs  to
+     charge   and   summarize  computer  usage.   Two  mechanisms  are
+     currently provided:  the account and the remark.
+
+Calling program is one that sends an IPCF message to ACTDAE to make  a
+     USAGE file entry.
+
+Disposition and comment - The contents of the disposition  data  field
+     (6  characters)  will be some specified text to report success or
+     failure of a particular task (e.g, printing).   The  contents  of
+     the  comment  data field (39 characters) will be a string of text
+     provided by the user, system, or operator.
+
+Entry - A USAGE file entry is made up of two or  more  records.   Each
+     entry is self-contained and therefore easily billable.
+
+FACT is the name of the file containing accounting data with  the  old
+     format.
+
+CSHIFT will be a new operator command to conveniently  close  out  the
+     current USAGE file and begin a new one.  System action taken as a
+     result of this command will be invisible to the users.
+
+Record is a basic unit of an entry.  A record consists of a string  of
+     ASCII characters terminated with a carriage return-line feed.
+
+Record revision number is a version number of the record.  This number
+     will  be increased by one every time the record is changed in any
+     way, i.e., data fields are obsoleted or appended to the record.
+
+Remark is a  mechanism  with  which  the  user  can  communicate  with
+     downstream  billing  programs and reports at the time the user is
+     utilizing the computer.  For instance, he  can  record  the  fact
+     that he is debugging at a given session or that he is documenting
+     for a project.
+
+Session - In this document the definition of a session  is  the  time,
+                                                               Page 22
+
+
+     usage,  and  events being recorded in a session entry.  A session
+     entry can begin on a LOGIN, SESSION command or CSHIFT command and
+     terminate  with  a  logout,  SESSION command, CSHIFT command or a
+     monitor stop.
+
+SESSION command will be a new user command that will allow an  account
+     string or user remark (see DECUS memo by S.  Strickler) to change
+     while the user is still logged in.  This implies that  a  session
+     entry will be written out and a new session begun.
+
+USAGE is the filename of the file containing data of  the  new  format
+     described in this document.

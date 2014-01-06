@@ -1,0 +1,579 @@
+
+
+
+           Bliss-36 Release 2.1 For TOPS-20: Release Notes
+                             16-Feb-1981
+
+
+
+
+
+1.0  INTRODUCTION
+
+This document provides information pertaining to Bliss-36 Version 2.1.
+
+     It contains the following sections:
+
+      o  Introduction
+
+      o  New Features
+
+      o  Restrictions
+
+      o  Known Bugs
+
+      o  For Further Help
+
+      o  Components
+
+
+
+
+2.0  NEW FEATURES
+
+     A number of changes have been made in the BLISS-36 language since
+the release of V2.  These changes are documented here.
+
+
+
+2.1  Attributes On Formal Parameters
+
+The  syntax  of  the  routine-declaration  is   extended   to   permit
+attribute-lists  in  the routine-formal list.  The syntax change is as
+follows:
+
+-----------------------------------------------------------------------
+
+formal-item             formal-name { : formal-attribute-lst }
+                                    { nothing                }
+
+-----------------------------------------------------------------------
+
+formal-name             name
+
+-----------------------------------------------------------------------
+
+formal-attribute-lst    map-decl-attribute
+
+-----------------------------------------------------------------------
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                 Page 2
+
+
+2.2  Output Parameters
+
+Output parameters permit a routine to efficiently return results which
+are  larger  than  a  Bliss-value.   For  example  a  double-precision
+floating point value can be returned in AC1 and AC2.   Similarly,  the
+register   contents   after  executing  a  JSYS  can  be  obtained  by
+referencing the output parameters.
+
+There are three places where output parameter information can  appear.
+These are
+
+      o  LINKAGE declaration
+
+      o  ROUTINE declaration
+
+      o  routine-call expression
+
+An abridged description of each follows.
+
+
+
+2.2.1  LINKAGE Declaration Changes
+
+-----------------------------------------------------------------------
+
+linkage-declaration     LINKAGE linkage-definition ,... ;
+
+-----------------------------------------------------------------------
+
+linkage-definition      linkage-name = linkage-type
+
+                        {({input-parm-loc,...}{;output-parm-loc,...})}
+                        { {    nothing       }{     nothing        } }
+                        {                nothing                     }
+
+                            { : linkage-option ...        }
+                            { nothing                     }
+
+-----------------------------------------------------------------------
+
+linkage-type            { PUSHJ | JSYS }
+
+-----------------------------------------------------------------------
+
+                        { REGISTER = register-number  }
+                        { STACK                       }
+input-parm-loc          { nothing                     }
+
+-----------------------------------------------------------------------
+
+output-parm-loc         { REGISTER = register-number  }
+
+-----------------------------------------------------------------------
+
+In effect, the only real change is  that  output  parameter  locations
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                 Page 3
+
+
+follow  the input parameter locations and are separated from the input
+parameters by a semicolon (";").
+
+A register may be both an input-parm-loc and an output-parm-loc.                          input-parm-loc        output-parm-loc
+
+The registers referenced by output-parm-loc are implicitly NOPRESERVE,                            output-parm-loc
+and  cannot  appear in PRESERVE or GLOBAL linkage modifiers.  They may
+appear in a NOPRESERVE linkage-modifier, but it isn't necessary.
+
+Only PUSHJ and JSYS linkage-types may have output parameter  locations
+specified.   The  F10  linkage-type  may  not specify output parameter
+locations.
+
+     Semantics.  Each output-parm-loc specifies that a result from the                      output-parm-loc     _________              
+         evaluation  of  the  routine-body  will  be  returned in that
+         particular register.
+
+
+
+2.2.2  Routine Declaration Changes
+
+-----------------------------------------------------------------------
+
+routine-decl    dcl-class routine-name
+                                { ( {in-fml,...} { ; out-fml,...} ) }
+                                {   { nothing  } { nothing      }   }
+                                { nothing                           }
+
+                    : routine-attrib = routine-body
+
+-----------------------------------------------------------------------
+
+dcl-class       { BIND    }     { GLOBAL  }  ROUTINE
+                { nothing }     { nothing }
+
+-----------------------------------------------------------------------
+
+in-fml          formal-item
+out-fml
+
+-----------------------------------------------------------------------
+
+It is illegal to specify out-fml parameters in a  routine  declaration                         out-fml
+whose corresponding linkage doesn't define output-parm-loc registers.                                           output-parm-loc
+
+The number of out-fml parameters in the routine  declaration  must  be              out-fml
+less than or equal to the number of output-parm-loc's specified in the                                    output-parm-loc
+linkage declaration.
+
+The value of an out-fml is undefined until  it  is  assigned  a  value                out-fml
+within the routine-body.
+
+     Semantics.   The  out-fml  parameters  are  treated  like   LOCAL                       out-fml     _________              
+         declarations.  When the routine returns, the contents of each
+         out-fml data-segment is moved to the  register  specified  in         out-fml
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                 Page 4
+
+
+         the linkage declaration associated with this routine.
+
+
+
+2.2.3  Routine-call Changes
+
+-----------------------------------------------------------------------
+
+ord-rtn-call    rtn-addr ( { input-actual,...}{ ; output-actual,...} )
+                           { nothing         }{ nothing            }
+
+-----------------------------------------------------------------------
+
+gen-rtn-call    linkage-name ( rtn-addr
+                        { { ,input-actual,...}{ ;output-actual,...} } )
+                        { {  nothing         }{  nothing          } }
+                        { nothing                                   }
+
+-----------------------------------------------------------------------
+
+rtn-addr                expression
+
+-----------------------------------------------------------------------
+
+input-actual            { expression }
+                        { nothing    }
+
+-----------------------------------------------------------------------
+
+output-actual           { field-reference }
+                        {   nothing      }
+
+-----------------------------------------------------------------------
+
+Expressions used as output-actuals may be undotted register-names  and                    output-actuals
+may be qualified by position, size and sign-extension information.
+
+output-actual parameters must not be specified when the  correspondingoutput-actual
+linkage doesn't define output-parm-loc registers.                       output-parm-loc
+
+The number of output-actual parameters must be less than or  equal  to              output-actual
+the number of out-fml's specified in the routine declaration.              out-fml
+
+     Semantics.  The output-actual expressions are associated with the                     output-actual     _________              
+         output-parm-loc    registers   specified   by   the   LINKAGE         output-parm-loc
+         declaration.  After the routine returns, the contents of each
+         output-parm-loc  register  is  assigned  to the output-actual         output-parm-loc                                 output-actual
+         field-reference.  i.e., an output-actual is treated like  the                                    output-actual
+         left  hand  side  of  an  assignment  expression.  The output
+         parameters are evaluated after the routine  call.   If  fewer
+         output-actual  expressions are present than were specified by         output-actual
+         the LINKAGE,  the  remaining  output-parm-loc  registers  are                                       output-parm-loc
+         treated  as  if  they  were  NOPRESERVE.  If an empty element
+         appears in the list (identified by a "null-expression"), that
+         will   be   treated   as   a   "place-holder"   when  binding
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                 Page 5
+
+
+         output-actuals to the appropriate output-parm-loc register.         output-actual                     output-parm-loc
+
+
+
+2.2.4  Example
+
+
+    LINKAGE
+        !+
+        ! Define linkage with double-precision result in AC1 and AC2
+        ! Notice that it accepts an arbitrary number of inputs
+        ! in STANDARD locations { i.e. the "STACK" }
+        !-
+        dbl_prec = PUSHJ( ; REGISTER=1, REGISTER=2):
+                        LINKAGE_REGS(15,13,1)
+                        NOPRESERVE(2,3,4,5)
+                        PRESERVE(0,6,7,8,9,10,11,12,14);
+
+    EXTERNAL ROUTINE
+        !+
+        ! Since we are treating AC1 as an output-parameter location,
+        ! the routine will be NOVALUE.
+        !-
+        mth$dsin:    NOVALUE dbl_prec;  ! Gives Double SIN from
+                                        !  Single input
+    OWN
+        sinx:        VECTOR[2];     ! Result location
+
+    BIND
+        pi = UPLIT( %E'3.14159' );      ! Irrational choice
+                                !  (actually Transcendental)
+    ....
+
+    mth$dsin( pi ; sinx[0], sinx[1] ); ! Double precision result
+                                       !  in sinx:sinx+1
+    ....
+    mth$dsin( pi ; , sinx[0] ); ! Truncated result in
+                                !  sinx. LSBs in AC1 are
+                                !  discarded
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                 Page 6
+
+
+2.3  JSYS Linkages
+
+JSYS is a Bliss-36 specific linkage-type.  This linkage is provided to
+take  advantage  of  the  existence of output-register parameters.  It
+makes calling TOPS-20 JSYS's from Bliss-36 much easier than using  the
+already  existing JSYS BUILTIN function, avoiding the present problems
+where registers must be explicitly declared at every call.
+
+
+
+2.3.1  Syntax
+
+---------------------------------------------------------------------
+
+jsys-linkage    LINKAGE lnkg-name = JSYS
+                  { ( { input-parm-loc,...}{ ; output-parm-loc } ) }
+                  {   { nothing           }{ nothing           }   }
+                  { nothing                                        }
+
+                        : SKIP ( skipval ) { other-lnkg-attribs }
+
+---------------------------------------------------------------------
+
+input-parm-loc
+output-parm-loc         REGISTER = jsys-regno
+
+---------------------------------------------------------------------
+
+jsys-regno              1 | 2 | 3 | 4
+
+---------------------------------------------------------------------
+
+skipval                 -1 | 0 | 1 | 2
+
+---------------------------------------------------------------------
+
+Registers in the JSYS linkage sre restricted to the physical registers
+AC1 through AC4.
+
+Any register used as a parameter is implicitly NOPRESERVE.
+
+The SKIP linkage modifier is used to describe how  the  JSYS  returns.
+The values and meanings are:
+
+    -1  The instruction after the JSYS will be an ERJMP.  The value of
+        the call is 0 if an error occurs, otherwise it is 1.
+
+    0   Control always returns to the next instruction.  The value  of
+        the function is 0.
+
+    1   Control returns to  the  calling  location  plus  one  or  the
+        calling  location plus two.  The value of the function is 0 if
+        no skip, 1 if the skip is taken.
+
+    2   As for 1, except that control may also return to  the  calling
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                 Page 7
+
+
+        location  plus three.  In this case, the value of the function
+        is 2.
+
+
+
+2.3.2  Example
+
+The SIN JSYS reads a string from a specified source into the  caller's
+address  space.  Parameters are passed in using AC1-AC4.  The value in
+AC4 is used to define a terminator byte.  This value  is  only  needed
+when the contents of AC3 is greater than zero.
+
+LINKAGE
+    sin_lnkg = JSYS(REGISTER=1, REGISTER=2, REGISTER=3, REGISTER=4;
+                    REGISTER=1, REGISTER=2, REGISTER=3 ) : SKIP(-1);
+
+BIND ROUTINE
+    sin = %O '52' : sin_lnkg;
+
+OWN
+    buffr:      VECTOR[CH$ALLOCATION(80)];
+
+LOCAL
+    jfn,        ! Input stream handle
+    cnt,        ! Count of characters read
+    ptr;        ! Pointer to "tail" of string read
+
+.....
+
+IF NOT sin( .jfn, CH$PTR(buffr), -80 ; jfn, ptr, cnt )
+THEN
+    .......             ! Error code
+
+!+
+! jfn   - updated (may have been byte-ptr, not "file")
+! ptr   - is at the last byte read
+! cnt   - number of characters actually transferred on read
+!-
+
+IF NOT sin( .jfn, .ptr, 20, %C'.'; jfn, , cnt )
+THEN
+    .......             ! Error code
+
+!+
+! This time, the string-read will be terminated if a "." is seen.
+! The value in "ptr" is not updated after the call.
+!-
+
+
+The interesting fact about this example is that the  compiler  may  be
+able  to  keep  the local data-segments "jfn", "ptr" and "cnt" in AC1,
+AC2 and AC3 respectively.  If it cannot, it  will  automatically  move
+the values returned from the JSYS-call to the data-segments.
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                 Page 8
+
+
+2.4  LIBRARY Declaration In LIBRARY Precompilation
+
+LIBRARY declarations are now permitted in  a  library  precompilation.
+This permits the use of data-structuring packages such as XPORT In the
+construction of a "library" and also  within  the  individual  modules
+which refer to that library.
+
+
+
+2.4.1  Semantics
+
+All symbols loaded from the LIBRARY declared during precompilation are
+ephemeral.   That is, they will be implicitly UNDECLARED at the end of
+library compilation.  This avoids any compilation error messages about
+names being declared in two libraries.
+
+If it is necessary to "keep" the symbols from the declared LIBRARY, it
+should be referenced as a REQUIRE using its source file.
+
+
+
+2.4.2  Example
+
+Assume that you are building a library COMLIB containing  the  set  of
+common  data structures for a project.  These data structures will use
+XPORT's $FIELD macros.  In addition, the project will use XPORT's  i/o
+package.  Thus, COMLIB.REQ contains lines of the form....
+
+        LIBRARY 'BLI:XPORT';
+        ....
+        $FIELD
+            LINKED_LIST=
+                SET
+                NEXT=   [$ADDRESS],
+                LAST=   [$ADDRESS],
+                VALU=   [$INTEGER]
+                TES;
+        ....
+
+When COMLIB.REQ is precompiled into  a  library,  the  definitions  of
+$FIELD,  $ADDRESS  and $INTEGER are loaded from the XPORT library.  At
+the end of the precompilation, these definitions are deleted.
+
+When compiling a module which will use XPORT i/o, it can contain lines
+of the form
+
+        LIBRARY 'BLI:XPORT';
+        LIBRARY 'COMLIB';
+
+        .....
+
+It is important to notice that if the  COMLIB  library  had  contained
+declarations of the form
+
+        MACRO   DOLLAR_FIELD = $FIELD %;
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                 Page 9
+
+
+
+that the MACRO declaration doesn't  expand  its  body  at  declaration
+time.  Thus $FIELD would be unbound.  If a source module which did not
+have a declaration of the library XPORT  referenced  the  DOLLAR_FIELD
+macro,  the  $FIELD  would  be  treated  as  an  undefined name!  This
+difficulty can be circumvented through the  judicious  application  of
+the %EXPAND lexical function.
+
+
+
+2.5  Diagnostic Messages
+
+This section lists  new  compiler  informational,  warning  and  error
+messages which have been added since V2.0
+
+
+
+2.5.1  Output Formal Parameter Not Described In LINKAGE
+
+See Section 2.2 of these release notes for the description  of  output
+register parameters.
+
+
+
+2.5.2  Output Actual Parameter Was Not Described In Linkage
+
+See Section 2.2 of these release notes for the description  of  output
+register parameters.
+
+
+
+3.0  RESTRICTIONS
+
+If Bliss-36 Version 2.1 is used to compile  a  library,  that  library
+cannot  be  used with a V2.0 compiler.  The new release can handle any
+library compiled by  a  V2.0  compiler.   We  recommend  that  you  do
+recompile all library files with the latest release.  We apologize for
+any inconvenience caused by this change.
+
+
+
+4.0  KNOWN BUGS
+
+
+5.0  FOR FURTHER HELP
+
+     A number of sources of additional help are available.
+
+      o  For information on command interface -- "HLP:BLISS.HLP"  Just
+         type "HELP BLISS" to the monitor.
+
+      o  Further  information  on   command   interface   --   command
+         completion I.e.  use ?  during command type-in.
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                Page 10
+
+
+      o  Language information -- "BLISS  Language  Guide":   Documents
+         the  BLISS  language.   The  second  edition, which documents
+         version  2  of  BLISS  is  available  as  SDC  order   number
+         AA-H275B-TK.
+
+      o  Compiler information -- "BLISS-36 User's  Guide":   Describes
+         use  of  the  BLISS-36  compiler,  some  available tools, and
+         machine  specific  features.   The  second   edition,   which
+         documents  version  2  of  BLISS-36 is available as SDC order
+         number AA-H712B-TK.
+
+      o  Syntax summary -- "BLISS Pocket  Guide":   Available  as  SDC
+         order number AV-H289B-TK.
+
+      o  BLISS course -- A course in the BLISS programming language is
+         available  from  DEC.  Your system manager may obtain further
+         information  by  contacting  DEC  Educational   Services   at
+         (617) 275-5000 ext. 2675.
+
+      o  BLISS-36 debugger (SIX12):  "HLP:SIX12.HLP":  Just type "HELP
+         SIX12" to the monitor.
+
+      o  BLISS pretty-print  utility:   "HLP:PRETTY.HLP":   Just  type
+         "HELP PRETTY" to the monitor.
+
+      o  BLISS cross-reference utility:  "HLP:BLSCRF.HLP":  Just  type
+         "HELP BLSCRF" to the monitor.
+
+      o  Simple  terminal  I/O:   "HLP:TUTIO.HLP":   Just  type  "HELP
+         TUTIO" to the EXEC.
+
+      o  Conversion   of   BLISS-10   programs    to    BLISS-36    --
+         "HLP:CVT10.HLP":   Just  type  "HELP CVT10" to the EXEC.  For
+         greater detail see the file "DOC:CVT10.DOC".
+
+      o  Monitor interfaces -- "DOC:MONINT.DOC".
+
+      o  Examining ".REL" files -- "HLP:DMPREL.HLP":  Just type  "HELP
+         DMPREL" to the EXEC.
+
+      o  Anything else -- contact your system manager.
+
+
+
+
+6.0  COMPONENTS
+
+     Below is a list of the major components of the  BLISS-36  system.
+Full  support  is  available  only for the BLISS compiler itself.  The
+other components are unsupported but will be maintained to the  extent
+our resources allow.
+
+      o  BLISS -- The BLISS-36 compiler itself.
+Bliss-36 Release 2.1 For TOPS-20: Release Notes                Page 11
+
+
+      o  PRETTY -- An automatic formatting program  for  BLISS  source
+         code.
+
+      o  BLSCRF and CONDEN --  A  cross-reference  listing  generating
+         system for BLISS source code.
+
+      o  EZIO and TUTIO -- I/O utilities for BLISS-36.
+
+      o  Monitor Interfaces -- definitions necessary  for  interfacing
+         with the TOPS-10 and TOPS-20 monitors.
+
+      o  CVT10 -- BLISS-10 to BLISS-36 conversion program.
+
+      o  SIX12 -- High level debugger for BLISS-36.
+
+      o  XPORT -- Transportable BLISS programming tools
+
+    

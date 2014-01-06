@@ -1,0 +1,212 @@
+NEBULA.DOC -- DECsystem-10 Network Queue Controller             Page 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (c) 1986
+DIGITAL EQUIPMENT CORPORATION
+ 
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY  BE  USED
+AND COPIED ONLY IN ACCORDANCE WITH THE TERMS OF SUCH LICENSE
+AND WITH THE INCLUSION OF THE ABOVE COPYRIGHT NOTICE.   THIS
+SOFTWARE  OR ANY OTHER COPIES THEREOF MAY NOT BE PROVIDED OR
+OTHERWISE MADE AVAILABLE TO ANY OTHER PERSON.  NO  TITLE  TO
+AND OWNERSHIP OF THE SOFTWARE IS HEREBY TRANSFERRED.
+ 
+THE INFORMATION  IN  THIS  SOFTWARE  IS  SUBJECT  TO  CHANGE
+WITHOUT  NOTICE  AND SHOULD NOT BE CONSTRUED AS A COMMITMENT
+BY DIGITAL EQUIPMENT CORPORATION.
+ 
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR RELIABILITY
+OF  ITS  SOFTWARE  ON  EQUIPMENT  WHICH  IS  NOT SUPPLIED BY
+DIGITAL.
+NEBULA.DOC -- DECsystem-10 Network Queue Controller             Page 2
+
+
+1.0  SUMMARY
+
+NEBULA,  the  Network  Queue  Controller,  is  being  released  as  an
+unsupported  tool  with GALAXY-10 on Autopatch tape 14.  NEBULA is the
+interface to the  unsupported  Distributed  Queueing  System  software
+available  from  Large  Systems  Marketing for use on VMS systems.  It
+provides a means for queueing output requests  to  a  VMS  system  for
+processing  on  that  system  (e.g., printing a file on a high quality
+printer physically connected to the VMS system).
+
+
+
+2.0  INSTALLATION INSTRUCTIONS
+
+Support in GALAXY-10 for the Distributed Queueing System is  contained
+within  the  FTDQS  assembly  conditional.  The distributed setting of
+this conditional excludes  commands  in  OPR  and  switches  in  QUEUE
+related  to  DQS.   To  assemble  a  version  of  GALAXY including DQS
+support,  you  must  answer  "YES"  to  the  GALGEN   question   about
+site-specific parameters, and include the following line:
+
+        XP      FTDQS,-1        ;Include DQS support
+
+An  extra  carriage  return  is required after this response.  If your
+site uses the distributed GALAXY.CTL file to build  GALAXY,  you  will
+have  to  edit  the  control  file  to  make  this change, then submit
+GALAXY.CTL to re-build the GALAXY system.
+
+NEBULA.EXE is built via the control  file  NEBULA.CTL.   This  control
+file may be submitted any time after GALAXY.CTL completes.  NEBULA.EXE
+should be placed on SYS: and started during system initialization  via
+SYSJOB.INI as is done with other GALAXY components.
+
+
+
+3.0  OPERATION
+
+3.1  DATA FILES REQUIRED
+
+Two files relating to printer characteristics and forms type  must  be
+obtained   from   the   VMS   system  and  installed  on  SYS: on  the
+DECsystem-10.  These files on the VMS system  are  named  CHARTYPE.DAT
+and  FORMSTYPE.DAT, respectively.  They should be installed on SYS: on
+the   DECsystem-10with   the   names   CHARTY.DAT   and    FORMST.DAT,
+respectively.
+
+
+
+3.2  STARTING NQC STREAMS
+
+You must start at least one NQC stream to  allow  NEBULA  to  transfer
+requests  to  the  VMS  system.   If there is a large amount of remote
+printing being done you may wish to start more than  one  NQC  stream.
+NQC streams are started using the OPR commands below:
+
+NEBULA.DOC -- DECsystem-10 Network Queue Controller             Page 3
+
+
+        SET NQC-STREAM stream ATTRIBUTE OUTPUT-STREAM
+        START NQC-STREAM stream
+
+where "stream" is a stream number or a range of stream numbers  (e.g.,
+"0" or "0:3").
+
+
+
+3.3  DEFINING QUEUE NAMES
+
+The names of remote  queues  must  be  defined  via  the  OPR  command
+"DEFINE NETWORK-QUEUE".  The format of this command is:
+
+        DEFINE NETWORK-QUEUE name type node:: object unit
+
+where  "name"  is the name of the VMS queue, type must be "REMOTE" for
+proper operation of DQS, "node" is the VMS DECnet node name,  "object"
+is  the  object type of the remote queue (PRINTER, PLOTTER, etc.), and
+"unit" is a unit number/class descriptor.   As  an  example,  the  VMS
+queue SI$LN01 may be defined using the following command:
+
+        DEFINE NETWORK-QUEUE SI$LN01 REMOTE JUNIPR:: PRINTER 0
+
+The  object  type  and  unit data are included in case a user queues a
+request on the -10 with /DEST:node/UNIT:n so those parameters  may  be
+translated  into  the  appropriate queue name.  Use of the /QUEUE:name
+switch in QUEUE is the preferred means  of  queueing  requests  to  be
+processed by the VMS system.  (See section 3.4.)
+
+
+
+3.4  QUEUEING REQUESTS TO THE VMS SYSTEM
+
+Requests are queued to the VMS system  via  the  QUEUE  program.   The
+standard command to enter an output queue request is modified by using
+one or more of the following switches:
+
+        /QUEUE:name     - enter the request in the VMS queue
+                          named "queue"
+
+        /CHARAC:string  - use the characteristics type "string"
+                          defined in the file SYS:CHARTY.DAT
+
+        /FORMS:name     - output the request on forms "name"
+
+If  the  user queued the request with the /NOTIFY switch, they will be
+notified when the request has been successfully transferred to the VMS
+system.
+
+For example, using the queue name SI$LN01 as  defined  above,  a  user
+could  queue  a print request to VMS system JUNIPR using the following
+monitor command on the DECsystem-10:
+
+        PRINT FILE.EXT/QUEUE:SI$LN01/CHARAC:PORTRAIT/FORMS:3HOLE
+
+NEBULA.DOC -- DECsystem-10 Network Queue Controller             Page 4
+
+
+3.5  LISTING THE REMOTE QUEUE
+
+The remote queue (and requests in the local queue to  be  transferred)
+may be listed via the QUEUE program.  The standard command to list the
+queue is modified by using one of more of the following switches:
+
+        /REMOTE         - list the remote queue (/DEST:node must
+                          be specified)
+
+        /QUEUE:queue    - list the remote queue named "queue"
+                          (/DEST:node is ignored if specified)
+
+In  addition,  the  remote  queue  may  be  listed via the SHOW QUEUES
+command in OPR.  In this case, the  /REMOTE  and  /NODE:node  switches
+must be specified in the SHOW QUEUES command.
+
+For example, to obtain a listing of requests in the local queue to  be
+transferred,  as  well  as  requests in the remote queue, a user could
+type the monitor command:
+
+        PRINT /LIST /QUEUE:SI$LN01
+
+
+
+
+3.6  RELATED OPR COMMANDS
+
+There are a number of commands in OPR which are related to DQS support
+and  the  Network Queue Controller.  These commands (included the ones
+already described above) are listed below:
+
+        DEFINE NETWORK-QUEUE name type node:: object unit
+
+        SET NQC-STREAM stream ATTRIBUTE
+
+        SHOW NETWORK-QUEUE-NAMES
+        SHOW PARAMETERS NQC-STREAM stream
+        SHOW STATUS NQC-STREAM stream
+
+        SHUTDOWN NQC-STREAM stream
+
+        START NQC-STREAM stream
+
+
+
+
+4.0  SUGGESTIONS
+
+None.
+
+
+
+[End of NEBULA.DOC]

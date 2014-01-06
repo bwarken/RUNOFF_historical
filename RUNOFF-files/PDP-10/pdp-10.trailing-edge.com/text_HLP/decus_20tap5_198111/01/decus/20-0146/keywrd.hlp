@@ -1,0 +1,160 @@
+The KEYWRD program produces a sequence of  tests  which  can
+identify  the leading word or the leading phrase formed of a
+fixed sequence of words in  a  line  of  text  without  ever
+having   to   test   a  character  which  has  already  been
+identified.  Such a leading word or phrase will be  referred
+to  as  a  command.   A command does not need to include any
+characters to the right of the first of the characters which
+uniquely  identify the command.  A word or each of the words
+in a phrase can be abbreviated  by  truncation,  leaving  at
+least  the  left  character  in  each  word of the phrase if
+additional words or their abbreviations appear to the right.
+Spaces  are  allowed  between the words in a phrase, but are
+not required.   A  single  sequence  of  tests  is  used  to
+recognize  the initial portions of commands which start with
+a common series of characters, then the  unique  portion  of
+each  command is identified by a separate sequence of tests.
+After the unique portion of each command has been identified
+by the separate sequence of tests, then a single sequence of
+tests is similarly used to recognize the final  portions  of
+the commands which end with a common series of characters.
+ 
+The KEYWRD program reads a single input file and produces an
+output  listing  file  and  an  output FORTRAN language file
+containing DATA statements which represent the  sequence  of
+tests.   These  DATA  statements  must  be  merged  into the
+FORTRAN program by which these tests are to  be  used.   The
+KEYWRD  program  is  written  in  FORTRAN,  and  is  machine
+independent except for the short subroutine which  asks  the
+user for the file names and then opens these files.
+ 
+Each line in the input file which does not start with one of
+the  reserved  characters  *, /, ( or ), which are described
+later, contains a  single  word  or  phrase  preceded  by  a
+nonzero  value  by  which  the  word  or  phrase  is  to  be
+identified.  The number should not duplicate a number to  be
+associated  with any other command unless these commands are
+synonyms or unless some of these commands are  abbreviations
+which  would  otherwise  be  ambiguous.   The  number can be
+preceded by one or more spaces, but leading spaces  are  not
+required.   The  number  cannot contain any characters other
+than the digits 0 through 9 and a leading minus sign if  the
+value  is  negative  or an optional leading plus sign if the
+value is positive.  Spaces and/or a single comma can  appear
+between the leading number and the following word or phrase,
+but are  not  required.   Words  within  a  phrase  must  be
+separated  by  at  least 1 space.  Extra spaces are ignored.
+Words and phrases can be constructed  from  any  characters,
+but  upper  and lower case alphabetic letters are considered
+to be equivalent.  The sequence of  tests  produced  by  the
+KEYWRD  program  is  independent  of  the order in which the
+commands are defined in the input file.  The input  file  is
+terminated  by  a  line  containing  a  number  which is not
+followed on the same line by any word or phrase.
+ 
+If the words and phrases  are  constructed  from  characters
+other  than  spaces  and the alphabetic letters A through Z,
+then  an  additional  DATA  statement  is  generated   which
+specifies  a  third array, LTRXTR, containing the unexpected
+characters.  KNTXTR, which is specified by one of  the  DATA
+statements  which  are  always generated, is the size of the
+LTRXTR array.  If the words and phrases are constructed only
+from  spaces  and  the  alphabetic letters A through Z, then
+KNTXTR has the value zero and the  DATA  statement  defining
+the LTRXTR array is not generated.
+ 
+The first location in the NOTPNT array describes  the  first
+test  which  is to be performed.  The absolute value of each
+entry in the NOTPNT array is the sum of the location  within
+alphabet  of the letter to be matched times (KNTPNT+1), plus
+the subscript of the location  in  the  NOTPNT  array  which
+describes  the  next  match  which is to be attempted if the
+current match is a  failure.   The  subscript  of  an  array
+location  is  its serial position within the array, counting
+the first value in the array as being at  subscript  1,  the
+second  value  as  being  at  subscript 2, and so on.  If an
+entry in the NOTPNT array is negative,  then  the  character
+starts  a  word  and  any  spaces  in  the input line can be
+skipped.  If the location within  the  alphabet  is  greater
+than  26,  then  this  minus  26  is the location within the
+LTRXTR array of the character to be matched.  If  the  match
+succeeds  and the value to be associated with the command is
+positive or if the value is zero indicating that  the  match
+does  not  uniquely  identify a particular command, then the
+parallel location in the MCHPNT array contains  the  sum  of
+the   value  of  the  command  times  (KNTPNT+1),  plus  the
+subscript  of  the  location  in  the  NOTPNT  array   which
+describes  the  next  test.   If  the match succeeds and the
+value to be associated with the command  is  negative,  then
+the  parallel  location in the MCHPNT array instead contains
+the  value  of  the  command  times  (KNTPNT+1),  minus  the
+subscript   of  the  location  in  the  NOTPNT  array  which
+describes the next test.  If the subscript of  the  location
+in  the  NOTPNT  array  which  describes  the  next  test is
+indicated to be zero, either by  the  MCHPNT  array  if  the
+current  match  is  a  success or by the NOTPNT array if the
+current match is a failure, then no additional test  remains
+to  be  performed, and the command is identified by the last
+nonzero value encountered in the MCHPNT array  for  a  match
+which succeeded.
+ 
+Lines in the input file which  start  with  an  asterisk,  a
+slash, a left parenthesis or a right parenthesis are treated
+specially.  These initial  characters  cause  the  following
+actions to be performed.
+ 
+/  An initial slash indicates that the  line  specifies  the
+   names  of  the  arrays  and  variables  which  are  to be
+   represented in  the  DATA  statements  which  are  to  be
+   written into the output FORTRAN statement file.
+*  An initial asterisk indicates that the line  specifies  5
+   numbers which characterize the sequence of tests produced
+   by the KEYWRD program.  Such a line would appear  in  the
+   input  file only when the result is already known and the
+   operation of the KEYWRD program is being  verified.   The
+   numbers  can  be  separated  by  spaces  and/or by single
+   commas.  A sixth group of up to 6 characters defines  the
+   label to be shown to the user.
+(  An initial left parenthesis indicates that  the  rest  of
+   the  current line is to be copied into the output FORTRAN
+   statement file unchanged.  This does  not  interrupt  the
+   specification of the glossary of keywords.
+)  An initial right  parenthesis  indicates  that  the  DATA
+   statements  which  represent the sequence of tests are to
+   be written into the output FORTRAN statement file.   This
+   does  not  indicate  that  the  end  of the file has been
+   reached.
+    
+If a line starts with a slash, then the  next  5  groups  of
+printing characters on the line are used as the names of the
+3 arrays and the 2 variables which are  represented  in  the
+DATA  statements  which  the  KEYWRD program writes into the
+output FORTRAN statement file.   These  groups  of  printing
+characters  can  be  separated  by  spaces  and/or by single
+commas.  The names of the 3 arrays must each differ from the
+others in their first 3 characters.
+    
+1. The first group of up to 6 characters is used as the name
+   of  the  array  which specifies the next operation if the
+   match fails.  This name is NOTPNT if a line starting with
+   a slash does not appear in the input file.
+2. The second group of up to 6 characters  is  used  as  the
+   name  of  the array which specifies the next operation if
+   the match succeeds.   This  name  is  MCHPNT  if  a  line
+   starting with a slash does not appear in the input file.
+3. The third group of up to 6 characters is used as the name
+   of  the nondimensioned variable which contains the number
+   of items in each of the previous 2 arrays.  This name  is
+   KNTPNT if a line starting with a slash does not appear in
+   the input file.
+4. The fourth group of up to 6 characters  is  used  as  the
+   name  of  the array which specifies all characters, other
+   than spaces and the letters A through Z, appearing in the
+   commands.   This name is LTRXTR if a line starting with a
+   slash does not appear in the input file.
+5. The fifth group of up to 6 characters is used as the name
+   of  the nondimensioned variable which contains the number
+   of characters in the previous array.  This name is KNTXTR
+   if  a  line  starting with a slash does not appear in the
+   input file.
+    

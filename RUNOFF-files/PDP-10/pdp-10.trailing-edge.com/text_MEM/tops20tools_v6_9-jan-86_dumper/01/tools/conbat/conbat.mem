@@ -1,0 +1,485 @@
+CONBAT Documentation						Page 1
+
+	Introduction
+
+	CONBAT is a system which allows the user to convert command
+	files from one TOPS-10 and TOPS-20 systems to the VMS DCL
+	system.  The system allows the users to set up the conversion
+	tables and parameters, then run the batch control (.CTL) files
+	and the MIC files through the system.
+
+	Due to the many differences between the operating systems, the
+	converted files should not be considered to be 100 percent
+	perfect.  However, with the proper tables being initialized, a
+	great deal of conversion can be accomplished before examining
+	the resultant DCL files for optimization on the VMS system.
+
+	The incompatibilities between the systems lie in four areas:
+	commands (programs), file names, structure names and
+	directories.  The file name incompatibilities are hard coded
+	into the system, consequently, it is assumed that the file names
+	will remain the same across systems.  The commands are very
+	different between the systems.  The differences in commands are
+	what compose the major portion of CONBAT.  The system contains a
+	state table which describes the TOPS commands, and a skeleton
+	which describes the VMS commands.  The structure names may
+	differ between systems, consequently a structure table is
+	provided for conversion of these variables.  Lastly, for TOPS-10
+	users in particular, the directories will differ between
+	systems.  To the extent which these differences are used in the
+	command files, their mapping should be entered into the table.
+
+CONBAT Documentation						Page 2
+
+
+	Installation Instructions
+
+	There are two COBOL programs and 5 data files being provided.
+	The COBOL programs are: VAG003 and VAG004.  The data files are:
+	T10CMD.DATA, T20CMD.DATA, STRUCT.DATA, DIRECT.DATA.
+
+	Both COBOL programs have a switch called TOPS-10-20-SW.  This
+	area looks like:
+
+	01 TOPS-10-20-SW         Pic 9(01) Value 1.
+	   88 TOPS-10-System               Value 1.
+	   88 TOPS-20-System               Value 2.
+
+	For TOPS-20, the top line should be changed to:
+
+	01 TOPS-10-20-SW         Pic 9(01) Value 2.
+
+	After the switch is verified for the correct value both VAG003
+	and VAG004 should be compiled, loaded and saved.
+
+	The EXE's for these programs, along with the data files should
+	be placed in the programmer's library area.  These programs are
+	intended for use by programmer's ONLY.  All the logical disk
+	references are to DSK, so they should be accessible to the user
+	during run-time.
+
+	Note: on the first version, there isn't the TOPS-10-20-SW.  So
+	if it isn't there you don't have the latest version.
+
+CONBAT Documentation						Page 3
+
+	Running VAG003
+
+
+	The program VAG003 allows the user to define and modify the
+	conversion tables.  These tables exist as sequential ASCII files
+	which are read (and updated) by this program and used in VAG004
+	for scanning the input and doing the conversion.
+
+	There are three tables which can be modified by this program.
+		Commands
+		Directories
+		Structures
+
+	For each of these tables the user may add, change or delete
+	entries.
+
+	To run VAG003, it is assumed that the table files are all in
+	your DSK search list.  It will write new tables when done, so
+	you have to beware that the output is in the correct directory
+	for those who will use it.
+
+	The first command is
+
+	Run VAG003
+
+	The program, at this point, reads in all three tables into
+	memory.
+
+	In all the subsequent command/response descriptions, entering ?
+	will give you help.  Entering a return will exit from current
+	mode and return you to the previous mode.  In other words, a
+	return to the next prompt will exit the program, a return to the
+	Command prompt will return you to the Table Type prompt, etc.
+
+	The Next Prompt is:
+
+	Table type >
+
+	The response it is expecting at this point is one of the
+	following:
+
+	C - to update the Commands table.
+	D - to update the Directory table
+	S - to update the Structure table.
+
+	Commands Table.
+
+	The Commands Table is the most complex of the three.  Simply
+	because there is a great deal of parsing which must go on to
+	understand the command.
+
+	The commands table is basically a very large, tree structured
+	state table.  If further processing is necessary, at any level
+
+
+CONBAT Documentation						Page 4
+
+	of the table, that entry points to the appropriate level of the
+	table.  For example:
+
+	The "COPY" command on TOPS-10 can be represented as follows:
+
+	.COPY <destination-file> = <source-file-1>, <source-file-2> ..
+	<eol>
+
+	This corresponds to one of two commands on VMS, either
+
+	$COPY <source-file> <destination-file>
+	or
+	$APPEND <source-file-1>, <source-file-2> ... <destination-file>
+
+
+	In order to parse the COPY command on TOPS-10, an entry is
+	necessary, first in the TABLE1 command table. This is the TOP
+	level of commands (Operating system commands).  The Top level
+	may look like the following:
+
+	     Command     Flags        token     Next Level
+	     Backup                             BAckup
+	     Copy        YNYNN                  Copy
+	     Please      NYYNY                  Please
+
+
+	Once it realizes it has the COPY command it then proceeds to the
+	COPY level which looks like the following:
+
+	     Copy      xxxxxx         Dest      Copy1
+
+	After it picks up the destination file name and stores it in the
+	DEST token, it proceeds to the Copy1 state which contains
+
+	     =         xxxxx                    Copy1
+	     SrcFile                  Src1      Copy2
+
+	At this point it knows it is done with the destination file and
+	the next state it will know whether it has only one file, or
+	multiples
+
+	Copy2 Srcfile                 SrcN      Copy3
+	Copy2 <eol>                                   COPY
+
+	At this point it knows that only the Append command will
+	suffice, so the final state is as follows
+
+	Copy3 Srcfile                 SrcN      Copy3
+	Copy3 <eol>                                   APPEND
+
+	It will continue to parse source files until it gets to the end,
+	at which point it knows it has an append command.  Note: it
+
+CONBAT Documentation						Page 5
+
+
+	handles wild cards as a special case.
+
+	In other words, the next prompt asks for which state table you
+	need.  In the case of the Copy command, your choices are COPY,
+	COPY1, COPY2 or COPY3.
+
+	The next prompt is as follows:
+
+	Command level >
+
+	The response expected is either MAIN (for the topmost level) or
+	one of the command levels.  You can (by virtue of the structure
+	of the table) get to any level right away.
+
+	The next prompt is as follows:
+
+	Action >
+
+	The response expected is one of the following:
+
+	A - to add entries into this level
+	C - to change entries in this level
+	D - to delete entries from this leve
+	V - to view (display) the entries at this level
+
+	The actions Add, Change and Delete always refer to a specific
+	line within a table.  These lines are indexed by the field
+	"Command Name".  VAG003 always asks for command name on those
+	three actions and then verifies it against the table.
+
+	The View action refers to the entire Sub-Table which is
+	currently pointed to by the Table Name.
+
+	The following is an example of "viewing" the "main" table.
+
+Action Type > V
+ Table Name  Commnd Eq Pa En Sa Fl Da Next Table  Skl Name   Tkn Nam Token Value
+ MAIN        ASSIGN  0  0  0  1  0  1  ASSIGN
+ MAIN        CLOSE   0  0  0  1  0  1  CLOSE
+ MAIN        DAYTIM  0  0  1  0  0  0              DAYTIM
+ MAIN        DEASSI  0  0  0  0  0  1  DEASSI
+ MAIN        DELETE  0  0  0  0  1  0  DELETE
+ MAIN        PLEASE  0  0  0  0  0  1  PLEASE
+
+CONBAT Documentation						Page 6
+
+
+	Action - Add
+
+	The add action is used to add a command to a table.  The command
+	lines are composed of several entries.  These entries contain
+	certain key words and several flags.  The explanation of all the
+	fields is as follows:
+
+	Enter Command Name > FOO
+
+	This prompt is requesting the command name for this line.  That
+	is, one of the choices for what could come next.  It is the Key
+	to the entry.  It must be unique for each sub-table.
+
+	No Equiv Flag > Y
+
+	This is the first of the flags.  It is to be entered if there is
+	no equivalent to this particular command (or switch) under VMS.
+	A value of 1 indicates that this is the case.  If a similar
+	command is available on the VAX then set the Flag to 0.
+
+
+	Partial Match > 0
+
+	Enter a 1 if a partial match is allowed on this keyword.  Most
+	commands on the system only have to be unique, this switch
+	allows for this.
+
+	End of Command Flag > 1
+
+	Enter a 1 if this part of the command signifies the end of the
+	command, a zero means there is more to the command.
+
+	Search Table Flag > 2
+
+	Enter a 1 if you want the table searched with the command
+	entered until this point, terminated with this character.  This
+	takes care of the cases where the user has .PRI/switch or
+	.DIR/switch.  The "/" resides in the same sub-table as the PRINT
+	and DIRECT commands, when the "/" is encountered it searches the
+	table for a match on the key word.
+
+	Data Next Flag > 1
+
+	Enter a 1 if you are expecting the next phrase to be Data.  This
+	is primarily on switches.
+
+	File Next Flag > 1
+
+	Enter a 1 if this is a file name you are processing.  File names
+	require special handling, for a variety of reasons.
+
+	Next Table >
+
+CONBAT Documentation						Page 7
+
+
+	Enter the next State or State Table Name you fall into after
+	processing this keyword.  This serves as the Table Name index
+	for the branching through the tree.  The program does not check
+	if this table name exists, consequently you are free to add it
+	later.
+
+	Skeleton Command Name >
+
+	Enter the name of the VAX command you are going to process.
+	This assumes you have the entered the VAX command into the
+	skeleton and can proceed.
+
+	Token Name >
+
+	Enter the name of the token the program is to use/substitue in
+	the command.
+
+	Token Value >
+
+	Enter the value for the token to have at this pint.
+
+
+	Note 1: If you wish to add an entirely new Sub-Table, merely
+	enter that Table's name in response to the "Table Name " prompt.
+	VAG003, when it finds that it doesn't have the table you want,
+	it asks you if you want to add this table.  If you answer Y(es)
+	it adds the first entry and enters ADD mode.
+
+
+	Note 2: If, in response to any of the above prompts, an @ is
+	encountered, the add (for this line) is aborted.  This is to
+	allow you to change your mind in the middle of adding an entry.
+
+CONBAT Documentation						Page 8
+
+
+	Action - Change.
+
+	The change action allows you to change field(s) in the Command
+	Table.  You simply give it the command to be changed, VAG003
+	displays the command entry.  You give it the field to be
+	changed, it displays the old value and asks for the new one, as
+	in the following example:
+
+Table Name > TABLE1
+Action Type > V
+ Table Name  Commnd Eq Pa En Sa Fl Da Next Table  Skl Name   Tkn Nam Token Value
+ TABLE1      !       0  0  0  0  0  0
+ TABLE1      %       1  0  0  0  0  0
+ TABLE1      *       0  0  0  0  0  1  COMENT
+ TABLE1      .       0  0  0  0  0  0
+ TABLE1      ;       0  0  0  0  0  1  COMENT
+ TABLE1      ALPHAN  0  0  0  0  0  0  TABLE2                  TOKEN
+ TABLE1      END     0  0  1  0  0  0
+ TABLE1      NONALP  0  0  0  0  0  0
+ TABLE1      SPACE   0  0  0  0  0  0
+ TABLE1      TAB     0  0  0  0  0  0
+Action Type > C
+Enter Command Name > !
+ Table Name  Commnd Eq Pa En Sa Fl Da Next Table  Skl Name   Tkn Nam Token Value TABLE1      !       0  0  0  0  0  0
+Field to change > ?
+Enter one of the following:
+ A - No Equivalent Flag
+ B - Partial Match Flag
+ C - End of Command Flag
+ D - Search Table Flag
+ E - File Next Flag
+ F - Data Next Flag
+ G - Next Table Name
+ H - Skeleton Command Name
+ I - Token Name
+ J - Token Value
+ @ - to abort changes
+ ? - to print this message
+ space or return when done with changes
+Field to change > G
+Next Table > COMENT
+Field to change >
+ TABLE1      !       0  0  0  0  0  0  COMENT
+Is this correct (Y or N) ? Y
+Enter Command Name >
+Action Type > V
+ Table Name  Commnd Eq Pa En Sa Fl Da Next Table  Skl Name   Tkn Nam Token Value
+ TABLE1      !       0  0  0  0  0  0  COMENT
+ TABLE1      %       1  0  0  0  0  0
+ TABLE1      *       0  0  0  0  0  1  COMENT
+ TABLE1      .       0  0  0  0  0  0
+ TABLE1      ;       0  0  0  0  0  1  COMENT
+
+CONBAT Documentation						Page 9
+
+
+ TABLE1      ALPHAN  0  0  0  0  0  0  TABLE2                  TOKEN
+ TABLE1      END     0  0  1  0  0  0
+ TABLE1      NONALP  0  0  0  0  0  0
+ TABLE1      SPACE   0  0  0  0  0  0
+ TABLE1      TAB     0  0  0  0  0  0
+Action Type >
+Table Name >
+Which Table do you wish to Update?
+
+EXIT
+
+CONBAT Documentation						Page 10
+
+
+	Action - Delete
+
+	The Delete Action allows you to remove entries from the Command
+	Table. This action displays the command line to be deleted and
+	asks for a confirmation before it deletes it, as in the
+	following example:
+
+Table Name > ASSIGN
+Action Type > V
+ Table Name  Commnd Eq Pa En Sa Fl Da Next Table  Skl Name   Tkn Nam Token Value
+ ASSIGN      DATA    0  0  0  1  0  1  ASND2                   STRC1
+ ASSIGN      FOO     1  0  1  2  1  1
+Action Type > D
+Enter Command Name > FOO
+ Table Name  Commnd Eq Pa En Sa Fl Da Next Table  Skl Name   Tkn Nam Token Value
+ ASSIGN      FOO     1  0  1  2  1  1
+Is this correct (Y or N) ? Y
+Enter Command Name >
+Action Type >
+Table Name >
+Which Table do you wish to Update?
+
+EXIT
+
+CONBAT Documentation						Page 11
+
+
+	Running  VAG004
+
+	This program is very easy to run.  It has one prompt, the name
+	of the Control or MIC file.
+
+	.Run VAG004
+
+	File name >
+
+	A return will exit the program.  The file name response will
+	read the file specified, convert it and output it with extension
+	".COM".
+
+	All the files must be in the DSK search path.
+
+CONBAT Documentation						Page 12
+
+
+	Commands Skeleton file.
+
+	The VAX VMS commands to be generated are kept in a skeleton
+	file.  Each command has an index which is referenced in the
+	Command Tables under the heading Skeleton Name.  That is to say,
+	when VAG004 finally understands which command it needs it picks
+	the key to the skeleton table from his own work space.
+
+	The skeleton file is a sequential ASCII file.  The first 10
+	characters of each record serve as the Key to the record.  The
+	rest of the line is the code to be generated.  A sample table is
+	as follows:
+
+
+	ASSIGN   $ ASSIGN {Strc1} {Strc2}
+	CLOSE   $ CLOSE {Strc1}
+	COMENT   $! {Comnt}
+	CREDIR   $ CREATE/DIRECTORY {Direc}
+	DAYTIM   $ SHOW DAYTIME
+	DELETE   $ DELETE {File1}
+	DEASSI   $ DEASSIGN{Swtch} {Strc1}
+	PRINT   $ PRINT{Swtch} {File1}
+	REQUES   $ REQUEST{Swtch} "{Data1}"
+	SHOWQ   $ SHOW QUEUE/DEVICE
+
+	The commands often have tokens built into them.  The tokens
+	represent the variables which are to be deposited into at run
+	time.  For example, the DELETE listed above requires the
+	filename.  The token "file1" is one of the general purpose
+	tokens used to process the command.
+
+	By expressing the commands in this format, most VMS commands can
+	be included in the table.  Furthermore, since one command under
+	TOPS-10/20 may correspond to more than one command on VMS
+	(depending on switch values) the above table allows for this.
+	Since the skeleton command name is specified ONLY when the
+	command is sufficiently well parsed, the unique command line can
+	be picked up when it is ready.
+
+	In the above table, there are two entries for what would be the
+	Print command on TOPS-10.  The first is the standard Print with
+	switches and filenames, the second is the ShowQ command on VMS.
+	This corresponds to the PRINT command without any arguments.
+	Since this command means to TOPS-10 to show the Print Queues,
+	the ShowQ command is the equivalent command on VMS
+
+	The format for the skeleton file is simply: 10 character key
+	name, a dollar sign for the output, the command to be output,
+	including all tokens.  The tokens are picked up during the
+	conversion of the Batch Control File.  If additional tokens are
+	desired they will need to be defined in the VAG004 program.
+
+

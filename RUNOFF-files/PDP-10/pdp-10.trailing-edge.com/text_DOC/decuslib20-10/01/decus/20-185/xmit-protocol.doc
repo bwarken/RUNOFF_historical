@@ -1,0 +1,276 @@
+
+
+
+
+
+
+
+
+
+
+
+                                X M I T
+                            P R O T O C O L
+                              M A N U A L
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+       A proposal for implementation of the Xmit protocol for the
+    NCR network.
+
+                               March 1986
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                         By:        Joe Deck
+Xmit Protocol Manual                                              Page 1
+
+
+1. Introduction
+  The Xmit protocol is a tty line file transfer protocol.  The protocol
+was designed with the need to transfer files between two computers which
+lack a more formal network connecting them.  The protocol was designed
+by Douglas H. Bigelow and was implemented by him on two DEC 2660s.  The
+next implementation was done by Joseph G. Deck for a Dec Vax 11/750.
+The first two implementations were done in assemble language.
+
+  This proposal will outline the protocol and the subroutine functions
+so that versions may be written for other systems possibly tying the NCR
+network to the VAX or one of the 2060s.
+
+  The protocol specifies a hierarchy of subroutines as well as lays out
+the construction of a data packet.
+
+2. Packet Construction
+
+There are six possible types of packets, as follows:
+
+        A       Ack a packet (standard good response)
+        B       Nak a packet (standard response to bad packet)
+        C       Cancel transaction (no response appropriate)
+        D       Data packet (requires A, B or C back)
+        E       EOF packet (requires A, B or C back)
+        F       File init packet (requires A, B or C back)
+
+
+Proper packet format is:
+
+        [SOP]  [CODE]  [COUNT]  [D1] .. [Dn]  [CHK]  [EOP]
+
+Where
+        SOP == start of packet, ascii code 1 (^A)
+        CODE == type of packet, A through F
+        COUNT == number of data packets, 0 through MAXPKT-n
+        D1..Dn == data packet, numbered in sequence
+        CHK == seven bit checksum
+        EOP == end of packet, ascii code 2 (^B)
+
+  The COUNT and the CHK values are constrained to be 7 bits, from 0 -
+177.  To avoid problems with ascii codes 0-37, these values are
+translated to the values 240-277.  The count is added to the checksum
+before this translation takes place, and the checksum includes all bytes
+after SOP.
+
+  In data packets, values in the range 0-2 or 200-202 are quoted, with a
+quote byte ("\") before and octal 40 added to the character itself,
+coming after.  A sequence "\\" gives a single "\".
+
+
+
+
+March 1986                                                         DRAFT
+Xmit Protocol Manual                                              Page 2
+
+
+3. Routines
+
+
+
+3.1. TTY Control
+
+
+3.1.1. Init
+               Routine:       init 
+               Function:      Program initialization 
+               Arguments:     Callers privileges
+
+  Program initialization is called once upon program startup.  The
+program checks should check to ensure that the person running the
+program is authorized to do so.  If the tty line to be used for
+communication needs to be modified under software control it should be
+done here.  If a channel needs to be allocated to the tty line that also
+should be done here.
+
+
+3.1.2. Main
+               Routine:       Main 
+               Function:      Provide duplex service 
+               Arguments:     None
+
+  The main subroutine calls the getpkt subroutine and calls the chkfil
+subroutine.  And repeats this loop .
+
+
+
+3.2. Dispatch
+
+
+3.2.1. Datpak
+               Routine:       datpak 
+               Function:      Handle incoming data 
+               Arguments:     Packet, nakcnt
+
+  The datpak subroutine checks the current nakcnt against the maxnak
+count (default 12).  If the count are equal the ongoing file transfer is
+aborted (jmp to p.can).  If the counts are not equal inpack is called
+with a dwait delay (default 20 seconds).  The call returns with a
+dispatch address and jumps to one of 7 possible locations.
+
+The locations include:
+        1) datp.e               <illegal send a nak>
+        2) datp.e               <send a nak>
+        3) datp.e               <send a nak>
+        4) return to main       <received a can>
+        5) datp.b               <process a data packet>
+        6) datp.d               <send an end of file>
+        7) p.can2               <received a start of file expected data>
+March 1986                                                         DRAFT
+Xmit Protocol Manual                                              Page 3
+
+
+3.2.2. Getpkt
+               Routine:       getpkt 
+               Function:      Checks for incoming files 
+               Arguments:     None
+
+  The getpkt subroutine calls the subroutine inpack with a delay time
+argument.  The argument is used to determine how long to wait for an
+incoming packet.  The maximum (default) delay time is five minutes.  The
+call returns with a dispatch address and jumps to one of 7 possible
+locations.
+
+The locations include:
+        1) return to main loop  <invalid packet>
+        2) p.can                <ack packet>
+        3) p.can                <nak packet>
+        4) return to main       <cancel transfer>
+        5) p.can                <data packet>
+        6) p.can                <end of file>
+        7) p.sof                <start offile>
+
+
+
+3.3. TTY Transmission
+
+
+3.3.1. Inpack
+               Routine:       inpack 
+               Function:      check and validate incoming packets 
+               Arguments:     delay interval
+
+  The inpack routine first initializes the packet code and checksum
+variables.  Next, it reads incoming data from the tty line.  It reads
+for a period up to the delay interval, up to the maximum number of
+characters, or until an eop character is detected
+
+  If no characters were read the routine returns to the main loop.  If
+some characters were read an eop character is added to the end of the
+packet.  The packet is then searched for an sop character.  If an sop is
+not found the routine returns to the main loop.  If an sop is found the
+next character is read into the code variable.
+
+  The next character is read into the packet size variable.  The packet
+size variable is checked for a too small (zero) or too large (greater
+than maxpak) condition.  In either case the routine returns to the main
+loop.
+
+  Then the data is added and this total is compared to the checksum.  If
+the checksum and the sum of the data do not match the routine returns to
+the main loop.  Finally, the eop should follow the checksum.  If it does
+not the routine returns to the main loop.  If it does the offset is
+computed and the routine returns to inpack.
+
+March 1986                                                         DRAFT
+Xmit Protocol Manual                                              Page i
+
+
+      Table of Contents
+1. Introduction                                                        1
+2. Packet Construction                                                 1
+3. Routines                                                            2
+     3.1. TTY Control                                                  2
+          3.1.1. Init                                                  2
+          3.1.2. Main                                                  2
+     3.2. Dispatch                                                     2
+          3.2.1. Datpak                                                2
+          3.2.2. Getpkt                                                3
+     3.3. TTY Transmission                                             3
+          3.3.1. Inpack                                                3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+March 1986                                                         DRAFT

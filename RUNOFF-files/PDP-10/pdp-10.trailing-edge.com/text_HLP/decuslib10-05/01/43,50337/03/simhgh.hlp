@@ -1,0 +1,108 @@
+
+          How to load a SIMULA program in the high segment.
+          ================================================
+
+It may be useful to load a SIMULA program in the high segment in  the
+following cases:
+
+1) Very big programs:
+In the current design, the SIMULA Run Time System (SIMRTS) must start
+at 400 000 octal (128K). This leaves only the area below this address
+for  data.    If  you  have  a  very  big  program,  you can get some
+additional data space in the low segment by loading the program  code
+in the high segment.
+
+2) Sharable SIMULA programs:
+In some applications, it may be useful to share the code of a  SIMULA
+program  between  several simultaneous jobs. If the program is loaded
+normally, it will not be sharable (only the RTS). It is now  possible
+to load most or all of a SIMULA program as a sharable high segment.
+
+Assume we have a program consisting of the main program MAINP and the
+external modules EXT1, EXT2, which also uses some  procedures  and/or
+classes  from  SYS:LIBSIM.REL  (possibly  also from DSK:LIBSIM.REL or
+another library).
+Normally, it would be loaded as follows:
+	.LOAD MAINP  ;(,EXT1,EXT2 not necessary)
+	.SAVE prog   ;(or simply SAVE if the MAINP name is ok)
+Instead, load the program  according  to  the  following  example  (a
+command  file  to  COMPIL  may  also  be  constructed  but  is not as
+instructive):
+
+.R LINK
+*/SYMSEG:NONE/RUNAME:prog		;(1)
+*prog.MAP/MAP				;(2)
+*MAINP					;(3)
+*SYS:SIMLIB/INCLUDE:(OCSP,ALOG.,CFRXIT) ;(4)
+*SYS:LIBSIM/INCLUDE:(RUN,SAVE,FREEZE)	;(5)
+*/SEGMENT:HIGH REL:SIMHGH		;(6)
+*/SEGMENT:HIGH EXT1,EXT2		;(7)
+*/SEGMENT:HIGH DSK:LIBSIM/SEARCH 	;(8)
+*/SEGMENT:HIGH SYS:LIBSIM/SEARCH	;(9)
+*/SEGMENT:HIGH SYS:SIMLIB/SEARCH,REL:HELPER/SEARCH ;(10)
+*/GO					;(11)
+.SAVE ;(SSAVE)				;(12)
+
+Notes:
+(1) Suppressing local symbols saves space.
+(2) The loading map may be useful for maintenance.
+(3)-(5) Some modules must always be placed in the low segment.
+(3) Place the main program in the low segment if you want to keep the
+high segment write-protected. It may then also be sharable. Note that
+the main program is not reentrant (cannot be write-protected) but can
+be  made very small  if the bulk of the code  is  an  external  class
+used as prefix to the main program.
+(4) OCSP must always be in the low segment. ALOG. is an example of  a
+module  which  is not reentrant and thus must not be write-protected.
+Can be loaded in the high segment if the main program is.
+(5) These LIBSIM modules, if used, should always be in lowseg.
+(6)  The  whole  of  SIMHGH.REL  M U S T  be loaded first in the high
+segment!
+(7) Here you put other rel files belonging to the program.
+(8) If you have your own library, put it here.
+(9) System library.
+(10) Rest of system modules.
+(11) Finish loading.
+(12) Save as EXE file.
+
+If the main program is loaded in the high segment, the program cannot
+be write-protected and thus will not be sharable. OCSP will  set  off
+the  initial  write-protection  using  the  SETUWP  UUO  (see Monitor
+Calls). Any module may be loaded in the high segment  in  this  case.
+Illegal  store  instructions  may  not  be caught (should not occur).
+SIMDDT breakpoints can be set. The program should  not  be  saved  as
+sharable.
+
+If the main program is loaded in the low segment, most of the program
+code can be write-protected and may be  sharable  if  saved  via  the
+SSAVE  command.  In  that  case, SIMLIB library modules such as ALOG.
+which are not reentrant  should  be  loaded  explicitly  in  the  low
+segment,  also  other modules which are changed during a run. It will
+not be possible to set SIMDDT breakpoints in a  write-protected  high
+segment.    Protection    may   be   set   off   via   SETUWP   (E.g.
+XCALLI(8R36,0,TRUE,-1), see SIMLH3.MAN, LIBSIM.HLP).  If  the  LIBSIM
+procedures  SAVE,  RUN or FREEZE should be used, load them in the low
+segment (FREEZE must be in same segment as SAVE).
+
+If loaded as shown above, the EXE file will still have a low  segment
+part.  It  is  possible  to  create  an EXE file consisting of ONLY a
+sharable high segment. Replace steps (11) and (12) above by:
+
+*REL:MAKSHR/GO
+.START
+.SSAVE
+
+The  module  MAKSHR.REL must be loaded last in the high segment. When
+the loaded program is STARTed, execution will start in MAKSHR,  which
+will  copy  the  (small)  low segment to the end of the high segment,
+change start address etc. When the program is SSAVEd, it will contain
+only  a  high  segment.  This  may be shared between users and can be
+taken directly from the swapping area if a new user requires the same
+program.  When the program is later run, it will start by copying the
+original low segment back where  it  was,  then  execution  continues
+normally.  Note  that the loaded low segment should be quite small in
+this case, since it will exist as a copy in the  high  segment  also.
+This mode of loading has been tested with the VIDED program with good
+results.
+
+	[End of SIMHGH.HLP 780530]

@@ -1,0 +1,116 @@
+	FRECOR	Data storage in free core following user memory
+	Written by Ernie Petrides, Wesleyan University, January, 1979
+
+
+	Abstract
+
+	FRECOR is a software package designed to handle the storage of
+blocks of data in a dynamically allocated memory structure.  The four
+free-core operations are implemented as MACRO subroutines using the
+standard PUSHJ/POPJ calling procedure.  A block of contiguous memory
+locations is put in safe keeping while the main program only needs to
+save the storage address returned by the free-core subroutine.  If no
+longer needed, the entry may then be deleted and its space will be re-
+claimed on future stores.  Low segment storage as well as high segment
+storage may be utilized, and the appropriate "first free" job data is
+updated with dynamic core allocation independent of monitor buffering
+or other core usages within the user's program.
+	Using the free-core routines
+
+	To use FRECOR, the user must "EXTERN" the required entry points
+and execute the standard PUSHJ P,FC$XXX subroutine call where the stack
+pointer P is accumulator 17 and XXX is the three-letter abbreviation of
+the free-core routine.  Arguments must be passed in accumulator 16 and
+the user's stack should provide a usable depth of at least 12 levels.
+It is illegal to store data from the user's accumulators.
+
+	The free-core routines never give skip returns and never type
+error messages.  If an error condition is detected, the address of the
+ASCIZ error message is returned in the right half of AC 16 and a -1 is
+returned in the left half.  Programs should check for errors with a
+"JUMPL 16,ERROR" instruction following the free-core subroutine call.
+
+	If sharable storage is desired, high segment free-core must be
+used.  If this is the case, the user must first un-write-protect the
+high segment and then store data with the "SHR" routine.  It should be
+noted that some type of interlock must be employed to prevent a job from
+modifying free-core while another is already in the process of doing so.
+This responsibility is left up to the user's program.
+
+	Here is a list of the free-core routines with the specification
+of the arguments passed in AC 16 followed by a brief description of the
+functions of each routine.  The return arguments are such provided there
+has been no error condition (see error handling, above).
+
+	ROUTINE		SENT				RETURNED
+	 SAV	data length,,data address	data length,,storage adr
+	 SHR	data length,,data address	data length,,storage adr
+	 DEL	(ignored),,storage address	0,,size of deleted space
+	 ZER	do high core,,do low core	deletions in high,,in low
+
+SAV -- Save; puts the requested number of words starting at the specified
+	address into low segment free-core storage, expanding the low seg-
+	ment if necessary; possible errors: CEF,ISA,ZLD.
+SHR -- Share; puts the requested number of words starting at the specified
+	address into high segment free-core storage, expanding the high seg-
+	ment if necessary; possible errors: CEF,ISA,ZLD.
+DEL -- Delete; removes the specified entry from free-core storage and marks
+	the deleted space for reuse; possible errors: IDA.
+ZER -- Zero; If the right half of AC 16 is non-zero, low segment free-core
+	is completely deleted contracting core down to the highest address
+	not used by free-core; the same is done for the high segment if the
+	left of AC 16 is non-zero; possible errors: DFZ.
+
+	These are the possible error message texts (no CRLF):
+? FCRCEF  Core expansion failure in free-core routines
+? FCRISA  Illegal to store from accumulator in free-core routines
+? FCRZLD  Attempt to store zero length data in free-core routines
+? FCRIDA  Illegal delete address in free-core routines
+? FCRDFZ  Internal delete failure on "zero" in free-core routines
+	Internal implementation of the free-core structure
+
+	An independent free-core structure is used for each of the low
+and high segments.  The choice of structures is made according to the
+subroutine entry for stores and according to the storage address for
+deletes (compared to .JBHGH).  A free-core structure is essentially a
+linked list where each node is a block of memory.  The first word of
+the block contains the length of the entry in the left half and the
+address of the next node of the list in the right half.  The rest of
+the block comprises the actual data entry.
+
+	The free-core package reserves two memory locations, one for
+each segment, which provide the initial node addresses of each free-core
+structure.  A value of zero indicates that the structure is not yet set
+up.  The names of these two locations are provided as global symbols in
+case some kind of midstream "RESET" is necessary (which would require a
+clear of the appropriate free-core pointer).  The low segment free-core
+pointer is "LFCP" and the high segment one is "HFCP", but the modifica-
+tion of these pointers is not recommended.
+
+	Allocation of memory is completely dynamic, and deleted entry
+space is reused if possible.  On a delete operation, the data entry is
+completely zeroed, and the entry length is negated.  Next, a check is
+made for backward concatenation so that contiguous deletions form one
+combined entry (thereby gaining an extra data word and decreasing scan
+overhead).  The same check is then done for forward concatenation.  The
+size of the reclaimable entry space (after possible concatenation) is
+what is returned in AC 16.  If an entry whose size is less than that of
+the deleted space is then inserted, a division is made and a new node is
+created after the reused one with the negative number of remaining words
+(possibly zero) entered as its data length.
+
+	On a zero operation, the specified free-core structure(s) is/are
+deleted by repeatedly scanning the list (calling the delete routine and
+restarting the scan if an undeleted entry is found) until all entries are
+gone (and all possible concatenations have been made).  Then a check is
+made to see if the segment can be contracted.  If the terminal free-core
+entry is the last thing in core, it is entirely removed from the structure
+and the "first free" is updated accordingly.  If this new configuration
+will fit in less core, a "CORE" UUO is executed to reduce the memory
+requirement (errors in this case are ignored).
+
+	All of the user's accumulators (except for the argument passer)
+are always preserved by each free-core subroutine.
+
+
+	End of FRECOR.DOC

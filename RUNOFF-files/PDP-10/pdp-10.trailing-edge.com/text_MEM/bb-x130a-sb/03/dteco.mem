@@ -1,0 +1,870 @@
+DTECO %25(252) Display TECO for TOPS-10                         Page 1
+Introduction
+
+
+1.0 Introduction1.0 Introduction1.0 Introduction1.0 Introduction1.0 Introduction1.0 Introduction
+
+DTECO (Display TECO) is basically normal TECO with some special termi-
+nal handling for  such video  display terminals as  DEC's VT05,  VT50,
+VT52, or VT100. In addition, there are various "enhancements" in DTECO
+such as system crash recovery which are not "display" oriented.
+
+In general, operation (and philosophy) of  DTECO is the same as TV  on
+TOPS-20 systems.  The major  difference is  that DTECO  maintains  all
+standard TECO  commands/features/quirks.  DTECO extensions  (new  com-
+mands/features) in some cases are the same as in TV (e.g., the "space"
+command), in some cases  are similar, and other  cases are just  plain
+different.
+
+
+2.0 Operation2.0 Operation2.0 Operation2.0 Operation2.0 Operation2.0 Operation
+
+Basic operation of DTECO is the same as TECO (DTECO is in fact a plug-
+in  replacement  for  TECO).  When  first  started,  DTECO  will  read
+SWITCH.INI to get and set any default processing modes desired.
+
+Whenever started,  restarted (.REENTER  command), or  continued  DTECO
+will read the terminal type from  the monitor, and if the terminal  is
+one which DTECO recognizes (see list below) DTECO will initiate  "dis-
+play" mode, otherwise DTECO simply acts like TECO.
+
+2.1 Screen Display Mode
+
+When entering display  mode DTECO  reads the screen  width and  height
+from the monitor  in order to  figure out what  size display image  to
+build. If the height ("page size") is 0 then DTECO will default to the
+standard size for that terminal type (see list below).
+
+In display mode the top  10/12's of the screen  is used as a  "window"
+into the text (edit) buffer and the remainder of the screen is devoted
+to user command typein. The logical text cursor (".") is displayed  on
+the screen  as a  slash character  followed by  a backslash  character
+(like so: /\). Normal text  characters appear as themselves, and  most
+control characters  appear in  up-arrow  form (Control-A  for  example
+would appear as ^A). Tabs appear as  blank space on the screen (a  tab
+stop is set  every 8 character  positions). Carriage return-line  feed
+pairs appear as themselves (i.e., a new display line starts). A stand-
+alone carriage return appears as ^M. A standalone line feed appears as
+^J and starts a  new display line with  leading space fill (i.e.,  the
+next screen character starts one line below the ^J without going  back
+to the left margin). Vertical tabs and form feeds appear as ^K and  ^L
+respectively and start a new display line at the left margin.  RUBOUTs
+appear as ^?.  A line of  text which  exceeds the page  width will  be
+continued on the next  line with a vertical  bar or similar  character
+(exclamation point  usually, depending  on the  terminal type's  usual
+character set) character being displayed  at the right margin of  each
+line which overflows into the next display line.
+
+Normally, when in display mode,  DTECO will redisplay the text  buffer
+after the completion of a command string (i.e., when DTECO prompts you
+for a new command). If, however, an error occurred in the execution ofDTECO %25(252) Display TECO for TOPS-10                         Page 2
+Operation
+
+
+the command string (such as a search failure) or "program" output  has
+appeared (such as from a "=" or "^A" command) such that the screen has
+been scrolled (in particular,  such that the text  window has been  at
+least partially overwritten)  then DTECO will  "freeze" the screen  so
+that the error message  (or whatever) does not  get erased before  you
+have a chance  to read  it. The  screen will  be updated  at the  next
+command string completion (unless of course another error . . .). When
+DTECO freezes the screen the message:
+  [TECSFT Screen "frozen" due to program typeout, ^L to refresh]
+will be issued to alert the user (see also the /SFT switch in  section
+6 on SWITCH.INI).
+
+Additionally, if DTECO notices that typein is available while updating
+the display window then DTECO will abort the update and go immediately
+to command input state. This is  done on the premise that the  current
+"incomplete" command will be shortly  completed and change the  screen
+so that  any changes  being output  will be  superseded and  therefore
+useless (in  other words  it's a  hack done  for speed).  This can  be
+especially useful on slow  (e.g., 300 baud  dataset) lines -  although
+TOPS-10's willingness to  buffer up terminal  output tends to  nullify
+this "feature" more often than not.
+
+The terminals currently recognized by DTECO are:
+
+     Terminal  Default screen length     ________  _______ ______ ______
+
+     VT05      20
+     VT50      12
+     VT52      24
+     VT55      24
+     VT61      24
+     VT100     24
+     VT101     24
+     VT102     24
+     VT125     24
+     VK100     24
+     DAS21     24
+
+2.2 Memory Usage
+
+With the addition of  the EA command (see  section 9) and the  /EAMODE
+SWITCH.INI switch DTECO now tends to  run with a rather large  working
+set, with the  attendant strain  put upon the  system as  a whole  (in
+particular as regards swapping).
+
+In an attempt to be somewhat more efficient with respect to the system
+as a whole, DTECO will try  to shrink its editing buffer whenever  the
+user deletes any text from the  editing buffer. This shrink action  is
+delayed until the completion  of the second  command string after  the
+deletion command in  order to  provide a  caching action  in case  the
+memory is needed again  immediately (ERCOMMON.MAC$$, search for  junk,
+HK$$, ERDDT.MAC$$, and so on). This shrink action is very simple mind-
+ed, and in particular does not do a general garbage collection/compac-
+tion pass, so any Q-registers deleted will not be reclaimed.DTECO %25(252) Display TECO for TOPS-10                         Page 3
+Command Typein and Editing
+
+
+3.0 Command Typein and Editing3.0 Command Typein and Editing3.0 Command Typein and Editing3.0 Command Typein and Editing3.0 Command Typein and Editing3.0 Command Typein and Editing
+
+As with TECO, DTECO will not execute the command string until the user
+types two consecutive <ESC>'s. Until the command string is  terminated
+and executed the user has the ability to "edit" the command string.
+                            
+                                 Note                                 Note                                 Note                                 Note                                 Note                                 Note
+
+     Currently DTECO does not  automatically wrap a command  line
+     which exceeds  the terminal/screen  width. As  a result  the
+     terminal carriage/screen cursor  will be left  at the  right
+     margin for all  characters past the  width limit,  generally
+     resulting in a  "splotch" at the  end of the  line. At  this
+     point the  editing  commands  listed below  are  subject  to
+     misrepresentation of the current command image.
+
+In the following discussion  the term "blank" as  used in a  character
+context means: 1) a space character (ASCII 40 octal); A tab  character
+(ASCII 11 octal); or  a carriage return-line  feed pair of  characters
+(ASCII 15 and 12 octal).
+
+3.1 Quote Character
+
+The Control-V character instructs DTECO that the immediately following
+command character, if not a RUBOUT, is to be treated as normal textual
+character input regardless of any other meaning DTECO normally puts on
+the second character. If  the immediately following command  character
+is a RUBOUT then the Control-V is deleted.
+
+3.2 Delete Character
+
+The RUBOUT character  (also labeled  DELETE, DEL, RUB  CHAR, and  even
+Control-? (yes, that's ^?))  unconditionally deletes the last  command
+character - if any - from the command buffer.
+
+On a hardcopy terminal the command character deleted is "echoed"  back
+to the terminal. When the last command character is deleted DTECO will
+issue a <CR><LF> and reprompt with another "*".
+
+On a display-mode  terminal the  command character  deleted is  erased
+from the screen. Deleting a  vertical format effector character  (line
+feed, vertical tab, or form feed)  will move the screen cursor up  the
+appropriate number of screen  lines. Deleting the  <LF> of a  <CR><LF>
+pair will leave the cursor at the begining of the line (i.e., the left
+margin) terminated by the <CR>. Subsequent deletion of the  standalone
+<CR> will leave the cursor at the end of the command line.
+
+3.3 Delete Word
+
+The Control-W character  deletes the last  command "word" -  if any  -
+from the command  buffer. The  exact operation  of Delete  Word is  as
+follows: 1) Any and all trailing  blanks are RUBedOUT; 2) The  immedi-
+ately preceding non-blank character - if any - is RUBedOUT; 3) Any and
+all preceding command characters up to but EXcluding the first  (going
+backwards) word break character are  RUBedOUT. A word break  character
+is any character  other than  a letter  ("A" to  "Z"; "a"  to "z"),  aDTECO %25(252) Display TECO for TOPS-10                         Page 4
+Command Typein and Editing
+
+
+number ("0" to "9"), or a dash ("-").
+
+3.4 Delete Line
+
+The Control-U character deletes the last command line - if any -  from
+the command buffer. The exact operation of delete line is as  follows:
+1) The immediately preceding command character - if any - is RUBedOUT;
+2) Any and all  preceding command characters up  to but EXcluding  the
+first (going backwards) line break are  RUBedOUT. A "line break" is  a
+carriage return followed  by a line  feed, a vertical  tab, or a  form
+feed (i.e., one of <CR><LF>, <CR><VT>, or <CR><FF>).
+                            
+                                 NOTE                                 NOTE                                 NOTE                                 NOTE                                 NOTE                                 NOTE
+
+     The user should  be cautioned  that by  condition "1"  above
+     multiple ^U's will RUBOUT multiple lines. This operation  is
+     different from TECO, where  the ^U will  not cross the  line
+     break boundary
+
+
+3.5 Delete Sentence
+
+A Control-W character  immediately preceded by  a Control-G  character
+(i.e., ^G^W) deletes  the last command  sentence - if  any - from  the
+command buffer. The exact operation of Delete Sentence is as  follows:
+1) Any  and  all trailing  blanks  are RUBedOUT;  2)  The  immediately
+preceding non-blank character - if any  - is RUBedOUT; 3) Any and  all
+preceding command  characters up  to but  EXcluding the  first  (going
+backwards) sentence  break character  are RUBedOUT.  A sentence  break
+character is any  character other than  a letter ("A"  to "Z"; "a"  to
+"z"), a number ("0" to "9"), a dash ("-"), or a blank.
+
+3.6 Delete Command
+
+A Control-U character  immediately preceded by  a Control-G  character
+(i.e., ^G^U) deletes  the entire command  string - if  any - from  the
+command buffer. The exact operation  of Delete Command is as  follows:
+Any and all command characters up  to and INcluding the first  command
+character typed - if any - are RUBedOUT.
+
+The deleted command string is available via the "first character  spe-
+cial" command "*" as in TECO.
+
+3.7 Retype Command Line
+
+A Control-R character causes the current command line - if any - to be
+re-echoed to the command terminal. A  command line is the same as  de-
+fined by Delete Line above.
+
+On a hardcopy terminal DTECO will first  issue a <CR><LF> to get to  a
+new line before re-echoing the command line.
+
+On a  display terminal  DTECO will  first back  the cursor  up to  the
+begining of the screen representation  of the command line before  re-
+echoing the command line.DTECO %25(252) Display TECO for TOPS-10                         Page 5
+Command Typein and Editing
+
+
+3.8 Retype Command
+
+A Control-R character  immediately preceded by  a Control-G  character
+(i.e., ^G^R) re-echos the entire current command string - if any -  to
+the terminal.
+
+On a hardcopy terminal DTECO will first  issue a <CR><LF> to get to  a
+new line before re-echoing the command string.
+
+On a  display terminal  DTECO will  first back  the cursor  up to  the
+begining of the screen representation of the command string before re-
+echoing the command string.
+
+3.9 Lower-case Shift
+
+The Control-A character,  when encountered  as part of  a text  string
+within an insert or search command, instructs DTECO to treat the imme-
+diately following text character as a lower-case letter.
+
+Two successive  Control-A's "lock"  DTECO  into lower-case  text  mode
+wherein all subsequent text characters  will be treated as  lower-case
+(unless otherwise  shifted  via Control-B  commands).  The  lower-case
+shift lock is cleared at the end of the text string.
+
+3.10 Upper-case Shift
+
+The Control-B character,  when encountered  as part of  a text  string
+within an insert or search command, instructs DTECO to treat the imme-
+diately following text character as an upper-case letter.
+
+Two successive  Control-B's "lock"  DTECO  into upper-case  text  mode
+wherein all subsequent text characters  will be treated as  upper-case
+(unless otherwise  shifted  via Control-A  commands).  The  upper-case
+shift lock is cleared at the end of the text string.
+
+
+4.0 EO value 3 conversion4.0 EO value 3 conversion4.0 EO value 3 conversion4.0 EO value 3 conversion4.0 EO value 3 conversion4.0 EO value 3 conversion
+
+DTECO %25 runs with an EO value of 3, which enables the above  command
+typein and editing functionality. Setting the EO value to 2 will cause
+^R, ^V, and ^W to  behave as in TECO %24  and earlier. Setting the  EO
+value to 2 does not  bring back the the  old ^G commands (retype  line
+and abort command). Following is a table of old-to-new command conver-
+sions:
+
+     Obsolete  New     ________  ___
+
+     ^Gspace   ^R
+     ^G^G      ^G^U
+     ^R        ^V
+     ^V        ^A
+     ^W        ^BDTECO %25(252) Display TECO for TOPS-10                         Page 6
+Crash Recovery
+
+
+5.0 Crash Recovery5.0 Crash Recovery5.0 Crash Recovery5.0 Crash Recovery5.0 Crash Recovery5.0 Crash Recovery
+
+Under control of the /CRDISP and/CRFILE switches (see section 6 below)
+DTECO writes a crash  recovery file called DSK:[,]nnnTEB.TMP<077>  (or
+<477> if the  system is a  File Daemon supporter)  where "nnn" is  the
+leading-zeros three-digit job number running DTECO. This crash  recov-
+ery file contains every character you  have typed to DTECO since  pro-
+gram startup (this  includes chararacters you  may have deleted  (both
+the character  and the  RUBOUT  are in  the  recovery file)  and  even
+commands aborted via ^G^U). This  file is periodically written out  to
+disk in such a manner  as to be preserved  across a system failure  of
+all but the most catastrophic nature  (such as a disk head crash).  By
+default the crash recovery file is updated every 128 (decimal) charac-
+ters modulo lines (i.e., at the  first "break" condition after 128  or
+more characters have been input), or  when a full disk block has  been
+input.
+
+In general crash recovery simply involves executing the crash recovery
+file as a command file (the  "E@" command, see section 9 below).  This
+will work whether  DTECO was  invoked via  a RUN  command (or  monitor
+call) or if DTECO  was entered via the  CCL mechanism (e.g., the  TECO
+monitor command). Remember  however that  the crash  recovery file  is
+written into your  job's logged-in  ppn (directory),  not the  current
+path!
+                      
+                           *** Warning ***                           *** Warning ***                           *** Warning ***                           *** Warning ***                           *** Warning ***                           *** Warning ***
+
+     Care must be exercised in executing the crash recovery  file
+     if one  or more  output files  have already  been written  -
+     since the  entire command  stream is  still present  in  the
+     crash recovery file the already-written output files will be
+     written again. If the  already-output files were the  result
+     of editing extant files  (e.g., the "EB" command)  executing
+     the crash  recovery  file will  re-edit  the  already-edited
+     files, to the extreme detriment of the file(s) in question.
+
+     Further consideration must also be given to ensure that  the
+     job's path, search list, and logical name definitions  match
+     those used by the previous  editing session which wrote  the
+     crash recovery file.
+
+Upon normal program  termination (e.g.,  the "EX"  command) the  crash
+recovery file will normally be deleted.
+
+
+6.0 SWITCH.INI6.0 SWITCH.INI6.0 SWITCH.INI6.0 SWITCH.INI6.0 SWITCH.INI6.0 SWITCH.INI
+
+DTECO supports SWITCH.INI  default processing as  defined by SCAN.  If
+DSK:SWITCH.INI[,] exists then  DTECO will  read and  process the  file
+looking for entries under "TECO". There is no provision currently  for
+specifying an  specific option  (i.e.,  the /OPTION:option  switch  to
+SCAN).
+
+6.1 /CRDISP:(NEVER|TEMPORARY|DELETE|PRESERVE)
+
+The /CRDISP switch controls whether or  not DTECO will create a  crashDTECO %25(252) Display TECO for TOPS-10                         Page 7
+SWITCH.INI
+
+
+recovery command file, and if so,  whether or not that crash  recovery
+file will  be automatically  deleted when  DTECO exits.  /CRDISP:NEVER
+instructs DTECO to not write a crash recovery file;  /CRDISP:TEMPORARY
+instructs DTECO to write the  crash recovery file with extension  .TMP
+(so LOGOUT can delete  it) and delete it  when the editing session  is
+over; /CRDISP:DELETE instructs DTECO to write the crash recovery  file
+with extension .TEB (so LOGOUT won't delete it) and delete it when the
+editing session is over; /CRDISP:PRESERVE instructs DTECO to write the
+crash recovery file with extension .TEB  and keep it when the  editing
+session is over. The default is /CRDISP:TEMPORARY.
+
+6.2 /CRFILE:file
+
+The /CRFILE switch is used to explictly name the crash recovery  file.
+By default, DTECO calls the crash recovery file DSK:nnnTEB.TMP[,]. The
+/CRFILE switch accepts a file  specification which may include any  of
+device, filename, extension (or  type), or directory path.  Explicitly
+specifying a  filename is  MOST  STRONGLY discouraged  since  multiple
+users will  interfere with  each-other. The  primary intent  of the  /
+CRFILE switch is to allow users to specify whether the crash  recovery
+file gets put in the user's logged-in ppn ([,]) or default path ([-]).
+Wildcards are not  allowed in  the file specification,  nor may  file-
+specific switches (e.g., /PHYSICAL or /PROT:nnn) be used.
+
+6.3 /CRPROT:nnn
+
+The /CRPROT switch is used to specify an explicit protection code  for
+the crash recovery file. Normally DTECO will protect the file <077> if
+the system does not have File  Daemon support, or <477> is the  system
+does have File Daemon support.
+
+6.4 /CRSAVE:nnn
+
+The /CRSAVE switch  is used to  control how often  the crash  recovery
+file is updated. The value "nnn"  is the count of characters  "modulo"
+lines which will  trigger an  update of  the crash  recovery file.  If
+"nnn" is 0 (or very large -  greater than 637 decimal) then the  crash
+recovery file will be updated only  when a full disk block's worth  of
+characters have been received (without respect to line boundries).
+
+6.5 /EAMODE
+
+The /EAMODE switch controls whether or not DTECO will attempt to  read
+in the entire file (see  the "EA" command in  section 9 below for  de-
+tails) automatically  upon execution  of an  "ER" or  "EB" command.  /
+EAMODE (or /EAMODE:ON) instructs DTECO  to attempt to read the  entire
+file into  the editing  buffer; /NOEAMODE  (or /EAMODE:OFF)  instructs
+DTECO to read the input file in pieces as needed (the default).
+
+6.6 /EOBATC:n
+
+The /EOBATCh switch is used to  specify the default EO value if  DTECO
+is running as a batch job rather than as a timesharing job. If /EOBATC
+is not specified then /EOMODE will be used - if given.DTECO %25(252) Display TECO for TOPS-10                         Page 8
+SWITCH.INI
+
+
+6.7 /EOMODE:n
+
+The /EOMODE switch is used to specify the default EO value if DTECO is
+running as a timesharing job rather than as a batch job.
+
+6.8 /INITFILE:file
+
+The /INITFILE switch is used to specify an initial command file  which
+DTECO will execute before any other user commands (including CCL  pro-
+cessing) are processed. The form  is /INITFILE:file where "file" is  a
+simple file  specification (no  wildcards, no  switches) of  the  file
+which is to be "executed" as a command file.
+
+6.9 /OKLSN
+
+The /OKLSN switch controls whether or  not DTECO will process (and  by
+default preserve) embedded line sequence  numbers in input files  read
+under /EAMODE:ON. /OKLSN (or /OKLSN:ON) instructs DTECO not to  bother
+looking for line sequence  numbers in the input  file; /NOOKLSN (or  /
+OKLSN:OFF) instructs DTECO to scan the input file looking for possible
+line sequence numbers (the default).
+
+6.10 /OKNULL
+
+The /OKNULL switch controls whether or not DTECO will process (and  by
+default discard) nulls in input  files read under /EAMODE:ON.  /OKNULL
+(or /OKNULL:ON) instructs DTECO not to bother looking for nulls in the
+input file; /NOOKNULL  (or /OKNULL:OFF)  instructs DTECO  to scan  the
+input file looking for possible embedded nulls (the default).
+
+6.11 /[NO]SFT
+
+The /[NO]SFT  switch controls  whether  or not  DTECO will  issue  the
+TECSFT message whenever the  display screen is  frozen due to  program
+typeout. /SFT enables the TECSFT message output. /NOSFT suppresses the
+TECSFT message output. The default is /SFT.
+
+6.12 /RUN:file
+
+The /RUN switch  instructs DTECO  to pass program  control to  another
+program rather than  to the  monitor when  DTECO "exits".  If /RUN  is
+specified in SWITCH.INI then DTECO will  not exit with an output  file
+OPEN, or with text  present in the editing  buffer (see the  Control-Z
+command below).
+
+
+7.0 Searches7.0 Searches7.0 Searches7.0 Searches7.0 Searches7.0 Searches
+
+DTECO now has faster, backwards, and/or bounded searching capability.
+
+If a search  command (e.g., "S",  "FN", "FD", etc.)  is preceded by  a
+single negative argument then the  search procedes backwards from  "."
+towards "B" rather than forwards  towards "Z". At the successful  com-
+pletion of  a backwards  search "."  is left  at the  begining of  the
+matched string rather  than at the  end. This is  to allow  successive
+backwards searches to find the  "next" string, rather than  rematchingDTECO %25(252) Display TECO for TOPS-10                         Page 9
+Searches
+
+
+the just found string again.
+
+If a search  command is  preceded by  two numeric  arguments then  the
+search is a "bounded" search where the two arguments define the begin-
+ing and ending  limits of the  search. If the  first argument is  less
+than the second argument then the search is a normal forwards  search;
+if the first  argument is greater  than the second  argument then  the
+search is a backwards search.
+
+When a search fails, "." is left unchanged, rather than at "B" in  the
+text buffer. If  the failed  search caused I/O  (e.g., an  "_" or  "N"
+search) then "." is left at the begining of the text buffer as usual.
+
+
+8.0 First-Character-Special Commands8.0 First-Character-Special Commands8.0 First-Character-Special Commands8.0 First-Character-Special Commands8.0 First-Character-Special Commands8.0 First-Character-Special Commands
+
+"First-character-special" commands  are a  special class  of  commands
+which, iff typed as the FIRST command character (i.e., the first char-
+acter typed after DTECO  prompts for input with  its "*"), are  inter-
+preted differently than if they were encountered within a regular com-
+mand string. An example of this is the old "*" command used to load  a
+q-register with  the  last command  string  when typed  as  the  first
+character of a command, but  means multiplication if encountered in  a
+normal command string terminated by two <ESC>s.
+
+8.1 The "Arrow" Keys
+
+Some terminals (in particular, VT05's, VT52's, and VT100's) have  keys
+marked with an  arrow (Up-, Down-,  Right-, and Left-pointing).  DTECO
+will interpret these  keys as  cursor-moving (i.e.,  moving ".")  com-
+mands. The "Up" key will move "." one screen line upwards; the  "Down"
+key will move "." one screen line downwards; the "Right" key will move
+"." one text character to the right; and the "Left" key will move  "."
+one text character to the left.
+
+The "Up" and "Down" keys are quite distinct from the regular "L"  com-
+mand in that  they will move  "." based on  the editing-text's  screen
+representation, NOT on  the placement of  break characters within  the
+editing text (and in  particular, the "Down" key  and the "Line  feed"
+command are quite distinct and behave differently).
+                            
+                                 NOTE                                 NOTE                                 NOTE                                 NOTE                                 NOTE                                 NOTE
+
+     Some terminals (notably VT05's) send control characters  for
+     the arrow keys. These  control characters may conflict  with
+     other first-character-special commands. When a conflict  ar-
+     ises, the  arrow meaning  takes  precedence over  any  other
+     meaning, so long as the character gets to DTECO (if a termi-
+     nal sends a Control-C then all bets are off).
+
+
+8.2 Space
+
+The space command  (i.e., the  space character) will,  iff in  display
+mode, cause DTECO to display the next screenful of text from the  edit
+buffer. The  space command  is  in effect  an  easy way  of  scrollingDTECO %25(252) Display TECO for TOPS-10                        Page 10
+First-Character-Special Commands
+
+
+through the edit buffer. Execution of the next regular command  string
+will redisplay the screen such that "." is on the screen, if it  isn't
+already there.
+
+8.3 Backspace
+
+The backspace command  (Control-H) will,  iff in  display mode,  cause
+DTECO to display the previous screenful of text from the edit  buffer.
+The backspace command is in effect an easy way of scrolling  backwards
+through the edit buffer. Execution of the next regular command  string
+will redisplay the screen such that "." is on the screen, if it  isn't
+already there.
+                            
+                                 NOTE                                 NOTE                                 NOTE                                 NOTE                                 NOTE                                 NOTE
+
+     On a  VT05 terminal  the "Left"  key transmits  a  Control-H
+     character, which is interpreted  as a "Left" command  rather
+     than as a "backspace screen" command.
+
+
+8.4 Carriage return
+
+The carriage return command will, iff in display mode, cause DTECO  to
+move the cursor  (".") such that  it is contained  within the  current
+display window. If "." is already  within the display window the  car-
+riage return command will position "."  to the begining of the  screen
+line containing ".".
+
+One oddity of  the carriage return  command is that  execution of  the
+command [from the top-level  command terminal] will  result in an  ex-
+plicit "nnnJ$$" command appearing in  the crash recovery file  immedi-
+ately following the carriage return. This will ensure that, should the
+crash recovery  file be  executed  on a  different terminal  type  (in
+particular, one with a different screen size), all subsequent commands
+(such as a "D" command) will be executed in the right place within the
+text.
+
+8.5 Line feed
+
+The line feed command will move "."  to the begining of the next  line
+(e.g., a "1L$$" command) as defined by the presence of a break charac-
+ter in the text buffer, not as  displayed on the screen (if any).  If,
+in addition, DTECO is not in display  mode the line will be typed  out
+(e.g., the line feed is equivilent to a "1LT$$" command).
+
+8.6 Form feed
+
+The form feed command will, iff in display mode, cause DTECO to  imme-
+diately refresh the display screen.
+
+8.7 ^Z
+
+The Control-Z character is the same as the Control-Z command (see  the
+Control-Z command below).DTECO %25(252) Display TECO for TOPS-10                        Page 11
+First-Character-Special Commands
+
+
+                                 NOTE                                 NOTE                                 NOTE                                 NOTE                                 NOTE                                 NOTE
+                            
+     On a VT05 terminal, the "Up" key transmits a Control-Z char-
+     acter, which is interpreted as  an "Up" command rather  than
+     an Control-Z command.
+
+
+
+9.0 Regular Commands9.0 Regular Commands9.0 Regular Commands9.0 Regular Commands9.0 Regular Commands9.0 Regular Commands
+
+"Regular commands" are simply  normal TECO commands  typed in but  not
+executed until the final terminating double <ESC> is seen.
+
+9.1 $$ - The null command
+
+To DTECO the null command (a degenerate case of regular commands) does
+in fact have some effects.
+
+The first effect  is that  the crash  recovery file  is forcably  (and
+prematurely) updated. This  can be useful  if you plan  on being  away
+from your terminal for a while but don't wish to terminate the editing
+session yet. Typing  "$$" will  ensure that, should  the system  crash
+while you are (e.g.,) eating lunch, no editing will be lost.
+
+The second effect is that the screen will be updated such that "."  is
+guaranteed to be  contained within  the current  display window.  This
+effect is useful if an error message has frozen the screen.
+
+9.2 ^Z - EXit
+
+The Control-Z  command  is  used  to  effect  an  immediate  and  non-
+destructive return to  monitor level. The  Control-Z command does  not
+perform any file I/O  - and in particular  does not CLOSE the  editing
+file. DTECO will immediately update the crash recovery file however.
+
+If no /RUN was specified in SWITCH.INI then a Control-Z command always
+returns to monitor  level. If there  is an output  file OPEN then  the
+message:
+  %TECOFO Output file still OPEN,  type CONTINUE then "EX$$" to  write
+it
+to warn  the user  of possible  lossage. If  there is  no output  file
+OPENed, but there is text in the editing buffer then DTECO will  issue
+the message:
+  [TECNFO No file for output]
+to warn the user. If there is no output file OPENed and no text in the
+editing buffer then DTECO simply returns to monitor level.
+
+If /RUN  was specified  in SWITCH.INI  then a  Control-Z command  will
+transfer control to  the specified  program iff there  is no  possible
+damage to the editing  session. If there is  an output file OPEN  then
+DTECO will issue the message:
+  ?TECOFZ Output file still OPEN, type "EX$$" to exit
+to warn the user, and return to DTECO command input state. If there is
+no output file OPENed,  but there is text  in the editing buffer  then
+the message:
+  ?TECNFZ No file for outputDTECO %25(252) Display TECO for TOPS-10                        Page 12
+Regular Commands
+
+
+will be issued  to warn  the user, and  DTECO will  return to  command
+input state. If  there is no  output file  OPENed and no  text in  the
+editing buffer then DTECO will RUN the specified program.
+
+The user can always  type the CONTINUE monitor  command to resume  the
+editing session after DTECO has returned to monitor level in  response
+to a  ^Z command.  DTECO is  not responsible  for the  results of  any
+foolish command such as FINISH or CORE 0.
+
+9.3 E-atsign - Execute command file
+
+The "E@" command is used to tell DTECO to execute a command file.  The
+format of the command is "E@file/switch" where "file" is a normal file
+specification and "/switch" is one  of "/TYO" or "/ECHO". The  default
+device is DSK:, the default extension (file type) is .TEC, the default
+file path is [-].
+
+A command file is simply a file which contains 7-bit ASCII  characters
+which DTECO will interpret as commands  EXACTLY as if they were  being
+input from the command  terminal (with the  exception of carriage  re-
+turns - see  section 8.4). For  example, if the  first character of  a
+command string is a space then  DTECO will display the next  screenful
+of text (within the outputing constraints described below).
+
+Normally DTECO will suppress all display window output when  executing
+a command  file ("program"  output (e.g.,  "^A" or  "=" commands)  and
+error messages are  not suppressed). The  /TYO switch (a  poor name  I
+will admit, but I couldn't think of anything better on the spur of the
+moment) instructs DTECO  to output  all normal  display window  output
+(which includes the "*" prompt by the way). The /ECHO switch instructs
+DTECO to not only output all  normal display window output but  "echo"
+the command file "typein" as well. (/ECHOing a crash recovery file can
+be a very sobering experience as  you watch all the mistakes you  made
+go flashing hauntingly by . . .)
+
+If the top level command file  terminates with a partially input  com-
+mand string (i.e., a  command string but  no terminating double  <ESC>
+yet) a warning message will be issued:
+  %TECEOC End of command file with unterminated commands pending
+
+Execution of a command file does  not begin until the current  command
+(the one which caused an "E@" command to be executed) is finished. For
+example, the command string "E@BLAH$4L$$"  will execute the "4L"  com-
+mand before  reading  the  first command  file  character  from  "DSK:
+BLAH.TEC[-]".
+
+Command files can, of course, be nested.
+
+9.4 EA - Edit All (or Edit Append)
+
+The "EA" command is both a  status-setting command and an action  com-
+mand, depending on the arguments typed.  The basic format of the  "EA"
+command is "nEA".
+
+If "n" is absent  (e.g., "EA$$") then DTECO  will attempt to read  the
+entire input file into the text buffer, using, if possible, dump  modeDTECO %25(252) Display TECO for TOPS-10                        Page 13
+Regular Commands
+
+
+I/O to read the file directly  into the editing buffer. Unless  expli-
+citly prevented by  switches in  SWITCH.INI DTECO will  scan the  file
+looking for embedded nulls and/or line sequence numbers.
+
+If "n" if  positive then  DTECO will perform  "n" appends,  preserving
+form feeds as text characters.
+
+If "n" is "0" then DTECO  will clear the "EA-by-default" flag. If  "n"
+is "-1"  then DTECO  will set  the "EA-by-default"  flag. The  "EA-by-
+default" flag (also  set/cleared via /EAMODE  in SWITCH.INI), if  set,
+instructs DTECO to  automatically try  to read the  entire input  file
+whenever a new input file is given ("ER" or "EB" command).
+
+9.5 EC - Edit Close
+
+The "EC" command instructs DTECO to write out the current text buffer,
+copy any remaining input file to the output file, and close the output
+file. The "EC" command is essentially an "EX" command which returns to
+DTECO command mode rather than  to monitor command mode. If  possible,
+the text buffer will be written using dump mode for speed (KL-10's can
+"dump" almost 1000 blocks per second!).
+
+9.6 FD - Find and Delete
+
+The "FD" command is used to find and delete a text string. The command
+format is "FDstr$" where  "str" is the text  string to be deleted.  As
+with other searches, the "FD" command may be colon and/or atsign modi-
+fied.
+
+9.7 FK - Find and Kill
+
+The "FK" command is used to find  and kill text up to and including  a
+text string. The command  format is "FKstr$" where  "str" is the  text
+string to be searched for. All text from current "." to and  including
+the matched text  string is  deleted when a  match is  found. As  with
+other searches, the "FK" command may be colon and/or atsign modified.
+
+9.8 FR - Replace
+
+The "FR" command is used to replace the last string with a new string.
+The command format is "FRstr$" where "str" is the new text string. The
+"FR" command is essentially equivilent  to a "-nDIstr$" command  where
+"n" is the  size of  the last string  operation (such  as a  successul
+search, an insert, or a  Q-register text operation). The "FR"  command
+has no positional information,  if "." has been  moved since the  last
+string operation then the string replaced will not be the last  string
+affected.
+
+9.9 F_ - Find and Replace
+
+The "F_" command is to the "_"  command as the "FS" command is to  the
+"S" command.
+
+9.10 \\ - Octal "\"
+
+The "\\" command is just an octal mode "\" command, just like the "=="DTECO %25(252) Display TECO for TOPS-10                        Page 14
+Regular Commands
+
+
+command is an octal "=" command.
+
+9.11 V - View Text
+
+The "V" command is used to view text from the text buffer. If DTECO is
+not running in display  mode the "V" command  is identical to the  "T"
+command.
+
+If DTECO is  running in  display mode  there are  2 forms  of the  "V"
+command. The first format is  "nV". This command "shifts" the  display
+window by "n"  display lines (not  text lines). The  second format  is
+"i,jV". This command sets explictly the start and the ultimate end  of
+the display window to "i" and "j" respectively.
+                          
+                               WARNING                               WARNING                               WARNING                               WARNING                               WARNING                               WARNING
+
+     The "V" command is almost  certainly going to be changed  in
+     future versions of  DTECO, so  do not  get too  used to  the
+     current syntax!
+
+
+
+10.0 Known Bugs, Deficiencies, and other undesirable Aspects10.0 Known Bugs, Deficiencies, and other undesirable Aspects10.0 Known Bugs, Deficiencies, and other undesirable Aspects10.0 Known Bugs, Deficiencies, and other undesirable Aspects10.0 Known Bugs, Deficiencies, and other undesirable Aspects10.0 Known Bugs, Deficiencies, and other undesirable Aspects
+
+Following is a list  of problems known to  exist with DTECO. Some  are
+admittedly out and  out bugs, others  are more in  the line of  simple
+deficiencies, and some are expressions of the undesirable vagaries  of
+reality beyond DTECO's immediate control.
+
+10.1 Command deletion (RUBOUTs and ^Us)
+
+There are two cases where the screen logic of DTECO fails to correctly
+(or at least "nicely")  handle RUBOUTs and/or ^Us.  If a command  line
+exceeds the screen width a free <CR><LF> is not issued - the cursor is
+left splattered against  the terminal's right  margin. At this  point,
+RUBOUTs will start eating backwards, erasing characters which have not
+yet been deleted from DTECO's command buffer (DTECO effectively thinks
+the right  margin is  at  infinity . . .). Once  the cursor  has  been
+backed into the left margin it  will sit there vainly trying to  erase
+more characters until the entire line is erased.
+
+The second case is basically of the same genre, only more so! This  is
+the case of RUBOUTs going off the top of the screen - it would be nice
+if DTECO would automatically  retype part of the  command text so  the
+user had a better idea of what was happening.
+
+10.2 Screen formatting, ^O, and "SEND" messages
+
+The Control-O character echos with a  free <CR><LF> and is not  passed
+to the user program. Thus typing a ^O will move the cursor down on the
+screen without telling  DTECO that  the cursor moved.  DTECO may  thus
+become confused and update  the wrong portion of  the screen. If  this
+happens, force  a screen  refresh (see  form feed  command in  section
+5.1.5 above) to get things in sync again.
+
+Similarly, being the  receipiant of  a SEND  message, or  any type  ofDTECO %25(252) Display TECO for TOPS-10                        Page 15
+Known Bugs, Deficiencies, and other undesirable Aspects
+
+
+"unsolicited" terminal output, will generally  trash some part of  the
+screen.
+
+10.3 The "V" command
+
+Some of the more involved uses of the "V" command may leave much to be
+desired in so far  as screen output is  concerned (try "1V1V1V$$"  for
+example).
+
+10.4 Running virtual
+
+DTECO, in order  to do  its disk dump  mode I/O,  must run  completely
+physically (actually only  the text  buffer need be  in the  program's
+working set, but it  quickly grows to be  the single dominant  factor,
+dwarfing the rest of  the program data). This  can result in a  rather
+large program size with its resultant load on the system resources.
+
+10.5 ^C and malicious users
+
+Command sequences such as ^C, .FIN, .CONT lose.
+
+10.6 Overall speed
+
+There are many known ways in which DTECO could be sped up, such as  in
+inserting and deleting characters. Maybe someday (I'm always open to a
+bribe . . .).
+
+10.7 Halts
+
+DTECO %25(252) should not by any means be considered a final  polished
+product (as witness this section's raison d'etre). There are a variety
+of bugs (and  maybe even an  unknown feature or  two) lurking  around,
+waiting to bite  someone. Further, DTECO  is liberally sprinkled  with
+debugging HALTs. Should you be so "fortunate" as to discover a way  of
+exercising one  of  these  little  gems please  make  a  copy  of  the
+nnnTEB.TMP file as well  as the input file  (if any) being edited  and
+let me know about them.
+
+In general, you can try  to "CONTINUE" from the  HALT - it might  even
+work.
+
+
+11.0 Afterword11.0 Afterword11.0 Afterword11.0 Afterword11.0 Afterword11.0 Afterword
+
+This product is  not an  official undertaking.  It did  not enjoy  the
+benefits of careful  design review  boards. It  does not  even have  a
+functional spec (execpt insofar as what is "obviously right")!
+
+As such, any and all  extensions over what DEC-standard TECO  provides
+should be considered as somewhat "volatile" and subject to change at a
+moments whim, I mean, ah, notice.

@@ -1,0 +1,284 @@
+
+
+
+STORE - A SIMPLE TEXT ORIENTED DATA BASE HANDLER
+
+     By Jacob Palme, Swedish National Defense Research Institute.
+
+ABSTRACT
+
+     STORE is a simple data base handler written in SIMULA.
+     STORE is primarily used through two procedures, PUTMESSAGE
+     and GETMESSAGE.  PUTMESSAGE stores a message under a key in
+     the data base, GETMESSAGE retrieves a message for a given
+     key from the data base.  Both message and key can be
+     variable length text strings.  Any structuring of key and
+     message into fields is up to the user, not done by the STORE
+     program.
+
+     The strings are stored in a direct access file on secondary
+     storage.  The system uses a combination of hashing and
+     binary trees to find the place of a message in the data
+     base.  Hashing to get high efficiency, binary trees to allow
+     unlimited growth of the data base.
+
+     The system is designed with the goal of being easy to use
+     for a programmer and having as few restrictions as possible.
+
+PUTTING AND GETTING MESSAGES
+
+     You store a message into the data base by calling the
+     BOOLEAN PROCEDURE PUTMESSAGE(KEY, MESSAGE);
+     TEXT KEY, MESSAGE;
+
+     KEY and MESSAGE should both be TEXT variables of arbitrary
+     contents and length.  The length of KEY should however not
+     be larger than 400.
+
+     The value of PUTMESSAGE will be TRUE if the message could be
+     stored in the data base, FALSE if this was not possible
+     because of a too long key or because there already was a
+     message in the data base under the same key.
+
+     If you want to overwrite a previous message with the same
+     key in the data base, you should set the switch REMOVE to
+     TRUE.  If REMOVE is TRUE, PUTMESSAGE will overwrite previous
+     messages with the same key, if REMOVE is FALSE, PUTMESSAGE
+     will not overwrite previous messages and will return FALSE
+     if a message with the same key was already in the data base.
+
+     To get a message back from the data base, you use the
+     TEXT PROCEDURE GETMESSAGE(KEY);
+     TEXT KEY;
+
+     This procedure will look for a message stored under the
+     given key in the data base.  If no such message can be
+STORE - A SIMPLE TEXT ORIENTED DATA BASE HANDLER           Page 2
+
+
+     found, the value NOTEXT is returned.
+
+CONVERTING KEYS TO UPPER CASE
+
+     If you want a key to refer to the same message regardless of
+     upper or lower case characters in the key, then you should
+     apply the TEXT PROCEDURE UPCASE(KEY);
+     TEXT(KEY);
+     to the key.  This procedure changes all lower case
+     characters in the key to upper case.  So if you put a
+     message under a key "GooD" you can later get the same
+     message through the key "GOOD" or "good".
+
+PRODUCING A DIRECTORY OF A FILE
+
+     The STORE package has a built-in procedure for producing a
+     directory of a file, that is for listing all the keys in the
+     file.
+
+     The procedure is 
+     PROCEDURE DIRECT(KEYPROCESSOR);
+     PROCEDURE KEYPROCESSOR;
+
+     Where KEYPROCESSOR is a procedure supplied by you with two
+     parameters KEY and LOCATION.  Example:
+
+     PROCEDURE KEYPROCESSOR(KEY,LOCATION);
+     TEXT KEY;
+     INTEGER LOCATION;
+     BEGIN OUTTEXT(KEY);
+     OUTINT(LOCATION,5);
+     OUTIMAGE;
+     END;
+
+     The procedure KEYPROCESSOR will be called once for each KEY
+     in the data base.  LOCATION is the number of the block in
+     the file where the MESSAGE for that KEY ends.
+
+PUTTING STORE INTO YOUR APPLICATION PROGRAM
+
+     In the outermost block of your main program write:
+     EXTERNAL CLASS STORE;
+     Also put the same statement in front of any separately
+     compiled modules which are to be able to use the facilities
+     of STORE.
+
+     Where you need a STORE in your data base you write the
+     statements:
+     REF(STORE) MYSTORE;
+     MYSTORE:- NEW STORE(VIRTUALSIZE, INITIALSTORESIZE);
+
+     VIRTUALSIZE is the size of the storage area in which lines
+STORE - A SIMPLE TEXT ORIENTED DATA BASE HANDLER           Page 3
+
+
+     from the data base are kept in core.  A large virtualsize
+     will thus reduce the number of disk reads but increase core
+     usage.  For most applications, VIRTUALSIZE=0 is best.
+     However, if you call GETMESSAGE to do long searches in the
+     data base, a higher value may be good.  Try for yourself.
+
+     INITIALSTORESIZE is the size of the area on disk into which
+     the key is initially hashed.  If this area is full, further
+     messages are stored in binary trees.  A large
+     INITIALSTORESIZE will thus give a larger disk file in the
+     beginning, but will reduce disk accesses and CPU-time.  In a
+     test case, CPU time had increased 20% and disk accesses 30%
+     when the actual store was allowed to grow to four times the
+     INITIALSTORESIZE, as compared with starting from the
+     beginning with a four times larger INITIALSTORESIZE.
+
+     A simple rule is to choose INITIALSTORESIZE as about half
+     the total size into which you expect your data base to grow.
+
+     Once a data base has been started, the INITIALSTORESIZE
+     cannot be changed.  A new value of INITIALSTORESIZE is
+     ignored by the STORE program for old data bases.
+
+     Both VIRTUALSIZE and INITIALSTORESIZE are measured in disk
+     blocks, that is 128 36-bit words or 640 ASCII-7-bit
+     characters.
+
+     Before you can use the data base, you must call the
+     procedure
+     MYSTORE.OPEN(FILENAME);
+     where FILENAME is a text of 1-6 letters or digits.  No
+     extension, STORE will add the extension ".DAF".
+
+     Before stopping the execution of your program, you must call
+     the procedure CLOSE.  If you leave your program by CTRL-C or
+     by a system crash, you may lose information newly stored
+     into the data base.  You can ensure against this by calling
+     CLOSE before each interaction with the terminal user and
+     calling OPEN again when you need to use STORE.  But this
+     will double the CPU time and cost of your run in cases where
+     you only make one single call to PUTMESSAGE or GETMESSAGE
+     between each OPEN and CLOSE.
+
+RESTRICTIONS
+
+     The length of the KEY must not exceed 400.  The total size
+     of one data base should not be larger than 9999 disk blocks.
+     There is no program yet available to reorganize a data base.
+     Reorganisation will however in many applications never be
+     needed, since the program automatically frees storage when
+     messages are removed.
+STORE - A SIMPLE TEXT ORIENTED DATA BASE HANDLER           Page 4
+
+
+     The parameter texts key and message may contain any ASCII
+     characters.  (In release 1C of DECsystem-10 SIMULA, certain
+     device control characters are not allowed, but this has been
+     remedied in release 2.)
+
+EXAMPLE OF USE
+
+     This very simple example only illustrates how to use the
+     procedures in the package in the simplest case:
+
+     BEGIN
+        EXTERNAL CLASS STORE;
+        REF (STORE) MYSTORE;
+        TEXT KEY, MESSAGE;
+
+        PROCEDURE KEYPROCESSOR(KEY, LOCATION);
+        TEXT KEY;
+        INTEGER LOCATION;
+        BEGIN OUTTEXT(KEY);
+        OUTIMAGE;
+        END;
+
+        MYSTORE:- NEW STORE(0,8);
+        MYSTORE.OPEN("TEST");
+        KEY:- COPY("KEYTEXT");
+        MESSAGE:- COPY("MESSAGETEXT");
+        MYSTORE.PUTMESSAGE(KEY,MESSAGE);
+        OUTTEXT(MYSTORE.GETMESSAGE(KEY));
+        OUTIMAGE;
+        COMMENT WILL PRINT "MESSAGETEXT";
+        MYSTORE.DIRECT(KEYPROCESSOR); COMMENT WILL PRINT
+        "KEYTEXT";
+        MYSTORE.REMOVE:= TRUE; COMMENT TO ALLOW CHANGING MESSAGES
+        FOR THE SAME KEY;
+        MESSAGE:= "NEWMESSAGE";
+        MYSTORE.PUTMESSAGE(KEY,MESSAGE); COMMENT THE NEW MESSAGE
+        REPLACES THE OLD;
+        MYSTORE.CLOSE;
+     END;
+
+FILES DELIVERED
+
+     The delivery of the STORE system consists of the following
+     files:
+     STORE.SIM    Source program of the CLASS store
+     STOREU.SIM   Source program of a demonstration example using
+     store
+     STOREU.SAV   Executable core image of demonstration example
+     STORE.RNO    The text you are reading now in RUNOFF format
+     STORE.HLP   The text you are reading now in reading format
+
+     The demonstration program STOREU also uses the SAFEIO
+STORE - A SIMPLE TEXT ORIENTED DATA BASE HANDLER           Page 5
+
+
+     package for terminal interaction.
+
+     At the QZ data center in Stockholm, you will find the files
+     on the DEC-tape H39I04.
+
+INTERNAL STRUCTURE OF THE DIRECT ACCESS FILE
+
+     The following sections are not necessary to use the STORE
+     package, only if you want to know how it works internally or
+     if you need to modify the program.
+
+     The data base consists of disk blocks.  Each disk block is
+     128 words or 640 characters.  The last two of these
+     characters are always <CR><LF> to mark the end of the disk
+     block.
+
+     The messages are stored in the data base in STORE UNITS.
+     Each STORE UNIT consists of
+     5 characters = s = length of store unit as a decimal number
+     3 characters = k = length of key as a decimal unit
+     k characters = text of key
+     s-k-8 characters = text of message
+
+     The disk block for a STORE UNIT is chosen in the following
+     way:
+   > Compute a hash number from the text in the KEY.  See program
+     for hashing algoritm.
+   > The number of the first disk block to look at is computed as
+     (((hash number) modulo INITIALSTORESIZE)+1).  At the same
+     time the hash number is divided by INITIALSTORESIZE and the
+     remainder kept.
+   > If that disk block is too full(while putting) or does not
+     contain the message(while getting) then the next disk block
+     is taken from a binary tree started at the first disk block.
+     The first four characters of each disk block contains a
+     pointer to the left continuation of the tree, and the next
+     four characters a pointer to the right continuation.  Both
+     as decimal integers.  Left is chosen if the remainder of the
+     hash number is even, right if the remainder is odd.  After
+     this, the remainder is again divided by 2 and the remainder
+     of this kept for going further down the tree.
+
+     When the total length of a STORE UNIT is larger than the
+     storage part of a disk block(630 characters) then the first
+     part of the STORE UNIT is put into one disk block, the
+     continuation into later disk blocks.  Each succesive STORE
+     UNIT has as its length the remainder of the total STORE
+     UNIT.  For example, for a message which has a total STORE
+     UNIT of 1500 characters and the key "KEYVALUE", the first
+     disk block will contain
+     " 1500 8KEYVALUE...  first 614 characters of message..."
+     and the second disk block will contain
+STORE - A SIMPLE TEXT ORIENTED DATA BASE HANDLER           Page 6
+
+
+     "  886 8KEYVALUE...  the next 614 characters of message..."
+     and the third and last disk block will contain
+     "  272 8KEYVALUE...  the last 256 characters of message..."
+
+     Further information about the internal organisation of the
+     program is given by comments in the text of the program
+     itself.

@@ -1,0 +1,371 @@
+.lm 0;.rm 72;.page size 59,72
+.left;Doc #: EJW-78-011-00-S
+.s
+.literal
++---------------+
+! D I G I T A L !   I N T E R O F F I C E   M E M O R A N D U M
++---------------+
+  
+To:  TOPS-10 network group        Date:  20 July 78
+                                  From:  Ric Werme
+cc:  Jared Aaronson               Dept:  LCG Communication
+     George Conant                       Software Engineering
+     Ralph Dement                 Ext:   6059  Loc: MR1-2/E89
+     Dave Kirschen
+     Tony Lauck
+     Arnie Miller
+     Marty Palmieri
+     Rob Ryan
+     Retrieval system (2)  ML2-5/B39
+     SWE Tech Archive
+  
+Subj:  Hierarchiacal routing in the TOPS-10 networks
+-------------------
+.end literal
+.s2
+.hl1 INTRODUCTION
+.S
+A serious problem in the TOPS-10 network architecture is its
+limitation of only 63 nodes in a network.  To date, the most seriously
+affected customer is IPC, the inhouse timesharing group which now has
+responsibility for more than that many nodes.  The largest customer
+network I know of is Western Electric with some 20-30 nodes.
+.s
+The reason for the limitation is two-fold.  First, the TOPS-10 network
+architecture demands that each node know about the existance of every
+other node in the network.  The database required per node is large
+enough to become a significant fraction of the memory available to
+many of our network systems.  (For example, the DN82 remote station
+and DN87 front end have 16K for both program and database.)  Second,
+the lack of a system filespec parser has forced TOPS-10 to squeeze the
+node number into device names as part of the unit number (e.g. LPT220
+is LPT0 on node 22.  This inherently implies a limit of 63 nodes and
+why we document the limit to be 63.
+.s
+This paper discusses a mechanism to build an arbitraty size network
+with the database requirements proportional to log(n) instead of n.
+It will not address the device naming changes required to allow
+TOPS-10 programs to access other devices on nodes whose addresses are
+bigger than 63.
+.s
+.hl1 THE HIERARCHY AND ASSOCIATED JARGON
+.s
+In today's TOPS-10 networks, each node must know about the existance
+of up to 62 other nodes.  To spread routing information, each node
+sends a list of its neighbors to each other node in the net.
+Associated with each neighbor is the cost of reaching it.  The routing
+algorithm uses that information to determine the best neighbor to send
+messages to every node in the network.  The optimal path may be
+determined solely because of the total knowledge base a node has of
+the network.
+.s
+To build large networks, I propose a hierarchy build of areas whose 
+number of nodes grow exponentially.  Let's define a level 0 area to be
+a single node.  A level 1 area would be analogous to today's network
+and would be a group of up to x level 0 areas, or x nodes.  A level 2
+area would be a group of up to x level 1 areas, or in general, a level
+n area would be a group of up to x level (n-1) areas.  The maximum
+number of nodes in a level n area would then be x**n, so we can see
+that x has a lower bound of 2.  Just what x should be seems to be a
+matter of personal choice.  Something like making x equal the highest
+area level needed may be attractive mathematically, but I will leave
+that to the computer scientists.  There are benefits of keeping x
+small and large.  If it is kept small, the routing database will be
+smallest, becoming minimal at x=2, but the larger the routing database
+is the better we can route messages.
+.s
+From an administrative point of view, it would be attractive to assign
+level numbers to individual administrators.  Therefore, at a level one
+area, the Marlboro development systems could have their own area and
+we could assign node numbers within our area as we see fit.  Maynard
+could do the same and make PK1 be a level 1 area and could assign node
+numbers as they wish.  For the two groups to be able to communicate,
+we would simply have to agree on different level 1 area numbers.  I
+suggest that something like 31 subareas per area would be manageable,
+both from administrative and memory availability information.  I will
+not attempt to access the routing efficiency of various values of x in
+variable sized networks.
+.s
+The following table shows the maximum size of networks varying both x
+and the highest level.  A standard practice in MACRO-10 is to only
+fill a listing page of code 2/3s full to allow room to grow but still
+be reasonably compact.  The column for x=20 is interesting because it
+is what one would get if he filled his x=31 areas only 2/3s full.
+.s
+.tp8
+.literal
+                        X values
+           2      10       20       31         63
+         ----------------------------------------
+      0 !  1       1        1        1          1
+      1 !  2      10       20       31         63
+Level 2 !  4     100      400      961       3969
+      3 !  8    1000     8000    29791     250047
+      4 ! 16   10000   160000   923521   15752961
+.end literal
+.s
+Another definition that will be useful later is the term "routing
+level".  This is a characteristic of a node and is the smallest level
+number needed to encompass a node and its neighbors.  In the text
+below, the phrase 'level x node' will be an abbreviation for 'node
+whose routing level is x'.
+.s2
+.hl1 SAMPLE NETWORK
+.s
+On the next page is a diagram of a hierarchical network which I will
+use to disucss the mechanics of hierarchical routing.  Each ring in
+the drawing surrounds an area.  These rings are associated with the
+various levels, the level number being equivalent to the number of
+rings that must be crossed to get to a particular node number (or
+level 0 number).  A node address may be formed by summing the numbers
+associated with each ring over all the levels.  For example, the node
+closest to the upper right corner has the address 10223.  It is 
+located in the level 1 area with the address 10200, and therefore is
+in level 2 address 10000.  If any level 1 area stood alone, like area
+10200, what would be left would be the sort of network we can support
+today.  It is the connections between areas of order greater than 1
+that this paper defines.
+.s
+For expositional purposes, the top level area covers the entire
+network.  It needs no address since messages are never routed outside.
+Therefore, I will call it area 0 when I need to refer to the highest
+level area.  Also, if I am discussing some area, its address is
+unnecessary to describe areas below it and will usually be omitted.
+For example, area 4400 in area 10000 is area 14400 and node 4411 is
+node 14411.
+.s
+The drawing also demonstrates the routing level concept.  Node 14411's
+routing level is 1 since it and its neighbors are within area 4400.
+Likewise, node 14422 is level 2 and nodes 10520 and 70707 level 3.
+Incidentally, area 10500 isn't a star network.
+.s2
+.hl1 HIGH ORDER ROUTING
+.s
+Message routing involves moving a message from one area toward
+another.  Routing is done on the level of the lowest order level that
+encompasses both the node presently holding the message (the source
+node or an intermediate) and destination.  A message will never be
+routed out of that area.  To be able to route between any two nodes in
+a network, a node must be able to route to all areas (except its own)
+one level below each level of its hierarchy.  For example, node 14411
+must be able to route to areas 60000 and 70000 within area 0, areas
+100, 200, 300, and 500 within area 10000, and nodes 22 and 33 within
+area 4400.
+.s
+One might ask if a node only needed to know how to route to a level
+one higher than its routing level.  Could nodes pass messages to nodes
+with successively higher routing levels to approach the destination?
+The answer is no.  While this works in a tree structured hierarchy, it fails
+.page
+.literal
+
+                                    0
+    
+    
+             100                   1000                   200
+    
+         1                                              3
+                3                                             23
+    
+           2                                          10
+     
+                                                          6
+    
+    
+    
+                                  4400
+    
+                                      11     33
+    
+                                      22
+    
+    
+                500                                    300
+             
+             5                                       1      2
+       
+        25      10                    
+    
+         20   15                                     3      4
+    
+    
+    
+    
+          6000
+    
+    
+            600                   3000                    700
+                 
+                 6                 100                      7
+    
+            
+           5      7                 3                    7000
+    
+.end literal
+.page
+badly in an arbitrary topology network because messages between
+nodes with high routing levels must pass through nodes with low
+routing levels.  For example, if we assigned equal cost to all lines
+in the network and node 14411 wanted to send a message to 60606, it
+might send it to node 33 since it interfaces to a higher level.
+However, node 33 knows that the minimum cost path to area 60000 is via
+500 and since the minimum cost path to 500 is via 11, it will send the
+message back.  This could repeat indefinitely and hence is not a
+viable design.
+.s2
+.hl1 IMPLEMENTATION
+.s
+.hl2 Neighbors
+.s
+As mentioned before, the NEIGHBORS message is used in NCL to learn the
+topology of today's level 1 networks.  This message contains data the
+network cannot afford to lose since it is sent only to nodes when they
+come up or when the local topology changes.  To guarantee delivery it
+is a numbered message which means that NCL must have gone through its
+end to end startup sequence before NEIGHBORS messages are exchanged.
+To extend this mechanism to hierarchical networks, two rules will have
+to be changed.  First, nodes will have to start NCL with a node in
+each area one level below all areas in a node's hierarchy between
+level 1 and the node's routing level.  Therefore, node 10520 will have
+to start NCL with nodes 5, 10, 15, 20, 25, 102, 203, 303, 4422, 30103,
+60606, 70707.  Note that for a level 1 node, NCL startup will occur
+exactly as it does today.  Second, NEIGHBORS messages will have to be
+sent between nodes in contact, which is the same as today's rules.
+However, the content will become a list generated by the following
+algorithm:
+.s
+.ls 0
+.le;Let YS be the routing level of the node sending a NEIGHBORS
+message and YD be the routing level of the destination.
+.s
+.le;If YD is greater than or equal to YS then the NEIGHBORS 
+messages will contain a list of neighbors of level YS-1
+adjacent to the sender's area of level YS-1.
+.s
+.le;If YD is less than YS then the NEIGHBORS message will contain
+the list of a node from areas of level YD-1 that are adjacent 
+to the sender's area of level YD-1 and the list of a node
+from all areas one level below each level higher than YD+1 in
+the sender's hierarchy.
+.els
+.s
+For example, a NEIGHBORS message from node 14411 (YS=1) to 14422
+(YD=1) will contain nodes 22 and 33.  From node 10102 (YS=2) to 10505
+(YD=3) it will contain nodes 505, 525, and 203 and will not contain
+nodes 1 or 3.  In the opposite direction it will contain nodes 10102,
+14422, 10303, 30103, 60606, and 70707.  The area 10000 nodes enables
+node 102 to learn about the level 1 areas within area 10000 and the
+rest enable it to gain information about routing to higher levels.  It
+is node 10102's responsiblity to pass this information onward to
+nodes 10101 and 10103.  Note that in today's network (a topology where
+all nodes have a routing level of one) NEIGHBORS messages will contain
+the same data they do now.
+.s
+.hl2 Line Costs
+.s
+NEIGHBORS messages include link costs in addition to nodes it
+interfaces with.  When doing level Y routing, should a node be
+concerned with costs of sending messages between levels less than Y?
+If it did, that information would allow more accurate routing but
+would require NCL in a node of level Y with  all nodes of level  Y or
+higher in an area of level Y+1.  For example, node 14422 would have to
+start with nodes 10101 and 10102 since they may provide different
+costs about interfacing to area 10200.  If it only started with 
+one node, routing would be based on inconsistant costs and message
+looping might occur.  To maintain a database size proportional to
+log(n), a node must not have to start NCL with more than one node in
+high level areas.  Therefore, I specify here that a node need only
+start with one node in areas outside of its level 1 area and that
+routing on level Y will be based on the costs for routing between
+level Y-1 areas.
+.s2
+.hl1 ACCESSING NODES IN MULTILEVEL NETWORK.
+.s
+NCL will require changes in areas other than routing to permit a node
+to access all others outside its level 1 area.  In level 2 and higher
+areas, a node will not know of the existance of all the nodes in the
+network, but will be able to route a message far enough to reach a
+node that knows about the desired destination.  Before any significant
+information between NCL nodes can begin, NCL between the two must be
+started.  Therefore, we will need a mechanism to do this in multilevel
+networks.  If node A wishes to communicate with node B but level 2 or
+higher routing is required to do that, no new problems will occur if
+node B exists.  If node B does not exist and node A sends a NCL START
+to it, some intermediate node will discover that the message is
+undeliverable.  Instead of simply discarding the message as the
+current NCL specifies, I propose a more responsive mechanism, i.e.
+the intermediate must return a new unnumbered message, which I will
+call STOP, back to node A claiming node B as the source.
+.s
+Once NCL is running, nodes A and B may exchange any numbered messages
+including CONNECTs, DISCONNECTs, and DATA.  After all the connections
+are broken, the two ends will probably want to terminate NCL to reduce
+their database.  This could be done immediately after the last
+connection is broken, but I would prefer to see it happen after some
+time delay since it is very common for a user to break a connection
+and try another immediately.  To terminate NCL, a node will send a
+STOP message.  Since STOP messages are unnumbered, it may be lost,
+however that case will be handled as a side effect of the next
+section.
+.s
+Another problem exists if node B should go down since that information
+will not be transmitted outside its level 1 area.  I propose that
+three mechanisms be used to detect and service this case:
+.s
+.ls 0
+.le;If a node receives a message that cannot be delivered, it
+will return a STOP message to the sender on the behalf of the
+nonexistant destination, but only if the message received is
+not a STOP message. (Replying to STOP messages loses big if
+both nodes go down while there is traffic in the net for
+them ....).  This generalizes the paragraph that introduced the
+STOP message.
+.s
+.le;If no messages have been sent recently, a node will send a
+REP (NCL REP, not DDCMP REP) and expect an ACK or STOP
+message in return.
+.s
+.le;To catch nodes that restart NCL faster than the REP mechanism
+can catch, nodes that receive messages in states that do not
+allow that message (like receiving a REP when NCL isn't
+running) will reply with STOP messages to provide fast
+response to letting the sender know that he has to restart
+NCL.
+.els;
+.s2
+.hl1 FRAGMENTED AREAS
+.s
+To this point I have ignored area 10300 which is broken in two pieces.
+This is an invalid configuration and offers some of the problems seen
+when two nodes in a network claim to have the same node address.  This
+situation can be detected by the high level routing nodes in that area
+when they receive NEIGHBORS messages from nodes outside of area 10300
+that claim nodes in area 10300 to be neighbors that the receiver
+doesn't know about.  For example, node 10302 will receive a NEIGHBORS
+message from area 10500 listing node 10303 as a neighbor.  Node 10302
+can notice that it has never heard of that node but can't really do
+much except notify the operator.  (Note that if the area was properly
+connected and node 10303 went down, node 10302 would probably learn
+that before area 10500 tells it of the event.  This means that if a
+node tries to detect fragmented areas it must be able to handle that.)
+.s
+The effect of a fragmented area is not too severe.  Message routing
+that does not try to route through that area will not be impacted, and
+routing at levels lower than the fragmented area will never be
+impacted.  Of course, the maintainer of that area should never let it
+fragment, but I can offer no good cure.
+.s2
+.hl1 CONCLUSIONS
+.s
+Ancient Greek philosophers got themselves into all sorts of trouble by
+thinking about problems without bothering to perform experiments to
+test their results.  I have done no better.  This proposal contains
+the results of a couple days active thought and a year's worth of idle
+contemplation.  No simulations have been run, no algorithms have been
+proven, no experiments done, and I may be claiming that a heavy node
+falls faster than a light one.  It is, however, a start.  One problem
+that I'm sure this proposal exacerbates is network congestion.  I
+believe we already have a significant number of problems, and reducing
+the information used to route messages cannot improve matters.  The
+goal of this memo has been merely to record what I know on the subject
+before I leave DEC.  It's up to you guys to make it work!

@@ -1,0 +1,396 @@
+
+
+
+
+
+
+
+
+
+                       CHANGES TO THE UCILSP SYSTEM 9/73
+
+
+                                    Summary
+
+
+               Various  changes have  again  been made  to  the UCILSP
+          system.   Among  these  are  a  plethora  of  new  functions
+          particularly I/O  type functions,  access to  the  QMANGR to
+          allow  spooling of output and batching of  jobs.   Also some
+          common functions such as AND and  OR  have  been  changed so
+          that they now return useful  values instead  of  T.  Several
+          new symbol table functions have been added.  Internally, the
+          I/O has  been  reorganized  which  will  make  it easier for
+          future expansion and the bit-pushers.
+               A new data  type has  been  added  using binary program
+          space.   Multiple OBLISTs are  now possible using  this data
+          type.   Note that the value  of the atom OBLIST is now truly
+          the oblist.   The normal system OBLIST can be restored via a
+          REE   when   at  the  monitor  level,   followed  by  an  ^R
+          (CONTROL-R).   This  also  often  corrects  that  occasional
+          problem of a GARBAGED OBLIST.  Try it and see.
+               Various bugs and other problems have been  fixed.  Some
+          common  illegal  memory  references  have  been  eliminated.
+          Among others,  DSKOUT no longer clobbers the previously open
+          channel and SUBST and COPY now work properly.  (They used to
+          be clobbered by the garbage collector).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   CHANGES . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            Changes to Old Functions
+
+     AND OR MEMQ MEMBER
+
+          These functions have been changed so that they return useful
+          values as  did their  old counterparts  AND#, OR#, MEMQ# and
+          MEMBER#.   The # functions are no longer  in the system, but
+          are contained in a file called COMPAT.LSP.
+
+     CONSP
+
+          CONSP also returns a useful value, it's argument, if it is a
+          cons cell and not an atom.
+
+     DSKOUT
+
+          DSKOUT  now attempts  to  back  up  the  file  if it already
+          exists.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   CHANGES . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+                               New I/O Functions
+
+               Various  functions  for   file   manipulation,  reading
+          directories and queueing files have been added.
+
+     RENAME *RENAME
+
+          These  functions allow  the renaming of files.  RENAME is an
+          FSUBR that does not evaluate it's arguments,  *RENAME is the
+          SUBR version.
+
+     DELETE
+
+          DELETE is  an FSUBR  that deletes the files in it's argument
+          list.  It ignores files that do not exist.
+
+     LOOKUP
+
+          LOOKUP checks to see if a file exists.  Handy in conjunction
+          with the rename functions.
+
+     FILBAK
+
+          FILBAK renames a file to the specified extension.
+
+     QUEUE
+
+          QUEUE  is the  serves  the  same  functions  as  the monitor
+          command of the  same name.  No longer do you have to destroy
+          your core  image or go through the contortions  of detaching
+          and QUEUEing to get a listing on the line printer.
+
+     UFDINP
+
+          UFDINP  opens  a  UFD  on the specified  channel for reading
+          directories.
+
+     RDFILE
+
+          RDFILE reads the next entry from a UFD, i.e. the next file.
+
+     DIR
+
+          DIR returns a list of files in the specified directory.
+
+     RDNAM
+
+          RDNAM reads without interning.
+
+
+
+
+                                   CHANGES . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                 New Predicates
+
+
+     NUMTYPE
+
+          NUMTYPE returns FIXNUM or FLONUM  depending  on the  type of
+          it's numeric argument.
+
+     INUMP
+
+          INUMP  returns  it's  argument if  it  is  an  INUM  and NIL
+          otherwise.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   CHANGES . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            Miscellaneous Functions
+
+     ERRCH
+
+          ERRCH changes the bell character that causes an  (ERR (QUOTE
+          ERRORX)) when read.  Returns the ASCII representation of the
+          old character.   Takes  the ASCII representation  of the new
+          character as it's argument.
+
+     INITFL The system now allows a list of files instead  of  the old
+          INIT.LSP  only.   The  first  file  in  the  list  is always
+          optional.   If any of the subsequent files are not found, an
+          error is generated.
+
+     *RPUTSYM RPUTSYM
+
+          Analagous to *PUTSYM and PUTSYM except that  they  only take
+          cons  cells  for the  values.   They store the values in the
+          symbol  table with the  atom  relocation  stripped  off thus
+          allowing BPS  to  be expanded without  clobbering  code that
+          references free space.
+
+     *RGETSYM RGETSYM
+
+          Analoguos  to  *GETSYM  and  GETSYM  except  that  the  atom
+          relocation is add back in before returning the value.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   CHANGES . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                BLOCK Data Type
+
+          This data type  is a  contiguous  block of storage in BINARY
+          PROGRAM SPACE.   It's main usage is  for building lists that
+          can also be referenced as tables.  All of the functions that
+          work  on normal lists will also work on lists built in these
+          BLOCKs.   All  of  these  functions  return  true  addresses
+          pointing to the beginning of the BLOCK.
+
+     GTBLK
+
+          GTBLK returns a block of storage.   This block can either be
+          considered a block  of pointers,  in  which case  it will be
+          scanned by the garbage collector, or the user can use it for
+          whatever his heart desires.
+
+     BLKLST
+
+          BLKLST maps a list into a BLOCK.   The CDR's of the BLOC are
+          each successive word of the block.  The CARs are the CARs of
+          the list given as one of it's arguments.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   CHANGES . 6
+
+
+
+

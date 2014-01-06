@@ -1,0 +1,426 @@
+DUMPR -- UTILITY FILE DUMPER %5                                   Page 1
+
+
+     DUMPR  is  a  utility  program  to  dump  arbitrary  files   in   a
+human-readable  format.   Input  to  DUMPR  is  a  file on any supported
+device:  disk, magnetic tape, DECtape.  Output is in ascii mode  to  the
+specified output device.
+
+     General command format:
+
+          ODEV:OFILE.EXT[P,PN]/SWITCHS=IDEV:IFILE.EXT[P,PN]/SWITCHS
+
+     Allowable switches are:
+
+     1.  /BACKSP:F:R
+         Backspaces  magtapes  f  files  and   r   records.    /BACKSP:R
+         backspaces  r  records  or  blocks  on  a  directory  device or
+         magtape.
+
+     2.  /BLOCK:N
+         Set the record size (characters/record) to n for EBCDIC dumps.
+
+     3.  /BUFSIZ:N
+         Set the input buffer size to n words.  The default buffer  size
+         is 1024(10) words for magtape and disk files read with /FORTRAN
+         or /IREAD.
+
+     4.  /DENSITY:ARG
+         Sets the magtape density to one of:  200,  556,  800,  or  1600
+         bpi.  (Defaults are:  7 track-800 bpi, 9 track-1600 bpi.)
+
+     5.  /DUMP:F:R
+         Dumps f files and r records from magtape or r blocks or records
+         from  a  directory  device  or magtape.  /DUMP is an input-only
+         switch.
+
+     6.  /FORTRAN
+         The input file is in FORTRAN binary mode.  This is  created  by
+         using  FORTRAN  binary  write  statements.   This will not dump
+         FORTRAN random binary files.
+
+     7.  /ERROR:ARG
+         Specify the action to take when an input error occurs:
+
+         1.  CONTIN
+             Continue processing after reporting the error.
+
+         2.  IGNORE
+             Do not report the error.
+
+         3.  QUERY
+             Report the error and ask  for  an  option  from  the  user.
+             Legal responses are:
+
+             1.  C - continue
+DUMPR -- UTILITY FILE DUMPER %5                                   Page 2
+
+
+             2.  H - Give some help.
+
+             3.  I - make /ERROR:QUERY into /ERROR:IGNORE.
+
+             4.  Q - quit dumping and return to command mode.
+
+             5.  S - Skip this record and proceed.
+
+
+
+     8.  /HELP
+         Give some help.
+
+     9.  /IFTYP
+         Enable  for  command  type-in  while  the  dump   is   running.
+         Allowable commands are:
+
+         1.  I - Ignore all further typein (disable /IFTYP).
+
+         2.  K - Kill the dump.   Output  files  are  closed  and  DUMPR
+             prompts for another command.
+
+         3.  P - Pause.  Processing will continue when any character  is
+             typed on the teletype.
+
+
+    10.  /INDUSTRY
+         Read the  magnetic  tape  in  industry-compatible  mode.   This
+         consists  of  four (4) eight-bit bytes packed in the high order
+         32 bits of a DEC-10 word.  The low order 4 bits are zero.  When
+         this mode is used, the dump will dump the high order 32 bits of
+         data as if it was a 32-bit word.
+
+    11.  /IREAD
+         Dump the file in IREAD mode.  On magtape,  IREAD  mode  implies
+         each  logical  record is a physical record.  On disk, the first
+         word is a word count, followed by that many words.  This switch
+         depends on FT$PHX being on at assembly time (default).
+
+    12.  /LINRDX:ARG
+         Print line numbers (word counts) in  radix  specified  by  ARG.
+         Allowable values for ARG are:
+
+         1.  DECIMAL
+             Base 10.  (default) Line numbers will start at one.
+
+         2.  HEX
+             Base 16.  Line numbers will start at zero.
+
+         3.  OCTAL
+             Base 8.  Line numbers will start at zero.
+
+DUMPR -- UTILITY FILE DUMPER %5                                   Page 3
+
+
+    13.  /MODE:ARG
+         Output the dump in the format specified by  ARG.   This  switch
+         may appear on the output side only.  Legal values for ARG are:
+
+         1.  ASCII
+             Dump the file in ASCII mode.  If  /INDUSTRY  is  used,  the
+             file is dumped in eight-bit ASCII mode.
+
+         2.  BYTE:N
+             dump the file as bytes of size n (1 le n le 36).  
+
+         3.  EBCDIC
+             Dump the file in ebcdic format.  (use only with /INDUSTRY)
+
+         4.  FLOAT
+             Dump the file as  floating  point  numbers.   The  file  is
+             dumped  as DEC10 floating point numbers unless /INDUSTRY is
+             used, in which case the numbers are dumped as  IBM  360/370
+             floating point numbers.
+
+         5.  HALF
+             Dump the file in halfword format.  This consists of  18-bit
+             bytes in normal mode, and 16-bit bytes in Industry mode.
+
+         6.  HEX
+             Dump the file in hexadecimal (base 16).  
+
+         7.  INTEGER
+             Dump the file as integers (base 10).
+
+         8.  OCTAL
+             Dump the file in octal (default).
+
+         9.  SIXBIT
+             Dump the file in sixbit mode.  (unusable with /INDUSTRY)
+
+        10.  SYMBOL
+             Dump the file in PDP-10 instruction format.
+
+
+    14.  /MTBUF:N
+         Specify  the  number  of  buffers  to  use  for  magtape  input
+         (default=2).
+
+    15.  /NORETRY
+         Set no read retries on errors (magtape only).
+
+    16.  /OMIT
+         Omit the line numbers.
+
+    17.  /ONLY:L:H
+         Only dump from words l to h of each record.  to dump words 1 to
+         n use /ONLY:N.  This switch is input-only.
+DUMPR -- UTILITY FILE DUMPER %5                                   Page 4
+
+
+    18.  /PARITY:ARG
+         Sets the parity for magtape to EVEN or ODD.
+
+    19.  /POSITION
+         Use of this switch allows you to do magtape positioning only in
+         a DUMPR command.  For instance, the command:
+
+                   MTA3:/P/REW/SKIP:3:20
+
+         would rewind MTA3:  and then skip 3 files and 20 records.  This
+         switch  may  only  be  used  with  magtape,  and the only legal
+         positioning switches are /BACKSP, /REWIND, and /SKIP.
+
+    20.  /RADIX:N
+         Output dump in radix n.  (Effective only  if  no  /MODE  switch
+         specified) Legal values for N are 2-16.
+
+    21.  /REWIND
+         Rewinds the magtape before dumping.
+
+    22.  /RIB
+         On disk file dumps without /IREAD  or  /FORTRAN,  position  the
+         file to dump the rib (retrieval information block).  Illegal on
+         MTA and DTA.
+
+    23.  /SKIP:F:R
+         Skip forward f files and r records on side that switch  appears
+         on.  /SKIP:R skips r records or blocks on a directory device.
+
+    24.  /SUMMARY
+         Print only one line per record (or block) with a final  summary
+         at the end.
+
+    25.  /TITLE:"STRING-NO-DOUBLE-QUOTES"
+         Places the string in quotes at the top of the dump.
+
+    26.  /TOTALS
+         List only the totals for each file;  do not output  any  record
+         summaries.
+
+    27.  /WIDTH:N
+         Set the width of the dump to  N.   Default  is  132.   for  all
+         devices  except  the terminal (default=80.).  If the dump is to
+         the terminal and no /WIDTH is specified, DUMPR will attempt  to
+         read  the terminal width setting from the monitor and use that,
+         or will use the default if unable to read it.
+
+DUMPR -- UTILITY FILE DUMPER %5                                   Page 5
+
+
+                             COMMAND NOTES
+
+     1.  The default input specification is DSK:DUMPIT.DAT.  The default
+         output specification is LPT:DUMPED.LPT.
+
+     2.  If /NORETRY is specified and there are input errors, the record
+         is dumped and processing continues.
+
+     3.  If /NORETRY is not specified and input errors are  encountered,
+         the  error  is  reported,  the record is dumped, and processing
+         continues.
+
+     4.  If /OMIT is specified, there is no formatting done for ASCII or
+         EBCDIC dumps.
+
+     5.  Some switches are executed in the order they are  seen  in  the
+         input command string:  /BACKSP, /DUMP,/rewind, and /SKIP.
+
+     6.  /MODE sets the mode for the next /DUMP switch.  /ONLY sets  the
+         limits  for  the  next /DUMP switch.  To turn off /ONLY once it
+         has been set in a dump, use /ONLY with no arguments.
+
+     7.  It is possible to do multiple dumps with one command:
+
+                   LPT:=DEV:FILE.EXT/ONLY:5/DUMP:6/SKIP:4/ONLY/DUMP:10
+
+              This command will dump the first  five  words  of  records
+         (blocks)  1-6, skip the next 4 records (blocks), and completely
+         dump the next 10 records (blocks).
+
+     8.  If no /DUMP switch is specified the whole input file (or  whole
+         magtape) is dumped.
+
+     9.  DUMPR will scan SWITCH.INI for applicable switches.   Allowable
+         switches  are:   /BUFSIZ,  /ERROR, /IFTYP, /LINRDX, /MTBUF, and
+         /WIDTH.  See  DOC:COPYMT.DOC  for  a  complete  description  of
+         SWITCH.INI.
+
+    10.  If the feature test switch FT$WLD is set non-zero  at  assembly
+         time  (default),  the  input  file  specification  may  contain
+         wild-carding.   The  limit  of  one  specification   is   still
+         enforced.   If the dump is to a spooled device (LPT) there will
+         be a separate  output  file  for  each  input  file  processed.
+         Switches  given  will be applied to each file which matches the
+         input specifications.
+
+DUMPR -- UTILITY FILE DUMPER %5                                   Page 6
+
+
+                             DUMPR messages
+
+     DUMPR issues three classes of messages.  These are error,  warning,
+and  informative  messages.   Following  is a list of the messages and a
+short description of each.
+
+ERROR MESSAGES (usually fatal):
+
+     1.  ?DMPBRB /BYTE REQUIRES BYTESIZE
+         The /MODE:BYTE switch requires a byte size.  Retype the command
+         properly.
+
+     2.  ?DMPBSO CANT BACKSPACE DISK OUTPUT
+         You have tried to position the disk output file with a  /BACKSP
+         switch.
+
+     3.  ?DMPCDM CANT DUMP MULTIPLE FILES ON DIRECTORY DEVICE
+         You have specifed /DUMP:F:R with a disk input  file.   You  may
+         only specify /DUMP:R on a disk device.
+
+     4.  ?DMPCGH CAN'T GET HIGH SEGMENT, CODE = N
+         This message is not expected to occur.  If  it  does,  see  the
+         maintainer.
+
+     5.  ?DMPCOD CAN'T OPEN DEVICE, FILE DEV:FILE.EXT
+         DUMPR was unable to open the specified device.
+
+     6.  ?DMPCRD CANNOT REWIND DISK OUTPUT
+         You have specified /REWIND on the output side  and  the  output
+         device is a disk.
+
+     7.  ?DMPCUS CANT USE SAME MAGTAPE FOR INPUT AND OUTPUT - MTAX
+         You have tried to use the same magtape for  input  and  output.
+         This does not work.
+
+     8.  ?DMPEIW EBCDIC ILLEGAL WITHOUT /INDUSTRY
+         You have specified /MODE:EBCDIC  without  /INDUSTRY.   This  is
+         illegal.
+
+     9.  ?DMPEBE EOF BEFORE END OF IREAD RECORD
+         This means that either the file was not in IREAD format, or the
+         IREAD format for the file is incorrect.
+
+    10.  ?DMPIAR ILLEGAL ARGUMENT FOR /RADIX - N
+         THE RANGE OF ARGUMENTS FOR /RADIX IS 2-16.
+
+    11.  ?DMPIBS ILLEGAL BYTE SIZE - N
+         The legal range of byte sizes is 2-36.  Any number out of  this
+         range is illegal.
+
+    12.  ?DMPID7 ILLEGAL DENSITY FOR 7-TRACK
+         You have specified /DENSITY:1600 or /DENSITY:6250 on a  7-track
+         tape  unit.  The only legal 7-track densities are 200, 556, and
+         800 bpi.
+DUMPR -- UTILITY FILE DUMPER %5                                   Page 7
+
+
+    13.  ?DMPID9 ILLEGAL DENSITY FOR 9-TRACK
+         You have specified an illegal density for 9-track  tapes  (200,
+         or 556 bpi).
+
+    14.  ?DMPIDV ILLEGAL DEVICE DEV
+         You have specified either an unknown device or  a  device  that
+         DUMPR was not designed to handle.
+
+    15.  DMPIOE I/O ERROR - STATUS=N (XXX), FILE DEV:FILE.EXT
+         An I/O error has occurred on the device.
+
+    16.  ?DMPIFF INCORRECTLY FORMATTED FORTRAN FILE
+         The input file is not really in FORTRAN binary mode.
+
+    17.  ?DMPIFU IREAD FILE MESSED UP
+         DUMPR has encountered an IREAD word count which was non-zero in
+         the  left  half  (disk  only).  This usually means the file was
+         improperly written, or it is not an IREAD file.
+
+    18.  ?DMPISO INPUT SWITCH ILLEGAL ON OUTPUT - SWITCHNAME
+         You have specified an input-only switch on the output  side  of
+         the command.
+
+    19.  ?DMPLER LOOKUP/ENTER ERROR(N) FILE DEV:FILE.EXT[P,PN]
+         The specified lookup/enter error has occurred.  See the monitor
+         calls manual for a description of the error codes.
+
+    20.  ?DMPMIS MULTIPLE INPUT SPECIFICATIONS ILLEGAL
+         DUMPR only handles one input file specification.
+
+    21.  ?DMPMOF MULTIPLE OUTPUT FILES ILLEGAL
+         You may only specify one output file.
+
+    22.  ?DMPMSE MODE SPECIFICATION ERROR - /IREAD + /FORTRAN
+         An input file may not be in IREAD and FORTRAN form at the  same
+         time.
+
+    23.  ?DMPODF OUTPUT DEVICE FULL
+         You have exceeded your disk quota, or  the  output  DECTAPE  or
+         magtape is full.
+
+    24.  ?DMPOIS /ONLY INCORRECTLY SPECIFIED
+         Either one or the other arguments was negative, or  the  second
+         argument was greater than the first argument.
+
+    25.  ?DMPOSI OUTPUT SWITCH ILLEGAL ON INPUT - SWITCHNAME
+         The named switch is an output-only switch and was found on  the
+         input specification.
+
+    26.  ?DMPRIB /RIB ILLEGAL ON OUTPUT OR ILLEGAL DEVICE FOR /RIB
+         /RIB is legal only on disk input files.
+
+    27.  ?DMPSFI SKIP/BACKSPACE FILES ILLEGAL ON DIRECTORY DEVICE
+         Need I say more?
+DUMPR -- UTILITY FILE DUMPER %5                                   Page 8
+
+
+    28.  ?DMPSFM CANNOT BACKSPACE MTA WITH /FORTRA
+         Since this is so rarely  done,  it  was  not  coded.   See  the
+         maintainer if this is a problem.
+
+    29.  ?DMPSWE SWITCH ERROR - /SUMMARY + /TOTALS
+         You may not specify /SUMMARY and /TOTALS in the same command.
+
+    30.  ?DMPSWI SIXBIT WITH /INDUSTRY ILLEGAL
+         This makes no sense.
+
+    31.  ?DMPWFI WILDCARD FILESPEC ILLEGAL, FILE DEV:FILE.EXT
+         DUMPR does not  support  wild-carding.   (however,  DUMPR  does
+         support input wild-carding.  see command notes)
+
+
+WARNING MESSAGES (PROCESSING CONTINUES):
+
+     1.  %DMPIND /INDUSTRY NO-OP ON NON-MTA DEVICE
+         You have specified /INDUSTRY on a device that is not a magtape.
+         The switch is ignored.
+
+     2.  %DMPRTL RECORD TOO LARGE - N - FILE F RECORD R
+         DUMPR has encountered a record of size n in file f,  record  r.
+         This  message will only occur on disk files read with /IREAD or
+         /FORTRA.  The problem may  be  alleviated  by  using  a  larger
+         /BUFSIZ.
+
+     3.  %DMPTUF TAPOP.  UUO FAILURE--CODE = N
+         A tapop.  monitor call has failed.  This  is  not  expected  to
+         occur.  See the maintainer.
+
+
+INFORMATIVE MESSAGES:
+
+     1.  [DMPPTC PAUSING--TYPE ANY CHARACTER TO CONTINUE]
+         DUMPR is pausing in response to a "p" typed  in  while  running
+         and  /IFTYP specified in the command.  Any character typed will
+         resume operation.
+
+     2.  [DMPIPT INITIAL POSITION OF TAPE IS FILE N RECORD M]
+         This message will only appear at the top  of  dumps  done  from
+         magnetic  tapes.  DUMPR is showing you the position of the tape
+         as it was obtained from the Monitor.
+

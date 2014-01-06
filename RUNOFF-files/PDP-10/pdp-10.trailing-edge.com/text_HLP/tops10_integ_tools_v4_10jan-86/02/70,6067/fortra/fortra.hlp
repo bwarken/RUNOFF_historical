@@ -1,0 +1,178 @@
+File: HLP:VAX5.HLP                                Written:  8-Jul-82/SLP
+Length: 4 pages                                   Updated: 13-Jul-82/SLP
+
+
+   How to Convert DEC-10 Fortran Programs to VAX-11 Fortran Programs
+
+Modifying your DEC-10 Fortran programs to run on the VAX computer should
+be very easy. In fact, it's quite possible  that  many  of  your  DEC-10
+Fortran programs will run on the VAX without any modifications at all.
+
+The  purpose  of this help file is to alert you to potential differences
+in the Fortrans on the  two  systems.  .  .and  what  to  do  about  the
+differences you encounter in your programs.
+
+
+               RECOMPILE YOUR FORTRAN PROGRAM ON THE VAX
+               -----------------------------------------
+
+The  first  thing to do is to transfer your Fortran program source files
+to the VAX. You can do this with the TVAX command procedure.  Type  HELP
+TVAX or HELP VAX3 for details.
+
+The  quick  and  easy  way to convert your Fortran programs is to simply
+recompile them  on  the  VAX.  Then  make  any  necessary  modifications
+indicated  by  the compiler's diagnostic messages. Feel free to call the
+DEC-10/VAX consultant (378-6554) to explain any diagnostic messages  you
+don't understand.
+
+There  is  a  "Portable  FORTran"  validation  program on the VAX called
+PFORT. It can flag all the statements in your Fortran source  file  that
+do not conform to "standard Fortran." Since there are many extensions to
+standard Fortran allowed in both the DEC-10 and VAX-11  Fortrans,  PFORT
+will probably flag a lot of code that's really okay.
+
+Now for the major differences between DEC-10 and VAX-11 Fortran.
+
+
+                        HARDWARE CONSIDERATIONS
+                        -----------------------
+
+A subtle, but important difference is imposed by the hardware of the two
+computers. A "word" on the DEC-10 is thirty-six bits long; on the VAX, a
+longword is thirty-two bits long. This affects (1) the precision (number
+of digits of accuracy) of numerical values and (2) the number  of  ASCII
+characters that can be stored in a word.
+
+                        DEC-10                  VAX-11
+
+INTEGER precision       11 digits               10 digits
+  neg. limit            -34,359,738,368         -2,147,483,648
+  pos. limit            +34,359,738,367         +2,147,483,647
+
+REAL precision          7 to 9 digits           6 to 8 digits
+  range                 0.14E-38 to 3.4E+38     0.29E-38 to 1.7E+38
+(double precision)      15 to 17 digits         15 to 16 digits
+
+ASCII chars/word        5                       4
+How to Convert to VAX-11 Fortran                                  Page 2
+
+
+Generally,  you  can see that the DEC-10 carries about one more digit of
+precision for INTEGERs and REALs and can store one  more  character  per
+word. On the VAX, you may need to use DOUBLE PRECISION real variables in
+some instances where INTEGER and single precision REAL  were  sufficient
+on  the DEC-10.(For example, 5 billion is too big to store as an INTEGER
+on the VAX.)
+
+Programs dependent on storing "five characters per word" will need to be
+reworked to run on the VAX. The  best  solution  is  to  redeclare  such
+variables  as  "CHARACTER*5".  (CHARACTER  is a new data type defined in
+Fortran-77; see the VAX-11 Fortran Manuals for details.)
+
+On  the nicer side, the VAX has what is called G_floating and H_floating
+REAL data types. They provide for up to 33 digits  of  precision  and  a
+magnitude   range  as  great  as  +/-0.84E-4932  through  +/-0.59E+4932!
+CHARACTER type variables can hold up to 32,767 characters!
+
+
+                        SOFTWARE CONSIDERATIONS
+                        -----------------------
+
+VAX-11  Fortran  is  based  on  American  National  Standard FORTRAN-77,
+X3.9-1978. As a result, it contains certain incompatibilities with  DEC-
+10  Fortran,  which  is  based  on the previous standard, X3.9-1966. The
+areas affected are:
+
+   o Minimum  number  of  DO  loop  iterations. "Zero-trip" DO loops are
+     possible in Fortran-77. For example, "DO 20 I=1,0" will execute the
+     loop once under F-66, but skip the loop under F-77.
+
+   o EXTERNAL  statements.  In certain cases, F-77 requires functions to
+     be declared "INTRINSIC" instead of "EXTERNAL."
+
+   o The  OPEN  statement  keyword  BLANK. In F-77, if a logical unit is
+     opened with an OPEN statement, BLANK defaults to BLANK=NULL (blanks
+     in an input numeric field are ignored). If a logical unit is opened
+     without an explicit OPEN statement, BLANK  defaults  to  BLANK=ZERO
+     (embedded  blanks  are  treated  as zeroes). F-66 does not have the
+     BLANK keyword, but it behaves as though BLANK=ZERO.
+
+   o T  and X format descriptors. In F-77, T and X do not actually write
+     blanks, they merely position the record pointer.  Only  the  actual
+     data  sets  the record size, so that (A5,100X) writes a 5-character
+     record whereas (A5,100X,' ') writes a 106  character  record.  F-66
+     writes a 106 character record in both cases.
+
+   o Random access files. In F-77, random-access files have no end. Thus
+     the END= branch will never be taken.
+
+   o Random  access  files.  In  F-77,  "#" is not allowed as the record
+     number specifier in random-access  data  transfer  statements.  You
+     must use a "'" or REC=.
+How to Convert to VAX-11 Fortran                                  Page 3
+
+
+The   VAX-11   Fortran   compiler   selects   the   Fortran-77  language
+interpretations by default. You can direct the compiler to use  some  of
+theFortran-66   interpretations   listed   above   (DO  loops,  EXTERNAL
+statements, and OPEN statement keyword BLANK) by specifying the  FORTRAN
+command  qualifier  /NOF77.  (See Appendix C of the VAX-11 Fortran Users
+Guide for details.)
+
+There  are  a  few  other differences between the two Fortrans, although
+they are not due to differences between Fortran-66 and -77.
+
+   o Logical   two-branch   IF  statement.  This  is  a  DEC-10  Fortran
+     extension. It is not available in VAX-11 Fortran at all.
+
+
+                     NEW FEATURES OF VAX-11 FORTRAN
+                     ------------------------------
+
+There  are  MANY new features in Fortran-77. In general, Fortran-77 is a
+superset of Fortran-66. You don't need to  rewrite  your  existing  (and
+working!)  Fortran-66  programs  just  because  you  use  the Fortran-77
+compiler. But it's a good idea to find out what the new capabilities  of
+Fortran-77  are  and  use  them  in  any new VAX-11 Fortran programs you
+write. Check the VAX Fortran Manuals for details. (You could  also  look
+through the ANSI FORTRAN-77 X3.9-1978 standard.)
+
+Here's a sampling:
+
+   o IF-THEN-ELSE and DO WHILE for structured programming.
+
+   o CHARACTER data type and string manipulation functions.
+
+   o Expressions are allowed in an output list.
+
+   o New  format  descriptors: BN, BZ, SP, SS, S, Iw.d, Z, TL, TR, Q, :,
+     and variable format expressions (such as "FORMAT(I<J+1>)").
+
+   o New OPEN keywords: BLANK, CARRIAGECONTROL, DEFAULTFILE, EXTENDSIZE,
+     FORM, INITIALSIZE, IOSTAT, KEY, MAXREC, NOSPANBLOCKS, ORGANIZATION,
+     READONLY, RECL, RECORDTYPE, SHARED, STATUS, TYPE, USEROPEN.
+
+   o INQUIRE statement. Find out about specified properties of a file.
+
+   o I/O statmenta can take keywords in their control information lists:
+     READ (UNIT=1, FMT=100), TABLE.
+
+   o SAVE  statement.  Retains  values of local variables after a return
+     from a subprogram.
+
+   o IMPLICIT NONE. Requires all variables to be declared.
+How to Convert to VAX-11 Fortran                                  Page 4
+
+
+                          FOR MORE INFORMATION
+                          --------------------
+
+If you need any help converting your Fortran programs to the VAX, please
+contact:
+
+      Stan Peters       424A Clyde Building     378-6554
+or    Matt Hawkes       424  Clyde Building     378-4941
+
+
+[End of HLP:VAX5.HLP]

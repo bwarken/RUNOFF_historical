@@ -1,0 +1,317 @@
+.TITLE ^^MTFILE.DOC 4(33)	7-F\\EB-74
+.SKIP 5
+.SPACING 1
+.CENTER
+^^MTFILE -- UWO MAGTAPE FILE CUSP
+.SKIP 1
+.INDENT 29
+A\\UTHOR:  ^^R.#N.#F\\REEDMAN
+.INDENT 31
+^DATE:  7-^FEB-74
+.PAGE
+.PARAGRAPH
+.UPPER CASE
+MTFILE is a user program for magtape file handling,
+designed to give some of the conveniences of a directory device
+in combination with the advantages of magtapes. It is very similar,
+in function and use, to PIP, except that additional bookkeeping
+is performed for magtapes.
+.SKIP 1
+REQUIREMENTS: 2+6K CORE
+.SKIP 1
+I. INSTALLATION GUIDE
+.PARAGRAPH
+MTFILE.MAC must be assembled with the system files C.MAC and
+SCNMAC.MAC. They may be included either as universal files
+or in the form COMP C+SCNMAC+MTFILE. MTFILE.REL must be loaded
+with SCAN, WILD, JOBDAT, and HELPER.
+.SKIP 1
+II. USER'S GUIDE
+.PARAGRAPH
+An MTFILE-format magtape contains data in sequentially-
+numbered files, where each file contains one or more records
+of installation-standard size, density, and parity. Each file contains
+retrieval information (name, extension, protection, and UFD), which
+may be used in accessing files or in obtaining a directory listing.
+.PARAGRAPH
+A command to write on an MTFILE tape causes the program to
+seek the logical end of tape, obtain the highest file number in use
+from the preceding file, and automatically increment the file number
+appropriately. A command to read from an MTFILE tape for a specified
+file name initiates a search from the present tape position for
+the occurrence of a file with suitable retrieval information. A
+read command might instead give a file number, which causes the
+tape to skip to the appropriate position and obtain retrieval
+information, if necessary, from the file it finds there.
+(Note: A file specification, consisting entirely of digits with
+no extension, when referring to an MTFILE tape,
+specifies the decimal file number and not the file name. See the Q-switch.)
+.PARAGRAPH
+Command format for MTFILE is the traditional scan format:
+.NOFILL
+.CENTER
+output specification = input specification(s)
+where a specification is DEV:FILNAM.EXT[prj,prg]/SWITCHES
+.FILL
+.PARAGRAPH 0
+If a device is not specified, the default is DSK:.
+.PARAGRAPH
+If protection is not specified, installation-standard protection
+is supplied (except that input protection is preserved when a file
+is being copied with /X).
+.PARAGRAPH
+SCAN is used to process the command string, so standard
+conventions are followed. For example,
+the forms [x,], [,x], and [,] are allowed for UFD specification,
+with null fields defaulting to the user's number. Disk specifications
+may include SFD'S.  If a UFD is specified
+with output to an MTFILE tape, it will be used if installation-standard
+UFD protection allows creating in the foreign UFD. If no UFD is
+specified, the user's PPN will be used. If a UFD is specified
+with output from an MTFILE tape, it will be used (although the ENTER
+may fail unless MTFILE is run as a privileged program). If no UFD
+is specified, the user's default UFD will be used. If [*,*] is
+specified, the UFD associated with the file on tape will be used.
+.PARAGRAPH 5
+Wild-card constructions "*" and "?" are supported, using
+the WILD program where appropriate. "*" may be substituted for an entire file name,
+extension, project number, or programmer number; "?" may be substituted
+for a single character of one of the above items.
+.PARAGRAPH
+Magtapes are assumed to be MTFILE-format unless the N-switch
+is present.
+.PARAGRAPH
+If an I/O error occurs while writing an MTFILE-format tape,
+the file is aborted. The tape is positioned to the beginning of
+the bad file and EOF is written. For example, if file 25 is
+aborted, the tape contains file 24 followed by logical EOT, with
+the tape positioned between the EOF marks. The next write would
+create a new file 25.
+.PARAGRAPH
+If entered at <start address>+1, MTFILE will look for TMPCOR:MTF
+or DSK:_#_#_#MTF.TMP and execute the commands found there.
+In addition, one may execute commands in a file by typing file
+specification followed by "@".
+.PARAGRAPH
+If a command is terminated by a _^Z, MTFILE will process the command and then exit to the monitor.
+.PARAGRAPH
+The size associated with files in a directory listing is in
+disk blocks.
+The summary, "n records in m files", is a summary of a different
+quantity, tape records written.
+.PAGE
+.TAB STOPS 10
+.LEFT MARGIN 10
+.INDENT -10
+The standard switches BEFORE, DENSITY, PARITY, PHYSICAL, PROTECT,
+and SINCE are supported. Additional switches are listed below.
+Switch arguments (represented by _#) are in decimal.
+Any unique switch abbreviation is allowed.
+.SKIP 1
+.INDENT -10
+ALL	Transfer all files with the specified name, instead of
+accepting just the first occurrence. This switch remains in
+effect until cancelled by /0ALL. The initial mode is 0ALL.
+.SKIP 1
+.INDENT -10
+BEGIN:_#	On output device, begin writing at specified file instead
+of seeking logical end of tape. On input device, skip to
+specified file before beginning search.
+.SKIP 1
+.INDENT -10
+END:_#	On input device, end search after specified file number.
+.SKIP 1
+.INDENT -10
+FAST	Brief directory listing: file numbers, names, extensions
+.SKIP 1
+.INDENT -10
+GARBAGE	Garbage collect (must be from one MTFILE device to another). On
+pass one, the input tape is scanned for retrieval information.
+On pass two, all files which have not been superceded are
+copied to the output tape. A file is superceded if another
+file with the same name, extension, and UFD exists with a
+more recent creation time/date, or if such a file with the
+same time/date exists with a higher file number.
+.SKIP 1
+.INDENT -10
+IGNORE	Ignore UFD information on input MTFILE-tape, when searching
+for a file by name. This does not bypass protection checking.
+This switch remains in effect until cancelled by /0IGNORE.
+The initial mode is IGNORE.
+.SKIP 1
+.INDENT -10
+LIST	List directory of MTFILE tape: file numbers, names, extensions,
+sizes, dates, versions, and UFD's
+.SKIP 1
+.INDENT -10
+MTAPE:X	Where X is one of the following:
+.nofill
+A	skip file
+B	backspace file
+D	skip record
+F	write EOF
+P	backspace record
+T	skip to logical EOT
+U	rewind and unload
+W	rewind
+.FILL
+If data transfer is indicated, positioning will be performed
+before the data transfer. The form "DEV:/SWITCH=" may be used for positioning
+with no data transfer. If backspace file is requested, it is followed by
+an implicit skip file (unless the tape is at load point) to position the
+tape to the beginning of a file.
+.SKIP 1
+.INDENT -10
+NORMAL	This device is not MTFILE format.
+.SKIP 1
+.INDENT -10
+QUOTE	Take input file name as a name, even though it may consist
+entirely of digits. This switch remains in effect until
+cancelled by /0QUOTE. In the initial mode, 0QUOTE, a file
+specification such as 25 would mean the twenty-fifth file on
+the tape, rather than a file with file name of '25'.
+.SKIP 1
+.INDENT -10
+TIME	List detailed directory, including creation time and mode.
+.SKIP 1
+.INDENT -10
+WIND	Rewind the specified device.
+.SKIP 1
+.INDENT -10
+X	 copy, as in PIP. Names, extensions, and other
+retrieval information are taken from the input files unless
+given explicitly.
+.SKIP 1
+.INDENT -10
+ZERO	If the output device is a DECtape, clear directory before
+transferring files. If the output device is an MTFILE tape,
+begin writing at load point with file one (same as /BEGIN:1).
+.LEFT MARGIN 0
+.PARAGRAPH
+The switches BEGIN, END, MTAPE, NORMAL, WIND, AND ZERO
+must be given with
+the device to which they refer.
+.PAGE
+.RIGHT MARGIN 70
+.NOFILL
+EXAMPLE#OF#USE:
+.SKIP 1
+#####.DIR
+.SKIP 1
+#####RTCTIM##SAV#####4##<155>###23-OCT-72####1##DSKB:###[71,102]
+#####RTCTIM##MAC####11##<155>###23-OCT-72
+#####NEWTIM##SAV#####5##<155>###30-OCT-72####2
+#####NEWTIM##MAC####12##<155>###30-OCT-72
+#####RTCTIM##REL#####7##<155>###20-DEC-72
+#####NEWTIM##REL#####7##<155>###20-DEC-72
+#####RTCTIM##LST####46##<155>###20-DEC-72
+#####NEWTIM##LST####48##<155>###20-DEC-72
+.SKIP 1
+#######TOTAL#OF#140#BLOCKS#IN#8#FILES#ON#DSKB:#[71,102]
+.SKIP 1
+#####.R#MTFILE
+.SKIP 1
+#####*MTA0:/Z/X=RTCTIM+NEWTIM
+#####FILES#TRANSFERRED:
+#####RTCTIM.SAV
+#####RTCTIM.MAC
+#####NEWTIM.SAV
+#####NEWTIM.MAC
+#####RTCTIM.REL
+#####NEWTIM.REL
+#####RTCTIM.LST
+#####NEWTIM.LST
+#####*TTY:/L=MTA0:
+#####DIRECTORY:#MTA0##########16:07##########07-NOV-74####MTFILE#4(42)
+#####NO.#####FILNAM##EXT#SIZE#PROT###CREATION###VERSION#####OWNER
+.SKIP 1
+#####001#####RTCTIM##SAV####4#<155>##23-OCT-72##1##########[71,102]
+#####002#####RTCTIM##MAC###11#<155>##23-OCT-72#############[71,102]
+#####003#####NEWTIM##SAV####5#<155>##30-OCT-72##2##########[71,102]
+#####004#####NEWTIM##MAC###12#<155>##30-OCT-72#############[71,102]
+#####005#####RTCTIM##REL####7#<155>##20-DEC-72#############[71,102]
+#####006#####NEWTIM##REL####7#<155>##20-DEC-72#############[71,102]
+#####007#####RTCTIM##LST###46#<155>##20-DEC-72#############[71,102]
+#####008#####NEWTIM##LST###48#<155>##20-DEC-72#############[71,102]
+.SKIP 1
+#########TOTAL OF 144 RECORDS IN 8 FILES
+#####*MTA0:*.*/PROT:157/X=DSKC:MTFILE.LST[70,102]
+#####FILES#TRANSFERRED:
+#####MTFILE.LST
+#####*MTA0:/W=
+#####*TTY:/L=MTA0:*.LST
+#####DIRECTORY:#MTA0##########16:11##########07-NOV-74####MTFILE#4(42)
+#####NO.#####FILNAM##EXT#SIZE#PROT###CREATION###VERSION#####OWNER
+.SKIP 1
+#####007#####RTCTIM##LST###46#<155>##20-DEC-72#############[71,102]
+#####008#####NEWTIM##LST###48#<155>##20-DEC-72#############[71,102]
+#####009#####MTFILE##LST##218#<157>##21-DEC-72#############[71,102]
+.SKIP 1
+#########TOTAL OF 311 RECORDS IN 3 FILES
+#####*LPT:=MTA0:7,8,9
+#####FILES#TRANSFERRED:
+#####RTCTIM.LST
+#####NEWTIM.LST
+#####MTFILE.LST
+#####*MTA0:/M:U=_^Z
+.SKIP 1
+#####.
+.SKIP 1
+III. TECHNICAL SPECIFICATIONS
+.PARAGRAPH
+All I/O, except directory listing, is done in binary
+(mode 14) if it a legal data mode for the device, ASCII (mode 0)
+otherwise.
+.PARAGRAPH
+An internal parameter CSIZE is the cluster size on DSK. If
+the output device is a disk, <CSIZE+1> buffers are requested,
+and the remaining space is used for input buffers (at least two). If
+the ouput device is not a disk, DSKSIZ*<CSIZE+1> words are
+left for input buffers, and the remaining space is used for output buffers.
+.PARAGRAPH
+If the input device is a disk, an extended LOOKUP is done,
+with the RIB information being included in the magtape file. If .RBVER
+is zero, but a version can be obtained from the
+file, .RBVER is set to simplify subsequent accesses.
+.PARAGRAPH
+If the input device is an MTFILE-tape, and the file being
+read contains RIB information, an extended ENTER is done to
+preserve the information.
+.PARAGRAPH
+If an I/O error occurs while writing a standard device, a
+CLOSE 40 is performed.
+.PARAGRAPH
+.TEST PAGE 18
+Files are formatted into records as follows:
+.TAB STOPS 15
+.LEFT MARGIN 15
+.INDENT -15
+.NOFILL
+Record one:	-N,,file number
+SIXBIT /FILNAM/
+SIXBIT /EXT/ + <HI DATE>B20 +<1 if RIB present, 0 otherwise>
+<PROT>B8+<MODE>B12+<TIME>B23+<LO DATE>
+prj,,prg
+first word of RIB, if present
+ .#.#.
+last word of RIB, if present
+first data word
+ .#.#.
+Nth data word
+.SKIP 1
+.INDENT -15
+Record two:	-M,,file number
+first word of data
+ .#.#.
+Mth word of data
+.SKIP 1
+.LEFT MARGIN 0
+.FILL
+.PARAGRAPH
+All subsequent records of a file are the same format as record
+two. All records, with the possible exception of the last record
+in a file, are presumably full so that data word count depends on
+installation standard. for 200-word records, for example, the data
+count in record one would be -173 (or -136 if a thirty-five word RIB
+were present). In subsequent records, the word count would be -177
+if the record were full.

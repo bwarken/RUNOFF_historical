@@ -1,0 +1,562 @@
+
+
+
+                               UNIVERSITY OF YORK
+
+
+
+                                  MIC - COJOBS
+
+
+                             Concurrent JOB facility
+
+
+
+                            USERS' GUIDE EDITION 3.1
+                              (for GALAXY systems)
+
+
+                                   April 1983
+
+
+
+
+
+            This guide relects features of version 11C(1223) of MIC.
+
+
+     MIC COJOBS - CONCURRENT JOB FACILITY                                 Page 2
+     University of York - April 1983
+
+
+                                     Contents
+
+
+     Section      Contents                            page
+
+     1.  Introduction
+
+     2.  Log Specification
+
+     3.  COJOB switches
+
+         1.  TIME switch
+
+         2.  TAG switch
+
+         3.  [NO]OPTION switch
+
+         4.  [NO]LOPTION switch
+
+
+     4.  COJOB request (continued from section l)
+
+     5.  COJOB messages
+
+     6.  COJOB control
+
+     7.  COJOB commands
+
+     8.  "IF" extension for COJOB users
+
+     9.  MIC SET command
+
+
+
+     Index
+
+
+     Appendices
+
+
+     A    ERROR MESSAGES
+
+
+     A.1  COJOB command - fatal errors
+     A.2  COJOB command - non fatal errors
+
+
+     Index of Error Codes
+     MIC COJOBS - CONCURRENT JOB FACILITY                                 Page 3
+     University of York - April 1983
+
+
+ 1   Introduction _   ____________
+
+     The COJOB  facility  gives  the  user  the  ability  to  request  immediate
+     execution  of  a  MIC macro as a separate job.  The COJOB is logged in on a
+     PTY by the MIC  master  process  under  the  same  PPN  as  the  requestor.
+     Transactions on the PTY are written to the specified log file.
+
+     A COJOB request is entered by a command of the form
+
+     .COJOB LOGSPEC/SWITCHES=<MACRO-SPEC> <ARGUMENTS>
+
+     where
+
+     LOGSPEC     is the specification of the MIC log file
+                 (see section 2)
+
+     SWITCHES    control the various COJOB options
+                 (see section 3)
+
+     MACRO-SPEC  is the specification of the MIC command file in the
+                 usual format
+                 (see MIC documentation)
+
+     ARGUMENTS   are the arguments to the MIC command file
+                 (see MIC documentation)
+
+     The description of the COJOB request is continued in section 4.
+
+
+
+ 2   Log Specification _   ___ _____________
+
+     The specification of the log file for a COJOB is of the form
+
+     DEV:FILNAM.EXT[PATH]
+
+     where any or all of these may be omitted,  and  a  standard  default  value
+     used.  The standard defaults are
+
+     DEV      DSK
+     FILNAM   the same as the macro file
+     EXT      Lnn - where nn is a two digit number
+              forming a unique filename.ext
+     PATH     the initiator of the COJOBS project
+              programmer number
+
+     Example
+
+     To run the macro command file "FRED.MIC" the user could use the command
+
+     .COJOB=FRED
+
+     and use all defaults.
+     MIC COJOBS - CONCURRENT JOB FACILITY                                 Page 4
+     University of York - April 1983
+
+
+     This is equivalent to using
+
+     .COJOB DSK:FRED.L00/TIME:60=FRED
+
+     Note:  A convenient way of running a COJOB and producing no log file
+     is:
+
+     COJOB NUL:=MACROFILE
+
+
+
+ 3   COJOB switches _   _____ ________
+
+     The switches given in a COJOB control the running  of  the  COJOB  and  the
+     disposal of the log file.  Currently the switches available are
+
+     TIME   Time limit for cojob
+     TAG    Start COJOB at a label
+     [NO]OPTION  select a SWITCH.INI option
+     [NO]LOPTION select a SWITCH.INI option at LOGIN.
+
+     Note:  COJOB switches may be included in a SWITCH.INI line labelled thus:
+
+     COJOB   /switches
+     or
+     COJOB:optionname/switches
+     if a /OPTION:optionname switch is used.
+                 
+
+     3.1   TIME switch     ___   ____ ______
+
+     This switch controls the run-time for the COJOB, and has the format
+
+     /TIME:n
+
+     where
+
+     n is the run-time for the COJOB given in the form
+
+     n = s seconds                           e.g. /TIME:5
+     n = mm:ss - minutes:seconds             e.g. /TIME:3:30
+     n = hh:mm:ss - hours:minutes:seconds    e.g. /TIME:1:30:25
+     n = sk - s*1000 seconds                 e.g. /TIME:5k
+
+     The default run-time is currently 60 secs, though this may change.
+
+     The system operator may also set a maximum value for this switch, which the
+     user  may  not exceed.  If he attempts to exceed this value he will receive
+     the message described in Appendix A.2 and his switch value will be reset to
+     the maximum value.
+
+
+     3.2 TAG Switch This switch specifies that the COJOB is to  start  execution     ___ ___ ______
+     at the label given as argument to the switch.  The format is -
+
+        /TAG:labelname
+     MIC COJOBS - CONCURRENT JOB FACILITY                                 Page 5
+     University of York - April 1983
+
+
+     3.3 [NO]OPTION switch This is the usual switch that controls the processing     ___ __________ ______
+     of SWITCH.INI entries.
+
+
+                                        NOTE
+
+         The COJOB SWITCH.INI line is labelled COJOB.
+
+
+
+
+     3.4 [NO]LOPTION switch This switch controls the option  to  be  selected  a     ___ ___________ ______
+     COJOB  LOGIN,  thus  the  switch  /NOLOPTION  would  cause the LOGIN switch
+     /NOOPTION to be used.
+
+
+
+
+ 4   COJOB request - contd. _   _____ _______ _ ______
+
+     If a COJOB request is successful the user will be informed thus
+
+     [COJOB <name> (macroname) started, log file is DEV:NAME.EXT[PATH]]
+
+     where
+
+     <name> is a one letter  name  assigned  to  the  COJOB  for  identification
+     purposes.
+
+     (macroname) is the COJOB job name, normally the same as the FILNAME part of
+     the <macro-spec>.
+
+     If a COJOB request is unsuccessful the user will receive
+
+     [No COJOBS available]
+
+     or an appropriate error message.
+
+
+
+ 5   COJOB messages _   _____ ________
+
+     When a COJOB finishes its run the user is informed by
+
+     [COJOB <name> (macroname) complete]
+
+     and a record of what was performed  by  the  COJOB  may  be  found  in  the
+     logfile.
+
+     Other messages which may be output during the running of the COJOB are
+
+     [COJOB <name> (macroname)[ABORT]] If the user  has  included  a  MIC  ABORT
+     statement in the command file.
+
+     [COJOB <name> (macroname)[ABORT ON ERROR]] If an error condition  has  been
+     detected.
+     MIC COJOBS - CONCURRENT JOB FACILITY                                 Page 6
+     University of York - April 1983
+
+
+     [COJOB <name> (macroname).PLEASE<MESSAGE>] If a  PLEASE  command  has  been
+     included.
+
+     [COJOB <name> (macroname)[BREAK]] If a MIC BREAK has been performed.
+     (To proceed after this message see COJOB control commands)
+
+     [COJOB <name> (macroname)[PROCEED]] If a COJOB has been proceeded  after  a
+     break.
+
+     [COJOB <name> (macroname) waiting ...] This message  is  output  every  two
+     minutes  (approx.)  after  a MIC BREAK has been performed and the COJOB has
+     not been PROCEEDed
+     (N.B.  A similar comment appears in the log file.)
+
+     [COJOB <name> (macroname)[?time limit exceeded]]
+     This message is output when a COJOB  has  run  out  of  time.   After  this
+     message has been output the COJOB is allocated 10% of its original time and
+     allowed to proceed as if any error had occurred.
+
+     [COJOB <name> (message) - Enter Parameter B]
+     The message reflects the prompt which the use  has  used  in  a  MIC  INPUT
+     statement.  The COJOB suspends until the user replies using a TYPE or ENTER
+     command.
+
+     These messages all have a correspondence with normal MIC  messages  and  in
+     fact the normal MIC message will normally appear in the log file.
+
+
+     Note
+
+     1   If a COJOB owner logs off while his COJOB  is  still  running  no  more
+     messages  will  be  sent  to  the  owner's  TTY  by the COJOB.  Instead the
+     following message will be inserted in his log file
+
+     [COJOB owner not available - continuing]
+
+     and execution of the COJOB will continue.
+
+     Also, should the owner log out the COJOB will be  prevented  from  entering
+     "break" mode.
+
+     2   Similarly, if a COJOB owner logs off while his COJOB is in BREAK  mode,
+     this  will  be  detected  at  the "Waiting ..." stage and the COJOB will be
+     continued as in note 1.
+
+
+
+ 6   COJOB control _   _____ _______
+
+     The COJOB owner (or the operator) may issue control commands to a
+     COJOB using the following command string
+
+     .COJOB <name>-<CONTROL-COMMAND>
+
+     where
+     MIC COJOBS - CONCURRENT JOB FACILITY                                 Page 7
+     University of York - April 1983
+
+
+     <name> is the COJOB as section 5.
+
+     <control-command> is one of the following
+
+     WHAT           - to receive information of the status of the
+                      COJOB.
+
+     CANCEL         - to kill the COJOB i.e. cause it to log out.
+
+     BREAK          - to cause the COJOB to enter break mode.
+                      (cf. MIC BREAK and ^B for normal MIC's)
+
+     PROCEED        - to cause a COJOB to continue after a break.
+                      (cf. MIC PROCEED and ^P)
+
+     ABORT          - to stop the currently running mic process.
+                      (cf. MIC ABORT and ^A)
+
+     PLEASE message - to display the "message" on the COJOB
+                      owner's terminal.
+
+     If an invalid <CONTROL-COMMAND> has been given, or the user  has  tried  to
+     issue  a  <CONTROL-COMMAND>  to  a  COJOB  that  does not belong to him the
+     message
+
+     %CONTROL COMMAND "<CONTROL-COMMAND>" NOT VALID FOR COJOB <NAME>
+
+     will be output.
+
+
+     Note
+
+     1   <CONTROL-COMMANDS> are not valid when a cojob  is  in  the  process  of
+     logging out or logging in.
+
+     2   The system operator may give  any  of  the  <CONTROL-COMMANDS>  to  any
+     COJOB, even those not owned by him.
+
+
+
+ 7   COJOB commands _   _____ ________
+
+     As well as the COJOB control commands, a COJOB owner may  issue  any  other
+     MIC command on behalf of the COJOB.  Example
+
+     .COJOB A-LET C="ABCDE"
+
+     sets the parameter C in the COJOB to contain the string "ABCDE"
+
+     Similarly, most other MIC commands may be given to a COJOB.
+
+
+
+     MIC COJOBS - CONCURRENT JOB FACILITY                                 Page 8
+     University of York - April 1983
+
+
+ 8   IF extensions for the COJOB user _   __ __________ ___ ___ _____ ____
+
+     The IF command has been extended to provide a means  whereby  a  MIC  macro
+     command may determine if it is a COJOB or not.
+
+     The command has the format
+
+     .IF (COJOB).ANY MONITOR OR MIC COMMAND
+
+     and the interpretation of the command is the  same  as  in  the  normal  IF
+     command.  (See MIC documentation.)
+
+
+
+ 9   MIC SET command _   ___ ___ _______
+
+     There is a separate set of MIC SET commands whose action  applies  only  to
+     COJOBS.
+
+     This command is described in the MIC documentation.
+
+     The command format is
+
+     .MIC SET <no> <action>
+
+     where the available actions are
+
+     .MIC SET NO TIMESTAMP
+     Turns off timestamping of the log file.
+
+     .MIC SET TIMESTAMP
+     Turns timestamping on.
+
+     .MIC SET LOGNONE
+     Stops MIC logging COJOB activity.
+
+     .MIC SET LOGALL
+     Restarts logging (and timestamping)
+
+     Note
+
+     1   the two commands
+
+     .MIC SET NO LOGNONE
+     .MIC SET NO LOGALL
+
+     do have the expected effect, but are normally not necessary.
+
+     2   the default settings are
+
+     .MIC SET TIMESTAMP
+     .MIC SET LOGALL
+                                                                    Page Index-1
+
+
+
+                                        INDEX
+
+
+
+
+     ABORT . . . . . . . . . . . . . . . . 5
+     ABORT ON ERROR  . . . . . . . . . . . 5
+     ARGUMENTS . . . . . . . . . . . . . . 3
+
+     BREAK . . . . . . . . . . . . . . . . 6
+
+     COJOB commands  . . . . . . . . . . . 7
+     COJOB control . . . . . . . . . . . . 6
+     COJOB messages  . . . . . . . . . . . 5
+
+     Default logspec . . . . . . . . . . . 3
+
+     IF command  . . . . . . . . . . . . . 8
+
+     LOGSPEC . . . . . . . . . . . . . . . 3
+
+     MACRO-SPEC  . . . . . . . . . . . . . 3
+     MIC SET command . . . . . . . . . . . 8
+
+     PLEASE  . . . . . . . . . . . . . . . 6
+     PPN . . . . . . . . . . . . . . . . . 3
+     PROCEED . . . . . . . . . . . . . . . 6
+     PTY . . . . . . . . . . . . . . . . . 3
+
+     SWITCHES  . . . . . . . . . . . . . . 3
+     Switches  . . . . . . . . . . . . . . 4
+
+     TAG switch  . . . . . . . . . . . . . 4
+     TIME switch . . . . . . . . . . . . . 4
+
+     Waiting . . . . . . . . . . . . . . . 6
+     WHAT command  . . . . . . . . . . . . 7
+
+     [NO]LOPTION . . . . . . . . . . . . . 5
+     [NO]OPTION switch . . . . . . . . . . 5
+
+     }abort command  . . . . . . . . . . . 7
+     }break command  . . . . . . . . . . . 7
+     }cancel command . . . . . . . . . . . 7
+     }please command . . . . . . . . . . . 7
+     }proceed command  . . . . . . . . . . 7
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                  APPENDIX A
+
+                                 ERROR MESSAGES                                 _
+
+
+
+COJOB command
+
+As well as all the error messages which may be generated during a  "/"  command,
+the following are specific to the COJOB command.
+
+A.1   Fatal error messages
+
+
+?MICCJN COJOBS not available at this time
+The system operator has said that COJOBs are not available for remote users.
+
+?MICCLD cannot INIT log device
+The logging device specified by the user is in error.
+
+?MICCLF cannot LOOKUP log file
+A LOOKUP UUO performed on the user's specified log file failed for  some  reason
+other than the file not existing.
+
+?MICELF cannot ENTER log file
+The specified log file could not be created.
+
+?MICELS error in log file spec
+The specification of the log file given by a user was invalid.   Normally,  this
+error is due to incorrect syntax.
+
+?MICECR error in COJOB request
+A syntax error was detected in the "COJOB" command, most probably in one of  the
+user's switches.
+
+?MICNCA No COJOBS available
+All the COJOB slots are in use
+
+
+A.2   Non-fatal error messages
+
+%MICSAE switch value exceeds maximum value
+A switch (e.g.  the TIME switch) has an argument larger than some preset maximum
+value  (defined  by the system).  The user's argument is replaced by the mimimum
+value.
+
+Note
+ERROR MESSAGES                                                           Page A-2_
+
+
+
+Some switches e.g.  the TIME switch, may have their limit value changed  by  the
+operator dependant on system loading.
+                                                                    Page Index-1
+
+
+
+                                     INDEX
+
+
+
+
+MICCJN . . . . . . . . . . . . . . . . . A-1
+MICCLD . . . . . . . . . . . . . . . . . A-1
+MICCLF . . . . . . . . . . . . . . . . . A-1
+MICECR . . . . . . . . . . . . . . . . . A-1
+MICELF . . . . . . . . . . . . . . . . . A-1
+MICELS . . . . . . . . . . . . . . . . . A-1
+MICNCA . . . . . . . . . . . . . . . . . A-1
+MICSAE . . . . . . . . . . . . . . . . . A-1
+

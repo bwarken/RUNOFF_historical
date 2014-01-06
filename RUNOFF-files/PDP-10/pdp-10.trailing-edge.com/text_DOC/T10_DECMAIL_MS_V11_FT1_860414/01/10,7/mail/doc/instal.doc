@@ -1,0 +1,175 @@
+   INSTALLING DECmail/MS SOFTWARE                             Page 1
+
+
+   1.0  DISTRIBUTION TAPE DIRECTORIES
+
+
+   There are four  subdirectories  on  the  DECmail/MS  distribution
+   tape:
+
+         o  Directory DSKB:[10,7,MAIL,DOC] contains the installation
+            instructions  (INSTAL.DOC),  the  DECmail/MS user manual
+            (MS.MAN), and the beware file (MS.BWR).
+
+         o  Directory DSKB:[10,7,MAIL] contains the DECmail/MS  help
+            file   (MS.HLP)  and  the  DECmail/MS  executable  files
+            (MS.EXE and MX.EXE).
+
+         o  Directory DSKB:[10,7,MAIL,MS] contains  the  source  and
+            relocatable  files  for  the MS program.  MS is the user
+            interface.
+
+         o  Directory DSKB:[10,7,MAIL,MX] contains  the  source  and
+            relocatable  files  for  the  MX  program.   MX  manages
+            message transport and delivery.
+
+
+
+
+
+   2.0  INSTALLATION PROCEDURES
+
+
+        1.  Use BACKUP to transfer the contents of the tape  to  the
+            appropriate directories.
+
+            To do this, mount the tape,  then  enter  the  following
+            commands:
+
+            R BACKUP
+            /TAPE MTxn
+            /REWIND
+            /FILES    ;This is optional
+            /RESTORE DSK:*.*[10,7,MAIL,*]=DSKB:*.*[10,7,MAIL,*]
+            /EXIT
+
+        2.  Copy the executable and help files to SYS:
+
+            COPY SYS:=MS.EXE[10,7,MAIL]
+            COPY SYS:=MX.EXE[10,7,MAIL]
+            COPY HLP:=MS.HLP[10,7,MAIL]
+   INSTALLING DECmail/MS SOFTWARE                             Page 2
+
+
+        3.  Create a UFD for  UPS:[5,35]  if  it  does  not  already
+            exist:
+
+            R CREDIR
+            UPS:[5,35]
+            ^Z
+
+            The MX program uses  the  system-defined  ersatz  device
+            UPS:   for  its  scratch  files.   For example, incoming
+            network mail is  stored  in  this  directory  before  MX
+            distributes  it  to its final destination.  In addition,
+            MX puts  tracking  information  in  log  files  in  this
+            directory.   You  also  put the optional network-related
+            files there, as described below.
+
+        4.  MX should be run as a [1,2] job that  starts  at  system
+            startup.   To  do this, insert the following commands in
+            the file SYSJOB.INI.
+
+            LOG
+            MX
+
+
+        5.  To start MX immediately after installation,  you  should
+            run  it and then DETACH from it.  The following commands
+            are an example of an easy way to  do  this  if  you  are
+            logged in to [1,2]:
+
+            R OPSER
+            :SLOG
+            R MX
+            :MONITOR      ;This will get you back to monitor level
+
+
+            At this point, the installation is complete and you  may
+            now use the new MS.
+
+
+
+
+   3.0  OPTIONAL PROCEDURES
+
+
+         o  When MX detects a fatal error, it can automatically dump
+            and restart itself.  It dumps itself to DUMP:MXDnnn.EXE,
+            where nnn is the first number that makes MXDnnn unique.
+
+            Then, the program that the "pathological" device  RUNMX:
+            points  to  is  run.   To  activate the dump and restart
+            capabilities, define DUMP:  and RUNMX:.
+
+            Note  that  if  DDT  was  linked  into  MX.EXE,  DDT  is
+   INSTALLING DECmail/MS SOFTWARE                             Page 3
+
+
+            automatically  executed  when  MX  crashes,  but  MX  is
+            neither dumped nor restarted.
+
+         o  Create the file UPS:DNHOST.TXT if:
+
+             o  You have a DECnet network with Phase 3 nodes out  of
+                the  area.   Put  the  names  and routing strings of
+                these nodes in this file.
+
+                EXAMPLE
+
+                SYSA,SYSB::SYSA::
+
+                In this example, SYSA is a Phase 3 system in another
+                area,  and SYSB is a Phase 4 system in the same area
+                as SYSA.
+
+             o  There are DECnet nodes that  you  do  not  want  the
+                DECmail/MS  system  to recognize.  Users will not be
+                able to send mail to these nodes.  However, mail can
+                be  received  from them.  Add the /INVALID switch to
+                the entry in the DNHOST.TXT file.
+
+                EXAMPLE
+
+                SYSA/INVALID
+                SYSG/INVALID
+
+
+
+
+
+   4.0  BUILDING MS AND MX FROM SOURCES
+
+
+         o  In the MS sources directory is a file  called  MS10.CTL,
+            which  will  build  MS.  By default, all sources will be
+            recompiled by this  control  file.   If  you  have  only
+            edited  a few source files, specify /TAG:NOCOMP when you
+            submit the control file, and only the files  which  have
+            been changed will be recompiled.
+
+         o  In order to rebuild MX completely from the  MX  sources,
+            you  must  have the BLISS-36 compiler.  Use the MX10.CTL
+            file to rebuild MX.
+
+   INSTALLING DECmail/MS SOFTWARE                             Page 4
+
+
+   5.0  TAILORING MX TO YOUR MAIL TRAFFIC NEEDS
+
+   You can change the default number of SMTP or MAIL-11 listeners to
+   handle  heavier  SMTP  or  VMS mail traffic loads.  The number of
+   SMTP listeners to be started up is in location NSMTP.  The number
+   of  MAIL-11  listeners  to  be  started  up is in location NVM11.
+   These can be "poked" with DDT before starting MX  to  change  the
+   default  values.   The default values are 2 SMTP listeners, and 3
+   MAIL-11 listeners.
+
+   Alternatively, you can edit NETTAB.MAC and  change  the  literals
+   DNSMTP  and  DNVM11  to  appropriate  values, compile NETTAB, and
+   relink MX...
+
+   Please refer to the MS.BWR file for more information about  MS/MX
+   options.
+
+

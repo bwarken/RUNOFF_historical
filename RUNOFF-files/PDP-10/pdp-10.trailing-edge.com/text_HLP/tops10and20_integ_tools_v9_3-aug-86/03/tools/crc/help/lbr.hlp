@@ -1,0 +1,165 @@
+
+
+
+                LBR - a program to save space used by small files
+                -------------------------------------------------
+
+
+        The LBR program was produced in  an  effort  to  save  the  considerable
+quantities  of  disk  space  that are wasted in TOPS-20 by small one or two page
+files.  Such files, especially files containing only a few  hundred  characters,
+consume  an amount of disk space out of all proportion to their real size.  What
+is more, they often contain such things as command files for the EXEC or  for  a
+program  such  as a statistical package, which are only needed infrequently, and
+clutter up a directory listing at other times.  Each  of  these  files  actually
+uses  at  least two pages of disk space - one in the users directory (or 2 or 3)
+and one from system overhead (incurred with all files).  The  LBR  program  will
+compress  groups  of  these files into one file, while still allowing them to be
+retrieved or updated individually.  Thus, only one page of overhead is used  for
+the  entire  collection  (instead  of  one page per file) and no space is wasted
+using an entire page for each file.
+
+         LBR has been tried out on a number of likely looking directories at our
+site,  and  has  proved  to  save  up  to  90% of the space consumed by a set of
+little-used command files, for instance, and frequently produces  space  savings
+of the order of 50% to 60%.  These are worth having, both for the individual who
+now has more space to play with in his directory, and for the system, which  now
+has a smaller directory to search, and more space freed from the system overhead
+space of index blocks, etc.  Although the gains seen by each user  are  unlikely
+to be impressive ( of the order of 10s or perhaps one or two hundred pages) they
+accumulate very quickly over the whole system  to  free  a  couple  of  thousand
+pages.
+
+                Usually, you will want to use LBR  to  collect  files,  such  as
+command  files,  batch  control  files, data files or the like, which you have a
+number of (say at least 5 or 10) and most of which you do not need  at  any  one
+time.   LBR  will  make  a "universal library" with the files - a special format
+file, rather like a library produced by MAKLIB, which  contains  all  the  files
+within  it,  plus  a  sort  of  directory to allow you to find individual files.
+Having made the library, you can add new files to it, delete files  from  within
+it,  type  them,  copy  them  out  to  temporary files for use by you or another
+program, and also update them in place with new versions of them which you  have
+created.   Meanwhile,  the  files  may  only  be taking up 10% of the space they
+consumed while you had them all as separate files.
+
+        All the commands in LBR follow the standard for TOPS-20 in allowing  you
+to use question mark and escape characters freely to complete commands.  LBR has
+extensive HELP, with individual help messages for each command, rather than  one
+enormous  help  message  describing  everything.  You can use wildcards (* and %
+characters) in  filenames  wherever  necessary  and  meaningful.   Most  of  the
+commands that have a parallel with real files have the same name.  Thus, you use
+TYPE to type a file contained in a  library,  DIRECTORY  to  get  a  listing  of
+library  files,  and  COPY  to copy files from the library to normal disk files.
+The new commands are REPLACE and UPDATE, to place new copies  of  files  in  the
+library  when  an  old copy is already there, and INSERT, to place a totally new
+file into the library.
+
+        EXAMPLE
+
+
+
+                                      NOTE
+
+               Note that LBR refers to  files  contained  in  the
+               library as "modules" rather than as "files".  This
+               avoids some semantic confusion in  certain  areas,
+               and  follows  usual  practice for referring to the
+               contents of a library.
+
+
+
+@LBR                    !First we run the program
+LBR>CREATE (library name) MYCOMMANDS.LBR
+
+        Here the user has given a commands to create a new library for his
+input files to GLIM, probably containing GLIM command sequences.
+
+LBR>INSERT (files) *.GLM
+A102.GLM [OK]
+A403.GLM [OK]
+EXACT.GLM [OK]
+.
+.
+.
+ZAP.GLM [OK]
+
+        The user has now decided to place all his  or  her  GLIN  files  in  the
+library,  and  having done so, could safely delete them once they exited LBR, as
+they are no longer needed in his or her directory.  If it was necessary to get a
+listing of the library, they would type
+
+LBR>DIRECTORY (of modules)
+
+        Listing of library MYCOMMANDS.LBR ON 21-JUL-82 ....
+
+Number of modules: 28
+...
+...
+
+A102                                    20-Jul-82 11:34
+A403                                    20=Jul-82 11:34
+.
+.
+.
+ZAP                                     20-Jul-82 11:36
+LBR>
+
+                A listing of the library is produced, with the insert
+date and time of each file.
+
+LBR>COPY ZAP (to) ZAP.GLM
+
+        This gets a copy of ZAP into an ordinary file for use by GLIM.  The file
+remains  in  the library, and the copy being extracted is temporary, and will be
+expunged when the user logs out.
+
+
+                CHARACTERISTICS and RESTRICTIONS
+                --------------------------------
+
+
+        LBR assumes that all files in a library have the same file type.   Thus,
+neither  the  byte  size nor the file extension is remembered when the file goes
+into the library.  It is expected that you would one library for data files, one
+for  command files, etc.  Files in a library do not have to be text files.  They
+can be binary, of any description.  You can specify the byte size and  extension
+to  be  used when you create the library.  If you do not, it is assumed that the
+library is to be used to contain text files, and the extension for all files  in
+the library is set up by the first file inserted.
+
+        LBR takes great pains to prevent your library  being  corrupted.   While
+writing  to the library, it does not allow you to control-c the program.  If you
+type control-c, it takes effect as soon as LBR  has  placed  the  library  in  a
+consistent  state,  so that it can be used again.  If the system crashes while a
+library is being updated, LBR will usually be able to read the library, but will
+not  be  able  to  add  to it without risk of corrupting it.  It will be able to
+detect this, and will warn you that  you  shold  rebuild  the  library.   Either
+restore  it  from  a  system  dump,  or  extract all files and then create a new
+library and insert them all again.
+
+        To prevent some problems, LBR will expunge your directory  automatically
+whenever it runs out of space writing to a library.  It informs you when it does
+this.  You can prevent this happening if you wish, in  which  case  the  program
+pauses when there is no more disk space, and asks you to delete and expunge some
+files, and then continue it.  If you do not allow the program to  continue,  the
+library may become corrupted.
+
+        Empty space accumulates eventually in a library file.  This  is  removed
+by SQUEEZing the library, a process that creates a new generation of the library
+with no empty space in it.  This will be performed automatically by  LBR  if  it
+detects  that the library is more than 10% empty space, although you may prevent
+this occurring if you wish.
+
+        Output files produced by LBR are temporary, that is they are files which
+are expunged by TOPS-20 when you log out.  It is assumed that when you extract a
+file from a library, you do not want to keep it outside the  library  for  long.
+You  can  prevent  files becoming temporary with the SET NO TEMPORARY command to
+LBR.
+
+
+****************************************************************
+
+Should you require help, please contact the Duty User Specialist
+in Room 7W015 or phone 2363.
+
+****************************************************************

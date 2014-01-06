@@ -1,0 +1,477 @@
+
+
+
+APLCNV.DOC -- V1(3)
+September 1979
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1979 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+APLCNV.DOC                                                      Page 2
+
+
+APLCNV.DOC -- V1(3)
+September 1979
+
+
+
+
+
+
+1.0  SUMMARY
+
+The APL  Workspace  Interchange  Standard  (WSIS)  is  a  source-level
+interchange  format  for  APL workspaces, agreed to by implementors of
+APL and documented in the article "Workspace Interchange  Convention",
+APL Quote-Quad, volume 9 number 3 of March, 1979.___ __________
+
+This convention defines a tape  interface  that  enables  transfer  of
+workspaces between vendors regardless of their internal APL formats or
+size and content of their .BXAV's.  The contents of the  workspace  is
+encoded  using .BXCR for functions and an equivalent for variables.  A
+tape (whose characteristics are agreed to by both the sender  and  the
+receiver) is written beginning with a "standard" representation of the
+sender's .BXAV, followed by  the  workspaces  in  the  sender's  .BXAV
+codes.   Other components of a workspace, such as groups, the SI stack
+or APLSF files,  are  NOT  transferable  with  WSIS.   Certain  system
+variables ARE transferred by DEC's implementation of WSIS.
+
+The DEC implementation of WSIS consists of two APL  workspaces  and  a
+MACRO  program:   workspace  WSOUT is used to create disk files of all
+workspaces to be transferred;  program APLTAP on the -20 and TENTAP on
+the -10 output these disk files to a mag tape in the "standard" format
+to be read by the receiver and can read a sender's  "standard"  format
+tape;  workspace WSIN reads a disk file created from the sender's tape
+and produces workspaces useable by APLSF.
+
+Because of the use of the APLSF file system, the Workspace Interchange
+Standard  is  only  available  from  APLSF  on the DECsystem-10 or the
+DECSYSTEM-20, but not from APL-BASIC (-10 nor -20).
+
+Version 1 of WSIS runs under version 2 of APLSF under release 6.03A or
+later of the TOPS-10 monitor and 3A or later of the TOPS-20 monitor.
+
+
+
+2.0  OPERATING INSTRUCTIONS
+
+     1.  When generating a tape in the  WSIS  format  from  a  set  of
+         workspaces,  the first step is to create a disk file for each
+         workspace to be converted.  The .ZQ.ZQWSOUT function  in  the
+         workspace   WSOUT  does  this.   The  following  sequence  of
+         commands implements this step:
+
+         run APLSF
+         TERMINAL..TTY
+               )LOAD <workspace1>
+               )COPY WSOUT
+APLCNV.DOC                                                      Page 3
+
+
+               .ZQ.ZQWSOUT '<filename1>'
+               )LOAD <workspace2>
+               )COPY WSOUT
+               .ZQ.ZQWSOUT '<filename2>'
+         .
+         .
+         .
+
+         In the above example,  "<workspace1>"  is  the  name  of  the
+         workspace  to  be  transferred;  "<filename1>" is the name of
+         the disk file to  be  created.   The  default  extension  for
+         "<filename>"  is  ".ABI".   This  procedure  is done for each
+         workspace to be written on the tape.
+
+         WSOUT does not copy any variables or  functions  whose  names
+         begin  with  .ZQ.ZQ  since those names are used internally by
+         WSOUT.
+
+     2.  The next step is to write the disk files onto a tape  in  the
+         WSIS format.
+
+         The characteristics of the magnetic tape,  such  as  density,
+         parity,  record  length, format, presence of labels and label
+         type, are outside WSIS.  These tape parameters must be agreed
+         to  by  both  the  sender  and  the  receiver  in  order  for
+         successful transfer to occur.
+
+         1.  The procedure to write the tape under TOPS-20 is:
+
+             @RUN APLTAP
+             APLTAP!? one of the following:
+              EXIT    INITIALIZE    READ    TERMINATE    WRITE
+             APLTAP!INITIALIZE (TAPE) <tape>:
+             APLTAP!WRITE (FILE) <filename1>
+             APLTAP!WRITE (FILE) <filename2>
+             .
+             .
+             .
+             APLTAP!TERMINATE (WRITING ON THE TAPE)
+             APLTAP!EXIT (TO MONITOR)
+             @
+
+             APLTAP uses the COMND  JSYS  on  the  -20  so  <ESC>  ($)
+             recognition and completion and ?  (HELP) are available.
+
+         2.  The TOPS-10 procedure is:
+
+             .RUN TENTAP
+             APLTAP!?
+             ONE OF THE FOLLOWING
+             R       READ A TAPE
+             I       INITIALIZE A TAPE FOR WRITING
+             W       WRITE A WORKSPACE DUMP ONTO TAPE
+             T       TERMINATE WRITING A TAPE
+             E       EXIT
+APLCNV.DOC                                                      Page 4
+
+
+             APLTAP!INITALIZE (TAPE) <tape>:
+
+             APLTAP!WRITE (WORKSPACE DUMP) <filename1>
+
+             APLTAP!WRITE (WORKSPACE DUMP) <filename2>
+             .
+             .
+             .
+             APLTAP!TERMINATE THE TAPE
+             APLTAP!EXIT (TO MONITOR)
+             .
+
+             TENTAP accepts single letter commands  and  then  prompts
+             for the rest of the command line automatically.
+
+         "<tape>:"  is  a  magnetic  tape  device,   loaded   with   a
+         write-enabled  tape.  "<filename1>", "<filename2>", etc.  are
+         the disk files produced by .ZQ.ZQWSOUT.
+
+         The tape is unlabelled with one file.  The  tape  is  written
+         with  a  fixed blocksize of 1892 8-bit bytes.  The last block
+         is padded with spaces.  If several workspaces are  dumped  to
+         the  same  tape,  the "WSIS" and "TRANSLATE" pseudo-variables
+         are not  rewritten  and  an  "END"  pseudo-variable  is  only
+         written after the last workspace.
+
+     3.  To transfer a tape written in WSIS format, the first step  is
+         to convert the tape into a disk file.
+
+         1.  The TOPS-20 procedure is:
+
+             @RUN APLTAP
+             APLTAP!READ (FROM TAPE) <tape>: (COMMANDFILE) <cmdfile>
+             APLTAP!EXIT (TO MONITOR)
+             @
+
+         2.  The TOPS-10 procedure is:
+
+             .RUN TENTAP
+             APLTAP!READ FROM (TAPE) <tape>: <crlf>
+              WRITING (COMMANDFILE) <cmdfile>
+
+             APLTAP!EXIT (TO MONITOR)
+             .
+
+             Note that a carriage return-linefeed is  necessary  after
+             specifying  "<tape>:"  in  the  R (read) command.  TENTAP
+             will then prompt for the "<cmdfile>".
+
+         This procedure creates a disk  file  named  "Wnnn.ABI"  where
+         "nnn"  is  a  3-digit  decimal  number  (starting from "000")
+         making the filename unique.  This name is embedded  into  the
+         command file created for the next step.
+
+         The <cmdfile> will be overwritten if it exists.
+APLCNV.DOC                                                      Page 5
+
+
+         A tape block may not exceed 4096 8-bit bytes in length.   The
+         tape  may  not  be  a  multi-reel  volume.   If the tape is a
+         multi-file volume, each file is  treated  as  an  independent
+         file that must be in the WSIS format.
+
+     4.  The next step is to convert the disk file to workspaces.  The
+         command  file  generated by APLTAP or TENTAP contains all APL
+         commands necessary.  NOte that APLTAP and TENTAP assume  that
+         WSIN is on SYS:.
+
+         run APLSF
+         TERMINAL..TTY
+               )INPUT <cmdfile>
+
+         This procedure creates workspaces with the name from the WSIS
+         tape  and  an extension of ".APL" in your connected directory
+         on the -20 and in your default path on the -10.  If a file by
+         that name already exists, WSIN creates an extension of ".Wnn"
+         where "nn" is a 2-digit decimal number (starting  with  "00")
+         making the filename unique.
+
+         WSIN lists the function and variable names on the terminal as
+         it  transfers  them from the input file to the workspace.  If
+         you invoke  WSIN  using  the  above  ")INPUT"  command,  each
+         function  name will be listed twice, once by WSIN and once by
+         the .BXFX function that WSIN executes.  This is  a  "feature"
+         of  APLSF:   when a function is defined from a )INPUT stream,
+         either through the .DL syntax or .BXFX, the function name  is
+         listed on the terminal.
+
+
+
+
+3.0  ERROR MESSAGES FROM THE WSIS SOFTWARE
+
+     1.  The WSOUT workspace will output the following messages:
+
+         1.  UNABLE TO ASSIGN THE OUTPUT FILE
+
+             WSOUT uses channel 1 for the output file.
+
+
+     2.  APLTAP and TENTAP output the following messages:
+
+         1.  YOU ARE IN THE PROCESS OF WRITING A TAPE.   TERMINATE  TO
+             CLOSE.
+
+             A second "I" command was typed before a "T" to  terminate
+             the first "I".
+
+         2.  INITIALIZE THE TAPE FIRST.
+
+             "W" was typed before an "I" command.
+APLCNV.DOC                                                      Page 6
+
+
+         3.  YOU HAVE NOT INITIALIZED A TAPE.
+
+             "T" was typed before an "I" command.
+
+         4.  COMMAND ERROR
+
+             APLTAP outputs this message when the command  is  illegal
+             or an input file does not exist.
+
+         5.  ILLEGAL COMMAND CODE
+
+             TENTAP outputs this message when the command is illeagl.
+
+         6.  JSYS ERROR:  PA2040 DETECTED..ERROR NUMBER IS:  n
+
+             TENTAP outputs this message when
+
+             1.  (n=-1) input file not found
+
+             2.  (n=600060) unexpected character in input, eg $  (ESC)
+                 or extraneous spaces.
+
+
+
+     3.  WSIN generates the following messages:
+
+         1.  TRANSLATE TABLE NOT FOUND OR IN WRONG FORMAT
+
+         2.  INPUT FILE file NOT FOUND
+
+         3.  FILE IN INCORRECT FORMAT
+
+         4.  UNKNOWN PSEUDOVARIABLE name IGNORED
+             RANK:  r SHAPE:  s
+             VALUE:  v
+
+         5.  UNEXPECTED END OF FILE
+
+         6.  WS FULL.  YOU MUST START OVER.
+
+         7.  UNEXPECTED ERROR NUMBER n
+
+
+
+
+
+4.0  SAMPLE SESSION
+
+Lower case text in the following sample session note important points.
+
+@APLSF
+TERMINAL..TTY
+APL-20 DECSYSTEM-20 APLSF 1B(301)
+TTY217) 12:58:37 WEDNESDAY 11-APR-79 ANKER [4,33]
+CLEAR WS
+APLCNV.DOC                                                      Page 7
+
+
+      )LOAD TEST
+SAVED   9:55:52 14-NOV-78 7P
+      )COPY SYS:WSOUT
+SAVED   8:06:54  7-JUL-78 9P
+      .ZQ.ZQWSOUT 'TEST'                create test.abi
+DONE
+      )LOAD TEST1
+SAVED   9:55:45 14-NOV-78 7P
+      )COPY SYS:WSOUT
+SAVED   8:06:54  7-JUL-78 9P
+      .ZQ.ZQWSOUT 'TEST1'
+DONE
+      )OFF HOLD
+TTY217) 12:58:51 11-APR-79
+CONNECTED   0:00:14 CPU TIME   0:00:02
+476 STATEMENTS 1830 OPERATIONS
+
+EXIT
+@
+@RUN APLTAP
+APLTAP!INITIALIZE (TAPE) MTA1:
+APLTAP!WRITE (FILE) TEST.ABI
+APLTAP!WRITE (FILE) TEST1.ABI
+APLTAP!TERMINATE (WRITING ON THE TAPE) 
+APLTAP!EXIT (TO MONITOR) 
+@
+@RUN APLTAP
+APLTAP!READ (FROM TAPE) MTA1: (COMMANDFILE) CONV.AAS
+APLTAP!EXIT (TO MONITOR) 
+@
+@APLSF
+TERMINAL..TTY
+APL-20 DECSYSTEM-20 APLSF 1B(301)
+TTY217) 12:59:03 WEDNESDAY 11-APR-79 ANKER [4,33]
+CLEAR WS
+      )INPUT CONV
+CLEAR WS
+SAVED  10:33:36 14-NOV-78 8P
+READING FROM W000                       disk file created by APLTAP
+OLD WSID WAS TEST
+NEW WSID IS TEST                        new ws to be produced
+FN                                      function names
+FN                                      appear twice if )INPUT
+FN1
+FN1
+.BXCT                                   system variables transferred
+.BXIO
+.BXPP
+.BXPW
+.BXRL
+.BXSF
+.BXAUS
+.BXLX
+BATM                                    ws variables
+BEMPTY
+APLCNV.DOC                                                      Page 8
+
+
+BMAT
+BVEC
+CATM
+CEMPTY
+CMAT
+CVEC
+IATM
+IEMPTY
+IMAT
+IVEC
+RATM
+REMPTY
+RMAT
+RVEC
+WORKSPACE TEST SAVED                    first workspace completed
+OLD WSID WAS TEST1
+NEW WSID IS TEST1
+.BXCT
+.BXIO
+.BXPP
+.BXPW
+.BXRL
+.BXSF
+.BXAUS
+.BXLX
+FN
+FN
+FN1
+FN1
+BATM
+BEMPTY
+BMAT
+BVEC
+CATM
+CEMPTY
+CMAT
+CVEC
+IATM
+IEMPTY
+IMAT
+IVEC
+RATM
+REMPTY
+RMAT
+RVEC
+WORKSPACE TEST1 SAVED                   second workspace transferred
+DONE WITH INPUT FILE W000               done with file from APLTAP
+ 12:59:21 11-APR-79
+WORKSPACE TEST SAVED                    ws resaved to remove WSIN
+
+ 12:59:22 11-APR-79 3 PGS  TEST <007> [4,33]
+WORKSPACE TEST1 SAVED
+
+ 12:59:23 11-APR-79 3 PGS  TEST1 <007> [4,33]
+ 12:59:24 11-APR-79
+APLCNV.DOC                                                      Page 9
+
+
+      )OFF HOLD                         conversion complete
+TTY217) 12:59:26 11-APR-79
+CONNECTED   0:00:23 CPU TIME   0:00:06
+1531 STATEMENTS 6157 OPERATIONS
+
+EXIT
+@
+@TYPE CONV.AAS
+)CLEAR
+)COPY SYS:WSIN                          APLTAP thinks WSIN is on SYS:
+.ZQ.ZQWSIN 'W000'
+
+'CONVERSION COMPLETED'
+@
+
+
+
+[End of APLCNV.RND]

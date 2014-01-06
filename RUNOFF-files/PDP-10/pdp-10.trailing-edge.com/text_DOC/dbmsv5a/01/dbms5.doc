@@ -1,0 +1,3077 @@
+
+
+
+DBMS.DOC -- Changes from V3 to V5
+June 1977
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Copyright (C) 1976,1977
+Digital Equipment Corporation, Maynard, Mass.
+
+
+This software is furnished under a license for use only  on  a  single
+computer system and may be copied only with the inclusion of the above
+copyright notice.  This software, or any other copies thereof, may not
+be provided or otherwise made available to any other person except for
+use on such system and to one  who  agrees  to  these  license  terms.
+Title  to  and  ownership of the software shall at all times remain in
+DEC.
+
+The information in this software is subject to change  without  notice
+and  should  not  be  construed  as  a commitment by Digital Equipment
+Corporation.
+
+DEC assumes no responsibility  for  the  use  or  reliability  of  its
+software on equipment which is not supplied by DEC.
+DBMS5.DOC                                                       Page 2
+
+
+DBMS.DOC -- Changes from V3 to V5
+June 1977
+
+
+
+1.0  SUMMARY
+
+DBMS-V5(240) replaces DBMS-V3 and DBMS-V4.
+
+DBMS-V5 can co-exist with, and has been tested with, version 6.02 (and
+6.03)  of  TOPS-10,  version  1B  (and  2)  of  TOPS-20, version 11 of
+COBOL/LIBOL, and version 5 of FOROTS.  
+
+Because both V3 and V4  users  will  be  reading  this  document,  the
+changes  from V3 towards V5 have been partitioned into section 2.1 and
+section 2.2 (V4 changes) and into section 2.3 (V5 changes) as much  as
+is  feasible.   V5  is  a  compatible upgrade of V4;  however existing
+DBMS-V3 applications must reload their data  bases  in  order  to  use
+DBMS-V5.   This  conversion  procedure,  and  the  other  installation
+instructions, are discussed in section 4.0.
+
+The primary enhancements to DBMS-V5 are the following:
+
+     1.  Support of sorted sets via indexed sequential access
+
+     2.  Greatly improved performance in SCHEMA and DBCS
+
+     3.  The OWNER IS SYSTEM clause
+
+     4.  DBINFO as a replacement for DBSDMP and DBUTIL
+
+     5.  Use of ENQ/DEQ to control access to areas
+
+     6.  Much more comprehensive DMCL
+
+     7.  The OCCURS phrase and additional data types
+
+   V5 ONLY:
+
+     8.  Simultaneous update of data bases
+
+     9.  Various journaling enhancements
+
+These and the other enhancements are discussed in  section  2.   Where
+relevant,  incompatibilities  are  presented  in  order  of decreasing
+importance.  However the incompatibilities presented  in  section  5.0
+are   all   "benign"  in  the  sense  that  they  are  transparent  to
+applications that  use  the  supported  functionality  of  DBMS-V5  as
+defined in the documentation.  They are presented only in the interest
+of thoroughness.
+DBMS5.DOC                                                       Page 3
+
+
+2.0  EXTERNAL CHANGES
+
+SUMMARY - FUNCTIONAL DEFINITION of DBMS-V4
+
+The primary enhancements to DBMS-10/20 are the following:
+
+     1.  Support of sorted sets via indexed sequential access
+
+     2.  Greatly improved performance in SCHEMA and DBCS
+
+     3.  The OWNER IS SYSTEM clause
+
+     4.  DBINFO as a replacement for DBSDMP and DBUTIL
+
+     5.  Use of ENQ/DEQ to control access to areas
+
+     6.  Much more comprehensive DMCL
+
+     7.  The OCCURS phrase and additional data types
+
+These and the other enhancements are discussed in section 2.1.
+
+
+2.1  Functional Enhancements and Differences
+
+
+2.1.1  The DMCL
+
+The general form of  the  DMCL  is:   at  most  one  RECORDS-PER-PAGE,
+JOURNAL,  IMAGES,  INTERCEPT,  and  NOTE  statement,  in  any order...
+followed by one or more ASSIGN statements.
+
+Incidental  change:    RPP   is   now   a   legal   abbreviation   for
+RECORDS-PER-PAGE.
+
+
+2.1.1.1 File Specification
+
+TOPS-10
+
+A file spec which appears in the DMCL must comform  to  the  following
+rules.  Blanks, commas, and semi-colons are ignored as elsewhere.  The
+allowed components may appear in any order and are  a  device-name,  a
+file-name, and a project-programmer number.  The form of a device-name
+is an alphanumeric followed by colon (:);  the form of a file-name  is
+simply  an  alphanumeric;   and  the  form of a PPN is [<octal number>
+<octal number>].  The default device is DSK:.  The default PPN is  the
+current  path.   The  file-name component has no default value , being
+always required.
+
+For example, DSK:FILE[1,1].
+DBMS5.DOC                                                       Page 4
+
+
+TOPS-20
+
+All components except the  file-name  are  optional.   The  components
+which  are present must conform to the following order and formatting:
+"device:  <directory> filename Aaccount Pprotection".  The entire spec
+must  not  exceed  100  characters.   The default device is DSK:.  The
+default directory is the connected directory.
+
+For example, <allmydbs>file.
+
+
+2.1.1.2 JOURNAL Statement -  When present,  this  statement  specifies
+the  file  spec  that  this schema's journal file will have.  If it is
+absent, SCHEMA simulates a JOURNAL statement in which  the  device  is
+JRN and the file name is the schema-name.  The syntax of the statement
+is:
+                       JOURNAL [IS] file-spec.
+
+
+2.1.1.3 IMAGES Statement -  This statement  serves  to  delineate  the
+granularity  of  journaling  that  will  occur in an application.  The
+syntax of this statement is:
+                 IMAGES [NOT] [IN ORDER] BY COMMAND.
+
+The default is for images to be ordered by command.  When  images  are
+ordered  by  command,  the  buffers  of  each  open area are in effect
+checkpointed after execution of each DML  updating-verb.   This  means
+that  "more"  writing is done to the data base and to the journal--but
+conversely that the data base can be backed up in increments of single
+updating-verbs...in DBMEND and at run-time.
+
+When one requests images to not be ordered by  command,  checkpointing
+occurs  only after each user-specified transaction (ie.  during a call
+to JETRAN).  Thus "less" writing is done to the data base and  to  the
+journal--but  conversely  the  data  base  can  be  backed  up only in
+increments of user transactions...in  DBMEND  and  as  importantly  at
+run-time.   The  mechanism  of  per-transaction  database  backup, the
+JBTRAN call, is presented in subsection 2.1.6.4.
+
+(The CODASYL DBMS specification states that, when an exception  occurs
+during execution of a DML updating-verb, the DBCS must return the data
+base to the state it was in at the beginning  of  the  verb.   However
+this  is  somewhat  expensive as implied above.  Consequently, what we
+are doing is allowing the programmer to decide.   By  specifying  that
+images  are not ordered by command, the programmer will be saying, "It
+benefits me to decrease  the  cost  of  journaling  even  though  that
+reduces  the  control  with  which  I can backup my data base and even
+though  that  reduces  exception  transparency  with  respect  to  the
+validity of a data base".)
+
+There are certain applications which have to backup completely if  the
+application aborts for any reason.  Such an application should specify
+that images are not ordered by command since, even  if  there  are  no
+user  transactions  or  command-ordering,  DBMEND  always allows total
+backup via:  "START<CRLF>...  END<CRLF>...  MERGE BEFORE".
+DBMS5.DOC                                                       Page 5
+
+
+2.1.1.4 INTERCEPT/NOTE Statement -  These related statements  allow  a
+user to tell DBCS the classes of exceptions for which it should type a
+message and exit, or just type  a  message,  respectively.   In  other
+words  the  facility constitutes a debugging tool, exception trace, or
+means  of  reducing  the  number  of   ERROR-STATUS   checks   in   an
+application--depending  on  how  it  is  used.   The  syntax  of these
+statements is:
+
+INTERCEPT!NOTE (SYSTEM BIND CALL UPDATE)!ALL [EXCEPTIONS].
+
+That is, either ALL or one or more of the  others  may  be  specified.
+When  a  designated  exception  occurs,  the message printed is of the
+form:
+
+[STATUS/AREA/RECORD/SET=status/area-name/others if known]
+
+If interception was specified, an EXIT 1 is  then  done...which  means
+the    user   can   still   type   CONTINUE   if   he   wishes.    The
+exception-partitioning implied here is described in 2.1.5.2.
+
+
+2.1.1.5 ASSIGN Statement -  The syntax of the this statement is now:
+
+     ASSIGN [SYSTEM AREA] area-name TO file-spec
+      [RECORDS-PER-PAGE [IS] integer]
+      [BACKUP (BEFORE AFTER) [IMAGES]]
+      [BUFFER [COUNT IS] integer]
+      [CALC [AT MOST] integer RECORDS-PER-PAGE]
+       FIRST PAGE [IS] integer
+       LAST PAGE [IS]  integer
+       PAGE SIZE [IS] integer WORDS
+      [RANGE [OF] name [IS PAGE] integer [TO PAGE] integer]
+      [more RANGE phrases].
+
+Except for the RANGE clause, each clause  can  appear  at  most  once.
+Ordering  is as presented except that the RPP, BACKUP, BUFFER and CALC
+optional clauses are interchangable.
+
+The SYSTEM AREA phrase serves to support the OWNER  IS  SYSTEM  clause
+added  to  the SET statement, see 2.1.2.3.  Its effect is to cause the
+system record (if there is need for one) to be  stored  in  this  area
+(along with any other record types allowed in this area).  If there is
+a non-null system record and no area contains this phrase,  the  first
+area assigned will become the system area.
+DBMS5.DOC                                                       Page 6
+
+
+The RECORDS-PER-PAGE clause is used to specify the maximum  number  of
+records  that  can  be  on  a  page  of  this  area.   (It overrides a
+RECORDS-PER-PAGE statement if one is  present).   If  this  clause  is
+absent,  a  RECORDS-PER-PAGE statement must have appeared earlier--and
+the  value  specified  there  will  be  used.   In  other   words,   a
+RECORDS-PER-PAGE statement is necessary unless each area specified has
+its own RECORDS-PER-PAGE  clause.   Whether  a  global  or  local  RPP
+applies  to this ASSIGN statement, it must specify at least 2 and less
+than 512 records per page.
+
+The BUFFER clause is used to specify how many page-buffers  this  area
+will have.  A buffer count of 2 is the minimum allowed.  If the clause
+is absent, 3 buffers will be created.
+
+The CALC clause allows  one  to  trade  off  the  amount  of  per-area
+overhead  associated  with  calc  records  with  the  average  time to
+access/store a calc record.  In earlier  versions,  there  was  always
+precisely  one  calc-chain  per page (one list==one word of overhead).
+Thus if one expected 500 calc records in an area that had  100  pages,
+the average calc-chain would unavoidably have 5 records in it.  But in
+V4 one could specify  CALC  5  RPP  and  thereby  reduce  the  average
+calc-chain  length to 1.  Conversely if there are no calc record types
+in a particular area, one can now say CALC 0 RPP.
+
+Each RANGE clause controls where in this area a particular record type
+can  be STOREd.  If a record type can be WITHIN this area, it may have
+a RANGE clause for this area.  If a record type that can be STOREd  in
+this  area  has  no  RANGE clause for this area, each page of the area
+will constitute its range.  This clause has two purposes.  Its obvious
+purpose  is  to enable the administrator to cluster records based upon
+record type.  Its other purpose is to make calc records insensitive to
+a  change in the number of pages in an area.  Previously the number of
+pages in  an  area  (that  contained  calc  records)  could  never  be
+increased since that would "throw the calc algorithm off".
+
+
+2.1.2  The Schema DDL
+
+
+2.1.2.1 AREA PRIVACY Clause -  Because V4 supports a wider set of area
+usage-modes, this clause has been expanded.  There is no change in the
+syntax for specifying that an area's locks are all the same,  but  the
+separate-locks syntax is now:
+
+PRIVACY [LOCK FOR] [EXCLUSIVE!PROTECTED] RETRIEVAL!UPDATE [IS] lock
+
+A description of the six usage-modes is in subsection 2.1.6.1.
+
+
+2.1.2.2 The Data-name Entry -  This statement has  been  expanded  and
+made    more   host-language   independent.    The   nature   of   the
+incompatibility so induced is described in 2.2, notes 1  and  2.   The
+new syntax is:
+DBMS5.DOC                                                       Page 7
+
+
+02 data-name picture!size!type [OCCURS integer [TIMES]].
+  picture-->PICTURE [IS] same-as-v3 [usage]
+  size-->   SIZE [IS] integer [WORDS!usage]
+  type-->   TYPE [IS] numeric!DBKEY
+   usage--> USAGE [IS] DISPLAY[-6]!DISPLAY-7!DISPLAY-9
+   numeric->FLOAT [DECIMAL!BINARY] [REAL!COMPLEX] [integer]
+     -->[FIXED] [DEC!BIN] [REAL!COMPLEX] [integer [integer]]
+
+The OCCURS clause is of course used to define an  array  and  describe
+its  length.   (This  does not affect GET and MODIFY;  each will still
+process entire 02-data-names:  if 02 A OCCURS 3 appeared in a  schema,
+GET  A  would  get  the whole array and GET A(2) would be flagged as a
+syntax error).
+
+The PICTURE clause is used to describe elementary  string  data;   the
+SIZE  clause is used to describe data structures;  and the TYPE clause
+is used to describe numeric data (and DBKEYS).  Thus the USAGE  phrase
+can  no  longer be used to described numeric data.  The USAGE phrase's
+sole purpose now is to  state  what  type  of  string  data  is  being
+allocated:  respectively SIXBIT, ASCII, or EBCDIC.  Note also that the
+programmer now has complete control of the unit of storage  allocation
+in  the  SIZE  clause:  whole words as well as any of the three string
+representations.  The string host-language  mappings  are,  where  !x!
+=smallest integer>=x:
+
+     KEYWORDS    LENGTH          FORTRAN         COBOL
+     -----------------------------------------------------
+     DISPLAY-6    N              INTEGER(!N/5!)  AS IN DDL
+     DISPLAY-7    N              INTEGER(!N/5!)  AS IN DDL
+     DISPLAY-9    N              INTEGER(!N/4!)  AS IN DDL
+
+The NUMERIC phrase in the TYPE clause  allows  six  types  of  numeric
+encoding;   the  defaults for each pair are respectively FIXED, BINARY
+and REAL.  The first optional integer at the end of the NUMERIC phrase
+is the data-name's precision (in binary or decimal digits according to
+the 2nd keyword pair).  The second  integer,  if  applicable,  is  its
+scale  factor.   A  scale factor indicates that the internal form of a
+fixed-point number is some number of powers-of-10 different  than  the
+external  form.   The default is of course 0 (ie.  no difference);  -1
+means external is 10 times as large;  1  means  external  is  1/10  as
+large.
+
+If no supported  host-language  intrinsically  supports  a  particular
+combination  of  NUMERIC  keywords  and the chosen precision, a syntax
+error will be signalled during translation of the  TYPE  clause.   The
+default  precisions  for  FIXED  BIN,  FLOAT  BIN,  and  FIXED DEC are
+respectively  35,27,  and  10.   The  legal   combinations   and   the
+host-language mappings are as follows:
+DBMS5.DOC                                                       Page 8
+
+
+     KEYWORDS           PRECISION   FORTRAN         COBOL
+     -----------------------------------------------------------
+     FIXED BIN REAL       < 36      INTEGER         COMP S9(X2)
+     FIXED BIN REAL       36-71     INTEGER(2)      COMP S9(X3)
+     FLOAT BIN REAL       < 28      REAL            COMP-1
+     FLOAT BIN REAL       28-62     REAL*8          COMP S9(18)
+     FLOAT BIN COMPLEX    < 28      COMPLEX         COMP S9(18)
+     FIXED DEC REAL       < 19      INTEGER(X1)     COMP-3 S9(prec)
+
+Note  that  where  only  one  host-language   supports   the   keyword
+combination  intrinsically,  the  other  declares it as "best it can".
+For example, for FIXED DEC REAL, FORDML  simply  allocates  4  decimal
+digits/word   (ie.   X1=prec/4),  in  terms  of  a  "reasonable"  data
+type--INTEGER.
+
+The values X2 and X3 are computed according to the following  mapping.
+However  it  is  suggested  that  one  use  either  FIXED  BIN (35=the
+default)-- or FIXED BIN 71 for double  precision--unless  there  is  a
+specific  need  to cause numeric truncation at run-time.  Consistently
+using full-word precision leads  to  COBOL  generating  better  object
+code.
+
+     BINARY PRECISION <= P maps to DECIMAL PRECISION X2/3
+     ----------------------------------------------------
+         4                               1
+         7                               2
+         10                              3
+         14                              4
+         17                              5
+         20                              6
+         24                              7
+         27                              8
+         30                              9
+         35                              10
+     (switch to double precision)
+         38                              11
+         41                              12
+         44                              13
+         48                              14
+         51                              15
+         54                              16
+         58                              17
+         >58                             18
+
+
+2.1.2.3 The SET Entry -  There are several small changes  to  the  SET
+entry.
+
+The owner of a set can  now  be  the  system.   In  other  words,  the
+programmer need no longer create a dummy record type when he wishes to
+have a singular set.  This affects  the  OWNER  clause,  and  its  new
+syntax is:
+
+                    OWNER [IS] record-name!SYSTEM
+DBMS5.DOC                                                       Page 9
+
+
+The few special rules governing singular sets are:
+
+The system area must be placed in all sub-schemas, but it need be open
+only  if  the  system record will be referenced (see 2.1.1.5 on how to
+allocate area space to the system record).
+
+No member clause in the set entry of a singular set  may  have  a  SET
+SELECTION  phrase.   The  reason  for  this is intuitively reasonable:
+since the DBCS knows the set is singular, it can always correctly (and
+quickly) locate the "proper" set occurrence.
+
+FIND OWNER will be allowed relative to singular sets so  that  a  FIND
+NEXT loop for a singular set can be coded as it would be for any other
+set.  However the meaning of a succeeding GET, MODIFY, INSERT, REMOVE,
+OR DELETE is of course ill-defined and will return exception xx20.
+
+The SET entry may optionally be separated from its MEMBER entries by a
+period.   Multiple  MEMBER entries can also be optionally separated by
+periods.
+
+When ORDER SORTED or ORDER SORTED  WITHIN  is  specified  as  a  set's
+ORDER, the record-name of each member record is each's major sort key.
+In order to speed processing and decrease  the  amount  of  data  base
+space  required,  DBMS-10/20 uses the record's type ID rather than the
+record-name itself.  Type ID's are assigned in increasing sequence  as
+each  RECORD  entry  is processed.  This has two effects.  One is that
+the member record types will not  be  sorted  in  alphabetic  sequence
+unless they appear in alphabetic sequence;  and two, that the user now
+has  complete  control  and  can  specifically  cause   non-alphabetic
+sequences.
+
+Signed RANGE KEYs will be supported in V4.  Also all keys to the right
+of the first RANGE will be treated as RANGE KEYs.  Absence or presence
+of the keyword RANGE, after its first appearance, will be  transparent
+to  the SCHEMA processor.  Finally, the existing syntactic description
+is somewhat vague, the actual syntax is:
+
+     key-phrase [key-phrase ...] [duplicates-phrase]
+     WHERE...
+     key-phrase --> key-type [KEY IS] data-name-1, [dn-2,...]
+     key-type --> ASC!DESC!ASC RANGE!DESC RANGE
+     duplicates-phrase -->
+             DUPLICATES [ARE] [FIRST!LAST!NOT] [ALLOWED]
+
+When sort/calc keys  consist  of  more  than  one  data  item,  it  is
+allowable  to not ALIAS all of the items.  Presumably this would be of
+use when one wished to alias the minor key(s) and not the  major  key.
+In any event, these examples portray each of the possible cases:
+
+     1.  ALIAS FOR DN1 IS ALIAS1
+
+     2.  ALIAS FOR DN1 IS ALIAS1 ALIAS FOR DN2 IS ALIAS2
+
+     3.  ALIAS FOR DN1 IS DN1 ALIAS FOR DN2 IS ALIAS2
+DBMS5.DOC                                                      Page 10
+
+
+2.1.2.4 Guaranteeing Source Program Consistency -  Earlier versions of
+SCHEMA  were  somewhat lax in detecting if the subtler requirements of
+the DDL were being satisfied.  Version 4 attempts to guarantee that no
+invalid  program  will  translate  error-free.   (There is of course a
+CATCH-22 incompatibility in this since  some  existing  .DDL  programs
+will  display  errors  when translated with V4).  The more interesting
+checks are as follows:
+
+     1.  Table 4-1 on p.  4-17 in the Administrator's Manual  will  be
+         enforced.
+
+     2.  When SET SELECTION is thru LOCATION MODE OF OWNER, any key so
+         referenced  must  have been declared such that DUPLICATES ARE
+         NOT ALLOWED for the key.
+
+     3.  If an ALIAS OR USING argument  is  not  valid,  an  error  is
+         reported.
+
+     4.  For each RECORD entry in which there is a  LOCATION  MODE  IS
+         VIA clause, there must be a corresponding SET.
+
+     5.  For each RANGE clause, the corresponding WITHIN  clause  must
+         appear.
+
+     6.  If a record is declared in the same set more  than  once,  an
+         error is reported.
+
+     7.  If a RECORD entry contains a LOCATION MODE VIA clause and  is
+         a member of a sorted set in which (one of) the sort key(s) is
+         the record's dbkey, an error is reported.   This  is  because
+         such  a  situation  is a deadlock:  VIA says store the record
+         physically near its logical neighbors, while sorted-on-dbkeys
+         says  logically  place the record on the basis of where it is
+         physically.
+
+
+2.1.3  The Sub-schema DDL
+
+Conceptually there has been only one change  to  the  sub-schema  DDL;
+any  text  (eg.   03  data-name...)  that  the  programmer  wishes  to
+associate with an 02-data-name will be so associated in the sub-schema
+DDL.   The  reasons  for  making  this change are twofold:  to isolate
+COBOL  dependencies  in  sub-schemas  intended  for   use   by   COBOL
+applications   and   to   allow  a  programmer  to  associate  FORTRAN
+information with an 02-data-name.
+
+
+2.1.3.1 General Text-specifying Rules -  Text is specified on  a  line
+basis;  the presence or absence of a terminating period is irrelevant.
+The line(s) following a sub-schema DATA entry will be treated as  text
+unless  its first word is COPY, 02, 01, or SET.  If one wishes to have
+a line of text that starts with one of these symbols, the line must be
+prefixed  by  a plus (+).  (Note that the means of explicitly entering
+null text is a line consisting of +<CRLF>.)
+DBMS5.DOC                                                      Page 11
+
+
+Since it is likely that a  data-name  will  have  the  same  usage  in
+different  sub-schemas,  there  must be a way to associate a data-name
+with the same text in more than one  sub-schema.   The  mechanism  for
+doing  this  explicitly  is  described  in  2.1.3.3,  but  the default
+mechanism is as follows.  Let data-name-1 be associated with text-a in
+the  (i)th  sub-schema  in the program, and let the next sub-schema in
+which data-name-1 is declared be the (j)th.  Then text-a will again be
+associated  with  data-name-1  unless  text-b is actually present with
+data-name-1(j)--in which case  text-b  will  become  the  default  for
+data-name-1 in later sub-schemas.
+
+
+2.1.3.2 The COPY OTHERS Statement -  This statement is used  to  place
+the  "remaining"  DATA entries of a RECORD entry in a sub-schema.  For
+example, if REC1's DATA entries were A1, A2, A3, A4 and A5, saying:
+
+     01 REC1.
+
+would be equivalent to:
+
+     01 REC1.
+     02 A2.
+     02 A4.
+     COPY OTHERS.
+
+However the usual usage of COPY OTHERS would  be  something  analogous
+to:
+
+     01 REC1.
+     02 A2.
+     THIS IS ARBITRARY TEXT
+     02 A4.
+     SO IS THIS
+     COPY OTHERS.
+
+
+2.1.3.3 The COPY TEXT Statement -  To  associate  data-name-1(j)  with
+the text associated with data-name-1 in an earlier sub-schema, one may
+type the following, rather than the actual text:
+
+                     COPY sub-schema-name [TEXT].
+
+Example:
+
+     RECORD NAME IS R1
+             :
+             :
+     02 D1 SIZE 4 WORDS.
+     02 D2 TYPE FLOAT BIN.
+     02 D3 PIC X(5) OCCURS 4.
+             :
+             :
+     SUBSCHEMA NAME IS SS1.
+             :
+             :
+DBMS5.DOC                                                      Page 12
+
+
+     01 R1.
+     02 D1.
+     03 DD1 PIC X(12).
+     03 DD2 PIC S9(18) USAGE COMP.
+     COPY OTHERS.
+             :
+             :
+     SUBSCHEMA NAME IS SS2.
+             :
+             :
+     01 R1.
+             :
+             :
+     SUBSCHEMA NAME IS SS3.
+     01 R1.
+     02 D1.
+     EQUIVALENCE (D1(1),D6BIT), (D1(3),DPINT)
+     02 D2.
+             :
+             :
+     SUBSCHEMA NAME IS SS4.
+     01 R1.
+     02 D1.
+     COPY SS1.
+     COPY OTHERS.
+
+Sub-schemas SS1,  SS2,  and  SS4  lead  to  exactly  the  same  record
+description  being  placed  in the COBOL host program.  Sub-schema SS3
+places  INTEGER  D1(4)  AND  REAL  D2,  as  well  as  the  EQUIVALENCE
+statement, in the FORTRAN host program.
+
+
+2.1.4  The SCHEMA Program Interface
+
+The V4 command line processor utilizes SCAN  and  WILD.   The  general
+form of the command line is as follows:
+
+                  [file-spec=] file-spec [switches]
+
+If all or part of the output file spec is absent,  the  missing  parts
+are derived from the input file spec.  The default extension for input
+files is .DDL.  Any extension in the output file spec is ignored.  The
+extension of the output file is always forced to .SCH.
+
+In V4 there is just one class  of  switch,  the  /CREATE  switch.   It
+controls whether the .DBS files are (re)created or left as they are:
+
+     1.  If no switch is present, a .DBS file is created  only  if  it
+         does not exist already.
+
+     2.  If /CREATE is present, the .DBS files are always created.
+
+     3.  If /NOCREATE is present, the .DBS files are never created.
+DBMS5.DOC                                                      Page 13
+
+
+There has been  a  slight  change  of  philosophy  in  how  areas  are
+addressed.   Areas  generally  have  the  property that they stay put:
+once they contain live data their name and  directory  seldom  change.
+Consequently  when  SCHEMA initializes an area, the area is associated
+to its directory of creation permanently.  In other words,  if  during
+the  running of SCHEMA AREA1 is ASSIGNed to FILE1, it is also ASSIGNed
+to the directory which constituted the current directory path.
+
+As noted earlier, the error detecting capability of  SCHEMA  has  been
+expanded.   Additionally  the  error messages are now in standard form
+(ie.  preceded by ?DDLxxx or %DDLxxx).  Lastly  an  error  message  is
+accompanied  by  the  first  (and  last)  line of the offending source
+statement, if applicable.
+
+Important:  the distinction between warnings (%)  and  errors  (?)  is
+functional as well as descriptive.  If the error count is greater than
+0, the .SCH file (and .DBS files) will not  be  (re)created.   If  the
+warning  count  is greater than 0 and the error count is 0, processing
+will not be curtailed.
+
+
+2.1.5  Exception Handling
+
+
+2.1.5.1 The ERROR  Special  Registers -   Each  time  a  DML  verb  is
+executed, ERROR-STATUS and ERROR-COUNT are set to well-defined values.
+If no exception occurred, ERROR-STATUS equals the null-string (ie.  it
+is  a 0-word) and ERROR-COUNT equals 0.  The other three ERROR special
+registers have the same value as before the verb was executed.
+
+If an exception did occur, ERROR-STATUS equals " xxyy" and ERROR-COUNT
+equals  1, where "xx" is a statement code (see 2.1.5.2) and "yy" is an
+exception code (see 2.1.5.4).
+
+ERROR-AREA will always equal the last area actually referenced.
+
+Except for OPEN and CLOSE, ERROR-RECORD will be  blanks  only  if  the
+exception occurred while DBCS was still processing the verb's argument
+list.  Otherwise it will be the object record's type unless  the  verb
+"traverses"  the  data base.  A qualified DELETE recursively traverses
+the data base, FIND NEXT with a  non-null  record-name  traverses  the
+data  base,  and  FIND OWNER traverses the data base.  In these cases,
+ERROR-RECORD will be the record type of the last record operated upon.
+
+ERROR-SET will be blanks unless at least one set  operation  has  been
+started  at  the  time  of  the  exception.   Each  of  the  following
+constitutes a set  operation:   FIND  NEXT/PRIOR/OWNER  OF  SET,  each
+auto-insert  during a STORE, each actual insert during an INSERT, each
+remove in a  REMOVE  and  each  auto-remove  in  a  DELETE,  and  each
+resorting of a set occurrence during a MODIFY.
+DBMS5.DOC                                                      Page 14
+
+
+2.1.5.2  Classes  of  Exceptions -   There  are  several  classes   of
+exceptions  explicitly  defined.   ALL  is  of  course  all  the valid
+statement-code/exception-code  combinations,   SYSTEM   is   all   the
+exceptions  with  a  code  greater  than  or  equal to 55.  The SYSTEM
+exceptions are discussed  in  some  detail  in  the  next  subsection,
+Failsofting.    The  other  defined  classes  are  partitions  of  the
+statement-codes, which are:
+
+     STATEMENT               CODE
+     ----------------------------
+     HOST                     00
+     CLOSE                    01
+     DELETE                   02
+     FIND                     03
+     UNUSED                   04
+     GET                      05
+     UNUSED                   06
+     INSERT                   07
+     MODIFY                   08
+     OPEN                     09
+     UNUSED                   10
+     REMOVE                   11
+     STORE                    12
+     RESERVED                 13
+     RESERVED                 14
+     BIND                     15
+     CALL                     16
+
+The HOST statement-code is associated with the IF predicates  and  the
+MOVE  STATUS  command.  The BIND statement-code is associated with the
+SBIND,  BIND,  EBIND,  and  SETUSE  entry  points.   Also  note   that
+exceptions  31 thru 36 can only be generated during binding.  The CALL
+statement-code is associated with all of the DBCS  entry  points  that
+are  explicitly  called  (ie.   the journaling entry points Jxxxxx and
+SETDB and UNSET).  The  UPDATE  class  of  exceptions  refers  to  any
+exception  that  happens  during  execution of DELETE, INSERT, MODIFY,
+REMOVE or STORE.
+
+
+2.1.5.3 Failsofting -  V4 of DBCS attempts to guarantee two things  as
+regards the execution of a run-unit.
+
+First it operates on the assumption that a  critical  application  may
+want  to  maintain  complete  control and never be returned to monitor
+level against its will.  DBCS  serves  this  goal  by  associating  an
+exception code with all the exceptional conditions that it detects--it
+never does an EXIT that  the  user  did  not  request  (the  INTERCEPT
+facility  is  a  means  of  requesting  EXITs).   This  rule is broken
+precisely once:  to place a value in ERROR-STATUS, DBCS must have been
+associated  with  a sub-schema--consequently if the first call to DBCS
+is at other than SBIND, it types the ?DBSSNI message and exits.
+
+Secondly it attempts to guarantee that no one  accesses  a  data  base
+while it or DBCS is in an undefined state.
+DBMS5.DOC                                                      Page 15
+
+
+One aspect of this control is the area-status-record (ASR),  which  is
+created the first time an area is OPENed (and always has a dbkey equal
+to first-page/1).  When an area is OPENed for update, DBCS  decrements
+by  1  FH.STAT  in  the ASR to indicate that the area is in a state of
+flux.  FH.STAT is not incremented by 1 until the programmer closes the
+area.   If  the run-unit aborts for any reason, DBMEND must be used to
+revalidate the area (and reset FH.STAT to 0) before it can  be  OPENed
+for normal usage again.
+
+The other major aspect of control is DBCS's status word (one for  each
+sub-schema   INVOKEd).    The   two   user-relevant   flags   are  the
+system-in-undefined-state (SUS) flag and cannot-backup-updates  (CBUU)
+flag.   CBUU  is  turned  on  in  the following circumstances:  during
+exceptions 61 and 63, during OPEN if the journal device is MTA, during
+the  OPENing  of  an  area  for  update  when  BEFORE  IMAGES  are not
+requested, and in conjunction with the SUS flag if an exception occurs
+during  binding  or  while  an exception is being processed (this also
+causes typing of the ?DBSXWX message).  The SUS flag  gets  turned  on
+for  only one other reason, when an exception occurs after an updating
+verb has altered one or more data base pages.
+
+The effect of the SUS flag is as follows.  If one tries to enter  DBCS
+while  the  SUS  flag  is  set  (at  other than JBTRAN or a sub-schema
+changing entry point), DBCS will return immediately with  ERROR-STATUS
+set to " xx62".  However, if CBUU is not set, there is one of two ways
+in which the SUS flag may get turned off.
+
+If images are ordered by command, DBCS will automatically restore  the
+data  base to the state it was in before the verb was entered and turn
+the SUS bit off.  But if for some exceptional reason  the  restoration
+cannot  be  completed,  the  ?DBSUCR message is typed and CBUU is also
+turned on.
+
+If images are not ordered by command  the  program  will  be  able  to
+explicitly  restore the data base to its proper state even though DBCS
+will have returned with the SUS bit still set.  It can do this via the
+JBTRAN  entry  point.  Calling JBTRAN after an updating-exception will
+restore the data base to the beginning of  the  in-doubt  transaction,
+turn the SUS bit off, and (IMPORTANT!) leave all currency indicators 0
+(to  eliminate  the  possibility  of  reference  to  now  non-existent
+records).   If, for some exceptional reason JBTRAN fails, ERROR-STATUS
+will be set to " 1663" and CBUU turned on.
+
+In summary, there is no way for the programmer to turn  off  the  CBUU
+flag.   In  and  of  itself  this is no problem since the CBUU flag is
+transparent to the application unless the SUS flag is also turned  on.
+In  this latter state however, the run-unit can essentially do nothing
+with the sub-schema...  and in effect DBCS no longer trusts itself.
+DBMS5.DOC                                                      Page 16
+
+
+2.1.5.4 The Exception Codes
+
+EXCEPTION       DESCRIPTION
+---------------------------------------------------------------
+    00          A WARNING:  the compile-time and run-time versions  of
+                the  .SCH  file differ.  However if a "real" exception
+                occurs during binding DBCS always returns the code  of
+                that  exception...   but to indicate that exception 00
+                has occurred as well, DBCS types the %DBSCED  message.
+                However,  as a general rule, the "real" exception will
+                not persist after the program-unit is recompiled  with
+                the up-to-date .SCH file.
+
+    01          Area not open
+
+    02          Dbkey inconsistent with area-name.  Can also  indicate
+                that  a  referenced  page number is in an area that is
+                not in the sub-schema.
+
+    03          Record affected by concurrent application--V5 only
+
+    04          Data-name invalid or inconsistent (ie.  during GET  or
+                MODIFY with data-name list)
+
+    05          Violation of DUPLICATES NOT ALLOWED phrase
+
+    06          Current of (set/record/area) not known
+
+    07          End of set or area
+
+    08          Referenced name not in sub-schema.  This can occur for
+                many  reasons:   (1)  In traversing a set, if a record
+                type not in the sub-schema is encountered.  (2) During
+                STORE  OR  DELETE,  if  set  type  owned by the object
+                record type is not in the sub-schema.  (3) During  set
+                occurrence  selection  if  the  VIA  set is not in the
+                sub-schema.   (4)  During  calc   processing   or   in
+                searching  a sorted set, if not all subkeys are in the
+                sub-schema.  (5) During MODIFY, if the sort key  of  a
+                set not in the sub-schema is modified.
+
+                The solution to this problem is of course to place the
+                offending name in the sub-schema.
+
+    09          An update usage mode required (eg.  attempt to STORE a
+                record while the area is OPEN for RETRIEVAL)
+
+    10          Privacy breach attempted
+
+    11          Data space exhausted (ie.  no more  room  to  STORE  a
+                record).   Note  that  this  can  occur  while DBCS is
+                trying  to  store  an  internal   record   type:    in
+                particular, the index blocks in a sorted set.
+
+    12          Unused
+DBMS5.DOC                                                      Page 17
+
+
+    13          No current record of the run-unit
+
+    14          Object record is mandatory  automatic  member  of  the
+                set.
+
+    15          Attempt to REMOVE a record which is either a MANDATORY
+                member or not a member type at all.
+
+    16          Record is already member of set.
+
+    17          Need a record which is current of "-----", but it  has
+                been  deleted  (eg.   can occur during FIND CURRENT OF
+                "-----";  or during GET, if the record was deleted  by
+                a concurrent run-unit).
+
+    18          Unused
+
+    19          Data conversion unsuccessful--unused for now
+
+    20          Current record of run-unit not of right record type
+
+    21          Unused
+
+    22          Record not currently member of set, analogous to xx17.
+
+    23          Illegal area-name was passed in an AREA-ID.
+
+    24          Temporary and permanent areas referenced in  same  DML
+                verb.
+
+    25          No set occurence satisfies argument values (eg.   calc
+                value in UWA matched no owner record)
+
+    26          No record satisfied RSE, catch-all exception for  FIND
+                verb.
+
+    27          Unused
+
+    28          Area already open
+
+    29          Unused
+
+    30          Unqualified DELETE attempted on non-empty set
+
+                NON-CODASYL EXCEPTION CODES
+
+    31          Unable to open the .sch file
+
+    32          Insufficient  space  allocated   (eg.    SIZE   clause
+                specified  less  space that what the compiler actually
+                needed)
+
+    33          None of the areas a record type can be WITHIN  are  in
+                the sub-schema.
+DBMS5.DOC                                                      Page 18
+
+
+    34          A set is in the sub-schema, but its owner record  type
+                is not.
+
+    35          Dynamic use-vector full
+
+    36          Attempt to INVOKE too many sub-schemas (currently more
+                than 8), attempt to UNSET an empty sub-schema stack or
+                SETDB a full stack.
+
+    37          Argument  to   SETDB   is   not   an   already-INVOKEd
+                sub-schema.
+
+    38          Duplicate operation on resource:  you  have  attempted
+                to  open  the  journal  twice;   you  have  opened  it
+                EXCLUSIVE and are now opening an area with  USAGE-MODE
+                UPDATE;  you are calling JSTRAN while a transaction is
+                already active;  or you have multiple INVOKEs and have
+                attempted to open the same area twice.
+
+    39          DBS file not found
+
+    40          Requested access conflicts with existing  access.   In
+                other  words,  the resource is not available:  (1) you
+                attempt to open an area in a  USAGE-MODE  incompatible
+                with  another  run-unit's  control  (eg.  you try EXCL
+                RETRIEVAL and he already has it open with PROT UPDATE)
+                (2)  you  attempt to open the journal and a USAGE-MODE
+                conflict results.  (3) you attempt to delete a  record
+                retained by another run-unit.  (4) you attempt to open
+                an area (or the journal) and the file-system signals a
+                file protection error.
+
+    41          No channel available...attempt to open too many areas
+
+    42          Area  in   undefined   state   (eg.    after   crash).
+                Internally  this means that FH.STAT in the ASR is less
+                than 0.  DBMEND should be used to FORCEOPEN  the  area
+                and return it to a valid state.
+
+    43          Area in creation state.  This can happen to the system
+                area  only.   It will happen if the run-unit aborts at
+                just the right time during the very first  OPENing  of
+                the  system  area.   DBCS  recognizes  this  state  by
+                leaving FH.STAT equal to 1 until initialization of the
+                system area is completed.
+
+                If this exception is returned, the  programmer  should
+                either  rerun  SCHEMA  or,  more simply, just create a
+                0-length file with one of the text editors.
+
+    44          Attempt  to  call  a  journal-processing  entry  point
+                before  the journaling system has been initialized (by
+                the first OPEN that requires journaling).
+DBMS5.DOC                                                      Page 19
+
+
+    45          Attempt to backup the  data  base  with  JBTRAN  while
+                DBCS's  CBUU  bit  is set (see 2.1.5.3) or when a file
+                (ie.  journal or area) is shared for update in command
+                mode or for JBTRAN(gtr 0) when it is shared for update
+                in transaction mode.
+
+    46          Magtape  service  is  unavailable--DAEMDB  returned  a
+                failure code.
+
+    47          Reserved
+
+    48          Reserved
+
+    49          Reserved
+
+    50          Unused
+
+    51          Unused
+
+    52          Unused
+
+    53          Unused
+
+    54          Unused
+
+                SYSTEM EXCEPTIONS
+
+    55          Pseudo-exception:   DBCS   types   message   that   no
+                sub-schema has been initialized yet
+
+    56          Inconsistent data in .DBS file.  DBMEND should be used
+                to  restore  the  data  base to a valid state.  If the
+                problem can be reproduced, it probably  indicates  the
+                presence of a DBCS software error.
+
+    57          DBCS software error probably
+
+    58          Illegal argument was passed by user (or setup by  host
+                interface).
+
+    59          No more core-memory available
+
+    60          I/O error attempting to access a .DBS file -- is  DBCS
+                bug,  is  spurious,  or is disk quota exceeded or file
+                protection failure.
+
+    61          Unable to append to journal either in normal operation
+                or  in  trying  to  open  a journal for appending (ie.
+                journal in an aborted-state but not designated as done
+                with).   This  exception  turns on CBUU as well as SUS
+                (see 2.1.5.3).
+
+    62          Attempt to enter DBCS at  other  than  JBTRAN,  SBIND,
+                SETDB, or UNSET while the SUS bit is on (see 2.1.5.3).
+DBMS5.DOC                                                      Page 20
+
+
+    63          Unable to complete restoration of the proper data base
+                state--either   in   JBTRAN  or  when  initializing  a
+                run-unit at the start of an  interleaving-unit.   This
+                exception turns on CBUU as well as SUS (see 2.1.5.3).
+
+    64          Internal use only
+
+    65          Monitor space for ENQ entries exhausted or  ENQ  quota
+                exceeded
+
+    66          ENQ/DEQ/ENQC  failure:   user  does   not   have   ENQ
+                capabilities set or some DBCS problem
+
+    67          Unable to initialize magtape service--as opposed to it
+                being  unavailable  (eg.  SYS INFO not running, DAEMDB
+                not running, or some DBCS problem)
+
+    68-99       Reserved
+
+
+2.1.6  The Data Manipulation Language
+
+
+2.1.6.1 The OPEN Statement -  The only part of the OPEN statement that
+has changed is the USAGE-MODE clause.  The syntax is now:
+
+        USAGE-MODE [IS] [PROTECTED!EXCLUSIVE] RETRIEVAL!UPDATE
+
+Although the syntactic change is small, three  USAGE-MODEs  will  have
+been  added  (the  last in V5), and the meaning of each USAGE-MODE has
+been brought into alignment with the CODASYL spec.
+
+EXCLUSIVE RETRIEVAL means that no one else will be able to access  the
+area  while  you  have it OPEN and that you will not be able to STORE,
+DELETE, MODIFY, INSERT or REMOVE.  Conversely if anyone has  the  area
+OPEN for any reason, you will be denied access.
+
+EXCLUSIVE UPDATE means that no one else will be  able  to  access  the
+area  while  you have it OPEN and that you will be able to execute any
+verb.  Conversely if anyone has the area OPEN for any reason, you will
+be denied access.
+
+PROTECTED RETRIEVAL means that no one else will be able to update  the
+area  while you have it OPEN and that you will not be able to call the
+updating verbs listed above.  Conversely if anyone has the  area  OPEN
+for EXCLUSIVE access or PROTECTED UPDATE or UPDATE, you will be denied
+access.
+
+PROTECTED UPDATE means that no one else will be  able  to  update  the
+area  while  you have it OPEN and that you will be able to execute any
+verb.  Conversely if anyone has the area OPEN for EXCLUSIVE access  or
+PROTECTED UPDATE or UPDATE, you will be denied access.
+DBMS5.DOC                                                      Page 21
+
+
+RETRIEVAL means that anyone else will be  able  to  access/update  the
+area  while  you have it OPEN and that you will not be able to execute
+the updating verbs listed above.  Conversely if anyone  has  the  area
+OPEN for EXCLUSIVE access, you will be denied access.
+
+UPDATE means that anyone else will be able to access/update  the  data
+base  while  you have it OPEN and that you will be able to execute any
+verb.  Conversely if  anyone  has  the  area  OPEN  for  EXCLUSIVE  or
+PROTECTED access, you will be denied access.
+
+Some general comments:
+
+All update USAGE-MODEs actually modify the .DBS file when a buffer  is
+written  to  disk.  A temporary area is the only circumstance in which
+there is an after-image directory, in which case a file by the name of
+ASSIGNed-name.TMP   is  created.   See  section  2.4  note  7,  for  a
+description of the organization of an area .TMP file.
+
+The idea that different USAGE-MODEs  were  synonymous  with  different
+accessing  algorithms was a corruption of the USAGE-MODE concept.  The
+concept of USAGE-MODE has just two components:  the  level  of  shared
+access  to  be  allowed  and whether modification of the area is to be
+allowed.
+
+
+2.1.6.2 The MOVE Statement -  The syntax of  this  statement  has  not
+been  changed.   The  change  is  that  it  will now alter the special
+registers AREA-NAME and RECORD-NAME to describe the currency indicator
+being MOVEd.  Also see subsection 2.2, note 3.
+
+
+2.1.6.3 DELETing or REMOVing Current of "-----" -  The meaning of FIND
+NEXT of SET when current of set has been REMOVEd or DELETEd is apriori
+somewhat  ambiguous.   Consequently,  to  allow  this  and  the  other
+currency-based  operations  in this situation, some convention must be
+established.  The convention employed by DBMS-10/20 V4 is as follows.
+
+The record which  was  NEXT  of  the  eliminated  record  becomes  the
+canonical  NEXT  of  SET.   What  this  means  is that, no matter what
+happens to the set (short of establishing a new current of set),  this
+record is NEXT of SET and the record which is PRIOR to it at any point
+in time is PRIOR of SET.
+
+DELETing current of area has no effect on the operation of  FIND  NEXT
+of  AREA.  This is the case because DBKEY+1 and DBKEY-1 are inherently
+NEXT and PRIOR of the dbkey being deassigned--whereas  the  identities
+of  NEXT  and  PRIOR  of  a  set  depend on values in the record being
+eliminated.
+DBMS5.DOC                                                      Page 22
+
+
+2.1.6.4 The JBTRAN Routine -  The topic of the JBTRAN routine has been
+broached  in  subsections  2.1.1.3 and 2.1.5.3 as well.  To reiterate,
+the primary reason to call JBTRAN is to turn off the SUS flag  (turned
+on  by  an updating-exception) by backing up the data base to the most
+recent transaction-header.   To  use  JBTRAN  for  this  purpose,  the
+calling sequence is:
+
+        COBOL:     ENTER MACRO JBTRAN USING 0.
+        FORTRAN:   CALL JBTRAN(0)
+
+There  is  potentially  a  second  reason  to  call  JBTRAN.   If   an
+application,  for  its  own  reason,  wants  to  wipe  out one or more
+transactions, it can do this (even though SUS is off)  by  giving  the
+number  of transactions it wishes to backup as the argument to JBTRAN.
+(Thus CALL JBTRAN(1) can be used in place of CALL JBTRAN(0),  but  the
+reverse  is not true because CALL JBTRAN(0) will do nothing if the SUS
+bit was already off.)
+
+It is unnecessary  to  do  a  JETRAN  after  cleaning  up  an  aborted
+transaction  with  JBTRAN  because  JBTRAN  simulates  a JETRAN of the
+following form:  JETRAN ("JBTRAN", number backed up).
+
+
+2.1.6.5 The STATS Routine -  There  have  been  some  changes  to  the
+information  that  is  output  when  STATS  is called.  Most of the V4
+output is self-explanatory, but a couple of things do require comment.
+
+Some of the simpler routines in DBCS have a CPU duration which  is  at
+the  border-line of resolution of the RUNTIM UUO.  This means that the
+statistics for these entry points may be erratic.  Also  the  cost  of
+generating  detailed  timings  is rather large.  Consequently detailed
+timing statistics will not be generated unless the  user  specifically
+requests  them.   He  does  this by setting the global symbol "STATS."
+non-0.  The simplest way to accomplish this is:
+
+     .R LINK
+     *user-prog,/DEFINE:STATS.:1,etc/G
+
+The STATS information is output  on  a  sub-schema  basis.   In  other
+words,   if  one  has  invoked  two  sub-schemas,  one  will  get  two
+subsections of output.  Also each figure for  sub-schema  run-time  is
+the  result  of  subtracting  the  value  of  RUNTIM  at the time each
+sub-schema was SBINDed from its current value.
+
+"Same-page  data  base  accesses"   is   a   measure   of   intra-page
+localization.   It  is incremented by 1 each time the page accessed is
+the same page as was accessed the preceding time.
+
+Lastly, reads of a temporary area's directory page are included in the
+count of pages actually read from disk.
+DBMS5.DOC                                                      Page 23
+
+
+2.1.6.6 Passing Strings to DBCS -   There  are  several  entry  points
+which  take  string arguments (eg.  JSTRAN, JRTEXT).  Particularly for
+the benefit of FORTRAN users, the  convention  for  how  to  interpret
+string  arguments  has  been expanded.  In particular, V3 allowed just
+two ways for COBOL (eg.  ENTER MACRO JSTRAN USING  "MYTRAN",TCOUNT  or
+ENTER  MACRO JSTRAN USING TRAN-NAME,TCOUNT where TRAN-NAME appeared in
+the DATA DIVISION with PIC X(30)) and only one way  for  FORTRAN  (eg.
+CALL  JSTRAN('MYTRAN',I)).   In V4, these plus several other ways will
+be possible (see example below).
+
+     DATA TYPE(ARG word,bits 9-12) INTERPRETATION
+     ------------------------------------------------
+     unspecified (ie. 0)           string pointer
+     FORTRAN LOGICAL               data-varying
+     INTEGER/COMP                  5 characters
+     undefined
+     REAL/COMP-1                   5 characters
+     undefined
+     undefined
+     undefined
+     REAL*8                        10 characters
+     DOUBLE COMP                   string pointer
+     undefined
+     undefined
+     COMPLEX                       string pointer
+     COBOL string                  string pointer
+     undefined
+     FORTRAN literal               ASCIZ
+
+A string pointer is a two-word quantity:  its first  word  is  a  byte
+pointer,  and  the  right  half  of  the  second word is the number of
+characters in the string.  A data-varying string is an  actual  string
+in  which  the  length is stored in the word preceding the string.  An
+ASCIZ string is a string that is terminated by a 0 byte.
+
+For example, let a data-varying string be used as follows:
+
+     LOGICAL DUMARR(7)
+     EQUIVALENCE (DUMARR(1),DVLEN),(DUMARR(2),TRNAME)
+     DATA DVLEN/30/
+     TYPE 101
+ 101 FORMAT(' ENTER TRANSACTION NAME')
+     ACCEPT 102,TRNAME
+ 102 FORMAT(6A5)
+             :
+             :
+     CALL JSTRAN(TRNAME,I)
+DBMS5.DOC                                                      Page 24
+
+
+2.1.7  The Host-language Interface
+
+
+2.1.7.1   Compile-time/run-time   .SCH   File   Compatibility -    The
+possibility of compile-time/run-time .SCH file incompatibility will be
+made explicit.  This will be  done  by  incrementing  an  edit  number
+within   the  .SCH  file  each  time  SCHEMA  is  run  and  by  having
+FORDML/COBOL place the value that they see in  the  argument  list  of
+SBIND.  Then at run-time, SBIND will compare the edit-number passed to
+it and the actual edit number of the .SCH file.  If these two  numbers
+differ,   ERROR-STATUS   will  be  set  to  " 1500"  (usually...   see
+subsection 2.1.5.4, exception 00 for details).
+
+(Note that INTERCEPT/NOTE can be used to  detect  this  condition,  if
+that is desired).
+
+
+2.1.7.2 Record/data Formats in the Host-language -  The order  of  the
+data-names  in  the UWA will always be the same as it is in the schema
+DDL.  In other words, the calc keys will not be moved to the front  of
+a   record.    Also  AREA-IDs,  DIRECT  keys,  and  ALIASes  will  not
+incorrectly be made part of the record with which they are associated.
+Also see subsection 2.2, notes 4 and 5.
+
+
+2.1.7.3 DBCS symbols that are user-referencable -  This set  of  names
+is  important  for two reasons.  It identifies the routines for use in
+explicit calls, and it identifies which names  the  programmer  cannot
+use for naming his own routines.
+
+A starred (*) name identifies a synonym for the immediately  preceding
+entry  point  name.   KEY  X identifies the negative number associated
+with a keyword, as described in section 2.4, note 2.  A data base word
+(ie.  area, set, record, data) refers to the name ID (see section 2.4,
+note 1) for the particular data-base-name or  the  string  that  would
+represent that name (ie.  "REC1" for REC1).
+
+     CLOSED       (KEY ALL)
+     CLOSED       (KEY AREA, area-list)
+     DELETR       (0!KEY SELECT!KEY ALL!KEY ONLY)
+     FIND1        (record!0, USING-value)
+     FIND2        (set!0, currency, KEY currency-keyword)
+     FIND3        (KEY relative, record!0, area!set, KEY AREA!KEY SET)
+     FINDO        (integer, record!0, area!set, KEY AREA!KEY SET)
+     FIND4        (set)
+     FIND5        (KEY DUPLICATES!0, record)
+     GETS         (record [,data-list]) !  (0)
+     *GET
+     INSERT       (record!0, set-list)
+     *INSRT
+     MODIF        (same-as-GET)
+     *MODIFY
+     MOVEC        (currency, KEY currency-keyword, result)
+     OPEND        (KEY   RETR!KEY   UPDATE,   0!KEY   PROT!KEY   EXCL,
+                  privacy-key, KEY ALL!area-list)
+DBMS5.DOC                                                      Page 25
+
+
+     REMOVE       (same-as-INSERT)
+     *REMOV
+     STORE        (record)
+     *STORED
+     SBIND        (schema,edit, subschema,ss-mask, SYSCOM-address)
+     BIND         (record,data-address-list)
+     EBIND        (0,DBMS-NULL)
+
+Additionally, the FINDs and STORE can have appended a  SUPPRESS  list:
+KEY ALL!KEY AREA!KEY RECORD!KEY SET!set,...
+
+The other undotted names are:
+
+     SETDB      UNSET       SAVESS     JMNAME
+     JMAFT      JMBEF       JMBOTH     JMNONE
+     JBTRAN     JSTRAN      JETRAN     JRSYNC
+     EMPTY      *SETCON     MEMBER     *RECMEM
+     OWNER      *RECOWN     TENANT     *RECMO
+     STATS
+
+
+2.1.7.4 Validating data aggregates -  When the SIZE clause is used  in
+a data-name entry, the programmer has to tell SCHEMA how much space to
+reserve in the host-language's UWA.  There  are  no  serious  pitfalls
+associated  with  providing extra space, but to protect the programmer
+from losing data, DBCS will  signal  exception  32  when  insufficient
+space is provided.
+
+(However there is  no  intrinsic  way  to  determine  the  size  of  a
+data-name at run-time (without passing a prohibitive additional amount
+of information during binding).  The best DBCS can do is calculate how
+far  apart  two  consecutive  data-names  are.   Unfortunately, when a
+referenced name (eg.  DIRECT key) is shared between two  record  types
+or  a FORTRAN application does not have pseudonyms for all data-names,
+data is not necessarily sequential.  In other  words,  the  validation
+check DBCS makes is negated under these two circumstances.)
+
+
+2.1.7.5 Loading DBMS applications -  DBMS applications are  loaded  in
+the  same fashion as any other COBOL or FORTRAN program.  This is true
+whether or not one is using a private  library  or  a  system  default
+library.  For example, .LOAD COBPRG and .LOAD FORPRG, MYFLIB /SEARCH.
+
+
+2.1.8 The DBINFO utility
+
+This program can be used to  dump  data  from  a  data  base,  make  a
+cross-reference  of  the  names in a sub-schema, and calculate certain
+statistical information about the state of a data base.
+
+It is similar to DBMEND in that its command interface is verb oriented
+and  has  the same lexical rules (eg.  names containing dashes must be
+enclosed  with  quote  marks).   Also  it  shares  some  of  the  same
+"background"  commands since, in both contexts, the user has to select
+a schema and open and close areas.
+DBMS5.DOC                                                      Page 26
+
+
+2.1.8.1  APPEND/SUPERSEDE  commands -   This  command  specifies   the
+destination  file  spec  for  any INFO to be displayed.  Its syntax is
+simply:
+
+                      APPEND!SUPERSEDE file-spec
+
+If APPEND is specified, any existing information in the file will  not
+be   overwritten.   If  SUPERSEDE  is  specified,  the  file  will  be
+overwritten.
+
+
+2.1.8.2 CLOSE command -  This command is used to  CLOSE  one  or  more
+areas that the programmer has OPENed.  its syntax is:
+
+                 CLOSE ALL ! area-name[,area-name...]
+
+2.1.8.3 DISPLAY command -  This is the primary action  command.   Each
+time  the  user  gives  a  DISPLAY  command he causes the current INFO
+output file to be appended to.  The syntax for this command is:
+
+     DISPLAY CREF ! MAP ! free ! data ! usage
+       usage-->USAGE [:set-name]
+       data -->DATA [:set-name]
+       free -->FREE [:integer]
+
+If USAGE  is  not  followed  by  a  set-name,  the  number  of  record
+occurrences  for each record type is printed for each object-page (see
+2.1.8.6).  If a  set-name  argument  is  present,  each  owner  record
+occurrence  which  is  on  an object page is described:  the number of
+member records on the same page as the owner and  the  number  in  the
+entire set occurrence are displayed.
+
+If DATA is not followed by a set-name, each record  occurrence  on  an
+object  page  and in the sub-schema is dumped (ie.  each of its fields
+is displayed).  Empty pages do not print any information.  If DATA  is
+followed  by  a  set-name,  the  NEXT  pointers  of  each  object  set
+occurrenceusage) are followed, and the  records  are  dumped  in  that
+order.   A  set  occurrence  is  an object of the command if its owner
+record is on an object page (see 2.1.8.6).
+
+FREE not followed by an "integer" is equivalent to FREE followed by 0.
+DISPLAY  FREE  will  consider  any  page which has less than "integer"
+words free to be full.  For each page which is neither full nor empty:
+the   page   number,   the  count  of  free  words,  and  some  number
+(1/10-free-words) asterisks (*) will be printed.   Additionally  empty
+(or  full)  page-sequences  (at  least  3  consecutive  pages) will be
+displayed as "(empty pages) low - high".
+
+The CREF option causes DBINFO to generate an alphabetical  listing  of
+the  symbols in the sub-schema:  what each is, plus how and where each
+is used.
+DBMS5.DOC                                                      Page 27
+
+
+The MAP option causes DBINFO to generate a pictorial representation of
+each  record type in the sub-schema.  It shows which words contain set
+(and calc) linkages and exactly what user data is in each word.   Each
+byte  of  user  data  is  represented by an asterisk.  In other words,
+there can be at most 6, 5, and 4 asterisks per word in a SIXBIT, ASCII
+and EBCDIC record.  Conversely, full-word bytes (ie.  in computational
+numeric  items)  are  represented  by  one  left-justified   asterisk.
+Lastly,   the   index  associated  with  each  data-name  in  the  map
+corresponds to the index printed to the left of its value in the  data
+dump.
+
+
+2.1.8.4 OPEN command -  This command OPENs  each  specified  area  for
+PROTECTED RETRIEVAL.  Its syntax is:
+
+           OPEN ALL![area-name[,area-name]] [:privacy-key]
+
+In other words, it OPENs all areas in the relevant sub-schema or  just
+those   explicitly   specified.    Each   area  named  (explicitly  or
+implicitly) in the command must have the same privacy-lock value.  The
+privacy-key  phrase  is  required  only  if  the areas have a non-null
+privacy lock.
+
+
+2.1.8.5 PAGES command -  This command enables the user to control  the
+pages to which a DISPLAY comand will apply.  Its syntax is:
+
+     PAGES [range-list]
+       range-list -->range-tuple [,range-list]
+       range-tuple-->integer ! integer-integer ! area-name
+
+If no range-list is specified, the range-list is defaulted to the list
+of  OPEN areas.  And specifying an area as a range-tuple is equivalent
+to specifying area-first-page - area-last-page.  Lastly, specifying  a
+single  integer,  say  (n),  is  the same as specifying n-n.  In other
+words, PAGES' argument is a list of zero or  more  (maximum  16)  page
+ranges.   For  example,  PAGES 4,7,13-25 would localize future DISPLAY
+commands to pages 4, 7, and 13 thru 25.
+
+
+2.1.8.6 SCHEMA command -  This command identifies the schema  file  to
+DBINFO.  Its syntax is simply:
+
+                          SCHEMA schema-name
+
+
+2.1.8.7 SS command -  This command identifies the sub-schema that will
+be the context for DBINFO's evaluation of future DISPLAY commands.  It
+is an action command;  the  sub-schema  specified  will  be  bound  by
+DBINFO  each  time  the command is given.  (Note:  use of this command
+does cause the run ID in the .SCH file to be incremented by 1).
+DBMS5.DOC                                                      Page 28
+
+
+Understanding this concept is crucial to effective use of DBINFO.   By
+judicious  sub-schema  specification,  one  can precisely control what
+record types are DISPLAYed, what data-names  within  the  records  are
+DISPLAYed,  and what areas constitute ALL.  The syntax of this command
+is:
+
+                         SS [sub-schema-name]
+
+If  the  sub-schema-name  is  absent,  the  "improper"  sub-schema  is
+identified;   that  is,  the  sub-schema which would correspond to the
+entire (current) schema.  However,  repeating  this  form  of  the  SS
+command  within  one  running  of DBINFO will merely reset the current
+sub-schema to the original "improper" sub-schema.
+
+
+2.2  Functional Incompatibilities
+
+The  list  of  functional  incompatibilities  between  V3  and  V4  of
+DBMS-10/20 is as follows:
+
+     1.  Only 02-data-names can appear  in  a  data-name  entry  in  a
+         schema, see 2.1.2.2 and 2.1.3.
+
+     2.  A data-name entry in a schema may not contain a USAGE  COMP-x
+         phrase, see 2.1.2.2.
+
+     3.  Successful FINDs and STOREs will no longer set up the special
+         registers  AREA-NAME  and  RECORD-NAME;   only  the MOVE verb
+         will--see subsection 2.1.6.2.
+
+     4.  Calc keys will appear in a host-language program just as they
+         do  in  a  RECORD/DATA  entry  in  a  schema,  see subsection
+         2.1.7.2.   (This  incompatibility  is  transparent   to   all
+         applications  except  those COBOL applications that do a MOVE
+         record-name TO temp-name.)
+
+     5.  AREA-IDs, DIRECT keys, and ALIASes are declared as  01  names
+         in COBOL, see subsection 2.1.7.2.  This is not truly a change
+         but a fix for a bug.  Unfortunately it affects usage  of  the
+         ACCESS  statement  in  COBOL.   If  you  had  been  passing a
+         record-name to an  ACCESSing  subprogram,  and  expected  its
+         DIRECT key or AREA-ID or anALIAS to be implicitly passed, the
+         call will have to be altered to make  explicit  reference  to
+         the ancillary variable.
+
+     6.  The accessing algorithm for PROTECTED UPDATE will  no  longer
+         involve  what  is  called  an  .RCV  file;   areas  OPEN  for
+         PROTECTED UPDATE will be  updated  in  place.   Also  if  one
+         program has an area OPEN for PROTECTED UPDATE and another has
+         it OPEN for RETRIEVAL,  the  retriever  (and/or  updater)  is
+         responsible  for  not  getting  messed  up by the changes the
+         updater makes.  If this is a problem,  the  retriever  should
+         OPEN  for  PROTECTED RETRIEVAL.  For a thorough discussion of
+         USAGE-MODEs see subsection 2.1.6.1.
+DBMS5.DOC                                                      Page 29
+
+
+     7.  Sub-schema-names must be unique  across  any  run-unit  which
+         INVOKEs  more than one sub-schema.  This was already required
+         for FORTRAN usage and is being generalized for  the  sake  of
+         simplicity and DBCS efficiency.
+
+     8.  If the owner of a set is to be  SELECTed  thru  the  LOCATION
+         MODE  OF  OWNER  phrase and its LOCATION MODE is VIA, the SET
+         entry of the VIA set must precede the SET entry in which  the
+         record  in  question  is  the owner.  (This sounds much worse
+         than it is.  If one places SET entries that  are  nearer  the
+         root  of  a  data  base structure before SET entries that are
+         farther from the root, one will never have a problem.)
+
+     9.  The name (and device and directory) of the .SCH file will  be
+         derived  from  the (possibly implicit) output file spec given
+         on the command line to SCHEMA.   Earlier  versions  used  the
+         schema-name  in  the  SCHEMA statement for this purpose--this
+         name is now ignored.
+
+    10.  The PRINTA entry point no longer  exists  within  DBCS.   Its
+         functionality  is  subsumed  by DBINFO.  (See 2.1.7.3 for the
+         complete list of V4 entry points).
+
+    11.  A BINDing  failure  now  returns  an  exception  rather  than
+         EXITing, see 2.1.1.4 and 2.1.5.4.
+
+    12.  Exception 34 may happen to an existing applications  program,
+         see  2.1.5.4.   (The  solution is to remove the set-name from
+         the  sub-schema  or  add  the  owner   record-type   to   the
+         sub-schema.)
+
+    13.  The  exception  numbers  above  30   bear   no   relationship
+         whatsoever  to  what  they  were  in  earlier  versions,  see
+         2.1.5.4.
+
+    14.  Privacy locks/keys will be truncated to 5  characters  rather
+         than 6 characters.
+
+    15.  The exact mechanism  for  handling  REMOVEd/DELETEd  currency
+         indicators  in  earlier  versions is unclear.  See subsection
+         2.1.6.3 for a description of how V4 handles this situation.
+
+    16.  In cases where a schema-defined name is always  syntactically
+         paired  with  a  keyword  designating the type of name it is,
+         DBCS will ignore the keyword.  For example, if one said  MOVE
+         STATUS  FOR  REC1 RECORD TO X, DBCS would determine that REC1
+         was a record-name from the its symbol block.  In other words,
+         keywords in this context serve purely as visual documenation.
+
+    17.  The V4 mechanism for explicitly specifying the  buffer  count
+         of an area is described in subsection 2.1.1.5.
+
+    18.  On a SCHEMA command line, "A." does not == "a.ddl", only  "a"
+         or "a.ddl" does.
+DBMS5.DOC                                                      Page 30
+
+
+    19.  Two statements may not be on the same line in a DDL program.
+
+
+2.3  Functional Definition of DBMS-V5
+
+
+2.3.1  V3 --> V5 conversion utility
+
+This utility is a program named V3TOV5--and by definition it  will  be
+useful  only  to existing DBMS-V3 users.  This program is used on-line
+by giving a sequence of commands which identifies (by its schema)  the
+data base to be converted and requests initiation(continuation) of the
+actual conversion.
+
+
+2.3.1.1 Conversion Steps and V3TOV5 Usage -  A  successful  conversion
+will  always  conform to the following sequence of user actions.  Also
+it is suggested (although not required) that you keep around your  old
+DDL  file  and give your V5 DDL program an extension of .ddn until you
+have completed your conversion.
+
+     1.  Read section 4.1.  This section contains instructions on  how
+         to  change  V3  source  files  into valid V4/5 files.  (It is
+         unlikely any file other than the .DDL file will  have  to  be
+         changed).
+
+     2.  Run SCHEMA (V5) and specify the /CONVERT switch:
+
+              R SCHEMA SCHEMA-NAME.DDN/CONVERT
+
+         This will cause SCHEMA to generate all  the  files  it  would
+         normally  generate,  but  such  that  the  3rd letter of each
+         file's extension will be  "N".   In  other  words,  it  would
+         create  a  .SCN  file and some number of .DBN files.  This is
+         done to facilitate concurrent existence of the  old  and  new
+         copies of the data base.
+
+     3.  The actual conversion protocol is as follows:
+
+         R V3TOV5            ;START UP THE PROGRAM
+         SCHEMA schema-name  ;IDENTIFY THE DATA BASE
+                             ;BEING CONVERTED
+         TRACE integer       ;IF ABSENT, TRACE 10 IS SIMULATED.
+                             ;ALLOWS CONTINUATION OF CONVERSION
+                             ;AFTER A CRASH BY TYPING 
+                             ;[COMPLETED PAGE n]
+                             ;EVERY integer PAGES.
+                             ;ALSO [COMPLETED AREA name]
+                             ;MESSAGES ARE TYPED.
+         PAUSE               ;OPTIONAL, IF PRESENT IT CAUSES
+                             ;V3TOV5 TO EXIT EACH TIME IT FINISHES
+                             ;PROCESSING AN AREA, THEREBY ALLOWING
+                             ;THE USER TO DO SOMETHING (EG.
+                             ;CHANGE DISKS) BEFORE RESUMING--BY
+                             ;TYPING CONTINUE.
+DBMS5.DOC                                                      Page 31
+
+
+         EXPUNGE             ;REQUEST TO EXPUNGE DELETED RECORDS
+                             ;(NECESSARY IF THERE ARE ANY
+                             ; PARTIALLY DELETED RECORDS IN THE
+                             ; DATA BASE--SEE 2.3.1.2.2)
+         START               ;START (OR CONTINUE) EXPUNGE
+         V3TOV5              ;REQUEST TO MAP V3 DATA
+                             ;INTO THE .DBN FILES
+         START               ;START (OR CONTINUE) THE MAPPING
+         REKEY               ;REQUEST TO FORMAT THE NEW DATA BASE'S
+                             ;USER-KEY (IE. SORT/CALC) CHAINS
+         START               ;START (OR CONTINUE) THE REKEYING
+
+     4.  Delete all the old files (ie.  the .DBS files  and  the  .SCH
+         file).
+
+     5.  Rename *.DBN to *.DBS and schema-name.SCN to schema-name.SCH
+
+
+2.3.1.2 Understanding the Conversion Process
+
+2.3.1.2.1 Purpose  of  Multiple  Conversion  Steps -   The  conversion
+process  is  divided  into  phases  (EXPUNGE,  V3TOV5,  REKEY) for two
+reasons.  The first reason is that  the  data  base  will  be  out  of
+commission  less  completely--even though the total time of conversion
+is probably increased slightly.  This is because  the  possibility  of
+interleaving  normal  usage  is much higher than otherwise.  The rules
+for interleaving normal usage are as follows:
+
+     1.  During the 1st (ie.   EXPUNGE)  phase,  no  normal  usage  is
+         possible.
+
+     2.  After the 1st phase, and until the 2nd (ie.  V3TOV5) phase is
+         started, any accessing other than DELETEs is permitted.
+
+         (Note:  until the 2nd phase is started  the  .DBN  files  are
+         0-length).
+
+     3.  During the 2nd phase, and thru  the  completion  of  the  3rd
+         phase  (REKEY),  retrieval  usage-mode  is allowed on the old
+         data base.
+
+         (Note:  the earliest the old data  base  can  be  deleted  is
+         after completion of the 2nd phase).
+
+The second reason for multiple phases is that it achieves isolation of
+functional processes:
+
+     1.  The 1st phase may  be  omitted  by  some  installations  (see
+         2.3.1.2.2).
+
+     2.  Only the 2nd phase simultaneously references both the old and
+         new data bases.
+
+     3.  Only the  3rd  phase  requires  journaling  in  order  to  be
+         continuable after a crash (see section 2.3.1.3).
+DBMS5.DOC                                                      Page 32
+
+
+2.3.1.2.2 Why/when the EXPUNGE phase is necessary -   DBMS-V3  and  V5
+handle  record  deletion  differently.   In DBMS-V5, the DELETion of a
+record completely eliminates it from the  data  base.   On  the  other
+hand,  the DBMS-V3 deletion algorithm will not return the entire space
+of a DELETEd record to the free space manager  until  the  record  has
+been  referenced  thru  each set in which it participates.  Until this
+has occurred, the remaining part of the record is kept "invisible"  by
+the  mechanism  of  having  its  "deleted"  flag turned on in its line
+header.  Consequently before the old data base can be  mapped  to  the
+new format, any deleted records must be eliminated from the data base.
+Conversely the 1st phase may be omitted by an installation if it knows
+that  no  records in its data base have the "delete" flag on.  This is
+not a life-and-death decision, however, because  the  2nd  phase  will
+detect  such  records and inform the user that he must execute the 1st
+phase before starting the 2nd phase.
+
+
+2.3.1.2.3 User-data Dbkeys -  Any field containing  a  dbkey  must  be
+described as TYPE DBKEY in the schema because the format of a dbkey in
+DBMS-V5 is different than in V3.  If the user does not describe such a
+field  as  TYPE  DBKEY,  V3TOV5  will have no way of knowing that each
+occurrence of the datum needs reformatting.
+
+
+2.3.1.2.4 Adding OWNER IS SYSTEM -  If you wish to  add  new  set  and
+record  types  to  your  DDL  program, you should wait until after the
+conversion process has been completed.  Additionally, you should  read
+section 2.4 in the Data Base Administrator's Manual to understand just
+what sort of changes are feasible.
+
+In the particular case that you wish to create a  system  record  (ie.
+one  or  more new member entries specifies OWNER IS SYSTEM) , you will
+have to define a new area and designate it as your system area.   This
+is  necessary  because DBCS expects to allocate the system record when
+an area is accessed for  the  first  time--and  there  is  no  way  to
+simulate  that  pattern of access during the conversion of an existing
+area.
+
+
+2.3.1.2.5  Hustling -   V3TOV5  allows  you  to  operate  outside  the
+prescribed  protocol  if  you  feel  it  necessary.   But  these  more
+error-prone activities  are  isolated  here  to  protect  the  average
+"converter".
+
+     1.  Any number of new pointers can be added to a record type.  In
+         particular,  you  might add prior pointers to certain sets to
+         improve updating efficiency.  (IMPORTANT REMINDER:  the order
+         and number of 02-data-names must not be changed however).
+
+     2.  The REENTER monitor command can be used (in conjunction  with
+         /PAUSE)  to control the flow of conversion more closely.  For
+         example, one can do all three steps  for  a  single  area  by
+         specifying  to  /START with that area for each step and doing
+         REENTER/next-step after each pause.
+DBMS5.DOC                                                      Page 33
+
+
+2.3.1.3 Exceptional Conditions -  There are certain "bad" things  that
+can  happen  during the conversion process.  The following subsections
+enumerate the known possibilities and describe what the user should do
+in each eventuality.
+
+
+2.3.1.3.1  Recovering  from  a  System  Crash -   The  mechanism   for
+recovering  from  an abortion of either the EXPUNGE or V3TOV5 phase is
+the same.  The mechanism for recovering from the REKEY phase is as for
+the  other  phases  plus an additional preliminary step.  The critical
+parameter during a restart is the last TRACE message printed.  It will
+contain   the  last  page  that  is  known  to  have  been  processed.
+Conversely the argument to the TRACE command controls how often  these
+messages  are  printed.   (Presumably,  in  a very large data base one
+might increase the interval from the default of  one  message  per  10
+pages processed.) The recovery scenario is as follows:
+
+     1.  If aborted during REKEYing,
+
+         R DBMEND            ;THE DATA BASE RECOVERY UTILITY
+         CONVERT             ;INDICATE THE USE OF .??N FILES
+         JOURNAL V3TOV5      ;OPEN THE JOURNAL
+         FORCE ALL           ;OPEN ALL AREAS, ;GIVE  PRIVACY  KEYS  IF
+                             ANY
+         START               ;GIVE THE MERGE'S "LEFT" BOUNDARY 
+         END                 ;...AND THE "RIGHT" BOUNDARY
+         MERGE BEFORE        ;PERFORM THE ACTUAL MERGE
+         CLOSE ALL           ;CLEANUP THE OPEN AREAS TO BE DONE
+         UNLOAD              ;DESIGNATE THAT V3TOV5.JRN ;IS DONE WITH
+
+     2.  Then for all phases,
+
+         R V3TOV5
+         SCHEMA schema-name         ;IDENTIFY THE SCHEMA
+         EXPUNGE or V3TOV5 or REKEY ;WHICHEVER ABORTED
+         START last-trace-value     ;TO RESUME AT RIGHT PAGE
+                                    ;ie.  restart at 1st page after
+                                    ;last trace value
+
+
+2.3.1.3.2  Area  or  its  Page  Size  Too  Small -   Except  for   one
+circumstance,  the  number  of  pages in a V3 area will suffice in V5.
+The exceptional circumstance can manifest itself during conversion  if
+a  V3  area is nearly full and the area contains occurrences of sorted
+set types.  The circumstance is that the  amount  of  space  available
+will  be inadeqaute for storing each sorted-set index structure during
+REKEYing.  To correct the problem, either increase the  last  page  of
+the  area  or  increase  the  area's  page  size.  (The comments about
+detection and restarting at the end of the next paragraph  also  apply
+here.)
+DBMS5.DOC                                                      Page 34
+
+
+Except for one circumstance, the information on a page in  a  V3  data
+base  can  be  mapped  into  the  same or fewer words in DBMS-V5.  The
+exception is a sorted set in which PRIOR pointers are  not  explicitly
+specified.   DBMS-V5 always puts a PRIOR pointer into each record in a
+sorted set.  Consequently, if an old page is very full  and  has  some
+such  records, the conversion process would overflow the page.  If you
+are sure this will happen  to  one  or  more  of  your  areas,  simply
+increase  that area's page size to the next 128-word-multiple.  If you
+do not anticipate this eventuality and it occurs, V3TOV5  will  simply
+abort  with  an appropriate message.  At this point, you should modify
+the appropriate page size(s) of your  DDL  program  (give  SCHEMA  the
+command  line  "schema-name/CREATE/CONVERT")  and  restart  the V3TOV5
+phase from its beginning.
+
+
+2.3.1.3.3 Improperly Converted .DDL File -  Although it  is  unlikely,
+it  is  possible  that  you will improperly convert your old .DDL file
+into the new format.  (It is unlikely because the changes  are  either
+mechanical,  such  as  USAGE COMP to TYPE FIXED BIN, or involve moving
+lines into the sub-schema.) The more likely danger is  that  you  will
+try to slip an extra change into your schema--in which case you are on
+your own.  In any event, any flaw in the converted schema should  show
+up  in  a widespead fashion.  Consequently, after you have renamed the
+.??N files to their standard  extensions,  you  should  use  the  DUMP
+and/or  USAGE  commands  of  DBINFO  to  validate  that  the  data, as
+represented in the new format, is valid.
+
+
+2.3.1.3.4  Abnormal  Abort  during  Conversion -   This  situation  is
+defined  by  a  true  abort (eg.  ill mem ref), or the V3TOV5 messages
+?VTVSAF or ?VTVDAF.  Basically, it can  be  caused  by  one  of  three
+things.
+
+     1.  An improperly converted schema.  Before retrying, check  over
+         your changes.
+
+     2.  A spurious monitor error.
+
+     3.  If the problem persists each time you  restart,  it  must  be
+         assumed  you  have discovered a bug and the problem should be
+         reported.
+
+Phase specific restart rules:
+
+     1.  If aborted during 1st phase, it  cannot  be  schema  problem.
+         Get a fresh copy of your data base and restart the phase from
+         the beginning.
+
+     2.  If aborted during the 2nd phase:  check the schema,  recreate
+         the  .DBN  files  with SCHEMA, and restart the phase from its
+         beginning.
+
+     3.  If aborted during the 3rd phase:   delete  V3TOV5.JRN,  check
+         the  schema,  then  restart with the 2nd phase--see preceding
+         rule.
+DBMS5.DOC                                                      Page 35
+
+
+2.3.1.3.5 Other V3TOV5 error messages
+
+     ?VTVDUK   V3TOV5 found a sort or calc key in a record that equals
+               the  key  in another record, but the schema states that
+               duplicates are not allowed.
+
+     ?VTVICS   it is not meaningful to repeat a phase or follow it  by
+               an earlier phase (eg.  V3TOV5 followed by EXPUNGE).
+
+     ?VTVNAS   you gave a START without preceding it with a conversion
+               action.
+
+     ?VTVNMF   in processing your old schema, V3TOV5  found  an  area,
+               set,  record,  or  data  name  that  is not in your new
+               schema...correct the discrepancy.
+
+     ?VTVOOS   V3TOV5 detects this condition so as  to  guarantee  its
+               integrity;  just type R V3TOV5 to do more work.
+
+     %VTVUFA   if the file associated with an  area  is  null  or  not
+               found,  V3TOV5  will  automatically  skip that area and
+               continue with the next one.  If the  file  should  have
+               been found, report the problem or correct your scheam.
+
+     ?VTVUAJ   you have a V3TOV5.JRN file  that  is  in  an  undefined
+               state.   You  should  either delete it or run DBMEND as
+               described in 2.3.1.3.1.
+
+
+2.3.1.4 Resource requirements -  The resource requirements  of  V3TOV5
+are  approximately as follows.  It statically requires 15K of core and
+will expand its core as necesary for  area  buffers  and  the  in-core
+sub-schemas.   The  average expansion will be on the order of 5K.  The
+disk space required is phase dependent and is the  entire  data  base:
+plus  nothing during the EXPUNGE phase, plus a second copy of the data
+base during the V3TOV5 phase, plus a 1-transaction journal during  the
+REKEY  phase.   However  by  appropriate  use of the PAUSE switch (see
+2.3.1.1), you can cause "data base" to be replaced by "area".
+
+
+2.3.2  Simultaneous Update
+
+DBMS-V5 will allow a user to update (or retrieve) data  while  another
+updates   data   in   the   same   area/file.    It  will  handle  the
+valid-copy-of-data  problem  inherent  in  this  facility   thru   the
+mechanism of the ENQ/DEQ monitor calls.
+
+(Note:  the facility relies on the fact that  users  of  a  particular
+data base all access the same schema).
+
+Four DBMS components control whether and how  simultaneous  update  is
+involved in a run-unit's operation.
+DBMS5.DOC                                                      Page 36
+
+
+     1.  It is the OPEN statement which controls whether a run-unit is
+         within  the  domain of the simultaneous update facility.  The
+         simultaneous  update  facility  really  consists   of   three
+         separate  OPEN  USAGE-MODEs:   UPDATE,  PROTECTED UPDATE, and
+         RETRIEVAL.  PROTECTED UPDATE is included because a  PROTECTED
+         UPDATER  must  block  out  RETRIEVERS  (and vice versa).  The
+         three non-simultaneous usage-modes are  PROTECTED  RETRIEVAL,
+         EXCLUSIVE  RETRIEVAL,  and  EXCLUSIVE UPDATE.  The meaning of
+         each  USAGE-MODE  is  presented  in  section  3   sub-section
+         2.1.6.1.
+
+     2.  The OPEN JOURNAL statement communicates to DBCS if a  journal
+         will be shared by more than one run-unit -- see 2.3.2.3.1.
+
+     3.  The IMAGES  statement  of  the  DMCL  controls  the  form  of
+         interleaving-unit  employed  by a data base's applications --
+         see 2.3.2.1 and 2.1.1.3.
+
+     4.  The interval between a call to JSTRAN and a  call  to  JETRAN
+         defines one transaction -- see 2.3.2.1.2.
+
+The following two tables are intended to provide an  overview  of  the
+trade-offs involved in using the simultaneous update facility.
+
+THE NON-SIMULTANEOUS USAGE-MODES  ARE  UNQUESTIONABLY  MORE  EFFICIENT
+THAN THE SIMULTANEOUS USAGE-MODES.
+
+USAGE-MODE              WHEN TO USE
+-------------------------------------------------------------
+RETRIEVAL               you   intend    other    run-units    to    be
+                        simultaneously open for (PROTECTED) UPDATE.
+
+UPDATE                  use only if you really intend for there to  be
+                        simultaneous updaters.
+
+PROTECTED RETRIEVAL     use if you expect concurrent retrievers but no
+                        concurrent updaters.
+
+PROTECTED UPDATE        use only if you really intend for there to  be
+                        simultaneous retrievers.
+
+EXCLUSIVE RETRIEVAL     use only if you need to be selfish.
+
+EXCLUSIVE UPDATE        use rather than (PROTECTED) UPDATE unless  you
+                        really  intend  for  there  to be simultaneous
+                        updaters or retrievers.
+DBMS5.DOC                                                      Page 37
+
+
+LEVEL OF SIMULTANEITY       FEATURES        HOW TO ACHIEVE
+-------------------------------------------------------------
+none                        inexpensive     EXCL RETR!UPDATE
+simultaneous retrievers     inexpensive     PROT RETR
+pseudo-simul updaters       see F1          see H1
+command-interleaving        see F2          see H2
+transaction-interleaving
+  with default transactions see F3          see H3
+transaction-interleaving    see F4          see H4
+
+(F1)  Inexpensive but complicates the design/control problem  for  the
+      implementor.
+
+(F2)  Minimizes blocking time.
+
+(F3)  Minimizes    blocking    time    while    still     accomodating
+      non-interruptable DML command sequences.
+
+(F4)  Minimizes CPU usage and handles  non-interruptable  DML  command
+      sequences.   (Note  that  F4 and F3 exist on a continuum, rather
+      than being distinct modes).
+
+                            ***************
+
+H2-H4 apply to all the simultaneous update USAGE-MODES.
+
+(H1)  You have run-units that simultaneously open  disjoint  areas  in
+      EXCLUSIVE UPDATE.
+
+(H2)  You optionally define transactions and specify that  images  are
+      ordered by command -- see 2.3.2.1.1.
+      (However if this  run-unit  did  not  involve  the  simultaneous
+      update  facility, specifying images not ordered by command would
+      be an efficiency consideration -- see section 2.1.1.3).
+
+(H3)  You specify that images are not ordered by  command  and  divide
+      into  transactions  just those command sequences that require no
+      intervention -- see 2.3.2.1.2.
+
+(H4)  You specify that images are not ordered by  command  and  divide
+      all  the  operations  of your run-units into transactions -- see
+      2.3.2.1.2.
+
+
+2.3.2.1 How Simultaneous? -  One makes simultaneous update  "work"  by
+recognizing  which microscopic actions of simultaneous updaters cannot
+be truly simultaneous.  In other words, one defines the ways in  which
+the  operations  of  two run-units can be interleaved (underline it!).
+Thus the amount of simultaneity supported is controlled by  the  scope
+of  the  resource(s) interleaved upon and/or by the (average) duration
+for which a given resource is controlled (ie.  the interleaving-unit).
+DBMS5.DOC                                                      Page 38
+
+
+Let it be stated without proof that the following (increasing)  scopes
+of  resource  are  at  least plausible:  a data base page, a data base
+area, or the data base;  and that the following  (increasing-duration)
+interleaving-units are plausible:  DML verb/command, user transaction,
+or  run-unit.   However  as  you  decrease  the  scope   of   resource
+controlled,  the  potential  for  two run-units needing resources in a
+sequence that will cause deadly embrace is increased.  In  particular,
+a  DML  verb  can  manipulate  pages in an arbitrary sequence, thereby
+making the data base page an unacceptable scope of resource because of
+the  stigma  of  deadly  embrace.  The data base area is an acceptable
+scope of resource, but the existing functionality of ENQ/DEQ presently
+makes  its  use  unfeasible.   (A  proposal  to  correct  this will be
+generated in a separate memo.) Thus, in  DBMS-V5  the  only  scope  of
+resource  supported  will  be  control  of  the  data  base itself, in
+conjunction with either a DML command as the  interleaving-unit  or  a
+user-specified  transaction  as the interleaving-unit (or the run-unit
+as   the   interleaving-unit,   ie.    the   three    non-simultaneous
+usage-modes).
+
+To control which interleaving-unit applies to a particular schema, one
+must  use  the IMAGES statement of the DMCL (see section 3 sub-section
+2.1.1.3).  In particular, specifying that images are  not  ordered  by
+command  will  result  in  transactional interleaving;  and specifying
+that images are  ordered  by  command  will  result  in  command-level
+interleaving.
+
+
+2.3.2.1.1  Command-interleaving  case -   In  practice,  command-level
+interleaving  translates  to:   when DBCS initiates a command, it will
+automatically ENQ upon the data base resource (not at all for binding,
+STATS, etc.;  shared for FIND, GET, and IF;  and exclusive otherwise);
+and  when  it  completes  the  command,  it  will  automatically  DEQ.
+Consequently,  even  though  command-level interleaving guarantees the
+physical integrity of the data base, it has one limitation;  it  gives
+one  no  way  to handle the case where a run-unit requires that no one
+intervene while it executes several DML verbs  that  affect  a  single
+desired  change  (e.g.   a  passenger wants to change his airplane set
+occurrence without being left with no seat at all).
+
+
+2.3.2.1.2 Transaction-interleaving case -  There  are  benefits  to  a
+large  interleaving-unit,  particularly  in  an  application  in which
+simultaneous run-units have a lot of dormant  time  anyway.   One,  an
+appropriate  large unit will enforce the logical integrity of the data
+base by preventing intervention for a user-determined period of  time.
+Two, decreasing the frequency with which a second run-unit manipulates
+"your" data base and journal, will decrease the  amount  of  defensive
+processing  DBCS  will  have  to  do  (ie.  in a CPU usage sense, your
+run-unit will  operate  more  efficiently).   What  should  the  large
+interleaving-unit be?  clearly the transaction (ie.  use of JSTRAN and
+JETRAN).  First, user-specified transactions  are  by  definition  the
+mechanism  by  which a run-unit defines logical operations on the data
+base.  Secondly, run-unit interleaving puts a special  burden  on  the
+journal  processor, so coordinating journaling and interleaving in the
+same units has to be a good idea.
+DBMS5.DOC                                                      Page 39
+
+
+In practice, transaction-interleaving means that:  when DBCS initiates
+a  transaction,  it  will  automatically ENQ exclusively upon the data
+base resource;   and  when  it  completes  the  transaction,  it  will
+automatically DEQ.  However commands not executed in the context of an
+active  transaction  (eg.   before  the  first  JSTRAN)  are   handled
+specially.   Each  such command will constitute a default transaction,
+and the rules of 2.3.2.1.1 will  apply  to  it.   Also  if  it  is  an
+updating  command,  it  will  be given a command header and trailer as
+when images are ordered by command.  There are two reasons for default
+transactions.    One,   run-units  that  only  retrieve  (particularly
+existing  ones)  will  not  have  to   be   troubled   with   explicit
+transactions.   Two,  run-units  that  would like the minimum blocking
+time   of   command-interleaving   and   wish   to   contain   a   few
+non-intervenable  command sequences, can do this with selective use of
+explicit transactions.
+
+There   are   two   exception   conditions   directly    related    to
+transaction-interleaving.   Exception 38 will occur if you call JSTRAN
+while a transaction is already active.  A LIBOL/FOROTS error  will  be
+signalled  if  you attempt to do a non-DBMS RETAIN while in the middle
+of a transaction.
+
+
+2.3.2.2 Protection of the current record of the run-unit -  It  is  an
+underlying  premise  of  DBMS that all operations on the data base are
+done  thru  one  window:   the  current  record   of   the   run-unit.
+Consequently,  it  is  necessary that DBCS ensure that a run-unit will
+not have its operation confused/aborted because someone  else  deleted
+that  record.  The implicit philosophy is that the burden of conflicts
+should be on those who perform anti-social activities, ie.  DELETE.
+
+This protection does exist and is completely automatic,  but  it  does
+affect the user's environment as follows.
+
+     1.  The FINDing run-unit will retain the found record  shared  if
+         it  is  in  an  area  open  for UPDATE or PROTECTED UPDATE or
+         RETRIEVAL.  Otherwise it will not retain the found record  at
+         all.   It will of course DEQ the old current of run-unit when
+         a new one is found.
+
+     2.  When the area in which the current  record  of  the  run-unit
+         resides is closed, current of run-unit is dequeued.
+
+     3.  If one does a DELETE  which  eventually  tries  to  delete  a
+         record  which  is retained by another run-unit, the DELETE is
+         terminated with exception 40 (ie.  resource not available).
+DBMS5.DOC                                                      Page 40
+
+
+2.3.2.3 New Journal-related Functionality
+
+
+2.3.2.3.1 Shared Journals -  If two run-units are  updating  the  same
+area simultaneously, they obviously are also updating the journal file
+simultaneously.  When a journal is shared like  this,  several  things
+must  be  periodically  done to it to ensure its continuing integrity.
+And the cost  of  that  work  makes  it  imperative  that  a  run-unit
+communicate   to   DBCS   when   its   journal  need  not  be  shared.
+Consequently, before OPENing any areas, the  run-unit  should  execute
+the following statement:
+
+             OPEN JOURNAL USAGE-MODE [EXCLUSIVE] UPDATE.
+
+The EXCLUSIVE keyword should be absent if and  only  if  the  run-unit
+will be backing up one or more areas OPENed with USAGE-MODE UPDATE.
+
+Although  its  use  is  suggested,  it  must  be  legal  to  omit   an
+open-journal  statement  so  that  existing  DBMS programs will not be
+impacted.  So the following rules apply when a open-journal  statement
+has  not  been  executed  by  the  time  the  first  updating  open is
+attempted.  If the area is being opened  for  exclusive  or  protected
+update, an OPEN JOURNAL USAGE-MODE EXCLUSIVE UPDATE will be simulated.
+Conversely an OPEN JOURNAL USAGE-MODE UPDATE will be simulated if  the
+area is being opened with USAGE-MODE UPDATE.
+
+A secondary benefit of the OPEN JOURNAL statement is that  it  can  be
+used  to  force open the journal even when only temporary areas are to
+be opened.  Previously this situation was a problem because  usage  of
+JSTRAN,  JRTEXT,  etc.   could not be checked out conveniently when it
+applied.
+
+
+2.3.2.3.2 Journal lifetime -  When a run-unit opens  a  journal,  DBCS
+must  decide  whether  it should append to the journal, start anew and
+overwrite the journal, or abort because the journal is in an undefined
+state.
+
+DBCS will overwrite the journal only if it is in a done-with state.  A
+journal is done-with if the images in it have already been merged (see
+2.3.2.3.3), or you have indicated that all run-units have successfully
+completed.   You  indicate this via use of the CLOSE JOURNAL statement
+(as opposed to CLOSE RUN-UNIT).  If you  are  the  last/only  run-unit
+active  when  you  do  a  CLOSE JOURNAL, DBCS will alter the journal's
+label page to indicate that the journal is done-with.  Otherwise CLOSE
+JOURNAL  will  be  equivalent  to  CLOSE  RUN-UNIT.   Also  both CLOSE
+RUN-UNIT and CLOSE JOURNAL will be  equivalent  to  CLOSE  ALL  if  no
+journal is open when either is called.
+DBMS5.DOC                                                      Page 41
+
+
+If a journal is not in a done-with state, DBCS will append  to  it  if
+the journal's label page correctly represents the current state of the
+journal.  Otherwise it will abort  with  exception  61.   A  journal's
+label  page  is  made to correctly reflect the state of the journal by
+CLOSE  RUN-UNIT,  CLOSE   JOURNAL,   and   at   the   end   of   every
+interleaving-unit  in a run-unit in which the journal is shared.  Thus
+exception 61 will occur only when you have previously aborted  one  or
+more  updating run-units and not merged the images they generated back
+into the data base -- see 2.3.2.3.3.  (Note:   DBCS  never  supersedes
+the  journal (for efficiency reasons).  So if the journal somehow gets
+clobbered -- ie.  DBCS generates exception 61 or  63  when  it  should
+not--simply delete the journal.)
+
+
+2.3.2.3.3 Changes to DBMEND and the journal file -  The  most  obvious
+change  is  that  the  journal  must  contain run-unit IDs so that the
+changes of a particular run-unit can be isolated when  you  are  using
+DBMEND;   and  conversely  DBMEND  must  have  semantics  for denoting
+run-unit IDs:
+
+     1.  The form of a boundary indicator goes from "[name:] index" to
+         "[name:] index [(run-unit ID)]".
+
+     2.  If a run-unit ID is absent from a boundary indicator,  DBMEND
+         ignores  the  run-unit  IDs  in the journal when attempting a
+         boundary match.
+
+     3.  The run-unit ID  in  a  completely  unshared  journal  is  0.
+         However, the "journal characteristics" message generated when
+         a run-unit opens a journal will indicate  in  any  event  the
+         run-unit's ID.  The form of the message is:
+
+                  [JOURNAL CHARACTERISTICS ARE:]
+                  RUN-UNIT ID    id-value
+                  schema-name RUN  schema-run-of-last-overwriter
+                  date/time-journal-last-overwritten
+
+     4.  An  abstract  will  show   which   run-unit   generated   any
+         transactions, text, and commands displayed if you specify the
+         RUNUNITID option to the DISPLAY command.
+
+(Note:  the addition of the run-unit ID plus expansion of the  journal
+label  means  that  V4  journal  files  will  not  be  processable  by
+DBMEND-V5;  however  there  is  nothing  to  prevent  one  from  using
+DBMEND-V4 to merge V4 journal files).
+
+(Note:  because  a  journal  can  now  contain  updates  of  different
+run-units,  it  may  no  longer  be  sorted  by command index and each
+transaction index.  Thus DBMEND will no longer be able to determine if
+current journal position is "past" the first-processed boundary except
+by encountering beginning/end of  journal  before  it  encounters  the
+boundary).
+DBMS5.DOC                                                      Page 42
+
+
+Two other changes to  DBMEND  relate  to  placing  the  journal  in  a
+done-with  state.   Specifying  the  /UNLOAD switch for a disk journal
+will place it in a done-with state.  Specifying the  /COMPLETE  switch
+(see  2.3.2.3.4  as well) for a magtape journal will place the journal
+(temp file) in a done-with state.
+
+To achieve the DBMS-V3 effect of  a  /COMPLETE  switch  (ie.   journal
+truncation), specify COMPLETE jpage.  This will cause a POSITION jpage
+followed by placement of an EOF marker after that page.
+
+
+2.3.2.3.4 Magtape journaling -  (The program DAEMDB  is  described  in
+2.3.2.3.5).
+
+Magtape journaling works  as  follows.   DBCS  will  initiate  magtape
+journaling  if  any  of  the  conditions  in  the  next  paragraph are
+satisfied.  It initiates magtape  journaling  by  (1)  using  IPCF  to
+communicate  to DAEMDB the MTA unit which is to be the journal and (2)
+opening a file called DSK:  journal-name.JRNrest-of-spec.   This  file
+is  an  ordinary  journal  file other than for the fact that DAEMDB is
+aware of its existence--and from  DBCS's  point  of  view  it  is  the
+journal.
+
+If any of these conditions are satisfied, magtape journaling  will  be
+initiated.
+
+     1.  DEVCHR of the device in the journal file  spec  (see  section
+         2.1.1.2) has magtape characteristics.
+
+     2.  If the device in the journal file spec is not  associated  to
+         an  actual  disk  device and the text of the device is "MTA",
+         magtape journaling will be initiated on the magtape unit  the
+         operator chooses.
+
+    However if the magtape service is unavailable, you are  given  the
+    opportunity  to  select  disk  instead.   Unless  you  have  a USE
+    condition for 0946, DBCS exits after typing:
+
+         %DBSODJ ONLY DISK JOURNAL FEASIBLE (DAEMDB CODE xxx)
+
+    You should then (give up or) ASSIGN/DEFINE the journal name  to  a
+    disk  device  and  then  type  CONTINUE.  If a DBCS-caused exit is
+    incompatible with your application, you should have created a  USE
+    condition for 0946 and have made the USE procedure:
+
+     CALL JMDISK     ...merely makes journal device "DSK"
+     OPEN the journal as before
+     IF error-status not = 0 then abort presumably to get a disk
+     journal.
+
+(Note:  if a DBCS software error is not an issue, also associate  this
+USE procedure with exception 0967).
+DBMS5.DOC                                                      Page 43
+
+
+The DAEMDB-interaction codes are:
+
+     0         success, the message will not occur
+     1         DAEMDB unavailable (SHUTDOWN already given)
+     2         magtape could not be opened
+     3         unable to open journal temp file
+     4         improper device type after ASSIGN/DEFINE
+     5         DBCS software error during initialization
+     6         JMDISK already done once
+     7         DAEMDB already managing 8 journals
+
+Also the generality of journal device selection is somewhat restricted
+under  TOPS-10.   If your journal device on the DECSYSTEM-10 were JRN:
+for instance, you would be pretty much restricted  to  having  a  disk
+journal.   You  would have to be able to gain control of MTAn in order
+to ASSIGN MTAn JRN;  whereas on the DECSYSTEM-20  DEFINE  JRN:   MTAn:
+would  allow  you to specify MTAn without your job having control over
+it.
+
+The run-unit and DAEMDB interact in essentially the same  way  as  two
+concurrent  updating run-units;  each maintains knowledge of the state
+of the journal (temp file) by reading and updating the journal's label
+page  as  necessary.   And  as  when  a run-unit opens an area (or the
+journal) with  USAGE-MODE  UPDATE,  the  run-unit  will  automatically
+follow  the  applicable  rules of 2.3.2.1 and retain the data base for
+the duration of each interleaving-unit.  Conversely  DAEMDB  does  its
+work  by periodically copying the information in the journal temp file
+to magtape and then retaining the data base ONLY LONG ENOUGH  TO  MAKE
+THE  JOURNAL  LABEL  PAGE  INDICATE THAT DBCS CAN START WRITING TO THE
+BEGINNING OF THE JOURNAL FILE AGAIN.
+
+Because  DAEMDB/run-unit  interaction  is  interleaved,  the  cost  of
+magtape  journaling  is  nearly  the  cost of operating with a journal
+opened with USAGE-MODE UPDATE.  Thus the cost  of  magtape  journaling
+for  a  single  updater  is  somewhat  greater  than  the cost of disk
+journaling  for  a  single  updater.   However  the  cost  of  magtape
+journaling   and   disk  journaling  is  approximately  the  same  for
+simultaneous updaters.
+
+Just as with a shared journal, it  is  the  user's  responsibility  to
+guarantee  that  the  protection of the journal temp file is such that
+each accessing run-unit can update it.  Note also that  the  name  and
+location  of  the journal temp file is established simply by replacing
+the device field of the user specified journal spec  with  DSK.   Thus
+the JOURNAL statement of the DMCL gives the user complete control over
+the name and characteristics of the journal temp file.
+DBMS5.DOC                                                      Page 44
+
+
+There are some beneficial side-effects to the fact  that  the  journal
+temp  file is an ordinary disk journal and that DAEMDB is a background
+task.  First, when DAEMDB reaches end-of-reel on a magtape,  there  is
+no  pause  in user processing--the run-unit's journal temp file simply
+grows a little bigger than usual before it is copied  to  magtape  and
+truncated  again.   Second,  if DAEMDB aborts for some bizarre reason,
+your run-unit will not be  impacted--it  will  simply  become  a  disk
+journaler  in effect.  Third, the magtape part of the journal need not
+be involved at all in your use of  DBMEND  if  the  images  which  are
+relevant are all still in the journal temp file--in this case, you may
+simply specify the journal temp file spec (see /UNLOAD  in  2.3.2.3.3)
+to  the  /JOURNAL  switch  rather than the magtape spec and proceed as
+usual.  (IMPORTANT NOTE:  keep in mind that journal page  two  of  the
+journal  temp  file,  its first data page, is actually at an arbitrary
+point in the permanent journal.  In other words, to get an abstract of
+the journal temp file, you must "/posit 2" so that DBMEND will know it
+must follow "middle of the journal"  protocol  when  initializing  the
+abstract).   Fourth,  magtape  management  messages  are  not  seen by
+application programs.  Only the job controlling DAEMDB  sees  new-reel
+messages or magtape errors reported.
+
+When you do wish to have DBMEND operate  on  a  magtape  journal,  the
+following  rules  should be observed.  One, give the /JOURNAL the same
+file spec that was given by the aborted run-unit(s) so that DBMEND can
+automatically  locate  the  journal  temp  file  as well.  Two, do not
+forget to give a /REELS command  if  this  is  a  multi-reel  journal.
+Three, if not all the data in the journal temp file has been copied to
+magtape (eg.  the system crashed  while  your  run-unit  was  active),
+specify  the  /COMPLETE  switch  to cause DBMEND to merge any unmerged
+journal temp data with the magtape  journal.   (Note  that  this  will
+place  the journal temp file into the done-with state).  Four, proceed
+as with a disk journal.
+
+You must be aware of the nature of  the  /COMPLETE  algorithm  to  the
+following extent.  DBMEND backspaces three journal pages and simulates
+a /POSITION "page the 1st journal-temp-file-page  will  be".   If  the
+magtape is in a random position, this operation may fail.  However you
+can guarantee success of this positioning by simply  doing  a  /REWIND
+before the /COMPLETE.
+
+
+2.3.2.3.5 The background MTA journal processor -  DAEMDB is  simply  a
+utility to copy data from one or more journal temp files to a matching
+set of MTA journals.  It runs as a background task  concurrently  with
+application  run-units  and  can  be  run  under OPSER/PTYCON or as an
+ordinary time-sharing job.
+DBMS5.DOC                                                      Page 45
+
+
+Application jobs have to can communicate with it via IPCF when opening
+or closing the journal--and can because the IPCF name "[SYSTEM]DAEMDB"
+is reserved to it.  During an OPEN, the  application  waits  until  it
+receives  a  message  back  from DAEMDB before continueing.  Note that
+this waiting period includes the time for the operator  to  mount  the
+tape  unless  another apllication has already started or a /CREATE was
+done at the DAEMDB terminal.  Similarly on a  CLOSE,  the  application
+waits  when  it  does  a  "real"  CLOSE  JOURNAL.  Also during a CLOSE
+JOURNAL, DAEMDB unloads the magtape and eliminates  the  journal  from
+its  table of journal.  CLOSEs when someone else still has the journal
+open merely cause some trivial accounting to occur.  Finally, a  CLOSE
+RUN-UNIT,  when  you  are  the only run-unit, copies all the currently
+remaining data from the journal temp file but leaves the magtape  open
+and the journal in DAEMDB's table of journals.
+
+To initialize DAEMDB as an ordinary timesharing job,  just  login  and
+type  R  DAEMDB.   To  run  DAEMDB  under OPSER, give this sequence of
+commands to OPSER:
+
+     :SLOG 1/2
+     :DEF DB=
+     DB-R DAEMDB
+
+To run DAEMDB under PTYCON, give this sequence of commands (the  $  is
+an altmode):
+
+     DEFINE $DB
+     DB-LOG OPERATOR ANY a-number
+     DB-DAEMDB
+
+
+DAEMDB relies heavily upon the schema name associated with each of the
+journals  it is managing.  The reliance is realized in terms of volume
+ids.  A volume id tells the  operator/DAEMDB  user  which  magtape  to
+mount,  and it will conventionally be of the form "aaaabb" so that the
+operator can use pre-labeled tapes.  the "a"s are the first letters of
+the  schema  name  and  "bb" is the current reel number.  Thus if your
+installation supports multiple schemas their initial letter  sequences
+must be different.  As well as identifying tapes for the operator, the
+volume id tells DAEMDB (in ABORT, CREATE, MOUNT, RETRY) which  of  the
+"many" journals it is managing to make "current".  Thus volume ids are
+optional only if DAEMDB can identify the journal from  an  immediately
+preceding prompt it typed.
+
+The operation of DAEMDB is controlled by the following switches.   Any
+unique  abbreviation  is acceptable except for ABORT, EXIT and STOP --
+these must be spelled out.  When DAEMDB is  started,  it  presumes  it
+just  did  a  polling and goes to sleep for the default polling period
+(=100 seconds).  However, whether DAEMDB is active,  sleeping,  or  in
+TTY wait, any switch will be processed when it is presented to DAEMDB.
+The switches are as follows.
+DBMS5.DOC                                                      Page 46
+
+
+SWITCH                   FUNCTION
+-----------------------------------------------------------
+ABORT [dev:][volid]      DAEMDB has requested an  operator  action  in
+                         response  to  EOT or a magtape error, and the
+                         operator has decided that processing  of  the
+                         magtape  portion  of  this  journal should be
+                         stopped.  The device is for clarity only.
+
+CREATE dev:  volid       Pre-associate  a  magtape  to  its  journal's
+                         schema.    No   application  requesting  this
+                         journal  will  experience  a  real-time  wait
+                         while  the  operator  mounts  his  tape.   Of
+                         incidental note:  DAEMDB  will  not  actually
+                         know  the  schema  name  until an application
+                         starts   up...it   will    only    know    it
+                         approximately via the volume id.
+
+CURRENT                  Type out the current setting for  each  mode.
+                         This is basically a debugging switch.
+
+EXIT                     Exit to the monitor after clearing all active
+                         queue requests.  Do not allow a CONTINUE.
+
+GO                       Continue after a STOP
+
+HELP                     Print this table
+
+MOUNT [dev:][volid]      The operator has mounted  a  new  magtape  on
+                         dev:   (or  the  device in the prompt if dev:
+                         is absent).  Note that MOUNT  and  ABORT  are
+                         "antonyms".
+
+POLL seconds             Define and initiate  a  new  polling  period.
+                         DAEMDB  will  sleep for n-seconds or until it
+                         has something to  do.   The  default  polling
+                         period  is  100  seconds.  (It is the journal
+                         temp  files  which  are  being   polled   for
+                         uncopied data).
+
+RESET                    Simulate    starting     DAEMDB--with     one
+                         difference--the  existing  table  of journals
+                         remains intact.  It is difficult  to  predict
+                         whether this switch is useful, but the intent
+                         is to give the operator a  means  of  getting
+                         DAEMDB back to a defined state without losing
+                         its table of journals.
+
+RETRY [dev:][volid]      Tells DAEMDB to ignore the error it  reported
+                         and  repeat  the  operation that failed.  The
+                         device would be specified for  clarity  only.
+                         This    command    prevents    DAEMDB    from
+                         unnecessarily aborting after a  spurious  I/O
+                         error  such  as  something  going temporarily
+                         off-line.
+DBMS5.DOC                                                      Page 47
+
+
+[NO]SHUTDOWN             Tell DAEMDB to not accept  any  new  journals
+                         and  to  do  an  EXIT  when all of the active
+                         magtape journals  have  been  closed  by  the
+                         users.   Prefixing  NO  takes DAEMDB out of a
+                         SHUTDOWN  state,  ie.   it  will  accept  new
+                         journals.
+
+STOP                     Return to DAEMDB command  level  immediately.
+                         The operator would presumably use this switch
+                         to give him time to fix  a  magtape  or  some
+                         such problem.
+
+THRESHOLD pages          Tells DAEMDB to bother to copy and truncate a
+                         journal  temp  file  only  if  it is at least
+                         n-pages long.  The default  threshold  is  50
+                         journal pages.
+
+WHAT                     Type the state  of  each  journal  DAEMDB  is
+                         managing.
+
+DAEMDB does an "action prompt" when a magtape is initially opened  and
+each  time the current reel of a journal must be replaced.  The prompt
+is:  [ACTION REQUIRED FOR VOLUME volid ON mta].  Also, the prompt  may
+have  been  preceded  by a magtape or journal temp file error message.
+In any event, you should respond with either the /MOUNT or  /ABORT  or
+/RETRY  switch  as appropriate.  Note that the prompt always refers to
+the current reel (via the volid), so that to mount a  new  volume  you
+should explicitly give the volume id when you do the /MOUNT.  Finally,
+in order to protect  against  partially  copied  sequences  that  span
+reels,  DAEMDB  types  a message when the first copy-sequence has been
+completed on a new reel.   In  other  words,  when  a  reel  is  being
+replaced, its replacement should not be considered part of the journal
+until DAEMDB responds with [VOLUME volid NOW INITIALIZED].
+
+
+2.3.2.4 Guarding Against Non-cooperation  of  Run-units -   There  are
+forms of non-cooperation that are not detectable except from long-term
+side-efects.  As noted, DBCS can guarantee the physical  integrity  of
+the  data  base,  but  only  you  can  ensure  world-view consistency.
+However the following forms of non-cooperation are either detected  by
+DBCS or declaratively inhibited.
+
+(Declarative Restraints)
+
+     1.  There is one journal per schema unless a run-unit  explicitly
+         circumvents this by calling JMNAME.
+
+     2.  The  IMAGES  statement  provides  inherent  co-ordination  of
+         journaling and run-unit interleaving.
+
+(Procedural Constraints)
+
+     3.  If you attempt to open an area  with  USAGE-MODE  UPDATE  and
+         already  have OPENed your journal exclusively, exception code
+         0938 will be returned.
+DBMS5.DOC                                                      Page 48
+
+
+     4.  If you have a shared journal, the only way in which  you  can
+         use  JBTRAN  is  as follows:  in transaction mode and with an
+         argument of 0.  Otherwise, exception code 1645 is returned.
+
+There is one  "special"  form  of  non-cooperation.   If  an  updating
+run-unit  aborts  abnormally,  other  run-units  are  "in  danger"  of
+accessing a data base which is  potentially  in  an  undefined  state.
+However it is only an illusion for a very simple reason.  So long as a
+RESET is not done by the aborted job, all the locks it had in place to
+prevent trespass are still in place.  Thus, if the site does not panic
+by allowing a RESET to be executed by the aborted job,  it  will  have
+all  the  time  in  the  world  to  evaluate  the  situation and react
+accordingly (eg.  terminate all the run-units and restart entirely, do
+a  RESET because the aborting run-unit did not injure the integrity of
+the data base).
+
+
+2.3.3  Miscellaneous Changes
+
+
+2.3.3.1 Unrounded Logical Page  Size -   Before  V5,  each  page  size
+specified  in the DMCL was rounded up to the next monitor-defined unit
+of disk storage (ie.   128-word  multiples  on  the  10  and  512-word
+multiples  on  the  20).  However this is not strictly necessary...the
+physical page size must be such a multiple, but there is no reason why
+the  logical  page  size  cannot  be  as  was  specified  in the DMCL.
+Additionally there are two reasons to support this  distinction:   (1)
+it  enables a site to account for data expansion by filling an area in
+layers (ie.  by gradually increasing page  size)  (2)  as  implied  in
+section  2.3.1.3.2, it would make a general purpose conversion utility
+somewhat easier to use.
+
+This feature does not impact  existing  data  bases;   the  effect  of
+unrounded  logical page sizes is felt at precisely one time only, when
+a new record is stored.
+
+
+2.3.3.2 Specifying a Limit to Journal Size -  The JOURNAL statement of
+the DMCL has been extended to provide you a means of preventing a disk
+journal from growing to an arbitrary size.  By appending,
+
+                   SIZE [IS] integer [TRANSACTIONS]
+
+to the end of a JOURNAL statement, you will cause DBCS  to  reposition
+its  journal  file pointer to the beginning of the journal after every
+(integer)th transaction.  Thus, a site could use this feature  if  its
+situation  is  such  that it knows it will never need to backup a data
+base more than (integer) transactions.  This  clause  applies  to  any
+run-unit that has a disk journal which is either unshared or for which
+images are not ordered by command.
+
+(Note:  a secondary benefit of  this  feature  is  that  disk  journal
+efficiency is improved because it is cheaper to rewrite a journal page
+than to extend a journal.)
+DBMS5.DOC                                                      Page 49
+
+
+2.3.3.3 /CONVERT switch for SCHEMA and DBMEND -  The  /CONVERT  switch
+has  been  added  to  support  V3TOV5  and to lay the groundwork for a
+general purpose data base redefinition utility.
+
+/CONVERT tells SCHEMA to generate .DBN files and a  .SCN  file  rather
+than .DBS files and a .SCH file.
+
+Conversely /CONVERT sets DBMEND to process .??N files  and  /NOCONVERT
+returns DBMEND to its normal mode.  When you need to use a [NO]CONVERT
+switch, it should precede the JOURNAL or (SCHEMA) switch and all OPENs
+so that all relevant files will be processed in the correct/same mode.
+
+
+2.3.3.4 UNANTICIPATED as  an  INTERCEPT  option -   If  one  specifies
+INTERCEPT  (or  NOTE)  UNANTICIPATED  EXCEPTIONS, all exceptions other
+than 307 and 326 will be intercepted (or noted).  The purpose of  this
+option is to suppress interception only for those exceptions which are
+(normally) used to control program flow.
+
+
+2.3.3.5 The /UNFLAGGED switch  for  FORDML -   This  switch  allows  a
+FORDML user to (optionally) omit the "* DBMS" line for single-line DML
+statements, provided no other line in the program has "period" as  its
+last non-blank non-remark character.  The purpose of this switch is to
+allow for smaller, more readable  FORDML  programs  at  the  price  of
+conforming to one additional lexical rule.
+
+
+2.3.3.6 The USE statement -  It has been made easier  to  associate  a
+variety  of exceptions with a USE procedure.  Generic exception codes:
+one can specify xx00 to associate the procedure to any  exception  for
+statement  "xx".   Generic  statement  codes:  one can specify 00yy to
+associate the procedure to the exception regardless of  the  executing
+statement.    Grab  bag  procedure:   USE  ERROR-STATUS.   will  cause
+application of its procedure to each exception which is not covered by
+an  earlier USE statement in the program (conversely any USE statement
+after this statement would be a no-op).
+
+
+2.3.4  Summary of Environmental Changes
+
+The following  keywords  have  been  added  to  the  DML:   JMDISK  (a
+user-callable  entry)  and  JOURNAL.  The following keywords have been
+added to SCHEMA:  TRANSACTIONS.  The /CONVERT switch has been added to
+SCHEMA  and  DBMEND.   Exceptions  46, 65, 66, and 67 have been added.
+Exceptions 38 have been given a different definition.  Exceptions  31,
+40,  45, 61 and 63 have been given more general meanings.  See section
+2 subsection 2.1.5 for the updated exceptions table.
+DBMS5.DOC                                                      Page 50
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+     1.  A DBMS  applications  program  cannot  be  restarted  by  the
+         ctrl-C/START  sequence;   one can only RUN (GET/START) a DBMS
+         program.
+
+     2.  If the CLOSE statement signals an exception, the state of the
+         system will not be backed up to what it was before the CLOSE.
+
+     3.  Explicit SFD's are not supported in file specs.
+
+     4.  No .DBS file (ie.  DBMS-10 area) may have a page  range  such
+         that  it  could  grow to larger than 256,000 disk blocks (one
+         block=128 words).
+
+     5.  The word DBMS is a reserved word in the COBOL  compiler,  but
+         this  fact is not properly documented nor properly flagged as
+         an error.
+
+     6.  User symbols in an INVOKE or ACCESS statement constitute user
+         variables   as  far  as  the  COBOL  compiler  is  concerned.
+         Therefore they may not be declared anywhere else in the  DATA
+         DIVISION.
+
+     7.  If exception  03  (data-names  from  wrong  record)  occurred
+         during  a  GET,  the  UWA  may not be left the same as it was
+         before the verb was executed.
+
+     8.  An area cannot be simultaneously  OPEN  twice  (ie.   by  two
+         sub-schemas of the same schema) in a run-unit.
+
+     9.  Floating point numbers cannot be dumped by DBINFO on a KA10.
+
+    10.  COBOL  and  FORTRAN   program-units   both   containing   DML
+         statements  cannot be mixed in the same load-unit because the
+         form of the special  registers  is  different  in  COBOL  and
+         FORTRAN.
+
+    11.  The "name" special registers (eg.   ERROR-RECORD)  cannot  be
+         simply  compared  to  COBOL  literals  because the former are
+         ASCIZ strings (to facilitate displaying them).  To accomplish
+         the  comparison,  do  an  EXAMINE LOW-VALUES TO SPACES to the
+         string.
+DBMS5.DOC                                                      Page 51
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+To install DBMS-10, follow the instructions below:
+
+     1.  To place DBMS-10 on SYS:, follow this procedure:
+
+         a.  Mount the DBMS-10 distribution  tape  (marked  QH101)  on
+             MTA0:, and type the following commands:
+
+             R BACKUP
+             TAPE MTA0:
+             REW
+             INTERCHANGE
+             DENSITY installation-dependent
+             RESTORE SYS:*.*=DSKB:[10,6]*.EXE
+             REW
+             RESTORE SYS:*.*=DSKB:[10,6]*.HLP
+             REW
+             ^C
+
+     2.  To prepare to (re)load DBMS-10 (or parts thereof):
+
+         a.  Mount the DBMS-10 distribution  tape  (marked  QH101)  on
+             MTA0:, and type the following commands:
+
+             R BACKUP
+             TAPE MTA0:
+             REW
+             INTERCHANGE
+             DENSITY installation-dependent
+             restore *.*=dskb:[10,6]*.*
+             rew
+             ^c
+
+The components of the DBMS package, are as follows:
+
+     SCHEMA
+     FORDML
+     COBOL interface
+     DBCS
+     DBMEND
+     DBINFO
+     DAEMDB
+
+
+4.1  Converting Existing Applications
+
+There is an inherent overlap between this section  and  section  2.3.1
+since V3TOV5 is really a utility to facilitate installation of DBMS-V5
+by version 3 sites--rather than a software product.  Accordingly  this
+section  attempts  to  explain where V3TOV5 fits into the installation
+procedure, while section 2.3.1 explains in detail the  steps  involved
+in using it.
+DBMS5.DOC                                                      Page 52
+
+
+Steps to convert your V3 data base:
+
+     1.  Section 2.2 should be read carefully, and application  source
+         files  should  be  changed  to  reflect the incompatibilities
+         described there.
+
+         The primary change is to the schema DDL data-name entry,  and
+         involves  changing  USAGE COMP...  to TYPE...  and moving all
+         text (ie.  03 names) into the appropriate sub-schemas.
+
+         The only DML change  that  is  likely  to  cause  any  source
+         alterations  at  all  is  that successful FINDs and STOREs no
+         longer set up AREA-NAME and RECORD-NAME...the MOVE  statement
+         must be used instead.
+
+     2.  Read section 2.3.1 on how to use V3TOV5.
+         However if you intend to reload  rather  than  convert,  just
+         delete  your  DBS  files  and  SCH  file  and  translate your
+         converted DDL program with  SCHEMA  V5  before  running  your
+         reloading program.
+
+     3.  The host-language interface has changed.   Existing  programs
+         must  be  (re-preprocessed  and)  recompiled  with  the COBOL
+         and/or FORTRAN systems built from this tape.
+
+
+4.2  Configuring the System Software
+
+     1.  DBMSn0 is shorthand for DBMS10/DBMS20.
+
+         TOPS-10 sets should read it as DBMS10
+         TOPS-20 sets should read it as DBMS20
+
+     2.  If COBOL support is desired:
+
+         a.  Read  COBOL.MEM  in  the  1st  save  set  of  the   COBOL
+             distribution tape (marked QH504).  It will explain how to
+             place LIBOL.REL AND LIBSHR.REL onto disk.
+
+         b.  Make sure  that  your  non-DBMS  copy  of  LIBOL.REL  and
+             LIBSHR.REL  are  in  the  directory from which DBMSn0.CTL
+             will be submitted.
+
+     3.  If FORTRAN support is desired:
+
+         a.  Read FORTRA.MEM in  the  1st  save  set  of  the  FORTRAN
+             distribution tape (marked QH500).  It will explain how to
+             place FORLIB.REL onto disk.
+
+         b.  Make sure that your non-DBMS copy of FORLIB.REL is in the
+             directory from which DBMS10/20.CTL will be submitted.
+DBMS5.DOC                                                      Page 53
+
+
+     4.  Read DBMSn0.CTL.
+
+         a.  In particular, there are DEFINEs  (TOPS-20)  and  ASSIGNs
+             (TOPS-10)  at  the  beginning of the CTL file.  Alter the
+             logical assignments therein as necessary for your site.
+
+         b.  To load just the OTSs, do this submit:
+
+                  SUB DBMSn0/RES/TIM:15:.
+
+             To load all the  non-OTS  components  as  well,  do  this
+             submit instead:
+
+                  SUB DBMSn0/RES/TIM:30:/TAG:DBALL.
+
+         c.  If execution  of  DBMSN0.CTL  should  abort,  you  should
+             reperform steps 2b and/or 3b before repeating step 4b.
+
+     5.  Copy the built host systems to SYS:
+
+             LIBOL.REL to SYS:LIBOL.REL
+             Cdbots.exe to SYS:LIBO11.EXE
+                  and/or
+             FORLIB.REL to SYS:FORLIB.REL
+             FDBOTS.EXE to SYS:FOROTS.EXE
+
+     6.  Copy *.HLP and *.EXE from the 2nd save set of the  DBMS  tape
+         to the appropriate system device.
+
+     7.  If support of MTA journaling is desired and you wish  to  run
+         DAEMDB  under  OPSER/PTYCON,  insert  at least these commands
+         into your system-restart auto file (see 2.3.2.3.5 for how  to
+         setup non-defalt values for DAEMDB's controlling parameters):
+
+         For TOPS-10:
+
+              :SLOG 1/2
+              :DEF DB=
+              DB-R DAEMDB
+
+         For TOPS-20 (the $ is an altmode):
+
+              DEFINE $DB
+              DB-LOG OPERATOR ANY 77777
+              DB-DAEMDB
+
+         If you wish to run DAEMDB as an  ordinary  time-sharing  job,
+         simply  login  a  job and type R DAEMDB each time your system
+         starts up.
+
+         IMPORTANT:  for the time being at least, one must  pre-assign
+         magtapes to the DAEMDB job on TOPS-10.  To do this, simply do
+         1 or more MOUNT commands before typing R DAEMDB.
+DBMS5.DOC                                                      Page 54
+
+
+     8.  DBMS-V5 utilizes  the  ENQ/DEQ  facility.   Consequently  you
+         should  ensure  that  your  system  is  configured  such that
+         sufficient monitor free  space  is  available  to  your  DBMS
+         users,  and  that  each DBMS user has global-ENQ capabilities
+         and an adequate ENQ quota.  For  TOPS-10  use  REACT  to  set
+         quotas  and  capabilities  (ENQ  capability  is  bit  11 (ie.
+         100,,0) of the capabilities word).  For TOPS-20, use ^Ecreate
+         to  set  ENQ  capability.   Also,  see ENQ/DEQ in the monitor
+         installation guide.  As regards quantifying your needs,  they
+         are  approximately:   2 locks for each open area plus 2 locks
+         per run-unit.
+
+     9.  If magtape journaling  is  desired,  the  comments  regarding
+         ENQ/DEQ  apply  to IPCF as well.  As regards quantifying your
+         needs, they are approximately 1 send and 1 receive  for  each
+         application run-unit;  and (n) sends and receives for DAEMDB,
+         where (n) is the number of simultaneous magtape journalers.
+
+
+
+5.0  INTERNAL CHANGES
+
+The list of internal differences is not truly ordered,  but  there  is
+some  attempt to group the DML changes and to group the file-affecting
+changes.  Except where noted, these notes are differences  between  V3
+and V4 (or V5).  Differences between V4 and V5 are noted individually.
+
+     1.  In earlier versions each reference to a record,  area,  data,
+         or  set  name  in  a  DML  statement  would cause a character
+         string, representing the name, to be  passed  to  DBCS.   For
+         example,  GET  REC1 would have translated to CALL GET('REC1')
+         in FORTRAN and ENTER MACRO GET USING  "REC1"  in  COBOL.   In
+         version 4, the reference to REC1 will be replaced by an index
+         into a table (assigned during schema processing), rather than
+         a character string.
+
+         However if the user wishes to explicitly call  a  DBCS  entry
+         point,  he may still pass a string--which will be dynamically
+         converted to its  table  index.   In  other  words,  although
+         FORDML(or  COBOL)  will  generate CALL GET(integer), the user
+         can still code CALL GET('REC1') in  his  programs.   However,
+         this  string  processing ability applies only to record, set,
+         and area names--and not to data-names because data-names  are
+         simply not maintained internally at run-time.
+DBMS5.DOC                                                      Page 55
+
+
+     2.  Similarly, keywords such as NEXT  were  passed  as  character
+         strings.   These  are  now  passed  as  negative  numbers (to
+         distinguish them from the table indexes) and are as follows:
+
+                KEYWORD         CODE
+                ----------------------
+                ONLY             -10
+                SELECTIVE        -11
+                FIRST            -12
+                LAST             -13
+                PRIOR            -14
+                NEXT             -15
+                DUPLICATES       -16
+                ALL              -17
+                AREA             -18
+                RECORD           -19
+                SET              -20
+                UPDATE           -21
+                RETRIEVAL        -22
+                RUNUNIT          -23
+                PROTECTED        -24
+                EXCLUSIVE        -25
+                RESERVED         -26
+                RESERVED         -27
+                JOURNAL          -28     (V5 only)
+
+         When a keyword is expected, a 0 argument indicates a  default
+         (or  absent)  keyword.   And the argument indicates an absent
+         user-name when a name is expected.
+
+     3.  An indexed sequential access  method  will  be  used  to  add
+         members  to  and to search sorted set occurrences.  This will
+         greatly speed up STOREs, INSERTs,  and  MODIFYs  that  access
+         sorted  sets.   The index structure will be a B-tree in which
+         each index block is big enough to contain  16  sort-key/dbkey
+         pairs,  unless 16 keys would require more than 120 words.  In
+         this circumstance, the index block size will  be  n*pair-size
+         where  (n) is such that the product is as near as possible to
+         120 and still less than 120.
+
+     4.  The DELETE verb will always completely delete any record that
+         it  processes.   In  other  words, the record will be removed
+         from each set it is in and  all  space  associated  with  the
+         record will be returned to the free pool.
+DBMS5.DOC                                                      Page 56
+
+
+     5.  FIND integer of SET/AREA will no longer generate  a  call  to
+         FIND3.   Instead  it  will  generate  a call to the new entry
+         point, FINDO.
+
+     6.  The FUNCT.  OTS interface facility, created to  support  LINK
+         overlays,  will  be used by DBCS for its own OTS interfacing.
+         FUNCT.  is documented in an appendix of the LINK manual.
+
+     7.  The format of an after-image directory file (.RCV files  were
+         an  example  of this type of file) has been changed slightly.
+         The first (n) pages of an area .TMP file are  the  directory,
+         and  there are PAGESIZE*2 entries per directory-page (ie.  18
+         bits per entry).  Thus n=!PAGERANGE/PAGESIZE*2!.  The entries
+         are  arranged  such  that  the  left-half  of  the first word
+         contains the first page pointed to  by  this  directory-page,
+         the  left-half  of the 2nd word contains the 2nd page, and so
+         on...   thus  the  right-half  of  the  first  word  of   the
+         directory-page points to the (PAGESIZE + 1)th page.
+
+         Also, the mechanism by which .DBS files are extended in V4 is
+         such  that  unreferenced pages will not be placed in the area
+         .TMP file.  Thus temporary areas are now ideal for  debugging
+         when  calc  records (which arbitrarily extend .DBS files) are
+         involved.
+
+     8.  The symbol blocks in a .SCH file  and  those  created  during
+         BINDing  are  somewhat  different  than  they were in earlier
+         versions.  (A complete description of  each  type  of  symbol
+         block  will  appear in the version 4 manuals--and does appear
+         in  the  UNV  source  file  DBSDCL.MAC,  which  is   on   the
+         distribution tape.)
+
+     9.  The format of a page in a  .DBS  file  has  been  changed  to
+         improve  record  accessing  efficiency  (and  generalized  to
+         support multiple calc-chains per page).   The  format  is  as
+         follows (where PAGESIZE is p):
+
+            word 0:       page-number
+            word 1:       i ! j
+            n words:      calc-chain pointers
+            word n+2:     data word
+                               :
+                               :
+            word j-1:     last data word
+            (word j  thru  word p-i-1 are not in use)
+            word p-i:     see DBSDCL!offset of record i
+                               :
+                               :
+            word p-1:     see DBSDCL!offset of record 1
+
+DBMS5.DOC                                                      Page 57
+
+
+         The value (i) is the highest record number ever used on  this
+         page.   The  value  (j) is the offset of the first word which
+         does not contain data.  The value (n) is 0 or more and is the
+         integer  given in the CALC RPP clause in the ASSIGN statement
+         for this area.  Word p-1 back thru  word  p-i  are  the  line
+         headers  of  line-1  thru  line-i.  For details, see PH.* and
+         LH.* in DBSDCL.MAC.
+
+    10.  The 128-word prefix sector has been supplanted  by  the  area
+         status record, see subsection 2.1.5.3.
+
+    11.  The ENQUEUE/DEQUEUE facility, rather than reader  counts,  is
+         used  in  version  4 to control concurrent access to an area.
+         Note that this means that retrieval-only areas no longer have
+         to be protected <022>.
+
+    12.  All system processed strings will  be  represented  in  ASCII
+         (rather  than  SIXBIT),  ie.  the relevant special registers,
+         AREA-IDs, and privacy locks.
+
+    13.  [V5 only] Journal page headers have been expanded from 4 to 6
+         words  and logical blocks have been expanded to 3 words, both
+         to accomodate simultaneous  update.   The  make-up  of  these
+         headers is detailed in DBSDCL.MAC.
+
+         Because this is such a complicated upgrade, no bug fixes will
+         be described.  We wish this upgrade to consolidate DBMS.
+
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+[End of DBMS5.DOC]

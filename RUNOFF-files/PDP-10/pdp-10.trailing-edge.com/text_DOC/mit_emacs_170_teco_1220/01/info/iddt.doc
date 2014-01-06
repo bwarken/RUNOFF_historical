@@ -1,0 +1,826 @@
+[[warning: this documentation is incomplete and may be outright
+  misleading.  The most recent changes are at the end of the
+  file.  The first and biggest part of the file is from the
+  old TENEX User's Guide.]]
+
+                            IDDT
+
+
+1.  Introduction
+
+
+     IDDT is a new debugger for TENEX programs.  It has many
+of  the same commands as the standard DDT10X (SDDT and UDDT)
+and ordinarily may be used without regard to the  fact  that
+it is a different debugger.  The user is directed to the DDT
+section of the DECsystem-10 ASSEMBLY LANGUAGE  HANDBOOK  for
+information regarding the basic features and use of DDT.
+
+     The primary feature of IDDT is that it operates on user
+programs which run in an inferior fork under IDDT.  Thus, an
+errant user program  cannot  destroy  the  debugger  or  its
+symbol  table because the debugger is in a totally different
+address space.  This  relation  between  the  program  being
+debugged  and  IDDT is much the same as the relation between
+current  user  programs  (including  IDDT)  and  the   EXEC.
+Because  of  this,  IDDT  must simulate many of the services
+ordinarly provided by the EXEC, such as @GET, @LOADER, @RUN,
+etc.
+
+     The following describes the new features  in  IDDT  and
+how  they  may  be used for debugging.  Some of the features
+are bound to change, and others will be added.
+
+
+2.  Using IDDT
+
+     IDDT may be called into service either before or  after
+programs  have  been  loaded  into  memory.  This is done by
+telling the EXEC
+
+     @IDDT
+
+
+     This  command  causes  the  EXEC  to  splice   a   fork
+containing  IDDT  in  between  itself  and the program to be
+debugged.  This operation is done in a  way  that  preserves
+the   state   of  the  user's  program  including  its  fork
+structure.  It is possible to ^C out of  a  running  program
+and  get IDDT.  If this is done, a $P (Proceed) command will
+resume running the user program.
+
+
+     The EXEC command  "NO  IDDT"  will  unsplice  the  fork
+containing IDDT in the event the user wishes to continue his
+program without having an IDDT above it.
+
+     A fairly common practice is to get IDDT first  and  use
+it  to  load  the program to be debugged.  One of three IDDT
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  85
+IDDT
+
+
+commands may be used to load the object program: $L (run the
+LOADER  in  the user fork), ;L (Loadgo of named file), or ;Y
+Yank the named file).  The first of these is essentially the
+same as the EXEC command, @LOADER.  The second is comparable
+to @RUN, while the last is similar to @GET.
+
+
+3.  Symbol Table Considerations
+
+     When initially started, and after successful  execution
+of  a  ;L or ;Y command, IDDT will obtain a new symbol table
+if it exists.   It  does  this  by  copying  (and  sometimes
+sharing)  pages of the user fork.  Thus, those user programs
+which need access to their own symbols will behave the same,
+and IDDT will have its own copy of the symbol table which is
+protected from the user.
+
+     The $L command causes IDDT to run  the  LOADER  in  the
+user's  address  space.  Upon completion, the LOADER returns
+control to IDDT.  At this point IDDT will have the  LOADER's
+symbol  table.   In  order  to  switch to the symbols of the
+program which was loaded, the ;S command  should  be  typed.
+;S tells IDDT to look for a standard symbol table pointer in
+location 116 (.JBSYM).  If the user has  merged  in  a  file
+which  contains its own symbols, he may switch to that table
+by typing a;S where "a"  is  the  address  of  the  location
+containing a pointer to the new table.
+
+     ;O Obtains a symbol file  directly  into  IDDT  without
+modifying  the  user's  memory.   The  old  symbol  table is
+replaced, and a new entry vector is taken only if there  was
+no  old  one.  This makes it possible to debug one file with
+symbols obtained from a different file.
+
+     Symbols may be written out on a specified file by using
+the  ;W  command.  This saves the symbols in a way that they
+may be obtained later with the ;O command.  Along  with  the
+main  symbol  table,  the undefined symbol table is saved in
+symbol files.  One should be careful that symbol  files  and
+core  image  (;U)  files  are  kept  paired if any undefined
+symbols exist.  Executing an GET JSYS on a symbol file  will
+get  both  tables.   The  default  file extension for symbol
+files written by IDDT is .SYMBOLS.
+
+Note: Symbols added to or deleted from IDDT's  symbol  table
+by commands to IDDT will not be seen by the user program.
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  86
+IDDT
+
+
+4.  EXEC-like Features
+
+     For convenience, the EXEC has  several  commands  which
+provide the same services as some EXEC commands.  These are:
+
+
+     ;A               TYPES THE USER'S ADDRESS SPACE. (MEMSTAT)
+
+     ;F               DOES A FORKSTAT ON THE USER FORK.  (THIS
+                      FEATURE WILL BE OPERATIONAL AS SOON
+                      AS JSYS 166 IS IMPLEMENTED.)
+     
+
+     ;Y               @GET
+
+     ;M               @MERGE
+
+     ;L               @RUN
+
+     $$G              @START
+
+     $$1G             @REENTER
+
+     $$nG             @START AT n-TH ENTRY VECTOR LOCATION
+
+     $P               @CONTINUE
+
+     ;L               @LOADER
+
+     ;U               @SSAV 0 777     (I.E. "UNGET")
+
+     ;O               OBTAIN SYMBOL FILE -- NO EXEC EQUIVALENT
+
+     ;W               WRITE SYMBOL FILE -- NO EXEC EQUIVALENT
+
+     ;H               @QUIT (HALT, RETURN TO EXEC)
+
+;W, ;M, ;Y, ;O, ;L, and ;U ask for  a  file  name  from  the
+user.   The  default  extention  will be .SAV or .SYMBOLS as
+required.
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  87
+IDDT
+
+
+5.   Access Control
+
+
+
+     An EXEC-like feature has been included  in  IDDT  which
+has  no analogy in the current EXEC.  This is the $U command
+(UNPROTECT), which allows the user to  manually  change  the
+protection  on  various pages of his fork.  This command has
+several forms:
+
+     a<b$nU            CHANGE PROTECTION ON PAGES a
+                       THROUGH b INCLUSIVE
+     a$nU              CHANGE protection of page a
+     $nU               CHANGE PROTECTION OF THE CURRENT PAGE
+                       (WHERE POINT "." IS)
+
+N is always a three-bit number (0-7).  The 4-bit means allow
+read  access,  the 2-bit should be on to allow write access,
+and the 1-bit for execute access.  If N is not specified  at
+all,  it  will be taken as 7.  Thus, the command $U frees up
+the current page, giving it read, write and execute access.
+
+     $U changes the protection on pages of the user's  fork.
+It does not affect the protection of a file page which might
+be  mapped  into  that  fork.   Because  it   is   sometimes
+convenient  to  change the contents of fork pages which have
+write-protected files mapped into them,  $U  commands  which
+ask  for  write  access  will  either  get  it,  or will get
+write-copy access.
+
+     While IDDT  is  running,  it  temporarily  changes  the
+access  of  each  page that it maps to have read, write, and
+execute access.  The user's access is reset when the page is
+mapped   out.   This  allows  IDDT  to  insert  breakpoints,
+retrieve trapping instructions, etc.  The $U command  allows
+the  user to protect pages from his own program by effecting
+a permanent change in the page access.
+
+
+6.   Rubout
+
+     IDDT arms the RUBOUT button as an interrupt  character.
+If  a  user  program  has  been started under IDDT, pressing
+RUBOUT will gracefully suspend that process and give control
+to IDDT which then types a message of the form 
+
+     XXX:FOO+5/   MOVE A,DAT+21
+
+The interrupt is understood  to  have  occurred  immediately
+before  this instruction, and that if a $P (proceed) command
+is typed, this instruction will be the next one executed  by
+the user.
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  88
+IDDT
+
+
+     RUBOUT's typed while in IDDT behave much  the  same  as
+they  do  in  normal DDT's.  That is, the current command is
+aborted.  This is particularly convenient for stopping  long
+searches  ($W,  $N and $E COMMANDS), with IDDT because it is
+an interrupt and does not have to  be  read  by  a  PBIN  to
+initiate  action  as it does with old-style DDT's.  RUBOUT's
+typed while IDDT is in control  cause  the  terminal  output
+buffer to be cleared.
+
+
+7.   "GO" Commands
+
+     IDDT has several variations of the standard $G  command
+available.   GO  commands  with  two  ALTMODES, such as $$G,
+FOO$$G, and $$2G, cause the user's pseudo  interrupt  system
+to be cleared before they take effect.  If there is a number
+between the ALTMODE(s) and the G, this number is taken as an
+index  into  the  entry  vector  of the user's fork, and the
+program is restarted as indicated by the corresponding entry
+vector  element.  Thus, $$0G is the same as the EXEC command
+"START", while $$1G is equivalent to "REENTER".  The command
+$$G is an abreviation for $$0G.
+
+     Ordinary GO commands still exist.  They look like FOO$G
+and  BEGIN$$G.   The user's program counter is stored in the
+"GO" register, which is named $G.  This can be  examined  by
+commands such as $G/ .
+
+
+8.   Control-T
+
+     The user may wish to  debug  programs  (such  as  TECO)
+which   assign   RUBOUT  as  their  own  terminal  interrupt
+character.  So that the user always has a way to get back to
+IDDT,  IDDT  has  an alternate RUBOUT or "ESCAPE" character.
+Initially this is control-T.  It may be changed by using the
+;E  command,  which  asks  the  user to type in a new escape
+character.  Almost any control character will  do  including
+null.
+
+     The ESCAPE character behaves exactly  as  RUBOUT  does,
+but  its  only  real  use  is to cause a transition from the
+user's  program  to  IDDT.   Once  IDDT   is   running,   it
+temporarily acquires the RUBOUT terminal code from the user.
+
+     If the ESCAPE character is changed from ^T to something
+else,   the  EXEC  will  automatically  resume  handling  ^T
+interrupts in the normal way.
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  89
+IDDT
+
+
+9.   Interface with the EXEC
+
+     The EXEC command "FORK n" may be  used  to  switch  the
+EXEC's  attention  between  the fork containing IDDT and the
+one containing the user's program.  This may be done for the
+purpose  of  doing  a "MEMSTAT" or ^T.  The EXEC examine and
+deposit commands (/ and \) also  pertain  to  the  currently
+selected fork.
+
+     Regardless  of  which  fork  has   been   selected,   a
+"CONTINUE"  will  always  resume  a  ^C  .   If the user has
+returned to the EXEC by typing  ;H  to  IDDT,  IDDT  may  be
+resumed by a "CONTINUE".  A HALTF in the user's program will
+return to IDDT.  It may be continued by a $P to IDDT.
+
+
+10.  Zero-ing core
+
+     THE $$Z COMMAND behaves the same as it  does  with  old
+DDT  except that if it is used to zero whole pages, they are
+PMAP-ed  out  of  existence,  rather  than  being   actually
+cleared.   If such a page is brought into existence again by
+a reference, it will be cleared by TENEX when created.
+
+     If a $$Z command is used to clear any  word(s)  between
+700000  and  712777,  compatibility  code  for  the  user is
+dismissed.  Ordinary register operations like slash  can  be
+used to examine or modify the compatibility code (PA1050) as
+usual.
+
+     The Zero command has been generalized so  that  it  can
+fill  core  with  a  specific number.  To fill locations 100
+through  177  with  the  number  3,  the  user  would   type
+100<177>$$3Z.
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  90
+IDDT
+
+
+11.  Internal Registers
+
+     IDDT maintains several "internal registers"  which  may
+be  manipulated as if they were in the user's address space.
+These are listed below, and will be described in  detail  in
+subsequent sections.
+
+
+
+
+     $G     CONTAINS  FLAGS,,PC  FOR THE USER PROGRAM
+
+     $M     MASK FOR SEARCHES
+
+     $X     LOCATION FOR SPECIAL EXECUTE
+
+     $W     PAGER TRAP STATUS WORD AT MEMORY VIOLATION
+
+     $W+1   PAGER WRITE DATA AT MEMORY VIOLATION
+
+     $I     INTERRUPT CHANNELS WITH BREAKS WAITING
+
+     $I+1   INTERRUPT CHANNELS ASSIGNED FOR USER
+
+     $I+2   BREAKS IN PROGRESS WORD
+
+     $I+3   0 IF USER'S INTERRUPT SYSTEM IS OFF. NON-0 OTHERWISE.
+
+     $I+4   IDDT'S FORK HANDLE ON USER
+
+     $I+5   SIXBIT OF SAVED USER SUBSYSTEM NAME
+
+            (This may be made inaccessible in the future!)
+
+     $nB+k  BREAKPOINT REGISTERS.  n is between 1 and 8
+            inclusive (i.e., IDDT has eight breakpoints), k is
+            between 0 and 6.  Thus there are seven registers
+            of information associated with each of the
+            breakpoints.
+
+As an example of an internal  register  reference,  consider
+looking at the proceed count of breakpoint 3:
+
+            $3B+2/ 105 3
+
+The user changed the proceed count from 105 to 3.
+
+     IDDT's current location may be internal to IDDT.   This
+allows  the  user  to  use  linefeed and up-arrow to look at
+internal  registers.   IDDT  has  special  address  printing
+routines that print things like $I+3 instead of this address
+in terms of user defined symbols.
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  91
+IDDT
+
+
+     Attempts to define address tags when "point" is  at  an
+IDDT  internal  register will be given IDDT's ubiquitous "?"
+error.  Also, IDDT will not allow expressions with more than
+one  mention  of  an  internal  symbol  name.  Thus, $M+3 is
+allowed, but $I+$M is not.
+
+
+12.  The User Program PC
+
+     The internal register $G contains  the  user's  PC  and
+FLAGS.   This  is  defined  to  always  point  at  the  next
+executable instruction.  The  proceed  command  ($P)  simply
+starts  the  user at the address in $G.  Illegal instruction
+traps back up the  user's  PC  so  that  it  points  at  the
+offending  instruction,  in hopes that he will repair it and
+proceed.  In such a case, the repaired instruction  will  be
+executed first.
+
+     $G is setup from the entry vector after every  ;Y,  ;L,
+and  ;S  command.   Thus,  the user can ;Y (yank) a file and
+immediately start it with a $P.
+
+     Bit 5 of the "GO" word $G is the  user-mode  bit  which
+will normally be on if $G is examined.  It may be off due to
+an interrupt out of a JSYS or after an illegal  instruction.
+Because  this  bit  is  essential  to  the restarting of the
+user's fork, it is not left entirely under his control.   In
+particular,  the user-mode flag may be turned on by changing
+the contents of $G, but it may  not  be  turned  off.   This
+means  that  if a JSYS (such as GTJFN) has been interrupted,
+the  usermode  flag  turned  on,  and  $P  typed,  that  the
+interrupted JSYS will be re-executed, rather than resumed.
+
+
+13.  Saving a Core Image
+
+     The ;U command asks for a file name and  then  does  an
+SSAVE  from page 0 through page 777 on this file.  The entry
+vector will be copied if it exists.  If no entry vector  has
+been declared for the fork, IDDT will set a length one entry
+vector at "." .  A message is typed to this effect.
+
+
+14.  Single Instruction Executes
+
+     When the user types an instruction followed by $X, IDDT
+pushes  down  several words of state information, plants the
+instruction in the user's address space  followed  by  three
+breakpoints, and restarts the user at this special location.
+When the instruction completes, IDDT types the proper number
+of  $-signs  to  indicate  how  many  times  the instruction
+skipped, and pops back the  saved  state  information.   The
+state  information  currently  includes  the program counter
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  92
+IDDT
+
+
+($G), and which breakpoint (if any) the user was stopped at.
+This  makes  it  possible  to  hit  a breakpoint, execute an
+instruction (which might be a PUSHJ to  a  subroutine),  and
+then,  upon  completion  of  the  $X, do a $P to proceed the
+breakpoint.
+
+     IDDT's $X register points in the user's  address  space
+to  the  four  words which will be used for $X commands.  $X
+initally contains 777774 so that  the  top  four  words  are
+used.  The user is free to change the contents of $X.
+
+     If a RUBOUT has interrupted the program being  debugged
+while  it  was  in  the middle of a JSYS -- usually a "long"
+JSYS like SOUT or PBIN -- and then an  instruction  executed
+with  the  $X  command,  a  $P  will not resume the original
+sequence back in the middle of the interrupted  JSYS.   Flag
+bit  5  will  be off if the interrupt came out of a JSYS.  A
+proceed  ($P)  immediately   after   a   RUBOUT,   with   no
+intermediate  $X will always resume exactly at the interrupt
+point however.
+
+
+15.  Breakpoints
+
+     Associated with  each  breakpoint  are  seven  internal
+registers.  The first four of these are the same as those in
+older DDT's, while the last three have been  added.   Taking
+breakpoint three as an example:
+
+     $3B/    TRACEVALUE,,LOCATION
+
+     $3B+1/  0  OR CONDITIONAL BREAK SKIP
+
+     $3B+2/  PROCEED COUNT (>0 for normal, <0 for auto, 0 for none)
+
+     $3B+3/  0 OR STRING POINTER (fed to IDDT when this BPT breaks)
+             ***Not implemented yet***
+
+     $3B+4/  SAVED INSTRUCTION WHILE USER IS RUNNING
+
+     $3B+5/  0 OR ELSE -1 FOR AUTOPROCEED MODE
+
+     $3B+6/  ASCII NAME OF THIS BREAKPOINT, USUALLY "$3B"
+
+
+     Usually these values are changed only  by  setting  and
+clearing breakpoints with the $B command.  if he wishes, the
+user may change these quantities.  For instance, if he wants
+hits on breakpoint three to print as 
+
+             HELP>> FOO+23
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  93
+IDDT
+
+
+he would type the following: 
+
+             $3B+6! "/HELP/
+
+
+This stores the ASCII string for the new name in  the  print
+name cell of breakpoint three.
+
+     Proceeding after a breakpoint hit happens much  in  the
+same  way  as  a  single  instruction  execute command ($X).
+Again four words of memory are written  into.   However,  in
+this  case  the  four words are the instruction at the break
+location and three JRST's to the three  locations  following
+the  break  location.  The JRST's account for possible skips
+by the break instruction.
+
+     If a breakpoint  is  hit,  and  the  user  changes  the
+contents  of  $G,  and  then  proceeds  (with $P), the break
+instruction is not executed.  Control simply resumes at  the
+new location given by $G.  Old DDT's execute the instruction
+under the breakpoint, and then transfer control to  the  new
+place.
+
+
+16.  JSYS Typeout Format
+
+     When IDDT attempts to print an opcode  104  instruction
+symbolically,  it  first  looks  for  an  exact match in the
+user's  symbols.   If  one  is  found,   the   corresponding
+user-supplied  name  is printed.  Otherwise, IDDT checks its
+own internal JSYS  symbol  table  (hopefully,  the  same  as
+JSYS's  defined  in  <SYSTEM>STENEX.MAC) for an exact match.
+If none is found in either place, the instruction will print
+as JSYS 501, i.e., "JSYS" and address.
+
+
+17.  Other Features
+
+     The  search  commands  ($W,  $N,  and  $N)  have   been
+generalized  to take an argument which specifies the maximum
+number of "finds" that shall occur before  the  search  will
+terminate.  An example is:
+
+             FOO<BAR>QQZZ$5E
+
+This command will stop after typing five instructions  lying
+between  locations  "FOO"  and "BAR" which have an effective
+address of "QQZZ".  
+
+     Internal register $I+4 contains the  fork  handle  that
+IDDT   uses   to  reference  the  user.   This  register  is
+writeable.
+
+TENEX USER'S GUIDE      JANUARY 1973                Page  94
+IDDT
+
+
+     $Q has the value of the last quantity typed, as always.
+$$Q  has  this value with halves swapped.  Thus, ($$Q)= will
+type the same value as $Q= will.
+
+     $V is the value of the left half of the  last  quantity
+typed.   $$V  is  the  same  with  the sign extended.  Thus,
+assuming the last value typed to  be  -3,,FOO  ,  $V=  would
+yield 0,,-3 whereas, $$V= would type -3.
+
+       		       Overview of changes
+
+A.	Changed Commands
+;J(obstat) is now ;;J
+;F(ilstat) is now ;J(fnstat)   	    [;F is forkstat]
+	also <num>;J just gives the status of jfn num
+;P(sistat) is now ;I(nterrupt stat) [;P is patch again]
+
+B.	Multiple fork commands
+;F gives a hierarchical list of the jobs fork's
+<num>;F gives the status of fork num
+<num>;;F makes fork num iddt's current fork 
+
+C.	Single step commands
+0$Y - Toggle the single-step verbose switch
+$J -- fetch the next instruction and excecute it, no interpretation
+$Y -- excecute only one instruction, if the instruction is a jump of some sort
+it will be simulated in software (very slow!!)
+<num>$J (or $Y) excecute the next num instructions
+<num>(<loc>)$J excecute the next num instructions or until an attempt is
+made to change the contents of loc.
+<loc>$$J procede single stepping until an attempt is made to change the value
+of loc.
+
+
+I.	;A (Address space command) & ;J (Jfn status)
+
+	;A alone still gives a "MEMSTAT" typeout.  If an argument
+is supplied ( 123;A ), only a single line will be typed, giving the
+information about just that page number.
+	;J with an argument likewise types out the status of that jfn.
+
+
+II.	;V (set View cell)
+
+	A command such as  FOO+5;V  or  123456;V  will define the
+"view cell".  When IDDT fields a ^T interrupt, the address and contents
+of the view cell will be typed.  The view cell may be undefined and
+consequently removed from the ^T typeout by  ;V  (no argument).
+
+Note:  It is the contents of the view cell in whatever fork IDDT's
+attention has been directed to which is typed out.
+
+
+III.	Multi-fork Feature
+
+
+Breakpoints
+
+A breakpoint may be set in any fork.  The breakpoint is
+distinguished by its address and the "owning" fork.  The owning
+fork is determined by chasing through indirect map entries until
+a non-indirect entry is found.  The fork or file thus found is
+the "owner".
+
+A breakpoint set in one fork may be hit by another fork having
+the same address space.  If the result of chasing indirect chains
+backward doesn't yield the same owner as the original chase did,
+the BPT will be considered illegal.  This can happen if you mess
+around with map entries for pages having breakpoints in them.
+
+When a fork hits a breakpoint, IDDT's handle on the breaking fork
+is printed in parens before the breakpoint name unless it is the
+the top fork.  E.g.  (2)$1B>>105.
+
+Fork Handles
+
+IDDT's attention can be shifted to any fork in the program being
+debugged using the ;;F command.  In the form: n;;F, fork n becomes
+current and all examines, deposits, BPTs etc pertain to it.  n is
+a small number (actually the low bits of IDDT's fork handle on
+the fork in question).  0 always means the top fork of the
+debugee.  In the form m<n;f, attention is switched to the m-th
+inferior of fork n. Again, n is IDDT's handle on some fork in the
+debugee.  m is the low bits of fork n's relative handle on some
+fork (IDDT executes GFRKH(400000+n, 400000+m) to get the new
+handle).  The relative handle so gotten is printed.
+
+Executing instructions
+
+Instructions may be executed in any fork using the $X command.
+Caution must be exercised, however, since all the forks in the
+program will get a chance to run while the $X is in progress.  If
+some other fork then hits a BPT, IDDT will most likely get fouled
+up when it tries to proceed the BPT and then field the $X
+completion.
+
+Other hints
+
+The "owner" of a BPT may be discovered by examining the location
+7 beyond the BPT register (e.g.  $1B+7/).  When doing examines,
+IDDT chases down indirect chains and can thus look at see memory
+that is already as far away from the program as possible.  In
+fact, it can see further, so, just because IDDT says the program
+is there, doesn't necessarily mean it can be executed without
+memory traps due to excessive indirection.  I'm not sure what ;Y
+or ;M will do if the current fork is not the top fork.
+
+IV.	;F (Forkstat command)
+
+	;F  will print the tree of forks below (and including) IDDT.
+num;F will print just the information about the named fork.
+(The monitor change for implementing ;F will be made in the
+near future.  Until then  ;F with no argument will be illegal.)
+V.	Single stepping
+There are two falvours of single stepping, $Y and $J:
+	$J just fetches the next instruction and excecutes it, so if that
+next instruction is a subroutine call, the entire subroutine will be
+excecuted, and if that instruction is a jrst, the program will be continued.
+	$Y fetches the next instruction and if it is a jump of any sort,
+it is interpreted to that in fact only one instruction is excecuted at a time,
+so that if the instruction is a subroutine call, the program counter will be
+set to the beginning of the subroutine.
+	Both commands have the same syntax:
+$J single steps
+<num>$J will step num times
+<num>(<loc>)$J will step num instruction or until the contents of location
+loc are changed, in which case it will stop and say
+(WP)PC     LOC/        new contents of loc, where pc is the instruction after
+the one that attempted to change the value of loc.  Note, however the contents
+of loc will not be changed.
+<loc>$$J is equivalent to infinity(<loc>)$J, ie it will single step until an
+attempt is made to change the contents of loc.
+	If the verbose switch is on, the instruction being excecuted and
+any AC's or the view cell (see above) that change will be typed out.
+	Both instruction are extremely slow.
+
+
+1) ^N - ITS style ^N
+2) $^N - Single step over subroutine; done by setting three temporary
+c
+         breakpoints at the next three "reasonable" instructions
+3) $. - Returns current PC  ($./ examines next instruction to be ^N'ed,
+	for example)
+4) $<TAB> - Opens left-half of location rather then right-half.
+5) Initialization dialouge now prompts for .EXE filename.
+6) $<CR> pops ring buffer and closes patch, $$<CR> just closes patch
+7) ;.<internal symbol name> inserts the value of the internal symbol into the
+	expression.  Currently, internal symbols are:
+		SYMOFS		Maximum offset from symbol printed
+				<nnn> of <symbol>+<nnn>
+				Default value is 777 octal
+		PC		Current PC (readable also by $., and setable
+				by <adr>$0G)
+8) $<LF> pops ring buffer and goes to next location
+9) $^ pops ring buffer and goes to previous location
+10) ^L clears the screen
+11) <adr>$0G sets the start address to <adr> and opens <adr> as if ^N'ing.
+
+More changes
+
+Address breaks
+
+<loc>$$<n>U	
+	This command is used to set an address break in the process
+	being debugged.  <loc> is the address (cannot be an AC), <n>
+	is a 3-bit value specifying the type of access to break on
+	(read, write, xct).  Default for <n> is 2 (break on write).
+	If <loc> is ommitted, existing address break is removed.
+
+	When the address break is hit, a break is typed out with the
+	prefix "ABK:".  $P can be used to proceed.
+
+Auto-unprotect
+
+	If an attempt is made to store into a read-only location, a
+	private copy of the page will be made automatically and
+	<pagenum>$U typed to indicate this.
+
+RSCAN
+
+	The ;R command can be used to insert text into the RSCAN
+	buffer.  If the program expects to be run by the exec with
+	arguments in the same line, this will allow it to be debugged.
+
+Interrupt character
+
+	The default interrupt (escape) character is ^D.  It can be
+	changed with the ;E command.
+
+Text typein/typeout
+
+	Text typein/typeout is now done in ITS-DDT style, namely:
+	$0texttexttext$
+	The "0" refers to the low-order bit, and can be "1" to turn it
+	on.
+
+Patching commands
+
+	The ITS patching commands have been implemented.  The
+	following documentation is from the ITS DDT doc:
+
+^\	begins a patch at the location open (the location "being
+	patched").  It is a convenient way to replace one instruction
+	(at the open location) by several (the patch).  The
+	instructions in the patch are stored in the job's "patch
+	area", a spare area allocated specifically to such use.  Every
+	program should allocate one.  The beginning of the patch area
+	is the value of PATCH if it is defined, or the value of PAT if
+	it is defined, or 50 .  As patches are made, PATCH will be
+	redefined to point to the next free location in the patch
+	area. 
+
+	A patch started with ^\ must be terminated with some variety
+	of ^] command, which will store first the JUMPAs back from the
+	patch to the patched routine (two of them, in case the patch
+	skips), and then a JUMPA from the location being patched to
+	the patch itself.  This order of actions guarantees that the
+	patch will never appear to be "half made" in any way that that
+	might cause trouble in a running program. 
+
+	^\ begins by typing and opening the first location of the
+	patch area.  Then the contents of the location being patched
+	are typed out and left as the argument to the next command. 
+	If you wish to include that instruction as the first
+	instruction of the patch, type ^J.  If you wish to get rid of
+	it, type <rubout>.  Then deposit the other instructions of the
+	patch, and finish with a ^] (which see). 
+
+	While patching, the pseudo-location ..PATCH contains
+	<location being patched>,,<start of patch>. 
+
+	Note to users of relocatable programs, and MIDAS or FAIL block
+	structure:  PATCH is redefined in the same symbol block that
+	it was found in.  This permits some obscure hackery, but
+	normally the whole program will have only one patch area, and
+	it must be visible to ^\ no matter which symbol block is
+	currently selected for type in.  That can be guaranteed by
+	defining PATCH as a global symbol (eg, using PATCH": in
+	MIDAS). 
+
+<arg>^\
+	deposits <arg> in the open location, then does ^\.  Equivalent
+	to ^\<rubout><arg>, except that with <arg>^\, <arg> will be
+	present in the location being patched while the patch is being
+	made. 
+
+$$^\	unmakes the patch previously made to the open location.  $$^\
+	uses the JUMPA to the patch to find the instruction that the
+	patch replaced.  This works only for patches made by ^\, which
+	were either closed by $^], or closed by ^] and having the old
+	instruction as the first instruction of the patch. 
+
+^]	ends a patch started by ^\.  Two JUMPAs back to the locations
+	following the one being patched are stored in the two words
+	starting with the open location (or in location .+1 if no
+	location is open).  Then in the location being patched is
+	stored a JUMPA to the beginning of the patch.  Finally, PATCH
+	is redefined to point at the word after the second JUMPA back
+	(the first free location of the patch area). 
+
+<arg>^]	stores <arg> in the open location, opens the next location,
+	then does ^]. 
+
+$^]	is like ^] but first stores the contents of the place the
+	patch was made from in the open location and linefeeds.  It is
+	useful for putting a patch "before" an existing instruction. 
+
+<arg>$^]
+	stores <arg> in the open location, opens the next location,
+	then does $^]. 
+
+$$^]	is like $^] but omits the JUMPAs back to the place that the
+	patch was made from.  It is useful when a patch is put on top
+	of a JRST or POPJ - it will store an identical JRST or POPJ,
+	and nothing else.  $$^\ (unpatch) can't work after $$^]
+	because necessary information isn't there;  it can however
+	figure out that it can't win and will complain.  If this is
+	important, use $^] instead of $$^]. 
+<arg>$$^]
+	stores <arg> in the open location, if any, then moves down
+	one word and does $$^].
+
+Recent bug fixes
+
+TIW words are saved and restored.
+Release 4 fork handling fixes.
+It now knows about quota exceeded interrupts (they type out as QOT:)
+Added Release 4 JSYI to the table
+Patching commands will use PAT.. if PATCH not found
+ 

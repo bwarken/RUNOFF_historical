@@ -1,0 +1,392 @@
+
+
+
+                     TENEX/TOPS20 SAIL SIMPLIFIED
+
+                             Robert Smith
+                    Department of Computer Science
+                          Rutgers University
+
+
+                             April 1, 1978
+
+                   Revised, 9-Jul-79, by C. Hedrick
+
+        This memo describes  how to put up  a version of TENEX  SAIL on
+
+either a TENEX (version 31 or later) or TOPS20 (version 3)  system.  As
+
+of March,  1979, a few  modifications had been  added to TENEX  SAIL to
+
+facilitate its use  on TOPS20 version  3.  These changes  are described
+
+below.
+
+        The  complete assembly  of  TENEX/TOPS20 SAIL  is  described in
+
+TELLEM, the SAIL implementor's guide.  The sources for all SAIL systems
+
+are kept at SU-AI and maintained there, so the sources can  be obtained
+
+from there via the  ARPA NET. This distribution includes  those sources
+
+needed to make the tops-20 version of SAIL.
+
+        Fortunately, it should not  be necessary to reassemble  SAIL in
+
+order to get a working TENEX SAIL system up on a standard TENEX  (KI or
+
+KA 10) system running 1.31  or later, or TOPS20 (KL  processor) running
+
+version 3 of TOPS20 or later.  A current, standard TENEX/TOPS20 version
+
+of SAIL will be kept  at site Rutgers on directory  S:<SAIL.TOPS20> and
+
+is available from there via FTP in paged transfer mode.
+
+        *******WARNING********: The version of SAIL supplied herein has
+
+the University of Rochester  LEAP features turned on.  The  only affect
+
+that is supposed  to be visible to  the user is that  he can use  up to
+
+
+
+
+                                   1
+
+
+
+2**18 items, rather than 2**12  which is the normal limit.   The actual
+
+implementation  is fairly  different,  as you  might  imagine.  Because
+
+there are differences in  GOGTAB between this version and  the standard
+
+one,  we  have  set  the version  number  to  9  (i.e.  T-6-SAISG9.EXE,
+
+LIBSA9.REL, HLBSA9.REL, etc.).   Should you reassemble with  URLEAP and
+
+URHASH off (They are set  in TENXSW.), you can continue to  use version
+
+number 8.  This  is set in HEAD.   However we believe that  anyone that
+
+uses LEAP  seriously will  want the  new LEAP,  and anyone  who doesn't
+
+won't be affected one way or the other.
+
+        FILES FOR THE BASIC  COMPILER.  Put the following  on directory
+
+<SAIL>.  The SAIL system, like the LISP system, assumes that you have a
+
+dedicated directory.  If you  are running Tops-20, you should  define a
+
+system  logical device  SAI:  as PS:<SAIL>.   Or course  if  you really
+
+wanted to, you  could define SAI: as  <SUBSYS> and get along  without a
+
+separate  directory, but  we do  not recommend  this.  To  define SAI:,
+
+insert  the DEFINE  command into  <SYSTEM>3-CONFIG.CMD.  Should  you be
+
+running Tenex, logical devices are  not used, so all references  are to
+
+<SAIL> directly.
+
+T-6-SAISG9.EXE          ;runtime segment (.SAV if on Tenex)
+                        ;if you get this through a Tops-10 site, this
+                        ;file will be called SAISG9.EXE, because of
+                        ;the 6-character limit.
+HLBSA9.REL              ;"library"
+LIBSA9.REL              ;"library"
+3OPS3.OPS               ;TENEX opcode table, PDP10 instructions,
+                        ;jsyses
+BKTBL.BKT               ;default breaktable for STDBRK function
+GOGTAB.DEF              ;user table definitions file
+
+
+
+
+
+
+                                   2
+
+
+
+        Put the following files on some directory in SYS:  (<SUBSYS> on
+
+Tenex).  These files can live  anywhere, but the most natural  place is
+
+SYS:.  (You may have to be a wheel to put them there.)
+                SYS:
+
+SAIL.EXE                ;compiler
+                        ;on Tenex make this have name "SAIL.SAV"
+LOWTSA.REL              ;linkage to runtime system
+SDDT.REL                ;linkage to BAIL for Tops-20 DEBUG command only
+
+
+        LOADING SAIL  programs.  Tops-20  SAIL will  automatically load
+
+with LINK if you  use the /G switch.   There should be no  problem with
+
+recent DEC versions  of LINK.  Some Tenex  sites prefer to  use LOADER,
+
+because their  versions of LINK10  are out of  date and do  not support
+
+SAIL  properly.   If  you  use  LOADER,  you  may  find  that  you must
+
+reassemble it with  an increase in  the assembly parameter  RELLEN (the
+
+number of REQUIREd  files).  This is especially  true if you  use BAIL.
+
+If you  use LINK,  note that SAIL  uses the  old format  JOBDAT symbols
+
+(e.g., JOBSA instead  of .JBSA).  There is  an assembly switch  in LINK
+
+for this.   However, our normal  assembly procedure  includes appending
+
+JOBDAT.REL to LOWTSA.REL.  Since  this copy of JOBDAT.REL  contains the
+
+old format symbols you should  have no problem.  Sites using  a version
+
+of LINK with the old symbols need not append JOBDAT to LOWTSA.
+
+        LINKAGE TO THE EXEC.  The standard EXEC distributed by  DEC for
+
+Tops-20 understands about the SAIL compiler.  Unfortunately it does not
+
+realize that SAIL programs need to be loaded with SYS:LOWTSA.   We have
+
+included a patch to  make loading work correctly.  The  file EXECCS.DIF
+
+contains the  patch in source  form.  For sites  that do not  have EXEC
+
+
+
+
+                                   3
+
+
+
+sources, the  file FILDDT.DDT  can be  used to  insert the  patch using
+
+FILDDT.  Do ENABLE PATCHING and GET EXEC.EXE.  This will open  the file
+
+EXEC.EXE.  Then  use the $Y  command to DDT.   This will take  the file
+
+FILDDT.DDT.  (the file  name must be  FILDDT.DDT.) When $Y  is finished
+
+(it will take some time.  You will know when it is finished because the
+
+system will type out a  carriage-return, line feed), do a control  Z to
+
+put out the patches and exit from FILDDT.  If for some reason this does
+
+not work  with your FILDDT,  we include one  in the  distribution. Once
+
+this  patch is  done, you  should be  able to  use EXECUTE  and COMPILE
+
+commands.  The  DEBUG command  will cause /DEBUG:SDDT  to be  passed to
+
+LINK.  This will load SDDT.REL,  which will in turn require BAIL  to be
+
+loaded, and set a breakpoint at the beginning of the program.  This all
+
+assumes that  an .SM1  file was produced  by the  original compilation.
+
+When the EXEC calls SAIL, it will thus assume /BAIL:17.  However if you
+
+run SAIL explicitly, it will use whatever switches you do or don't set,
+
+so you can get yourself  into minor trouble by compiling  without /BAIL
+
+and then trying to use the DEBUG command.  If you attempt to  compile a
+
+program from a different directory than your connected  directory, this
+
+will fail.  The  DEC EXEC will pass  a Tops-10 PPN (!!!!!),  while SAIL
+
+expects  a directory  name.  These  problems can  be fixed  with simple
+
+patches to the EXEC, if you are a source site.
+
+        NEW OPCODE TABLE.   You can make  a new opcode  table 3OPS3.OPS
+
+using  the  program  MAKTAB.TNX.  This  program  reads  your MONSYM.MAC
+
+(STENEX.MAC or  .FAI on Tenex),  file and writes  out a  new 3OPS3.OPS,
+
+including your jsyses into the PDP10(KA) instruction set.  To do this,
+
+
+
+                                   4
+
+
+
+
+@SAIL                   ;use new compiler
+  TENEX SAIL etc
+*MAKTAB.TNX
+                        ;various messages about compilation
+*^C
+@LINK
+*SYS:LOWTSA,DSK:MAKTAB/G
+                        ;loader exits
+@START
+INPUT FILE FOR JSYS'ES (STENEX.FAI)  *MONSYM.MAC
+
+                        ;writes out new opcode table
+
+
+        The 3OPS3.OPS file supplied has the JSYSes available  at SUMEX.
+
+It will therefore work, but is not optimal.
+
+        INSTALLING  BAIL.   The  following  files  should  be   put  on
+
+directory <SAIL> in order to have the BAIL debugging system available.
+
+BAICLC.REL,SM1
+BAIIO1.REL,SM1
+BAIIO2.REL,SM1
+BAIMSC.REL,SM1
+BAIPRC.REL,SM1
+BAISM1.REL
+BAIL.SAI
+BAIPD9.SAI,SM1
+
+
+If you are a Tenex site,  you will have to do some reassembly:  This is
+
+because  certain parts  of  BAIL have  assembly-time  conditionals, and
+
+because  BAIL  and  BAIPD9 include  require  statements  for  which the
+
+compiler must produce PPN's appropriate for your particular system.  DO
+
+NOT ATTEMPT  TO USE BAI*.REL  FROM ANOTHER SITE.   (The .SM1  files are
+
+transportable.) There  is a  file TENEX.RUN which  is supposedly  a run
+
+file to do what is needed.  Slight modifications may be needed for your
+
+site,  depending  upon what  loader  you  use, etc.   You  may  find it
+
+
+
+
+                                   5
+
+
+
+necessary to  use the  FAIL.SAV supplied with  this distribution  to do
+
+your compiling, as BBN's FAIL apparently will not compile  SAIL.  (This
+
+is a  special version of  FAIL for  Tenex, since we  are told  that the
+
+standard one we use for Tops-20 will not run on Tenex.)
+
+        ADDITIONAL FILES.   Several additional  files are  on directory
+
+<XSAIL>.  These include:
+
+PROFIL.SAI              ;the execution counter system
+PROFIL.DOC              ;simple description of above -- see
+                        ;SAIL MANUAL by Kurt Van Lehn for a
+                        ;description
+
+
+        CURRENT STATE.  At present, there is no new development  of the
+
+SAIL language, and issues of maintenance have become unclear.  In order
+
+to support  current users,  and in  order to  make available  to TOPS20
+
+users the most complete ALGOL-like language for use in the TENEX/TOPS20
+
+environment, we are  undertaking very limited  maintenance specifically
+
+for TENEX and TOPS20 problems.
+
+        The  file  SAIL.DOC,  included  with  this  distribution,  will
+
+indicate the  nature of the  changes made for  Tops-20.  The  same code
+
+(compiler, object code, and  runtime system) now runs under  both TENEX
+
+and TOPS20 version 3.
+
+        It is our intention to support TENEX/TOPS20 SAIL to  the extent
+
+needed to keep  the system from falling  completely in its  tracks.  At
+
+present,  we  have very  limited  resources for  doing  this.   I would
+
+appreciate  your reporting  any questions/problems  to HEDRICK@RUTGERS.
+
+Suggestions  for improvements  will also  be appreciated  but  will, at
+
+
+
+
+
+                                   6
+
+
+
+least for now, be given low  priority.  We would like a list  of users,
+
+so please send us your names.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   7

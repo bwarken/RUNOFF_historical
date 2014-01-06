@@ -1,0 +1,1264 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                SIMPKG
+
+                Simulation Package for System Testing
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                       Date:  February 1978
+                       File:  SPST.RNO
+                       Version:  1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a commitment by Digital Equipment
+Corporation.  Digital Equipment Corporation assumes no  responsibility
+for any errors that may appear in this document.
+
+The software described in this document is furnished under  a  license
+and  may  be used and copied only in accordance with the terms of such
+license.
+
+Digital Equipment Corporation assumes no responsibility  for  the  use
+and  reliability  of its software on equipment that is not supplied by
+Digital.
+
+
+
+
+
+Copyright c 1978 Digital Equipment Corporation, Maynard, Mass.
+                                                                Page 2
+
+
+
+
+
+
+
+
+
+                               CONTENTS
+
+
+
+                                                                 Page
+
+
+CHAPTER  1   INTRODUCTION                                        1-1  
+
+CHAPTER  2   DESCRIPTION OF PROGRAMS                             2-1  
+
+         2.1 LODTST                                              2-1  
+         2.2 SIMULATED USER JOBS                                 2-1  
+
+CHAPTER  3   HOW TO RUN THE SIMULATION PACKAGE                   3-1  
+
+         3.1 MODULO OPTION                                       3-1  
+         3.2 CATEGORY OPTION                                     3-2  
+         3.3 COMMANDS DURING TEST OPERATION                      3-3  
+         3.4 END-OF-TEST PROCEDURE                               3-3
+
+CHAPTER  4   EXPLANATION OF ERROR MESSAGES                       4-1  
+
+         4.1 ERRORS FROM LODTST                                  4-1  
+         4.2 ERRORS FROM SIMULATED USER JOBS                     4-3  
+
+CHAPTER  5   INSTALLATION-DEPENDENT PARAMETERS                   5-1  
+
+         5.1 LODTST PARAMETERS                                   5-1  
+         5.2 SIMULATED USER JOB PARAMETERS                       5-2  
+
+CHAPTER  6   SAMPLE RUNS                                         6-1  
+
+         6.1 SAMPLE RUN 1                                        6-1  
+         6.2 SAMPLE RUN 2                                        6-2  
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 1
+
+                            INTRODUCTION                              ____________
+
+
+
+This document describes a job  simulation  package  developed  by  the
+Academic  Computer Center at Western Michigan University.  The package
+consists of a master control program and a number of  user  jobs  that
+simulate various types of user activity.
+
+The objectives of the simulation package are:
+
+     1.  To provide a known, reproducible system load that can be used
+         to  evaluate  system  performance  when  software or hardware
+         changes are made.
+
+     2.  To provide a very heavy, complex job mix that can be used  to
+         verify  system software reliability when a new monitor system
+         is loaded.
+
+     3.  To provide a simulated  system  load  that  can  be  used  to
+         isolate  intermittent  hardware failures that occur under the
+         TOPS-10  monitor  but  do  not  occur  under  field   service
+         diagnostics.
+
+The  master  control  program  (LODTST)  reads   user-specified   test
+parameters  and  performs all necessary details of test execution.  It
+logs in the desired number of simulated user jobs of each type, starts
+the jobs executing, and prints SYSTATs at the specified interval.
+
+For many tests, the SYSTATs provide sufficient information to evaluate
+system  performance.   In  other cases, additional information must be
+recorded  and  printed  using  the  DECsystem-10  System   Performance
+Evaluation Package (PERF).
+
+A complete simulation run normally involves running SCDSET  to  define
+scheduling  parameters, LODTST to log in the simulated jobs, and LINES
+to record performance data.  To  simplify  operator  interaction,  the
+test  can be run under an OPSER.ATO file.  The commands to run SCDSET,
+LODTST, and LINES are stored in the .ATO  file.   Parameter  data  for
+SCDSET  and  LODTST  are  read  from  disk  files.  Chapter 6 contains
+examples of this technique.
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 2
+
+                      DESCRIPTION OF PROGRAMS                        ___________ __ ________
+
+
+
+2.1  LODTST     ______
+
+The LODTST program is the master control program  for  the  simulation
+package.   It  reads  the  user-specified test parameters, logs in the
+specified number of jobs of  each  type,  and  takes  SYSTATs  at  the
+user-specified interval.
+
+LODTST logs in and RUNS all of  the  simulated  user  jobs  using  one
+pseudo-TTY.  The user jobs hibernate until LODTST has logged in all of
+them.  LODTST then wakes all of the jobs at the same time.
+
+LODTST requests SYSTATs through a separate job that is controlled with
+a  pseudo-TTY.   Both LODTST and its SYSTAT job run in a high-priority
+queue to provide precise timing of SYSTATs.
+
+At the end of the simulation run, LODTST prints an ending  SYSTAT  and
+executes  an end-of-test procedure that allows the simulated user jobs
+to exit gracefully and delete any disk files they may have created.
+
+For any problems encountered, LODTST logs  an  error  message  on  its
+controlling   TTY.   For  severe  errors,  the  entire  simulation  is
+terminated.   For  less  serious  errors,  the  simulation  continues.
+Chapter  4  contains  a  complete  list of all error messages from the
+simulation package.
+
+Section 2.2 describes  the  simulated  user  jobs  supplied  with  the
+package.   Additional  job  types  may be added at your installation's
+discretion.  Chapter 5 contains a description of  the  procedures  for
+defining job names and the areas they are to be run from.
+
+
+
+2.2  SIMULATED USER JOBS     _________ ____ ____
+
+The simulated user jobs are made up  of  calls  to  standard  routines
+defined  in  a universal file.  The standard routines select job size,
+execute CPU loops, read and write disk records, open device  channels,
+and  so  forth.  The ranges of job size, length of CPU loop, number of
+disk records, and so forth, are determined by drawing  random  numbers
+from  uniform  or  exponential  distributions  and applying a base and
+range factor defined by adaptation parameters contained in  each  user
+program.   Default  values  for  each  parameter are provided with the
+simulation package.  Chapter 5 contains instructions on how to  modify
+these parameters.
+
+For any problems encountered by a simulated user job, an error message
+is  logged on the terminal associated with device OPR.  For some error
+conditions, the job will sleep for a  defined  interval  and  try  the
+function  again  later.   For  other  error  conditions,  the job will
+DESCRIPTION OF PROGRAMS                                       Page 2-2___________ __ ________
+
+
+abandon the function for this cycle.  In either case,  the  simulation
+run  will be allowed to continue.  Chapter 4 contains a description of
+the error codes printed by simulated user  jobs  and  an  analysis  of
+their causes and impact on test integrity.
+
+A description of the program loop executed by each  of  the  simulated
+user jobs is given below.  The end of this chapter contains a detailed
+explanation of the various standard routines.
+
+      LODIO -   I/O bound job.
+
+                1.  Do core size selection (RANCOR)
+
+                2.  Do disk I/O (RANDSK)
+
+                3.  Repeat from step 1
+
+      LODCPU -  CPU bound job.
+
+                1.  Do core size selection (RANCOR)
+
+                2.  Do uniform CPU loop (RANCPU)
+
+                3.  Repeat from step 1
+
+      LODAVE -  Average job.
+
+                1.  Do core size selection (RANCOR)
+
+                2.  Do uniform sleep (RANSLP)
+
+                3.  Do uniform CPU loop (RANCPU)
+
+                4.  Do disk I/O (RANDSK)
+
+                5.  Repeat from step 1
+
+      LODPQ1 -  Conversational job.
+
+                1.  Do core size selection (RANCOR)
+
+                2.  Do exponential sleep loop (EXPSLP)
+
+                3.  Do exponential CPU loop (EXPCPU)
+
+                4.  Repeat from step 1
+
+      LODSLP -  Sleep job.
+
+                1.  Do core size selection (RANCOR)
+
+                2.  Do uniform sleep (RANSLP)
+
+                3.  Repeat from step 1
+
+      LODCOR -  Change high- and low-segment size.
+
+                1.  Do high- and low-segment size selection (RANHGH)
+
+                2.  Repeat from step 1
+
+DESCRIPTION OF PROGRAMS                                       Page 2-3___________ __ ________
+
+
+      LODOPN -  Open device channels.
+
+                1.  Open a device (RANOPN)
+
+                2.  Repeat from step 1
+
+
+The following is a description of the standard routines in the  LODUNV
+universal file.  They are called from the simulated user jobs supplied
+with the package and may be used to create  additional  jobs  at  your
+discretion.
+
+      RANCOR -  Do core size selection.
+
+                Count the number  of  times  entered  and  change  the
+                low-segment  core size every tenth time it is entered.
+                The formula for selecting new core size is:
+
+                     core size = (RAN0 * CORRNG) + CORBAS + MINSIZ
+
+                where core size is in pages.  RAN0 is a random  number
+                in  the  range  0  to 1 from the uniform distribution.
+                CORRNG is the core size range parameter defined in the
+                calling  program.   CORBAS  is  the  base  core  size.
+                MINSIZ is the size of the calling program.
+
+                The default values of 0 for CORBAS and 35.0 for CORRNG
+                imply a range of 0 to 35 pages plus MINSIZ.
+
+      RANDSK -  Do disk I/O.
+
+                This routine writes a random number of records on  the
+                public  disk  structure,  reads  the records back, and
+                compares the data to check for hardware failures.  The
+                data  written  is  a  rotating bit pattern.  The units
+                selected include all structures in the search list for
+                the area from which the program is run.
+
+                The number of  words  written  is  determined  by  the
+                formula:
+
+                     words = (RAN1 * BLKRNG) + BLKBAS
+
+                where RAN1 is a random number in the range 0 to 1 from
+                a     uniform    distribution.     BLKRNG    is    the
+                installation-dependent  range   parameter   for   disk
+                writes.  BLKBAS is the base number of words.
+
+                The default values of 4096 for BLKRNG and 0 for BLKBAS
+                imply  that  a range of 0 to 4095 words are written (0
+                to 32 blocks).
+
+                The number of buffers used is determined by  the  same
+                random number as the number of words written.
+
+                     buffer = (10 * RAN1) + 1
+
+                which implies a range of 1 to 10 buffers.
+DESCRIPTION OF PROGRAMS                                       Page 2-4___________ __ ________
+
+
+      RANSLP -  Do uniform sleep.
+
+                This routine executes a sleep monitor  call  with  the
+                length of sleep determined by the formula:
+
+                     sleep = (RAN2 * SLPRNG) + SLPBAS
+
+                where RAN2 is a random number in the range 0 to 1 from
+                a     uniform    distribution.     SLPRNG    is    the
+                installation-dependent sleep  range.   SLPBAS  is  the
+                base sleep time.
+
+                The default values of 60.0 for SLPRNG and 0 for SLPBAS
+                imply a range of 0 to 59 seconds.
+
+      RANCPU -  Do uniform CPU loop.
+
+                This routine executes a CPU loop of length:
+
+                     length = ((RAN3 * CPURNG) + CPUBAS)/FACTOR
+
+                where RAN3 is a random number in the range 0 to 1 from
+                a     uniform    distribution.     CPURNG    is    the
+                installation-dependent range factor.   CPUBAS  is  the
+                installation-dependent base CPU length and FACTOR is a
+                scaling parameter to determine  the  number  of  SOJGs
+                that can be executed per second on a KA, KI, or KL.
+
+                FACTOR is determined  automatically  by  the  program,
+                depending  on  the  processor  type.  With the default
+                values of 1 second  for  CPURNG  and  0.5  second  for
+                CPUBAS, this implies a range of 0.5 to 1.5 seconds.
+
+      EXPSLP -  Do exponential sleep.
+
+                This routine executes a sleep monitor  call  with  the
+                length of sleep:
+
+                     sleep = MIN ((EXRAN2 * SLPRNX), SLPMAX)
+
+                where EXRAN2 is a random number  in  the  range  0  to
+                infinity   from  an  exponential  probability  density
+                function  with  a  mean   of   1.    SLPRNX   is   the
+                installation-dependent   desired   mean   sleep  time.
+                SLPMAX is the maximum sleep time.
+
+                The default values of 6  seconds  for  SLPRNX  and  60
+                seconds  for  SLPMAX  imply a range of 0 to 60 seconds
+                with a mean of about 6 seconds.
+
+      EXPCPU -  Do exponential CPU loop.
+
+                This routine executes a CPU loop of length:
+
+                     length = MIN ((EXRAN3 * CPURNX), CPUMAX)/FACTOR
+
+                where EXRAN3 is a random number  in  the  range  0  to
+                infinity   from  an  exponential  probability  density
+                function  with  a  mean   of   1.    CPURNX   is   the
+                installation-dependent  desired mean CPU time.  CPUMAX
+                is the maximum CPU time.
+
+                The default values of 0.1 second for  CPURNX  and  1.0
+                second  for CPUMAX imply a range of 0 to 1 second with
+                a mean of about 6 ticks.
+DESCRIPTION OF PROGRAMS                                       Page 2-5___________ __ ________
+
+
+      RANHGH -  Do high- and low-segment size selection.
+
+                This routine changes the high-  and  low-segment  size
+                every time it is entered.
+
+                The new size for high segment is (in pages):
+
+                     high segment =  (RAN0 * HGHRNG) + HGHBAS
+
+                The new size for low segment is (in pages):
+
+                     low segment =  (RAN1 * LOWRNG) + LOWBAS + MINSIZ
+
+                where RAN0 and RAN1 are random numbers in the range  0
+                to 1 from a uniform distribution.  HGHRNG is the range
+                factor  for  high  segment.   HGHBAS   is   the   base
+                high-segment size.  LOWRNG is the range factor for low
+                segment.  LOWBAS is the base low-segment size.  MINSIZ
+                is the program size of the calling program.
+
+                The default values imply a range of high-segment  size
+                from  0  to  32  pages and a range of low-segment size
+                from 0 to 32 pages plus program size.
+
+      RANOPN -  Open device channels.
+
+                This routine opens and closes  a  device  selected  at
+                random  from an installation-dependent list of devices
+                (DEVLST).  The device is selected by the formula:
+
+                     index = RAN1 * DEVNUM
+
+                where RAN1 is a random number in the range 0 to 1 from
+                a  uniform  distribution.   DEVNUM  is  the  number of
+                devices.
+
+Note that the designations of RAN0, RAN1, RAN2,  and  RAN3  imply  the
+existence  of four separate uniform random number generators.  This is
+to allow independent sets of  random  numbers  for  core  size,  sleep
+length,  CPU  interval, number of words written to disk, and so forth,
+for  those  programs  that  do   several   functions.    The   uniform
+distributions  all  select  a  random  number  the first time they are
+called, and the complement of that number the  second  time  they  are
+called.   That  is,  a  random  selection of n on an odd-numbered call
+implies a selection of 1-n on the next call.
+
+This procedure minimizes  the  amount  of  distortion  in  accumulated
+runtime  and  other  resources  due  to  the  random  number selection
+process.  For any two jobs of the same class, the amount of  CPU  loop
+executed  and  the  number of disk reads and writes performed would be
+identical, if the scheduler  treated  them  equally,  except  for  the
+effect  of the last random number selected.  Differences due to random
+number selection  are  not  cumulative.   This  procedure  gives  good
+randomness  to the test with most differences between jobs of the same
+class being attributable to the scheduler.
+
+The exponential distributions are generated by the following formula:
+
+          EXRAN = -LOG(1-RAN)
+
+where RAN is one of the uniform  random  number  generators  described
+above.   This  generates  a  negative  exponential probability density
+function with a mean of 1.  The exponential distributions yield a wide
+range  of  values  with  a large number of small values and a few very
+large values.
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 3
+
+                 HOW TO RUN THE SIMULATION PACKAGE                   ___ __ ___ ___ __________ _______
+
+
+
+These examples demonstrate how to run the LODTST program from  a  TTY.
+Examples with input from disk and execution from an OPSER.ATO file are
+given in Chapter 6.
+
+
+
+3.1  MODULO OPTION     ______ ______
+
+The MODULO option logs in jobs starting at a  base  project-programmer
+number  (PPN),  and increasing modulo a specified number.  This allows
+the  test  designer  to  specify  different  scheduling  classes   for
+different PPNs to test the class scheduler.
+
+To log in all jobs under the same PPN, specify a modulo number of 1 (0
+defaults to 1).
+
+
+     1.  Login a 1,2 job.
+
+     2.  RUN TST:LODTST       ;Specify PPN where LODTST is stored
+
+     3.  ENTER INPUT FILE SPEC (DEFAULT IS TTY)
+         <CR>                 ;<CR> for TTY input
+                              ;FILE SPEC for disk input
+
+     4.  ENTER INTERVAL BETWEEN SYSTATS (MINS)
+         5                    ;For SYSTATS every 5 minutes
+                              ;<CR> for no SYSTATS
+
+     5.  ENTER LENGTH OF TEST (MINS)
+         30                   ;For 30-minute test
+                              ;<CR> for no time limit
+
+     6.  ENTER JOB DATA OPTION (CATEGORY OR MODULO)
+         M                    ;M for MODULO
+
+     7.  ENTER BASE PPN (PROJ,PROG)
+         4,220                ;Base area to LOGIN user jobs
+
+     8.  ENTER MODULO NUMBER (DECIMAL)
+         3                    ;For PPNs 4,220;  4,221;  4,222
+                              ;0 or 1 logs all jobs under 4,220
+HOW TO RUN THE SIMULATION PACKAGE                             Page 3-2___ __ ___ ___ __________ _______
+
+
+     9.  LODIO:  3    ;3 jobs, 1 each under 4,220; 4,221; 4,222
+
+         LODCPU: 6    ;6 jobs, 2 each under 4,220; 4,221; 4,222
+
+         LODAVE: 9    ;9 jobs, 3 each under 4,220; 4,221; 4,222
+
+         LODPQ1: 3    ;3 jobs, 1 each under 4,220; 4,221; 4,222
+
+         LODSLP: 1    ;one job under 4,220
+
+         LODCOR: 2    ;2 jobs, 1 each under 4,221; 4,222
+
+         LODOPN: 3    ;3 jobs, 1 each under 4,220; 4,221; 4,222
+
+    10.  [HH:MM:SS] SIMULATION STARTED.    ;LODTST prints simulation
+                                            start time
+
+    11.  Test is now up and running.  For a list of commands that  may
+         be typed, see Section 3.3.
+
+Note that the MODULO counter is  not  reset  between  job  categories.
+Therefore, LODCOR started at 4,221 because one job was already counted
+for LODSLP.
+
+
+
+3.2  CATEGORY OPTION     ________ ______
+
+The category option allows the test designer to log in any  number  of
+jobs of each category under any number of specific PPNs.
+
+Steps 1 through 5 are the same as steps 1 through 5 above.
+
+     6.  ENTER JOB DATA OPTION (CATEGORY OR MODULO)
+         C                    ;C for category
+
+     7.  ENTER PPN AND NUMBER OF JOBS (PROJ,PROG:NUMBER) ONE PER LINE,
+         EXTRA CARR RET TO GO TO NEXT CATEGORY.
+
+         LODIO:  4,220:1      ;1 job under 4,220
+         LODIO:  4,221:2      ;2 jobs under 4,221
+         LODIO:  <CR>         ;Go to next category
+         LODCPU: 4,221:3      ;3 jobs under 4,221
+         LODCPU: <CR>         ;Go to next category
+         LODAVE: 4,223:4      ;4 jobs under 4,223
+         LODAVE: <CR>         ;Go to next category
+         LODPQ1: 4,221:2      ;2 jobs under 4,221
+         LODPQ1: <CR>         ;Go to next category
+         LODSLP: 4,220:1      ;1 job under 4,220
+         LODSLP: <CR>         ;Go to next category
+         LODCOR: <CR>         ;<CR> for no LODCOR jobs
+         LODOPN: 4,221:2      ;2 jobs under 4,221
+         LODOPN: <CR>         ;Go to next category
+
+     8.  [HH:MM:SS] SIMULATION STARTED.  ;LODTST prints the simulation
+                                          start time
+
+     9.  Test is now up and running.  For a list of commands that  may
+         be typed, see Section 3.3.
+HOW TO RUN THE SIMULATION PACKAGE                             Page 3-3___ __ ___ ___ __________ _______
+
+
+3.3  COMMANDS DURING TEST OPERATION     ________ ______ ____ _________
+
+While LODTST is running the simulation,  it  wakes  at  the  specified
+interval  to  request SYSTATs.  When a SYSTAT is printed, LODTST types
+an asterisk on its controlling terminal and rings  the  bell.   LODTST
+also  monitors  its  controlling  terminal for operator commands.  The
+commands accepted are:
+
+     SYSTAT    ;Print a SYSTAT
+
+     EXIT      ;Terminate the simulation and stop all jobs
+
+     KILL      ;Terminate the simulation and log out all jobs
+
+     /EXIT     ;Change end-of-test flag to EXIT option
+
+     /KILL     ;Change end-of-test flag to KILL option
+
+SYSTATs requested by  the  operator  are  in  addition  to  any  being
+generated at the requested SYSTAT interval.
+
+The EXIT command is used when the operator wants to stop the test  and
+does  not  care  if the jobs are logged out.  The exit procedure stops
+the jobs at a point where they have no disk files open.  This leaves a
+clean disk system.
+
+The KILL command performs all the functions of the EXIT  command.   In
+addition,  it  logs  out  all  simulated  jobs.   This  will cause the
+resources used by the simulated  user  jobs  to  be  recorded  by  the
+accounting   system.    Another  simulation  can  be  started  without
+reloading the monitor.
+
+
+
+3.4  END-OF-TEST PROCEDURE     ___________ _________
+
+At the time specified by the  length-of-test  parameter,  LODTST  will
+execute an end-of-test procedure.  The procedure is either the KILL or
+EXIT command described above, depending on the setting of  end-of-test
+flag as defined in the installation-dependent parameter (KILL).
+
+The operator can dynamically change the  setting  of  the  end-of-test
+flag with the /KILL or /EXIT commands.
+
+The normal exit message is:
+
+     [HH:MM:SS] END OF EXIT  PROCEDURE.   ALL  JOBS  STOPPED.   LODTST
+     EXITING.
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 4
+
+                   EXPLANATION OF ERROR MESSAGES                     ___________ __ _____ ________
+
+
+
+4.1  ERRORS FROM LODTST     ______ ____ ______
+
+All errors from LODTST are logged on its  controlling  TTY.   Standard
+format  recovery implies reentering the parameter if the input is from
+a TTY, and termination of the simulation if the input  is  from  disk.
+The standard line terminators are CRLF or altmode (ESC).
+
+     OPNERR -  ? FAILURE OPENING INPUT DEVICE.
+
+               The  specified  input  device  does  not  exist.    The
+               simulation run is terminated.
+
+     LOKERR -  ? FAILURE ON LOOKUP FOR INPUT FILE.
+
+               The  specified  input  file  does   not   exist.    The
+               simulation run is terminated.
+
+     OPTERR -  ? ILLEGAL FORMAT, TYPE CAT OR MOD.
+
+               The specified job  data  option  must  be  category  or
+               modulo.  Do standard format recovery.
+
+     CATERR -  ? ILLEGAL CATEGORY SPECIFICATION.
+
+               TYPE PROJ,PROG:NUMBER (PROJ,PROG IN  OCTAL,  NUMBER  IN
+               DECIMAL).    PROJ  is  a  project  number,  PROG  is  a
+               programmer number.  PROJ and PROG must contain only the
+               digits  0 through 7 and be separated by a comma.  After
+               PROJ,PROG there must be a colon followed by the  number
+               of  jobs  to  be logged in under the specified PPN.  Do
+               standard format recovery.
+
+     PPNERR -  ? ILLEGAL PROJ,PROG NUMBER FORMAT.
+
+               In the modulo option, the base PPN  must  contain  only
+               the  digits 0 through 7, and the two octal numbers must
+               be separated by a comma.  Do standard format recovery.
+
+     MODERR -  ? ILLEGAL MODULO NUMBER.
+
+               The modulo  number  must  contain  only  the  digits  0
+               through 9.  Do standard format recovery.
+EXPLANATION OF ERROR MESSAGES                                 Page 4-2___________ __ _____ ________
+
+
+     CHKERR -  ? ILLEGAL COMMAND.  COMMANDS ARE:
+
+               SYSTAT, EXIT, KILL, /EXIT, /KILL.
+
+               An  unrecognizable  command  was  typed.   Retype   the
+               command.   Type  SYSTAT  to  get  a  SYSTAT on the line
+               printer.  Type EXIT to stop all jobs, delete all files,
+               and  exit.   Type  KILL to log out all jobs, delete all
+               files, and exit.  Type /EXIT  to  set  the  end-of-test
+               flag  to  EXIT.  Type /KILL to set the end-of-test flag
+               to KILL.
+
+     LOGERR -  ? TIME  LIMIT  EXCEEDED  LOGGING  IN  JOB   UNDER   PPN
+               NNNNN,NNNNN.
+
+               LODTST has issued a LOGIN request over the  controlling
+               pseudo-TTY, but the subjob has not returned status bits
+               of  job-number-assigned  job-logged-in,  TTY-at-monitor
+               level,  and  ready-for-a-command  within  the specified
+               time limit (approximately 60 seconds).
+
+               Possible problems are that this PPN is not  allowed  to
+               log in (not defined in ACCT.SYS), is in a class with no
+               quota, and so forth.
+
+               LODTST assumes the job will complete LOGIN and proceeds
+               to issue the RUN command.  Should this assumption prove
+               to be false, the test will run without this job.
+
+     RUNERR -  ? TIME LIMIT EXCEEDED TRYING TO RUN  JOB  LODXXX  UNDER
+               PPN NNNNN,NNNNN.
+
+               LODTST has issued a RUN command  over  the  pseudo-TTY,
+               but  the  subjob  has  not  returned the status bits of
+               job-number-assigned,   job-logged-in,    at-user-level,
+               not-doing-TTY-output  within  the required interval (60
+               seconds).
+
+               Possible problems are that the job did not  get  logged
+               in  properly  (per LOGERR), or job type LODXXX does not
+               exist.  LODTST assumes that the  job  started  properly
+               and  releases  the  pseudo-TTY.  Should this assumption
+               prove to be false, the test will run without this job.
+
+     STSERR -  ? JOBSTS UUO FAILED.
+
+               The JOBSTS monitor call used to determine if  jobs  are
+               logged  in  and  running has failed.  This should never
+               happen.
+
+               The simulation run is terminated.
+
+     GETSPR -  ? ILLEGAL FILE SPEC.
+
+               The required format is:
+
+               DEVICE:FILENAME.EXTENSION[PROJ,PROG]
+
+               The simulation run is terminated.
+EXPLANATION OF ERROR MESSAGES                                 Page 4-3___________ __ _____ ________
+
+
+     PTYERR -  ? OPEN FAILURE ON PTY.
+
+               The  OPEN  monitor  call  failed  for  the   pseudo-TTY
+               channel.
+
+               Possible problems are that the monitor is not assembled
+               with pseudo-TTYs or none are available.
+
+               The simulation run is terminated.
+
+     FINERR -  ? [HH:MM:SS] EXIT TIME LIMIT REACHED.
+
+               SOME LODTST JOBS MAY STILL BE RUNNING.
+
+               The end-of-test procedure failed to stop all jobs (EXIT
+               option)  or  some  jobs  did not LOGOUT within the time
+               limit (KILL option).  The last job  to  KJOB  sometimes
+               gets  hung  up  in  CONFIRM  dialogue  due  to  a  race
+               condition in KJOB.
+
+               LODTST exits to monitor.
+
+
+
+4.2  ERRORS FROM SIMULATED USER JOBS     ______ ____ _________ ____ ____
+
+The error messages from the  simulated  user  jobs  are  sent  to  the
+terminal associated with device OPR.  The messages are of the format:
+
+     ?  [HH:MM:SS] JOB NNN "ERROR MESSAGE"
+
+where NNN is the job number of the job having  the  error  and  "ERROR
+MESSAGE"  is one of the messages described below.  The current time is
+printed in square brackets.
+
+When an error occurs, the job name is  also  changed  to  contain  the
+error number.  For example, if a LODAVE job got the error indicated by
+EO4, its name would be changed to EO4AVE.
+
+Some errors cause the job to  be  delayed  for  a  specified  interval
+before repeating the function that failed.  The length of the delay is
+an installation-dependent parameter (ERRSLP).
+
+Note that any delayed jobs distort the distribution of CPU time,  disk
+reads and writes, and so forth, in the test results.
+
+     EO1 -           CORE UUO FAILED.
+
+       Explanation - The amount of  core  requested  exceeded  CORMAX.
+                     Either   the  installation-dependent  core  range
+                     parameters are too large or the monitor value  is
+                     too low.
+       Recovery
+       Action -      Delay and try again with different random number.
+
+     EO2 -           DISK INIT FAILURE.
+
+       Explanation - Cannot open disk file to do disk  I/O.   Possible
+                     problem  getting  core  blocks  from monitor core
+                     block pool.
+       Recovery
+       Action        Delay and try again.
+EXPLANATION OF ERROR MESSAGES                                 Page 4-4___________ __ _____ ________
+
+
+     EO3 -           DISK ENTER FAILURE.
+
+       Explanation - Cannot write using this filename.  Possibly  file
+                     already exists and is being written by some other
+                     program under the same PPN, or  cannot  get  core
+                     blocks  from  monitor  core  block  pool.   (Note
+                     LODTST system ensures unique filenames by  making
+                     job number part of filename.)
+       Recovery
+       Action        Delay and try again.
+
+     EO4 -           DISK OUTPUT FAILURE.
+
+       Explanation - Public structure full, cannot  get  monitor  core
+                     blocks, or possibly device hardware failure.
+       Recovery
+       Action -      Delete file and exit from  disk  I/O  subroutine.
+                     Program  will cycle to next function and continue
+                     operation.
+
+     EO5 -           DISK CLOSE FAILURE.
+
+       Explanation - Public structure full, cannot  get  monitor  core
+                     blocks, or possibly hardware failure.
+       Recovery
+       Action -      Delete  file  and  exit  from   I/O   subroutine.
+                     Program will continue operation.
+
+     EO6 -           DISK LOOKUP FAILURE.
+
+       Explanation - Cannot  look  up  file  just  written.   Possibly
+                     cannot  get  core  blocks,  or there are hardware
+                     problems.
+       Recovery
+       Action -      Program will  cycle  to  the  next  function  and
+                     continue operation.
+
+     EO7 -           DISK WRITE AND READ COMPARE FAILURE.
+
+       Explanation - Data read from disk is different  from  what  was
+                     written.  Probably hardware failure.
+       Recovery
+       Action -      Delete file and exit from  disk  I/O  subroutine.
+                     Program continues to operate.
+
+     EO8 -           DISK INPUT FAILURE.
+       Explanation - Possible hardware error on device.
+       Recovery
+       Action -      Delete file and exit from  disk  I/O  subroutine.
+                     Program continues to operate.
+
+     EO9 -           DISK RENAME FAILURE.
+
+       Explanation - Could not delete disk  file.   Possible  hardware
+                     failure.
+       Recovery
+       Action -      Exit from disk I/O subroutine.  Program continues
+                     to operate.
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 5
+
+                 INSTALLATION-DEPENDENT PARAMETERS                   ______________________ __________
+
+
+
+5.1  LODTST PARAMETERS     ______ __________
+
+     AREA -    Contains the PPN where  the  simulated  user  jobs  are
+               stored.  Default value is [5,23] (TST:).
+
+     PRGNAM -  A table containing the  names  of  the  simulated  user
+               jobs.   To  add  a new job type to the system, store an
+               EXE version of the program under  the  PPN  defined  in
+               AREA  and  enter  the job's name as a new entry in this
+               table.  The parameter NUMCLS defines the new length  of
+               the table automatically.
+
+     KILL -    This is an assembly parameter that  is  stored  as  the
+               initial  value  of  the  end-of-test flag.  The default
+               value is zero, which gives the EXIT option.  A  nonzero
+               value gives the KILL option.
+
+     DEBUG -   This is an assembly parameter that defaults to zero.  A
+               nonzero  value  will  include  code  to print any error
+               messages received from the subjob on the pseudo-TTY for
+               debugging purposes.
+
+     SPOOL -   This is an assembly parameter that defaults to zero.  A
+               nonzero  value causes the SYSTATs to be spooled to disk
+               by issuing a SET SPOOL LPT command to the job doing the
+               SYSTATs.  A zero value causes the SYSTATs to be printed
+               immediately on the line printer.
+
+     SYSPRJ -  This is an assembly parameter that defines the  project
+               number  of  the  SYSTAT  job  logged in by LODTST.  The
+               default value is 1.
+
+     SYSPRG -  This  is  an  assembly  parameter  that   defines   the
+               programmer number of the SYSTAT job.  The default value
+               is 2.  Note that both this PPN and the  PPN  of  LODTST
+               must have high-priority queue privileges to ensure that
+               SYSTATs will be printed at accurate intervals.
+INSTALLATION-DEPENDENT PARAMETERS                             Page 5-2______________________ __________
+
+
+5.2  SIMULATED USER JOB PARAMETERS     _________ ____ ___ __________
+
+There are a number of parameters associated with each of the simulated
+user  jobs.   Although  the same parameters exist in several jobs (for
+example, in LODAVE, LODIO, LODCPU), they  are  defined  separately  in
+each  job.   This  is  done  so  that an installation can generate any
+number of job types by changing the parameter ranges and defining  new
+job  names  in  PRGNAM.   The  meaning  of the parameters is explained
+below.
+
+     ERRSLP -  Contains  a  decimal  number  defining  the  number  of
+               seconds  to  sleep  after  an error has occurred before
+               trying the function again.   This  is  the  delay  time
+               indicated  in  the  description  of  error  messages in
+               Chapter 4.  The default value is 10 seconds.
+
+               Used in LODAVE,  LODIO,  LODCPU,  LODSLP,  LODPQ1,  and
+               LODCOR.
+
+     CORBAS -  Contains a floating-point number defining the base core
+               size  in  pages  for  the  routine RANCOR.  The default
+               value is 0.
+
+               Used in LODAVE, LODCPU, LODIO, LODSLP and LODPQ1.
+
+     CORRNG -  Contains a  floating-point  number  defining  the  core
+               range  for  the  routine  RANCOR.  The default value is
+               35.0 pages.
+
+               Used in LODAVE, LODCPU, LODIO, LODSLP, and LODPQ1.
+
+     CORCNT -  Contains  a  decimal  number  defining  how  often  the
+               routine  RANCOR  actually  changes core size.  With the
+               default value of 10, RANCOR selects a new  random  core
+               size every tenth time.
+
+               Used in LODAVE, LODCPU, LODIO, LODSLP and LODPQ1.
+
+     HGHBAS -  Contains a  floating-point  number  defining  the  base
+               high-segment  size for the RANHGH routine.  The default
+               value is 0.0.
+
+               Used in LODCOR only.
+
+     HGHRNG -  Contains a floating-point number defining the range  of
+               high-segment  core  sizes  for the routine RANHGH.  The
+               default value is 32.0.
+
+               Used in LODCOR only.
+
+     LOWBAS -  Contains a  floating-point  number  defining  the  base
+               low-segment size for routine RANHGH.  The default value
+               is 0.0.
+
+               Used in LODCOR only.
+
+     LOWRNG -  Contains a floating-point number defining the range  of
+               low-segment  core  sizes  for  the routine RANHGH.  The
+               default value is 32.0.
+
+               Used in LODCOR only.
+INSTALLATION-DEPENDENT PARAMETERS                             Page 5-3______________________ __________
+
+
+     MINSIZ -  This parameter is set automatically by each program  in
+               the  initialization  routine.   It contains the initial
+               program size used by the RANCOR and RANHGH routines.
+
+               Current program sizes are shown below.
+
+
+                    Program         MINSIZ
+
+
+                    LODIO             2
+
+                    LODCPU            2
+
+                    LODAVE            2
+
+                    LODPQ1            2
+
+                    LODSLP            2
+
+                    LODCOR            2
+
+                    LODOPN            2
+
+
+     BLKBAS -  Contains a  floating-point  number  defining  the  base
+               number  of  disk words to be written in routine RANDSK.
+               The default value is 0.0 word.
+
+               Used in LODIO and LODAVE.
+
+     BLKRNG -  Contains a floating-point number defining the range  of
+               words  written in disk I/O routine RANDSK.  The default
+               value is 4096.0 words.
+
+               Used in LODIO and LODAVE.
+
+     SLPBAS -  Contains a  floating-point  number  defining  the  base
+               sleep  time  for the routine RANSLP.  The default value
+               is 0.0 second.
+
+               Used in LODAVE and LODSLP.
+
+     SLPRNG -  Contains a floating-point number defining the range  of
+               sleep  times for the routine RANSLP.  The default value
+               is 60.0 seconds.
+
+               Used in LODAVE and LODSLP.
+
+     CPUBAS -  Contains a floating-point number defining the base  CPU
+               time loop.  The default value is 0.5 second.
+
+               Used in LODAVE and LODCPU.
+
+     CPURNG -  Contains a floating-point number defining the range  of
+               the CPU time loop.  The default value is 1.0 second.
+
+               Used in LODAVE and LODCPU.
+
+     SLPRNX -  Contains a floating-point number defining  the  desired
+               mean  sleep  time  for  the  exponential  sleep routine
+               EXPSLP.  The default value is 6.0 seconds.
+
+               Used in LODPQ1 only.
+INSTALLATION-DEPENDENT PARAMETERS                             Page 5-4______________________ __________
+
+
+     SLPMAX -  Contains a floating-point number defining  the  maximum
+               sleep  time  for  the exponential sleep routine EXPSLP.
+               The default value is 60.0 seconds.
+
+               Used in LODPQ1 only.
+
+     CPURNX -  Contains a floating-point number defining  the  desired
+               mean  CPU  time for the exponential CPU routine EXPCPU.
+               The default value is 0.1 second.
+
+               Used in LODPQ1 only.
+
+     CPUMAX -  Contains a floating-point number defining  the  maximum
+               CPU  time  loop for the exponential CPU routine EXPCPU.
+               The default value is 1.0 second.
+
+               Used in LODPQ1 only.
+
+     DEVLST -  Contains the list of logical device names used  by  the
+               RANOPN  routine.  New entries may be added by inserting
+               the 6-bit device names into the table.   The  parameter
+               DEVNUM   defines   the   new   length   of   the  table
+               automatically.
+
+     XITMES -  Contains the KJOB command used in the  KILL  option  of
+               the  exit procedure.  It is defined in LODUNV.  It must
+               be of the form:
+
+                    KJOB DSK:DUMMYX.LOG=/switches
+
+               The default switches are /K/Z:0/VD:D
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 6
+
+                            SAMPLE RUNS                              ______ ____
+
+
+
+6.1  SAMPLE RUN 1     ______ ___ _
+
+This sample shows how to run LODTST with input from a disk file.   The
+file  contains the responses to all LODTST dialogue questions.  As the
+responses are read from the file, they are echoed on  the  controlling
+terminal along with the normal prompting messages.
+
+The disk file used in the sample is named WILD.INP.  It contains a set
+of  LODTST parameters that generate a very complex job mix that can be
+used to verify system software reliability whenever a new  monitor  is
+loaded.  The file contents are as follows:
+
+          10                       ;Interval between SYSTATs
+
+          60                       ;Length of test
+
+          M                        ;Job data option
+
+          4,220                    ;Base PPN
+
+          2                        ;MODULO number
+
+          20                       ;20 LODIO jobs
+
+          10                       ;10 LODCPU jobs
+
+          10                       ;10 LODAVE jobs
+
+          10                       ;10 LODPQ1 jobs
+
+          4                        ;4 LODSLP jobs
+
+          8                        ;8 LODCOR jobs
+
+          2                        ;2 LODOPN jobs
+
+The dialogue to start this test is as follows:
+
+     1.  Login a [1,2] job.
+
+     2.  RUN TST:LODTST
+
+     3.  ENTER INPUT FILE SPEC (DEFAULT IS TTY:)
+         WILD.INP                    ;Enter the name of the input file
+
+All further responses are read from the disk file WILD.INP.  The  test
+proceeds automatically from this point.
+SAMPLE RUNS                                                   Page 6-2______ ____
+
+
+6.2  SAMPLE RUN 2     ______ ___ _
+
+This sample shows how to run a simulation test using an OPSER.ATO file
+with  SCDSET  and LODTST reading their parameters from disk files.  In
+the sample, the operator copies the SCDSET input file TEST.SCD to  the
+standard  input  file SCDSET.INP.  This technique makes it possible to
+do multiple runs with the same  job  mix  using  different  scheduling
+parameters.  For each run, the operator copies the desired SCDSET file
+to the standard input file.
+
+The test procedure is:
+
+     1.  LOGIN a [1,2] job.
+
+     2.  .COPY SCDSET.INP=TEST.SCD
+
+     3.  .R OPSER
+         :AUTO TEST.ATO
+
+The simulation test proceeds automatically.
+
+The OPSER.ATO file TEST.ATO contains the following commands:
+
+     :SLOGIN
+     :DEFINE LI=
+     LI-SET HPQ 1
+     LI-R SCDSET
+     LI-INPUT
+     LI-GET SYS: LINES
+     LI-CST
+     LI-DET
+     :SLOGIN
+     :DEFINE M-
+     M-RUN TST:LODTST
+     M-TEST.INP
+
+The LODTST input file TEST.INP contains the following:
+
+          10                       ;Interval between SYSTATs
+
+          30                       ;Length of test
+
+          M                        ;MODULO option
+
+          4,204                    ;Base PPN
+
+          1                        ;All jobs under 4,204
+
+          12                       ;12 LODIO jobs
+
+          12                       ;12 LODCPU jobs
+
+          28                       ;28 LODAVE jobs
+
+          8                        ;8 LODPQ1 jobs
+
+          0                        ;No LODSLP jobs
+
+          0                        ;No LODCOR jobs
+
+          0                        ;No LODOPN jobs
+

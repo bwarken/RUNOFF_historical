@@ -1,0 +1,2918 @@
+.sp 1;.nonum;.lm 8;.ps 50,72
+.pg;.ts 8,16,24,32,40,48,56,64,72,80
+.nm ch 1
+.ch SIMULA FOR DEC SYSTEM 10#############TD, RTS
+.c;SIMULA 67 FOR DEC SYSTEM 10
+.s 2;.c;THE RUN TIME SYSTEM
+.s 2;.c;74-11-13 Lars Enderin
+.nm 1
+.st 741111############################################Lars Enderin
+.pg;III##THE RUN TIME SYSTEM (RTS)
+.br;#####-------------------------
+.s;III.1  RTS DESCRIPTION
+.p 0,2,10;III.1.1##Introduction
+.br;#########------------
+.s;The Run Time System (RTS) is a collection of subroutines designed to support
+an executing SIMULA program.
+The RTS consists of low segment parts loaded on demand with the compiled
+program and high segment parts loaded at run time.
+The debugging subsystem SIMDDT may be loaded at program start, via REENTER
+after a _^C interrupt, or after program exit for a new execution.
+SIMDDT is always loaded on run time errors.
+.p 0,4,15;III.1.2##RTS design goals and principles
+.br;#########-------------------------------
+.s;The RTS is designed to take advantage of the hardware characteristics
+of the KI-10 CPU. The data structures have been designed with a view to
+efficient operation in a paged virtual memory environment. The number
+of storage allocations has been reduced by allocating most subblocks within
+already existing blocks.
+Data referencing locality has been improved by allocation of display vectors
+adjacent to their block instances.
+Calling sequences and data representation have been designed to be efficient.
+The most commonly occurring sequences have been optimized.
+.pg;III.1.4##RTS coding and naming conventions
+.br;#########---------------------------------
+.p 0,2,10;III.1.4.1##Naming conventions in the RTS
+.s;As in the compiler, a fairly rigid naming scheme has been observed to aid in
+deducing the meaning of a name in the system and to simplify consistency
+checks by visual inspection.
+Normally, the first letter signifies the type of quantity as follows:
+.s;Q starts a compile-time constant.
+.s;S or SW signify a switch (Boolean variable) which is a 1-bit or 36-bit field
+in an accumulator or storage cell.
+.s;X stands for an accumulator.
+.s;Y is a global cell or a local cell in a subroutine. Also used for offsets in
+the static low segment area, based on the value in .JBOPS.
+.s;YY in some subroutine specifications is used to signify a formal parameter.
+.s;XX is used in some routines when designating a formal parameter in an ac.
+.s;Z starts a record field designator, defined via the DF macro (see I.6).
+Record names (used in DR macros and prefixed by Q to form a record type code)
+are three letters starting with Z. Record field designators consist of a
+record name suffixed by 2 or 3 letters and/or digits. The first 5 characters of
+a field designator should be unique since symbols are derived from it by
+prefixing special characters (% and $).
+.s;Component names are two letters, e g CP (class and prefixed block handling).
+Subroutine names are formed from component names followed by two and sometimes
+more characters (two preferred). The symbols L1, L2, ... , L10 are preferrably
+used as local labels (available within BEGIN - ENDD or PROC - EPROC),
+otherwise the component name is used as prefix.
+Global symbols (INTERN or ENTRY) always have a dot "." as prefix to avoid
+name clashes with SIMULA procedures.
+OPDEF's have been used in some modules as a convenient means of
+coding procedure calls.
+.p 0,4,6;III.1.4.2##Register conventions
+.s;The accumulators (registers) have been given the basic mnemonics
+X0, X1, ..., X7, X10, ..., X17 (octal numbering). These names are used
+in local contexts only.
+.s;X0
+.br;With very few exceptions,
+X0 is used only internally in the RTS, e g to hold the first word (with the
+flags) of a dynamic record. One exception is the mathematical subroutines,
+which return results in X0 and possibly X1 (=XSAC).
+.s;X1
+.br;X1 is called XSAC and is used for various purposes, e g to pass prototype
+address or the like to a RTS routine. It is used as a parameter register
+chiefly when no extra code has to be executed in the compiler, which
+normally compiles code using XWAC1 etc.
+In other words, XSAC is used when the parameter
+to be passed could not be compiled to some work ac more easily.
+.s;X2
+.br;X2 is called XTAC and is used for example to pass the number of the top ac
+to standard functions.
+.s;X0 through X2 can normally be used in the RTS without being saved and restored
+(except for internal subroutine interface).
+.s;X3
+.br;
+X3 is called XWAC1 and also XRAC. This is the
+first ac allocated by the compiler and also the result ac from thunks,
+procedures and RTS functions, together with XWAC2 (=XRAC1) in some cases.
+New object addresses are also computed to this accumulator.
+.s;X4-X14
+.br;
+X4-X14 (octal) are the rest of the work accumulators, also called
+XWAC2, XWAC3, ..., XWAC7, XWAC10, XWAC11, XWAC12. The upper limit is defined
+by the compile-time constant QNAC which is the number of work ac's.
+.s;X15
+.br;X15 is called XCB and should always point to the nearest (current) block with a
+display vector attached.
+XCB is the root of the run-time data structure. From this all referenceable
+quantities can be found, except for some quantities pointed to by global
+low segment static locations at offsets YCSZAC, YOBJAD, YTXZTV, YSYSIN, YSYSOU, etc.
+.s;X16
+.br;
+X16 is called XIAC,XFP, or XLOW.  XIAC is used to point to some block
+other than XCB when a variable is accessed. The contents of XIAC are regarded
+by the compiler as lost whenever a change of control can occur
+as when calling a procedure, at an explicit or implicit label, when 
+intermediate results may have to be saved, and when calling mathematical
+subroutines. Inside the RTS, the ac can be used as XLOW to point to
+the static area in the low segment. The UNIVERSAL file
+SIMRPA contains a macro LOWADR which loads a specified
+register with this address, and assigns the name XLOW to the register.
+If no parameter is given, the default XLOW=XIAC is used.
+The macro SETLOW(x) assigns the name XLOW to x (default XIAC if no 
+parameter is given), but does not load the register. Should be used when
+it is known which register contains the address.
+The name XFP is used on X16 in connection with FORTRAN subroutines, as
+shown in the previous section. The standard calling sequence in 
+FORTRAN-10 is:
+.nofill
+	MOVEI	XFP,arg
+	PUSHJ	XPDP,routine
+where the argument list has the form:
+	XWD	-number of arguments,0
+arg:	Z	type code,address of first argument
+	Z	type code,address of second argument
+	etc.
+.fill
+.justify
+The result is returned in X0 and X1 if applicable.
+.s;X17
+.br;X17 is only referred to as XPDP and used for all PUSHJ-POPJ calls.
+It refers to the run-time stack whose bottom is at YOBJRT, so named
+because the return address to SIMULA code is placed there when
+calling a RTS procedure.
+.p 0,4,6;III.1.4.3##Coding conventions
+.s;III.1.4.3.1##Preserving registers within the RTS
+.s;Inside the RTS, all work registers can be used
+provided any possibly relevant registers are preserved.
+When some storage allocation routine is called, the calling RTS routine  is
+responsible for preserving the integrity of object pointers which may
+exist in registers temporarily.
+These registers must be saved in locations
+which are known to the garbage collector as possible object references.
+The array YOBJAD in the low segment is provided for that purpose.
+Any unused cells in YOBJAD must be zero when not in use.
+Other global cells known to the garbage collector are used for relocatable
+address esin the SIMULATION module (SU) and in SIMDDT.
+For a temporary text variable, YTXZTV should be used in the same
+fashion. Registers which contain non-relocatable values
+will be saved and restored by the garbage collector.
+.p 0,2,10;III.1.4.3.2##Addressing the low segment
+.s;The low segment is addressed through the right half of .JBOPS. As explained
+above, the macros LOWADR and SETLOW are used to establish the base
+register, which is always called XLOW (renamed by the macros).
+The storage allocating routines in particular always use the
+standard XLOW=XIAC to prevent confusion when calling them from other
+RTS routines.
+The use of global variables is avoided when the
+stack can be used equally well.
+.p 0,2,10;III.1.4.3.3##Saving intermediate results
+.s;The RTS procedures which are of a function nature, i e can be used inside
+an expression, warrant special consideration because of the requirement
+to save intermediate results over the execution of the procedure.
+If the procedure involves storage allocation, an acs (ZAC) object must be
+created for the intermediate results. This is done in either of two ways.
+.s;1)	The entry point .CSSA is called from compiled code in the following
+way:
+.nofill
+	PUSHJ	XPDP,CSSA	;via transfer vector
+	XWD	N,ADMAP
+.fill
+Only the accumulators below the top ac (as given by YTAC) are saved.
+This method cannot be used when the top accumulators are important.
+_.CSSA creates a ZAC object, saves the intermediate results and
+sets YCSZAC(XLOW) to point to the acs object.
+YCSZAC is then used by a run time setup routine (.CSSN, .CPNE) to
+set ZDRZAC of the display vector. YCSZAC is cleared after use.
+.s;2)	The "XWD N,ADMAP" word is passed as an inline parameter to some
+RTS routines which may allocate storage directly or indirectly (e g
+through the actions of a thunk). It is the responsibility of 
+such a routine to preserve any quantities which will not be saved
+in the acs object, in the special locations reserved for object addresses or
+text variables, then to call .CSSA. (secondary entry point to .CSSA) with
+a copy of the inline parameter in XSAC, provided it is non-zero. A zero
+inline parameter signifies that no intermediate results exist.
+.br;When returning from an object generator, procedure, thunk evaluation
+or some run time function such as .TXCY, YCSZAC is recovered and
+_.CSRA is entered if YCSZAC is non-zero. The result of the
+function is in XRAC _& XRAC+1 and is placed in the proper position on the
+stack by .CSRA before  restoring the intermediate quantities.
+The result is thus always placed in the top accumulators.
+.ts 1,9,17,25,33,41,49,57,65
+.st 741111####780302######6###########################Lars Enderin
+.pg;.lm 9;.i -8;III.1.5#RTS storage allocation
+.br;----------------------
+.p -8,2,10;II.1.5.1#Types of records allocated by the RTS
+.s;Several types of dynamic blocks are allocated by the RTS in response
+to the expressed needs of a SIMULA program. The different block types
+are:
+.nf;.s;
+Record  Function                Allocated by
+name
+ZBI     block instance          SAAB (via CSSB)
+        (unreduced subblock)
+ZBP     procedure block         SADB (via CSSN or CSSW
+                                      or CSSW0)
+ZCL     class object            SADB (via CPNE)
+ZPB     prefixed block          SADB (via CPSP)
+ZTE     text record             SAAR (via TXBL, TXCY, IOIT)
+ZTT     temporary text variable SAAR (via TXDA)
+ZAR     array record            SAAR (via CSNA or CSCA)
+ZAC     accumulator stack rec.  CSSA
+ZER     eventnotice record      SAAR (via SANE)
+ZDR     display record          SADB (via CSSN, CSSW, CSSW0,
+                                      CPNE, CPSP)
+ZYS     "system" record         SAAR
+ZXB     extended lookup block   SAAR (via IOCF)
+.f;.p 0,1,1;The block layouts are documented in TD I.5 and LH2 appendix
+B.
+.p -8,2,10;III.1.5.2#Some notes on the various block types
+.s;The ZDNTYP field in the first word of all these blocks shows the
+block type. The numeric values of block type codes are determined
+by an expansion of the TYPZDN macro in SIMMCR.MAC (III.5).
+The symbolic names are formed from the record names by prefixing
+the letter Q, e.g_. QZCL is the assembly constant for the type code
+of a class object record.
+.p -8,2,10;III.1.5.2.1#Subblocks (ZBI)
+.s;ZBI (unreduced subblock instance) is the simplest type of independent
+program block. The block types ZBP, ZCL and ZPB all contain a ZBI
+part. A ZBI block may contain several reduced subblocks corresponding
+to Algol blocks at inner block levels.
+.br;The ZBIBNM field in the block instance indicates the innermost
+currently active reduced subblock.
+The value in ZBIBNM is used by the garbage collector to find the
+correct block map(s) (see I.5) and by SIMDDT to find the correct symbol
+table segment.
+.br;Unreduced subblocks are only allocated in the following cases:
+.br;* A subblock immediately enclosed by a class instance. This saves
+space for detached class objects by allowing the subblocks to be garbage
+collected.
+.br;* The outermost block in a connection statement.
+.br;In all other cases, subblocks are reduced into the nearest enclosing
+instance of a procedure, prefixed block or unreduced subblock.
+Reduction of subblocks saves storage allocations, reduces the size
+of display vectors (since several subblocks can be addressed from
+the same base address) an speeds up execution. In return, some run
+time procedures become more complicated, e.g_. CSGO.
+See III.1.6.
+.p -8,2,8;III.1.5.2.2#Procedure blocks (ZBP)
+.s;Procedure subblocks (ZBP) are set up by calls to CSSN, CSSW or
+CSSW0. They have an attached display vector (ZDR). SADB allocates
+both ZDR and ZBP at the same time as one contiguous storage block.
+.br;SADB also fills in those fields which are common to the block types
+handled (ZDR + ZBP, ZCL or ZPB), e.g_. the reactivation point
+(ZDRZBI,ZDRARE).
+.p -8,2,10;III.1.5.2.3#Class objects (ZCL), prefixed blocks (ZPB)
+.s;Class objects (ZCL) and prefixed blocks (ZPB) are allocated in
+the same fashion as procedure blocks by calls to CPNE or CPSP, which
+call SADB.
+.p -8,2,5;III.1.5.2.4#Text records (ZTE)
+.s;Text records (ZTE) are allocated by SAAR. They contain
+the ASCII representation of the text contents.
+.p -8,2,8;III.1.5.2.5#Temporary text variables (ZTT)
+.s;ZTT records are created in connection with parameter handling.
+A ZTT record contains a text variable (ZTV instance) which is used
+as stand in for a text expression in certain cases. See parameter
+handling.
+.p -8,2,10;III.1.5.2.6#Array records (ZAR)
+.s;ZAR records (arrays) are created by array declarations or when
+passing array parameters by value. CSNA is used to create the first
+array in an array segment. CSCA is used to create the other arrays
+in the segment by copying and also when passing an array parameter
+by value.
+.p 0,0,8;Before the array record is allocated in CSNA, its size must
+be computed from the subscript bounds. The subscript bounds are in
+ac's (possibly also in pseudo ac's) and are saved in a ZAC record
+during evaluation. Temporarily, the array thus requires its own space
+plus that needed by the ZAC record (4 + 2n words, where n is number
+of subscripts).
+.p -8,2,10;III.1.5.2.7#Accumulator stacks (ZAC)
+.s;ZAC records (accumulator stacks) are created in situations where
+intermediate results are in ac's and possibly in pseudo ac's, and
+the garbage collector may be called because of storage allocation.
+.br;Since space is always reserved at the top of the storage pool
+for a ZAC record of maximal size, CSSA can create the record and copy
+the ac values into it without first checking the storage limits. If
+sufficient space for another ZAC is not left then, the garbage collector
+is called to provide more space.
+Relocation information for the saved values is provided in the accumulator
+map pointed to by the ZACZAM field of the ZAC. The ac map is a bit
+vector where a one in bit position n-1 signifies that saved result
+n (XWACn) contains an object address in its right half, e.g_. a REF
+value, the first word of a TEXT variable, an array address, a procedure
+dynamic address, etc.
+.br;If pseudo ac's are used, relocation bits are found starting with
+bit 18 of the map word.
+.br;The address of the ZAC object is placed by CSSA in YCSZAC(XLOW)
+whence it may be copied to another location (e.g_. ZDRZAC of a display
+vector). YCSZAC(XLOW) will be cleared when it is no longer needed.
+ZAC records may be created when the following RTS routines are called:
+.br;CSSA (before a call to CSSN or CPNE), CSSW, PHFA, PHFV, PHFM,
+PHFT, TXBL, TXCY, TXDA, IOIT, CSNA.
+.br;The other procedures call CSSA at its entry point _.CSSA_. .
+.br;Note that the current "top" ac's are NOT saved in the ZAC object.
+Instead, they are saved by the invoked RTS routine in global locations
+provided for that purpose, if pointers are involved,
+or on the RTS stack for quantities which are invariant under
+garbage collection.
+.p -8,2,10;III.1.5.2.8#Display records (ZDR)
+.s;ZDR (display) records exist for procedures, non-terminated class
+objects and for prefixed blocks (including the main program block).
+For classes with local classes as attributes, the display record is
+kept even when terminated because it may be needed to establish the
+environment of a procedure attribute of a local class.
+.p -8,2,6;III.1.5.2.8.1#Static display
+.s;The ZDR record contains the traditional static display known from
+Algol implementations. Instead of one central display vector, we have
+here one display for each active block of a type described above.
+This means that several pieces of information are duplicated in the
+system. Because most subblocks are reduced, however, quite few display
+levels are usually needed, and displays for terminated class object
+are usually deallocated. Since the display is adjacent to the block
+and addressed via the same ac (usually XCB, the current block pointer),
+one instruction usually suffices to obtain the address of any block
+in the static environment.
+.p -8,2,6;III.1.5.2.8.2#Dynamic link
+.s;In addition to the display, ZDR also contains the dynamic link
+or reactivation point (ZDRZBI,#ZDRARE). For a procedure or attached
+class instance, the reactivation point is (address of calling block
+instance, return address). For a detached class instance, ZDRZBI normally
+points to its own block, and ZDRARE points to the reactivation point
+within its code (program point after call on DETACH or RESUME or after a
+ scheduling
+statement in SIMULATION). See III.1.6.3.5 Quasi-parallel Sequencing.
+.p -8,2,6;III.1.5.2.8.3#FOR loop returns, thunk save areas, ZAC pointer
+.s;Return addresses for FOR loops are also contained in the ZDR record,
+as well as thunk save areas (see parameter handling), and the address
+of a ZAC record if one was created just before the ZDR record was
+created. The existence of a ZAC record for the attached block is flagged
+by a bit in that block instance to prevent execution of unnecessary
+instructions if a ZAC record does not exist. This is relevant because
+the ZDRZAC field is accessed from the front end of the ZDR, and the
+front end address has to be calculated from the block address and
+prototype information, whereas the other information in the ZDR record
+is accessed conveniently via negative offsets from the block address.
+.p -8,2,6;III.1.5.2.9#Eventnotice record (ZER)
+.s;ZER (eventnotice) records are used in SIMULATION programs. Each
+SIMULATION block has one or more ZER records allocated, chained via
+the ZSUZER field in the SIMULATION block and the ZERZER field in the
+ZER record. A ZER record contains a number of event notices (ZEV).
+.p -8,2,6;III.1.5.2.10#Eventnotices (ZEV)
+.s;Each ZER record contains several ZEV records (eventnotices), of
+which some are members of the sequencing set (SQS).
+The free ZEV records form a chain via their ZEVZEV fields and the
+first free record is found via the ZERZEV field in the ZER object.
+For garbage collection purposes, the ZEVZER field of each ZEV gives
+the address of the ZER record of which the ZEV is a part. The ZEV
+also contains links to other ZEV instances in the SQS, a pointer to
+the associated process (ZEVZPS) and the scheduled simulated time for
+the next active phase of that process. The process has a pointer to
+its associated ZEV record (ZPSZEV).
+.p -8,2,8;III.1.5.2.11#ZYS records
+.s;The ZYS record type is used for various blocks "behind the scenes",
+i.e_. not directly related to any SIMULA concept. A ZYS block may
+only contain information invariant under garbage collection, so that
+it can be moved freely without relocation of internal information.
+ZYS blocks are used e.g_. for sub-file directories (SFD), and SIMDDT
+is marked as a ZYS record for garbage collection purposes.
+.p -8,2,6;III.1.5.2.12#Extended lookup/enter block (ZXB)
+.s;ZXB records are used for extended lookup/enter blocks in the SIMULA
+I/O subsystem. A ZXB record may contain a pointer to a sub-file directory
+and is thus not invariant under garbage collection.
+.pg;.p -8,0,10;III.1.5.3#Garbage collector (GC)
+.s;The garbage collector (GC) can be called for three reasons.
+.lm 12;.p -3,1,3;1.#The storage pool is exhausted, a new core request cannot be
+honored within the allocated core (top location given by YSALIM).
+.p -3,1,3;2.#New buffers are to be allocated. The whole pool must be moved
+upwards, leaving free space at the bottom.
+.p -3,1,3;3.#SIMDDT calls the garbage collector when executing the VARIABLES
+command in order to remove garbage data before dumping the pool.
+.lm 9;.p 0,1,5;In the first case ac 0 (X0) contains the number of
+words required above the limit given by YSALIM(XLOW). In the second
+case, YSAREL(XLOW) contains the number of words needed at the bottom
+of the pool, and in the third case X0 and YSAREL are both zero, thus
+no more core is needed.
+.p 0,1,5;The action taken when GC is called (entry .SAGC in SA.MAC)
+depends on the allocation strategy chosen when assembling the RTS.
+If the assembly constant QSASTE is non-zero, the pool is allocated
+in steps (i.e_. the pool is expanded by one or more core requests
+between garbage collections rather than collecting garbage each time).
+If a new core chunk (step) of a previously calculated size can be allocated
+ without
+exceeding the garbage collection limit YSAL(XLOW) calculated in an
+earlier execution stage, the step is taken, otherwise a complete garbage
+collection is performed. If X0 was zero on entry, however, a complete
+garbage collection is always performed (cases 2 and 3 above).
+.p 0,1,10;If QSASTE is zero, the whole pool given by the value in
+YSAL(XLOW) is allocated initially and after each garbage collection,
+and a call to SAGC will always result in a complete garbage collection
+(i.e_. the limits YSALIM and YSAL coincide). This will probably be
+the best strategy for KA10 installations where CORE requests are fairly
+expensive. QSASTE is defined in SIMMAC.MAC and set to 1 as default.
+A change of the QSASTE value only affects the SA.MAC module which
+must be reassembled after assembling SIMMAC.MAC.
+.p 0,1,10;Another algorithm has been added to take care of big programs
+which may run out of real core memory and start to use virtual memory.
+After calculating the optimal YSAL value, check to see if the job
+would go virtual. In that case, modify the estimated limit to a value
+which avoids excessive paging overhead. This algorithm is used only
+when virtual memory is available and it is currently not well tested,
+but it has reduced execution time significantly for a couple of programs.
+.p 0,2,5;Garbage collector phases
+.s;The garbage collector works in four phases.
+Figure III.1.5.3 shows the interaction of GC components (subroutines
+and coroutines).
+.pg;Figure III.1.5.3 Subroutine and coroutine linkage in the
+garbage collector.
+.nf;.s;.lt 43;
++------+    +------+    +------+    +------+
+!.SAGC1!--->!PHASE1!--->!SAGCGP!<-->!SAGCNP!
++------+    +------+    +------+    +---:--+
+                            ! ^         V
+                            ! !     +------+
+                            ! +-----!SAGCCH!
+            +------+        !       +------+
+            !SAGCDR!        V
+            +------+<-->+------+    +------+
+                        !SAGCSP!<-->!SAGCNP!
+            +------+<-->+------+    +--:---+
+            !SAGCFP!       ^  ^        V
+            +------+       !  !     +------+
+                           V  +-----!SAGCCH!
+                        +------+    +------+
+    + ------------------!SACGN1!
+    !                   +------+
+    V
++------+    +------+    +------+    +------+
+!PHASE2!--->!PHASE3!--->!SAGCGP!<-->!SAGCNP!
++------+    +------+    +------+    +---:--+
+                            ! ^         V
+                            ! !     +------+
+                            ! +-----!SAGCUP!
+            +------+        !       +------+
+            !SAGCDR!        V
+            +------+<-->+------+    +------+
+                        !SAGCSP!<-->!SAGCNP!
+            +------+<-->+------+    +--:---+
+            !SAGCFP!       ^  ^        V
+            +------+       !  !     +------+
+                           V  +-----!SAGCUP!
+                        +------+    +------+
+    + ------------------!SACGN3!
+    V                   +------+
+ +------+   +------+
+ !PHASE4!<->!.SANP !
+ +---:--+   +------+
+     V
+ +------+
+ !RETURN!
+ +------+
+.el;.f;.pg;.i-8;III.1.5.3.1#Phase 1
+.s;The first action is to find all referenceable records in the pool.
+The right half of the first word of all records in the pool is reserved
+as GC working space (ZDNLNK field). During phase 1 this field is used
+to chain all referenced records. The chain starts with the outermost
+block instance, which can be found provided XCB points to a record
+with an attached display record. The outermost block instance is part
+of generated code for the main program and is thus not placed in the
+dynamic storage pool. Usually, though, the outermost block contains
+pointers into the dynamic pool which may have to be updated during
+garbage collection. If no display record is attached to the XCB record,
+the chain starts with the XCB record itself. All global pointers in
+the static area (defined in SIMRPA, macro STATIC) which may contain
+pointers into the pool are checked, and each record found via these
+pointers is attached to the chain. Since a dynamic record in the pool
+may contain other pointers, each record in the chain must be searched
+for pointers. Phase 1 is completed when the last record of the chain
+is checked without finding any new pointer.
+.p -8,2,6;III.1.5.3.2#Phase 2
+.s;At this stage there are two kinds of records in the pool:
+.br;* Referenced records with a link address in ZDNLNK.
+.br;* Unreferenced records with ZDNLNK = 0.
+.br;New record addresses can now be computed for all referenced records,
+assuming that the records should be moved towards the bottom of the
+pool in the same order by increasing addresses.
+If YSAREL(XLOW) is non-zero, its value is added to the old bottom
+address. Then the whole pool is scanned, placing the new address of
+each referenced record in its ZDNLNK field. Unreferenced neighbours
+are lumped together to look like a single unreferenced record in the
+following phases.
+.p 0,0,5;When all referenced records have been assigned new addresses,
+the new value of the first free location (the new YSATOP value) can
+be determined. This plus the amount of core requested when
+calling GC gives the minimal amount of core required for continued
+execution of the SIMULA program.
+If not enough core was reclaimed by the GC, a CORE UUO is executed
+for the required core size. If that fails, execution terminates with
+an error message.
+.p -8,2,6;III.1.5.3.3#Phase 3
+.s;All pointers that were checked during phase 1 must again be checked.
+This time any pointer into the pool will be updated to point at the
+updated location of the record (given by its ZDNLNK field).
+The same routines are used as in phase 1, but the records are not
+treated in the same order. In phase 3, referenced records are treated
+in the order  in which they appear in the pool, starting at the bottom.
+Instead of calling SAGCCH for each record, SAGCUP is called to perform
+the updating of addresses. See figure III.1.5.3.
+.br;Some dynamic records contain internal pointers. These are relocated
+as soon as the next record in the pool is found by the SAGCN3 routine.
+Eventnotice pointers are also treated here. They are found in SIMULATION
+and PROCESS block instances and in eventnotice records.
+.br;At this stage, however, ZEVZER and ZERZER pointers cannot be updated
+since they are used to define the relocation offset for eventnotice
+pointers not yet found.
+.p -8,2,6;III.1.5.3.4#Phase 4
+.s;Now the ZERZER chain and all ZEVZER pointers can be updated. Each
+referenced record in the pool should now be moved to its new location
+given in the ZDNLNK field. A complication occurs if the bottom of
+the pool should be moved upwards. For some records moved towards
+a higher address, the old and new area may overlap, prohibiting the
+use of a BLT instruction. In that case, the record is moved word by
+word starting at the high end, and the records must be moved in reverse
+order. This is simplified by first making a reverse chain of records via
+the ZDNLNK fields.
+After all records have been moved to new locations, the reclaimed
+core is cleared to zeros.
+.p -8,2,8;III.1.5.3.5#Determine and allocate new storage pool area
+.s;After phase 4, a new garbage collection limit and a new allocation
+step size if applicable, are calculated. The algorithms used in the
+calculations are given below.
+.br;Finally, a CORE request is made if necessary. The maximal available
+amount is used if the request is excessive.
+.p -8,2,6;III.1.5.3.6#Core size algorithm
+.s;The core size algorithm is designed to minimize running costs for
+the SIMULA program assuming an accounting formula of the following
+form:
+.s;####Cost  = G * (L + A) * time
+.s;where L is the storage pool size, G is a constant, and A is explained
+below.
+.br;It is further assumed that the time required for a garbage collection
+is proportional to the amount of active memory. The proportionality
+factor B is approximated with a divided difference over the last garbage
+collection. It is also assumed that the allocation rate R is approximated
+by a divided difference from the end of the last garbage collection
+to the start of the current garbage collection. In the KI10 production
+system core is released after a garbage collection and reclaimed when
+needed in constant steps, each step an integral number of 512-word
+pages (see next section).
+.p 0,1,3;With the current accounting algorithm, A can be approximated
+by
+.p 0,1,6;.nf;
+#           5450         Q-La
+#   A =  --------- + 5 + ----  pages,
+#        (La+Q+10)        2
+.f;.p 0,1,6;where Q is the size of high segment and code and data outside
+the storage pool, and La is the average size of the storage pool or
+(F+L)/2, where F is the size of active memory and L is the previous storage
+pool limit. The following figure shows how A was computed:
+.nf;.p 0,1,30;A = dA/kA.
+.s;
+Cost/second
+.s 2;
+
+                _^
+                !
+                !                                  .
+                !                            +  .
+                !                          + .
+                !                        +.:
+                !                   :  +   : Slope of tangent =
+                !   Accounting      +      :    kA = G
+                !   algorithm   +:  :      :
+                !     ! :   + . :   :      :
+                !     v +  .    :   :      :
+                !  +    :---    :   :      :
+             +  !    .  :  !    :   :      :
+      +         ! .     :  !    :   :      :
+               .!       :  !    :   :      :
+            .   !       : dA    :   :      :
+         .      !       :  !    :   :      :
+      .         !       :  !    :   :      :
+   .            !       :  !    :   :      :
+ ---------------+-------+-------+---+------+-----> Allocation
+                :.......:.......:   :      :
+                    Q   :   F       :      :
+                        :...........:      :
+                        :     La           :
+                        :..................:
+                                 L
+.f;.p 0,1,5;The optimal storage pool limit minimises the sum of the
+cost to execute between garbage collections and the cost to execute
+the garbage collections. Assuming stationary program dynamics
+(constant allocation rate R, constant active memory size F, constant
+garbage collection time per word B and infinite execution time) the
+new optimal storage pool limit is:
+.tp 4;.s;.lt 3
+                                  A
+    L = F  * (1 + sqrt[2*B*R*(1 + -)])                    (1)
+                                  F
+.el;.s;The expected time between garbage collections is (L-F)/R,
+the average store size is (L+F)/2, which yields the cost between garbage
+collections:
+.tp 4;.s;.lt 3
+    L-F    L+F
+    --- * (--- + A)                                       (2)
+     R      2
+.el;.S;The expected time for garbage collection is F*B, and the cost is
+.nf;.s;
+####F*B*(L+A)                                             (3)
+.f;.s;The cost rate per effective cpu second is thus
+((2)+(3))/((L-F)/R), and minimisation with respect to L gives (1).
+.p -8,2,10;III.1.5.3.7#Step size algorithm
+.s;Assume that the accounting algorithm can be written
+.s;####COST = const * [A+W*(M+U)*M]*time
+.s;where M is accounted memory.
+.p 0,1,5;Assuming approximately linear memory size dependency for
+this execution phase we have
+.s;####COST = const * [A+(B*M+C)]*time
+.p 0,1,6;Assuming average time for a CORE UUO is K, allocation rate
+is R and that core is expanded in the interval (C0, C1), we can derive
+an approximation for the optimal step size:
+.tp 4;.s;.lt 3
+                      A+C
+    S = sqrt(K*R*[2 * --- + C0 + C1])
+                       B
+.el;.nf;.p 0,1,6;Define m = W*(M+U)*M
+We then have
+.tp 4;.s;.lt 3
+    dm
+    -- = 2*W*M+W*U
+    dM
+.el;.s;and the linearisation yields
+.s;####m = W*(2*Ma+U)*M-W*Ma_^2
+.s;where Ma is the average memory size.
+.s;Thus B = W*(2*Ma+U)
+and  C = -W*Ma_^2
+.s;Define X = 2*Ma = C0+C1
+.p 0,1,3;Thus B = W*(X+U)
+     C = -0.25*W*X_^2
+.s;and the optimal step:
+.p 0,1,5;.lt 3
+                  2*A-0.5*W*X^2
+    S = sqrt(K*R*[------------- + X])
+                     W*(X+U)
+.el;.s;The bracketed expression can be expressed as:
+.p 0,1,7;.lt 5
+    2*A   X^2       2*A   X^2
+    --- - ---       --- - --- + X^2 + X*U
+     W     2         W     2
+    --------- + X = --------------------- =
+       X+U                   X+U
+.el;.p 0,1,7;.lt 5
+      X^2         2*A   2*A   U^2
+      --- + X*U + ---   --- - ---
+       2           W     W     2    X+U
+    = --------------- = --------- + --- =
+           X+U             X+U       2
+.el;.p 0,1,7;.lt 5
+         4*A
+         --- - U^2
+      1   W
+    = - [--------- + X+U]
+      2     X+U
+.el;.p 0,1,6;.lt 5
+The present values at our installation are
+
+    U = 20 [pages]
+    A = 1.1 [1/sec]
+    W = 0.0001 [1/(sec*pages^2)]
+.el;.p 0,1,10;Thus
+.p 0,0,5;.lt 3
+             K*R    44000 - 400
+    S = sqrt(--- * [----------- + X+20])  [pages]
+              2        X+20
+.el;.p 0,1,8;Expressed in words and milliseconds and assuming K = 4 ms
+we will get
+.p 0,0,5;.lt 3
+                  1.143*10^10
+    S = sqrt(2*R*[----------- + X+10240])  [words]
+                    X+10240
+.el;.p 0,1,7;.lt 6
+where
+    R = allocation rate in words/ms
+                   4*A
+    1.143*10^10 = [--- - U^2]*512^2  [words*words]
+                    W
+    10240 = U * 512  [words]
+.el;.f;
+.p -8,2,15;III.1.5.3.8#Algorithm for virtual memory
+.s;The algorithms described above are not suitable when the
+job goes virtual, i.e_. when the available real core memory
+is not sufficient for the job to run. If the user has virtual
+memory privileges, the job will then start paging. In this
+case, the assumptions on which the above algorithms are based
+will not be valid. Essentially, use of virtual memory
+should be avoided.
+An alternative allocation algorithm has been constructed for the case
+where virtual memory is used. The assumptions on which the algorithm
+is based may not be quite valid, but significant cost improvements
+have been obtained for programs using much virtual core.
+.p 0,1,5;-  At start of GC, save number of niw faults in YSANWA
+and number of niw faults  since  last  GC  in  YSANWB.
+GETTAB  [%VMSPF] used. Cumulative count of niw faults
+updated in left half of YSANWC.
+This should be job-related data, but only global system counts are
+available in this way, which means that other jobs executing at the
+same time may add to the counts, causing more restrictive use of memory
+than necessary.
+.p 0,1,5;-  Modification of core limit if CORE fails in SANP1:
+If  first CORE fails, check if job is going
+virtual, and if it does, subtract space (1K) for PFH.
+GETTAB [-1,,.GTCVL] used.
+.p 0,0,3;- Determination of new allocation limit for
+a job that runs in virtual core:
+.br;In SANP, if the page fault handler is in core,  determine  number  of  niw
+faults  between last two GC:s (from YSANWB) and change
+YSAL by 2K*SIGN(tgc-tswap*(nb+2*ng). Here
+.br;nb	niw faults before last GC;
+.br;ng	niw faults during last GC;
+.br;tswap	time  (ms  cpu)  accounted  for  a  page swap
+(currently = 20.);
+.br;tgc	time spent in this GC.
+.br;However, if YSAL becomes less than  minimal  quantity
+needed, the latter is passed to SANP1.
+The pool is not allowed to exceed the low segment limit (128K).
+.p 0,0,3;- If job is not virtual, but the  new  estimated
+optimal YSAL value will make it virtual, make the new
+YSAL  value  so  that  the  job  just  goes   virtual:
+.br;(YSAL=min(physlim+qpolmi,virtlim)-YSAHSZ-sizeofPFH).
+.br;GETTAB[-1,,.GTCVL]  is  used  to  find  out virtlim.
+.pg;.c;[This page intentionally left blank]
+.pg;.c;[This page intentionally left blank]
+.pg;.c;[This page intentionally left blank]
+.pg;III.1.6##Execution control
+.br;#########-----------------
+.p 0,2,10;The execution of a SIMULA program is controlled on several levels -
+by the user through monitor commands, by the RTS, and by compiled code.
+.s 2;1) Monitor commands - START (CSTART), REENTER, CONTINUE (CCONTINUE), _^C.
+.s;2) Overall program control by the RTS:
+.br;High segments are swapped by OCSW.
+.br;A program is set up and initialized by OCSP, OCIN, OCEI.
+.br;Errors are handled by OCUU and SIMDDT, traps by OCTR and OCUU.
+.br;SIMDDT interface is handled by OCUU, .OCRE0, .OCRE, .OCLD, .OCRD.
+.br;OCEP terminates program execution.
+High segments are swapped by OCSW.
+.s;3) Procedure calls are handled by CSSN, CSSW, CSEN, CSEP, CSES.
+Class objects are created and controlled by CPNE, CSEN, CPCD, CPCI, CPE0.
+Subblocks are created by CSSB and terminated by CSEU.
+Reduced subblocks are initialized by CSER.
+Prefixed blocks are handled by CPSP, CSEN, CPPD, CPE0, CPCI.
+Coroutine sequencing and quasi-parallel systems are handled by CPDT (detach),
+CPCA (call), CPRS (resume).
+SWITCHes and GOTO statements are handled by CSSC, CSES, CSGO.
+Evaluation of a name parameter with a thunk may cause control to go anywhere.
+See III.5 (parameter handling).
+SIMULATION is handled by special statements
+and procedures - see III.1.10.
+.s;4) Conditional expressions and statements, WHILE loops, FOR
+loops and simple GOTO statements are handled entirely by compiled code.
+.p 0,3,6;III.1.6.1##Monitor commands for SIMULA program control
+.s;III.1.6.1.1##START (CSTART)
+.skip !
+A START or CSTART command causes a SIMULA program in core to start execution
+at the entry point given by the right half of .JBSA.
+LINK-10 sets the start address to .MAIN if a LOAD or EXECUTE command was issued.
+If COMPIL recognizes the program as a SIMULA program or the /SIMULA switch
+is given, a DEBUG command causes LINK-10 to set the start address to .OCRE0,
+otherwise DDT will usually be loaded and the start address will be .MAIN.
+To understand what happens at the start of a SIMULA program it is necessary
+to know the general layout of a SIMULA main program, as shown below:
+.s;The first 4 or more words are copied from the
+source file LOOKUP information.
+The interesting information is filename.ext, date and time
+of file creation and last access, and the access path:
+.lm 16
+[proj,prog] (zero if no path given) or [proj,prog,sfd1,...]
+if SFD files are part of the directory path.
+See Monitor Calls manual for lookup block and SFD information.
+.s;.nofill
+[source file lookup info]
+[text constants and any runswitches block]
+[Display (ZDR) for main program block]
+.i -8;mainb:##[Block instance (ZPB) for main program]
+[constants]
+.i -8;_.MAIN:##JRST	1,.+1	;Normal entry point
+TDZA	X1,X1	;No SIMDDT address
+JRST	1,.+1	;Enter here from .OCRE0
+MOVEI	XCB,mainb
+JSP	X16,.OCSP
+JFCL	runswitches address ;may be zero
+[compiled SIMULA statements]
+PUSHJ	XPDP,OCEP
+[prototypes, line number tables, symbol tables]
+.s;.lm 8
+.fill
+If the program is started at .MAIN, X1 is set to zero to indicate
+that SIMDDT is not in core. The program will then be started without SIMDDT,
+unless this is a restart after program exit and SIMDDT was loaded
+at the start of some previous execution. In that case, the address of
+SIMDDT has been placed in YOCDDT, a global location in OCSP. See REENTER
+command (III.1.6.1.2).
+OCSP loads the initial high segment after allocating core for the static
+data area and saving the ac's. Control is then transferred to OCIN for
+the bulk of the initialization - setting up the RTS stack,
+allocating standard files SYSIN and SYSOUT and buffers, reading
+any specification file, etc.
+OCIN finishes by transferring control to OCEI in the OCEP module. If the
+two high segments version of SIMRTS is used, invocation of OCEI from OCIN
+leads to a high segment swap via the transfer vector and .OCSW.
+When the program starts, a RESET UUO stops any active I/O and the buffer
+space is released by moving .JBFF back to the value in .JBSA(LH).
+Any active SIMDDT breakpoints are removed by OCSPDR.
+.s;CSTART is identical to START except that the terminal remains in monitor mode.
+The program will probably wait for input or output on the terminal unless
+continued via _^C-CONTINUE.
+.p 0,5,6;III.1.6.1.2##REENTER command
+.s;The REENTER command has different effects depending on the current
+state of execution in the SIMULA program. The current address in .JBREN
+governs the actions.
+.p 0,2,10;III.1.6.1.2.1##REENTER before program start
+.s;If issued directly after a LOAD or GET command, REENTER causes SIMDDT to be
+loaded and entered before executing the statements of the SIMULA program.
+REENTER starts the program at the entry point .OCRE0 in the OCSP
+module.
+If COMPIL does not recognize the program as a SIMULA program, a DEBUG command
+will cause DDT to be loaded instead of SIMDDT. A _^C followed by REENTER
+will have the same effect as REENTER after LOAD in this case.
+_.OCRE0 reserves space for SIMDDT if not already loaded, modifies .JBSA(LH) to
+keep this space over RESET, and transfers control to the compiled program at
+_.MAIN+2 with X1 containing the address of the SIMDDT area. The first word of
+that area is set to zero if SIMDDT was not loaded previously.
+.br;In OCSP, the assigned SIMDDT address is saved in YOCDDT for later use (restart).
+When OCEI eventually gets control from OCIN, SIMDDT is loaded if necessary and
+entered at the entry point DSINI. Breakpoints may then be set before starting
+execution of compiled statements via a PROCEED command.
+.p 0,2,7;III.1.6.1.2.2##REENTER during RTS initialization
+.s;If the program is interrupted while _.OCSP, .OCRE0 or OCIN is active,
+a REENTER command has the same effect as a CONTINUE command except for typing
+a message on the TTY. The entry point OCRE1 is used in that program phase.
+.p 0,2,10;III.1.6.1.2.3##REENTER during execution of SIMULA statements
+.s;During normal SIMULA program execution, the reentry address is .OCRE.
+If the program is stopped by one or two _^C characters in this phase,
+a REENTER command causes .OCRE to be entered.
+Depending on the value of the control variable YDSCSW(XLOW), SIMDDT may
+be entered
+.br;a) directly,
+.br;b) after returning to some well-defined point in the program,
+.br;c) or the request to enter SIMDDT must be denied because the data structures are
+being changed so that they are possibly inconsistent at the time of
+interrupt.
+.br;In case (c), a new interrupt may be attempted after running
+the program for some time. If SIMDDT was not loaded with the program,
+it is loaded from the file SIMDDn.ABS
+(n = SIMULA version number).
+Once within SIMDDT, breakpoints may be set, variables and the operating chain
+may be displayed, but some commands can not be
+performed, chiefly because garbage collection may be involved.
+.p 0,2,10;III.1.6.1.2.3.1##Basic requirements for allowing SIMDDT to be called
+.s;The following basic requirements must be met when SIMDDT is executed in this
+mode:
+.s;a) No garbage collection allowed
+.s;Since there is no way to determine which registers and temporary cells contain
+pointers into the SIMULA storage pool, garbage collection cannot be allowed
+directly or as a side-effect, i e no storage may be claimed from the pool
+without making sure that no garbage collection will result.
+.s;b) The data structure must be consistent
+.s;The data structures used by SIMDDT must be consistent in order not to get wild
+results or cause program interrupts. In particular, the current block pointer,
+XCB, must be consistent with the program address used
+by SIMDDT to pinpoint the program state (program point and current data).
+XCB may not point to a block which is partly correct, e g does not have a proper
+display vector.
+If the interrupt was not in compiled SIMULA code, the bottom stack level must
+point to a program point consistent with XCB.
+.s;c) SIMDDT may not call non-reentrant routines which change
+global data in use at the time of interrupt
+.s;This requirement is met by not permitting SIMDDT to be called while such
+a routine is active.
+.p 0,2,10;III.1.6.1.2.3.2##Controlling the effect of REENTER
+.s;In order to conform to the basic requirements,
+special control features have been
+implemented for determining when and if SIMDDT can be called.
+For the purposes of this description, a SIMULA program with its attendant run
+time system (RTS), possibly linked with some FORTRAN
+or MACRO-10 subroutines, is in one of three states:
+.s;State A (allow).
+.br;In this state, SIMDDT may be invoked directly.
+The data in the pool is consistent with the program point given by XCB and the
+interrupt address (usually .JBOPC).
+A SIMULA program is in this state when it is at code level, i e outside
+any RTS routines in code compiled by SIMULA. State A also applies
+to some (sections of) RTS routines, e g mathematical subroutines.
+The bottom of the stack (YOBJRT) then points into the SIMULA code.
+.s;State D (defer).
+.br;In some RTS routines, invocation of SIMDDT must be deferred to some
+future instant, normally the return to user code. If such a point can be
+easily identified by reference to the push-down stack, the stack can
+be manipulated to effect the invocation of SIMDDT at the proper time.
+Routines of this type should always return to the point of call, or the
+stack must be set up to allow for such treatment.
+If a proper invocation point cannot be found easily, the state must be F.
+.s;State F (forbid).
+.br;In this state, invocation of SIMDDT is forbidden. The program is restarted
+with a message that a new attempt to stop and REENTER should be made.
+A SIMULA program is in this state when the data structure could be
+inconsistent and/or the program point cannot be identified, etc.
+State F is avoided if possible.
+.p 0,2,10;III.1.6.1.2.3.3##Macros for controlling the effect of REENTER
+.s;The state information is encoded in a global cell in the static low segment
+area (based on the address in .JBOPS and addressed by XLOW, which is normally AC16).
+This cell is called YDSCSW and is manipulated by the following macros:
+.s;CALLOW
+.br;This macro sets the state to A by clearing YDSCSW(XLOW).
+.s;CDEFER
+.br;Adds 1 to YDSCSW(XLOW). State A goes to state D. Any other state is unchanged.
+.s;CENABLE
+.br;
+Subtracts 1 from YDSCSW(XLOW). Will give state A if YDSCSW(XLOW) was 1,
+otherwise the state is unchanged. Proper use of the macros will ensure
+that YDSCSW(XLOW) is not 0 when CENABLE is executed.
+CDEFER and CENABLE must be properly nested so that state A is reached when
+an equal number of those macros have been executed, if the initial state was A,
+and state F was not set.
+.s;CFORBID
+.br;Sets the left half of YDSCSW(XLOW) to -1. The state is thereby set to F
+(YDSCSW negative).
+.s;In order for these macros to work, the global cell YDSCSW must be
+addressable via the register designated XLOW (set by the LOWADR or SETLOW
+macro).
+.p 0,2,10;III.1.6.1.2.3.4##Actions after REENTER
+.s;If the program is interrupted and subsequently REENTER-ed, the RTS
+actions depend on the state as follows:
+.s;If the ordinary reentry point is not in effect, the state is irrelevant,
+either because the RTS is not inintialized, or because .OCRE is active in
+processing a REENTER command.
+Execution merely continues with a message stating the reason.
+.s;If the ordinary reentry point is in effect (.JBREN=.OCRE), the actions are:
+.s;All registers are saved. .JBREN is changed to an alternative reentry point.
+The PC value at interrupt (.JBOPC) is stacked as return address.
+If .OCRE is entered from OCRET (deferred REENTER), .JBOPC is
+the address of the return to SIMULA code, i e a faked PC value.
+The state is determined and governs the actions.
+.s;III.1.6.1.2.3.4.1##Calling SIMDDT directly after REENTER
+.s;State A: Set a switch to disallow garbage collection.
+If SIMDDT is not in core (loaded with program), bring it in if possible.
+Start at the point DSINR of SIMDDT with XDSBAS set to the base of SIMDDT.
+YDSCAD(XLOW) gives the program point of interrupt, if possible related to
+compiled code.
+When SIMDDT returns, the switch to disallow garbage collection is reset.
+.s;_.JBREN is set to .OCRE, the registers are restored, and control returns
+to the program via a "POPJ XPDP," instruction to where .JBOPC pointed.
+.s;III.1.6.1.2.3.4.2##Preparing for deferred SIMDDT call
+.s;State D: In this state, the interrupted instruction must be in some RTS
+routine, and the stack must have the return
+to compiled code at the bottom. Invocation of SIMDDT should be deferred
+until the return point. This is achieved by fixing up the stack so that
+instead of returning to compiled code, a special RTS routine will be entered.
+In some cases, the return address at the bottom of the stack does not
+point to the next instruction to be executed at return but to an inline
+parameter. In that case, the inline parameter must be copied  to a cell before
+the start of the special reentry routine, and the cell at the stack bottom must
+point to the copy.
+The only inline parameters used in the present system at object code level are
+of the form
+.br;########XWD n,m
+.br;where n is an integer whose absolute value is less than 512. Thus, the op code
+part of the word is either 0 or 777 (octal), and the word cannot be an
+executable instruction.
+The code return address is saved in YDSCAD(XLOW), and the state is set to F.
+The accumulators are restored and return is effected to where .JBOPC points.
+When the special routine (OCRET) whose address has been put into the
+bottom of the stack, is entered, YDSCAD(XLOW) is copied to .JBOPC,
+state A is set, and .OCRE is entered.
+The following actions are the same as for state A above.
+.s;III.1.6.1.2.3.4.3##Call on SIMDDT not allowed
+.s;State F: If REENTER is attempted in this state, execution is continued with a
+message. A new attempt should be made after stopping the job again.
+.p 0,2,6;III.1.6.1.2.4##REENTER while processing REENTER in .OCRE or SIMDDT
+.s;The contents of .JBREN are OCRE2 in that case.
+The current SIMDDT command is suppressed if possible.
+If SIMDDT is executing,
+_^C_^C followed by REENTER can thus be used e.g_. to suppress
+the rest of a lengthy memory dump or source listing.
+A message is typed and execution continued, or SIMDDT expects  a
+new command.
+.p 0,2,6;III.1.6.1.2.5##REENTER after program exit
+.s;This has the same effect as REENTER after LOAD or GET. When SIMDDT signals
+that it is ready to accept commands, any old breakpoint information has been
+reset.
+.p 0,4,10;III.1.6.1.3##CONTINUE (CCONTINUE) command
+.s;CONTINUE has the normal effect of continuing execution where it was stopped
+by a _^C or by execution of some instruction such as EXIT 1, HALT, or
+by some monitor error.
+.s;CCONTINUE is identical to CONTINUE except for leaving the terminal in
+monitor mode.
+.s;When CONTINUE is given after normal program exit, it has the effect of
+invoking SIMDDT as if a _^C-REENTER had been given just after the final END
+of the main program, but with the block state of the main program block set
+to 1 to allow examination of the global variables.
+A MONRT. (EXIT 1,) UUO returns the job to monitor mode again.
+.pg;III.1.6.2######Overall SIMULA program control by the RTS
+.s;The modules involved in overall execution control are OCIN, OCIO,
+OCEP and OCSP. OCIN and OCIO also contain some I/O code.
+.p 0,2,10;III.1.6.2.1####Setting up and initialization of a SIMULA program
+.s;A SIMULA program is  started  either  directly  by  LINK-10  after
+loading  (EXECUTE or DEBUG command), or by a START or REENTER command
+following a GET or LOAD command. The SIMULA program layout  shown  in
+III.1.6.1.1 (START command) indicates the initial actions.
+.p 0,2,10;III.1.6.2.1.1##Getting the high segment into core (OCSP)
+.s;OCSP (Overall Control, Start Program) is the  first  component  of
+the RTS to be called from the SIMULA program. OCSP is loaded with the
+main program, normally in the low  segment.  Since  the  low  segment
+cannot  be  shared,  the  functions of OCSP have been minimized, most
+initialization functions being deferred to the the high segment.  The
+main  function  of OCSP is to load the initial high segment into core
+via a GETSEG UUO, after allocation of a minimal amount  of  core  for
+the so called STATIC area of the low segment. If the high segment was
+loaded with the program from REL files,  and  the  main  program  was
+loaded  in  the  high  segment,  OCSP  uses  SETUWP to turn off write
+protection, since the  main  program  contains  a  data  area.  After
+getting  the  high segment, OCSP transfers control to OCIN to perform
+the rest of the initialization. The ac's are saved starting at offset
+YACSAV  in  the  STATIC  area,  after possibly getting the address of
+SIMDDT from YOCDDT or from a REENTER call on .OCRE0. OCSP  is  called
+by  JSP  instruction,  saving  the  return  address  in an ac. In the
+non-sys version, it is possible to  look  for  the  high  segment  on
+several  disk areas if the first GETSEG fails. See module listing for
+further details.
+.p 0,2,15;III.1.6.2.1.2##SIMULA program initialization (OCIN)
+.s;OCIN  starts  with some preliminary initializations: Clears static
+area, sets  standard  value  for  LINESPERPAGE  and  LOWTEN,  records
+time-of-day  and  runtime  at  program start for later use on program
+exit,  sets  up  the  run-time  stack  (based  on  XPDP),  finds  any
+RUNSWITCHES  block,  initializes  trap  and UUO handling. The rest of
+OCIN is concerned with actions related to BASICIO,  i.e_.  SYSIN  and
+SYSOUT,  specification  of other files and allocation of i/o buffers.
+This is described in III.1.7 (I/O facilities).
+.p 0,2,15;III.1.6.2.1.3##End of initialization phase (OCEI)
+.s;OCIN  ends  by  transferring  control to OCEI, which opens SYSOUT,
+loads SIMDDT if space was allocated and transfers control  to  SIMDDT
+or  the  first explicit SIMULA statement. If SIMDDT is first started,
+it transfers control to the program after  its  own  initializations.
+OCEI  was  introduced to define a point where control passes from the
+initial high segment to the other high segment if  two  segments  are
+used.
+.p 0,2,15;III.1.6.2.2####Swapping of high segments (OCSW)
+.s;The high segment parts of the SIMULA RTS can be classified into two
+categories:
+.br;a) Routines which are used  frequently  by  an  executing  SIMULA
+program,  such as block creation and block entry, editing procedures,
+etc.
+.br;b) Routines which are used only at the start of execution or very
+seldom during the execution of a normal SIMULA program.
+.s;In order to reduce the memory space normally occupied by a SIMULA
+program, the high segment routines (collectively  named  SIMRTS)  are
+grouped  into  two  distinct  high  segments,  SIMRn1 and SIMRn2 (n =
+SIMULA version number, e.g_. SIMR41  and  SIMR42  for  version  4  of
+SIMULA).  SIMRn1  contains most of the routines, those of category a,
+and the other high segment contains routines of category b  and  also
+some  routines  of  category  a  which  are  used  by  the category b
+routines.
+.s;The  routines  of  category  b  are  those  concerned with program
+initialization and file object creation.  Communication  between  the
+two  high  segments is via the transfer vector placed at the start of
+the high segment  and  defined  in  the  SIMRTS.MAC  module  via  the
+RTSYMBOLS  macro.  The transfer vector has the same size in both high
+segments. The  difference  is  in  the  contents  of  certain  vector
+elements.  Each  global  subroutine  in  the high segment has a fixed
+absolute position in the transfer vector. For those routines that are
+present  in  the current high segment, the transfer vector contains a
+JRST instruction to the actual entry point.
+.p 0,1,4;A subroutine which is not present in the current high segment
+is represented by a "PUSHJ XPDP,.OCSW" instruction in the transfer
+vector, leading to the swapping routine.
+.s;_.OCSW handles a call in the following way:
+.br;All ac's are saved starting at YUUOAC(XLOW). If the call to the
+eventual RTS routine was via a PUSHJ XPDP,xxxx instruction, the next
+lower level of the stack should point to the instruction following the
+PUSHJ.  The alleged PUSHJ instruction is saved in the stack over the
+GETSEG for some checking when the new high segment has been brought in.
+A GETSEG UUO brings in the other high segment.
+.s;Since, by design, the transfer vectors and the OCSW procedure are
+identically placed in their respective high segments and exactly similar
+except for a few locations, GETSEG will return to the next instruction,
+which is now in the OTHER high segment (parallel worlds!!).  Since
+channel 0 is used for GETSEG, it must be restored if it was active for
+TTY I/O before the swap, and the buffers must be relinked. The address
+of the called entry in the transfer vector is retrieved from the return
+address found on the stack.
+.s;If the original call was a PUSHJ to this
+address, OCSW must prepare to swap the other segment back in.
+This is arranged by stacking as return address the address of L6,
+where L6 is defined differently in the two high segments:
+.br;1)####L6:#EXEC#.OCSW########2)########POPJ#XPDP,
+.br;2)########POPJ#XPDP,#############L6:##EXEC#.OCSW
+.br;OCSW  calls  the  ultimately  wanted  routine  by  jumping to the
+corresponding location in the current high segment, which should have
+a JRST to the actual code.
+If the subroutine returns to its caller, the return will be to L6
+as defined above, causing a new swap and a final return to the caller,
+since the location corresponding to L6 in one segment has a return
+instruction (POPJ XPDP,) in the other segment.
+.p 0,2,10
+III.1.6.2.3####RTS error handling
+.s;A Run Time System error is normally reported via the RTSERR UUO
+as defined in the UNIVERSAL parameter file SIMMCR.
+.br;Some errors are detected by other means, e.g_. arithmetic traps
+(III.1.6.2.4), errors in routines from FORLIB (III.1.6.2.3.4),
+errors during program initialization (III.1.6.2.3.5 and III.1.7.1).
+.br;Some errors are left for the monitor to handle, such as failure to
+find a high segment via GETSEG (a HALT instruction sends control to
+the monitor), push down list overflow, exceeded time limit etc.
+.br;In some situations which should not occur in a valid SIMULA
+program + RTS, a RFAI UUO (defined in SIMMCR) is issued.
+.p 0,2,10;III.1.6.2.3.1##"Normal" RTS errors in SIMULA (RTSERR)
+.s;An error in a running SIMULA program is usually reported by
+execution of the RTSERR UUO. The error number is indicated by the
+address field of the UUO (no index, no indirect address).
+An alternative way of indicating the error would be to use an ordinary
+subroutine linkage instruction such as PUSHJ, JSR or an XCT applied
+to some globally accessible location. The disadvantage is that another
+word would be needed to specify the particular error, and since the
+number of possible errors is rather large, this approach was rejected.
+The main disadvantage with the UUO approach is a possible clash with
+other uses of the same UUO, but since the SIMULA RTS must remain in
+control in any case, that disadvantage is not felt to be great enough.
+.s;The error UUO and other UUO's are handled  initially  by  the  RTS
+routine OCUU.
+.br;OCUU saves all ac's starting at YUUOAC(XLOW).
+.br;The UUO opcode is checked and the following happens if the RTSERR
+UUO is recognized:
+.br;The error number is placed in YDSENR(XLOW) and the address of
+the error UUO is placed in YDSEAD(XLOW). If the error did not occur
+in compiled code (RTS stack not empty), a corresponding code address
+is computed from the bottom element of the stack, and that address
+is placed in YDSEAD instead.
+.br;If SIMDDT is not already in core, OCLD attempts to load it to
+the storage pool, possibly after expanding core or collection of
+garbage records.
+.br;If SIMDDT cannot be loaded, the error number is reported by an
+inline error message and the program is terminated via OCEP (closing
+files), otherwise SIMDDT gets control via its DSINE entry point,
+writes the error message, identifies the source line and module,
+then expects commands from the user. If SIMDDT returns (via an EXIT
+command), the program is terminated (closing files etc.).
+.s;For some errors, continuation is possible. Those errors are
+distinguished by having a non-zero ac field in the error UUO.
+The SIMDDT PROCEED command can be used to continue execution.
+Error recovery is either automatic (standard action) or a new
+text or integer value is requested to replace faulty data.
+Extensions of this scheme are possible.
+.p 0,2,10;III.1.6.2.3.2##RFAI UUO
+.s;The RFAI UUO is used to signal an unusual situation in the RTS;
+a situation which should not occur in a correct RTS, operating with
+a correct SIMULA program (without any modules written in other languages
+such as MACRO-10 or FORTRAN). An RTSERR UUO with a special error number
+is simulated when the RFAI UUO is interpreted. The ensuing treatment
+is described above.
+.p 0,2,5;III.1.6.2.3.3##Illegal UUO
+.s;If OCUU encounters an unrecognized UUO code, an error message is
+again generated as for RFAI.
+.p 0,2,10;III.1.6.2.3.4##Errors in FORTRAN library routines
+.s;In library routines taken from the FORTRAN library (FORLIB), e.g_.
+SQRT, errors are reported by the following instruction sequence:
+.br;#	XCT error-class, FORER.
+.br;#	CAI error-type, address(severity-code)
+.br;Here error-class may be ER%LIB or ER%APR, where the errors of
+class ER%LIB usually have an associated ASCIZ error message string
+starting at "address", and the ER%APR errors simulate arithmetic traps,
+where address is where to go on recovery.
+.s;An ER%LIB error is handled by first typing the routine name in
+an informative message prefixed by "ZYQEIR" then typing the message
+string at "address" prefixed by "ZYQFLE". An ordinary error message
+(RTSERR QFORER) is then simulated, transferring control to OCUU.
+.s;For an ER%APR error, error-type specifies which trap
+(integer overflow, floating point underflow, divide check, etc) should
+be simulated. Error-type is translated to the equivalent SIMULA error
+number, and an ordinary error message is again simulated.
+.p 0,2,10;III.1.6.2.3.5##Errors during program initialization
+.s;Some errors are detected in situations where SIMDDT cannot be invoked
+because the necessary RTS environment is not yet set up. This occurs
+e.g_. if the core size is too small to allow program execution, if
+the high segment cannot be loaded, or if SIMDDT cannot be loaded.
+Any error during the initial setup of SYSIN, SYSOUT etc in OCIN is
+reported directly to the terminal without SIMDDT intervention.
+.p 0,2,10;III.1.6.2.3.6##Errors diagnosed by the monitor
+.s;Some errors cannot be handled easily within the RTS. Examples are
+push down list overflow (presently, the stack is needed for error
+handling), time limit exceeded.
+.s;Attempted execution of illegal or privileged instructions,
+execution of a HALT etc, will also lead to an error on monitor level,
+as will some errors in connection with file handling.
+See Monitor Calls (in the Software Notebooks).
+.p 0,4,15;III.1.6.2.4##SIMDDT - RTS interface
+.s;SIMDDT, the interactive SIMULA debugger, is described elsewhere in this document
+(section IV). The RTS is responsible for bringing SIMDDT into core and calling
+it in the following situations:
+.br;- At program start in response to a DEBUG or REENTER command.
+.br;- At program start to remove breakpoints if loaded earlier.
+.br;- At a breakpoint inserted by SIMDDT.
+.br;- Via REENTER after _^C interrupt.
+.br;- When a RTS error has occurred.
+.br;- After program exit in response to a CONTINUE or REENTER command.
+.p 0,2,10;III.1.6.2.4.1##SIMDDT at program start
+.s;SIMDDT will be called (entry point DSINI) before the start of the SIMULA
+statements, but after RTS initialization, if execution starts at the entry
+point .OCRE0 of the RTS. This is achieved via the DEBUG command or via the
+REENTER command after a LOAD or GET or after program exit.
+See III.1.6.2 (REENTER command).
+When invoked in this way, SIMDDT stays in core during program execution and
+also over a new START or REENTER command issued after program
+exit. A subsequent START command will thus have the same effect as REENTER, i e
+SIMDDT cannot be bypassed once loaded at program start.
+After possibly setting some breakpoints, the user starts normal program
+execution with a PROCEED command.
+.p 0,2,10;III.1.6.2.4.2##Removing breakpoints on restart
+.s;If the program is restarted after successful execution or after an error,
+SIMDDT may have left breakpoints lying around if invoked dynamically via
+_^C-REENTER.  Any such breakpoints are removed by calling
+OCSPDR at the start of OCSP or .OCRE0. OCSPDR determines if SIMDDT is in core
+by checking the right half of .JBOPS, and if that is non-zero, the global
+cell YDSBAS based on the address in .JBOPS. If YDSBAS is non-zero, it is
+assumed to be the base of SIMDDT, which is called at the entry point DSINS
+to remove the breakpoints specified in its internal table.
+.p 0,2,10;III.1.6.2.4.3##Invoking SIMDDT at breakpoints
+.s;When a breakpoint UUO is recognized by the UUO handler OCUU, SIMDDT is invoked
+at its entry point DSINR, provided SIMDDT is available. Otherwise, an illegal
+UUO is indicated.
+.p 0,2,6;III.1.6.2.4.4##Invoking SIMDDT by _^C-REENTER
+.s;
+SIMDDT may be invoked at almost any program point by stopping the program with
+one or two _^C commands, then issuing a REENTER command.
+See III.1.6.1.2.3.
+.p 0,4,6;III.1.6.3##SIMULA constructs for execution control - RTS support routines
+.s;The facilities for execution control covered by section III.1.6.2 have no direct
+counterparts in the SIMULA language definition. The present section describes
+those execution control features defined in SIMULA
+which are not implemented by compiled code.
+.p 0,2,10;III.1.6.3.1##The state of execution of a block
+.s;The state of execution of, e g, a procedure block, is defined by
+the values of some items of information:
+.br;- The values of all variables in the program.
+.br;- The current program counter PC, also called program sequence control, PSC.
+.br;- The current block CB, i e the nearest block with a display.
+The accumulator designated XCB always points to the current block.
+.br;- Possibly, the current subblock, implicitly defined by PSC and CB.
+.br;- The reactivation point RP, consisting of a reactivation address RA
+and a block instance address RBI, reactivation block instance.
+In the RTS, RP=(RBI,RA) is represented in the display record by
+(ZDRZBI,ZDRARE).
+.br;- The state is also characterized by the Boolean conditions detached and terminated.
+A block which is not detached is said to be attached, and a block
+which is not terminated is said to be active.
+.br;- In a wider sense, the state of a block is also affected by the
+program environment, e g the state of I/O devices, other programs on the
+machine including the monitor. These effects are not considered in this section.
+.p 0,2,10;III.1.6.3.2##Procedure call, procedure exit
+.s;A procedure is invoked via a procedure statement or a function designator.
+Some procedures are implemented as inline coding sequences.
+These are not considered here. Other procedures are implemented as standard
+procedures which give a well-defined result and return to the caller without
+essentially affecting the program state except for changing some variables.
+These procedures are described in the sections on I/O handling, TEXT handling
+and standard procedures respectively.
+.p 0,2,10;III.1.6.3.2.1##Calling a SIMULA procedure
+.s;A SIMULA procedure is set up by one of the subroutines CSSN or CSSW.
+CSSN is used when setting up a "normal" procedure, i e a procedure which is
+declared and statically visible from the point of call, and which is not
+an attribute of an inspected class or a match for a virtual procedure.
+Calling sequence:
+.br;.nofill
+.left margin 16
+<save ac's>
+.br;MOVEI	XSAC,prototype address
+PUSHJ	XPDP,CSSN
+.br;<parameter transmission>
+.left margin 8
+.fill
+The sequence <save ac's> is only needed if intermediate results exist in some
+accumulators (and possibly pseudo ac locations .YXAi). The sequence is:
+.br;########PUSHJ###XPDP,CSSA
+.br;########XWD#####n,admap
+.br;where n is the number of intermediate results starting by XWAC1 and admap
+is the address of a bit map specifying which ac's have object pointers
+(see III.1.5.2).
+CSSN allocates the procedure block and its attached display record (ZDR)
+by calling SADB, then copies most of the display vector from that of CB.
+RP is set to (CB,return address).
+The ZAC address, if any, is copied by SADB to the display vector
+from YCSZAC which is then reset to zero.
+If the procedure has no parameters, CSEN is  entered directly instead of
+returning to the calling program.
+On exit from CSSN, XRAC=XWAC1 holds the address of the procedure block.
+.p 0,1,5;The calling sequence to CSSW is
+.br;########[evaluate ZDP of procedure to top ac's]
+.br;########PUSHJ###XPDP,CSSW
+.br;########XWD#####n,admap
+.br;########<parameter transmission>
+.br;The top ac's are XWAC1+n and XWAC2+n. If n is zero, admap is also zero,
+signifying that no intermediate results exist in ac's.
+CSSW allocates a procedure block and display vector via SADB like
+CSSN. The ZDP information is saved in YOBJAD(XLOW)
+over a possible garbage collection and relocated there if necessary.
+The innermost level (furthest from the block in the display) is the
+address of the procedure block itself, put there by SADB.
+The next to innermost level in the display is taken from ZDPEBI of the input
+dynamic procedure address, and the rest of the display is copied from
+the display of ZDPZBI.
+.s;III.1.6.3.2.1.1##Code for parameter transmission
+.s;The sequence <parameter transmission> is only needed if the procedure has
+parameters and has the following form:
+.br;########<parameter coding>
+.br;########PUSHJ###XPDP,CSEN#######;Enter procedure coding
+.br;If the procedure has parameters, CSSN or CSSW returns to SIMULA code for
+evaluation and transmission of the actual parameters.
+The coding sequence, <parameter coding>,
+compiled to transmit the parameters must preserve
+the value of XWAC1 by using XWAC2 as top ac and causing a ZAC object
+to be created whenever the garbage collector may be called.
+The <parameter coding> consists of coding to evaluate and transmit a
+representation of each actual parameter.
+The code generated for a parameter normally consists of a
+straightforward expression evaluation to one or two ac's and a store
+operation which places the value in the formal location. For name parameters,
+a parameter descriptor (ZFL instance) is computed and stored, and any thunk
+coding is compiled inline and bypassed with a JSP instruction.
+For parameters by reference or by value, the normal representation is used
+for variables and expressions.
+For procedure, label or switch parameters, a dynamic representation is
+computed (ZDP, ZDL or ZDS instance) and stored. For a TEXT parameter by
+value, the system routine COPY is called, and for an ARRAY by value,
+CSCA is called.
+When calling a formal, virtual or external NOCHECK MACRO-10 procedure,
+however, the parameter transmission sequence following the PUSHJ to CSSW
+has a special form involving
+a call on the RTS routine PHPT. See parameter handling.
+CSEN is called directly from CSSN or CSSW if no parameters exist, otherwise
+it is called after parameter transmission to start the
+operations of the procedure.
+.s;III.1.6.3.2.1.2##Starting the actions of a SIMULA procedure
+.s;CSEN changes XCB and jumps to the declaration coding of the procedure.
+A procedure, unlike a class object, can never be detached. When it terminates
+via CSEP for a function procedure or CSES for a pure procedure, its data area
+can be reclaimed directly or by subsequent garbage collection.
+.p 0,2,10;III.1.6.3.2.2##Calling FORTRAN and MACRO-10 procedures
+.s;OPTIONS(/E:FORTRAN (or F40),entrypoint);
+.br;The coding sequence for calling an external FORTRAN procedure is
+essentially the same as that for any SIMULA procedure,
+with the restriction that REF, LABEL, SWITCH, and PROCEDURE
+parameters are not allowed. A procedure
+block is allocated in accordance with a special prototype
+generated from the specification coding for the procedure.
+The special routine PHFO serves as intermediary between the SIMULA-generated
+procedure block and the FORTRAN code. See parameter handling.
+When the FORTRAN code is active, XCB is saved in the global cell YFOXCB.
+.s;OPTIONS(/E:CODE,NOCHECK,entrypoint);
+.br;A NOCHECK MACRO-10 procedure is handled like a formal or virtual SIMULA
+procedure, i e by a special calling sequence to CSSW, including a call on PHPT.
+See parameter handling.
+Strict rules must be followed by the MACRO-10 procedure in order not to
+compromise the security of the SIMULA program.
+.s;OPTIONS(/E:CODE,entrypoint);
+.br;A MACRO-10 procedure with specified parameters is handled exactly as a
+SIMULA procedure.
+.s;OPTIONS(/E:QUICK [,NOCHECK] ,entrypoint);
+.br;A MACRO-10 procedure which is specified as "QUICK" (not "CODE") takes
+all its parameters in ac's and is called by a PUSHJ XPDP,entrypoint
+instruction. The calling sequence is the same as for e.g_. MAIN,
+STRIP. The RTS is not involved, only compiled code. See SIMLH2.MAN
+Chapter 7 and appendix E.
+.p 0,2,10;III.1.6.3.2.3##Procedure exit
+.s;The exit from a procedure is via the final statement or possibly via a GOTO
+statement. A function procedure exits via CSEP, which restores any intermediate
+results and puts the function value on top. The presence of intermediate
+results is signalled by the ZDNACS bit in the object, and the saved values
+are retrieved via the ZDRZAC pointer in the display record.
+Two ac's are always transmitted
+to avoid testing for result type in CSEP. The compiled code knows which
+ac(s) to use according to the stack discipline for register allocation.
+A pure procedure exits via CSES, which is similar to CSEP except that
+no function value is returned.
+The procedure block may be deallocated if no block which
+is still referenceable was allocated on top of the procedure block.
+.index Block deallocation???????
+A procedure always returns to the environment given by (ZDRZBI,ZDRARE),
+the dynamic link, except for a direct or indirect GOTO statement.
+.p 0,2,10;III.1.6.3.3##Creation of a class object
+.s;A class object is generated by an "object generator" - NEW <class-id>
+[<parameter list>].
+An object generator is very similar to a function designator and may also
+serve like a procedure statement if the value is discarded.
+Since name mode parameters are not allowed, the calling sequence is simpler
+than a general procedure call.
+Calling sequence:
+.br;########<save ac's>
+.br;########PUSHJ###XPDP,CPNE
+.br;########XWD#####m,prototype address
+.br;########<parameter transmission>
+.br;where m=offset in display of the block whose display should be copied.
+Usually, the display of XCB can be copied, but in some cases of inspection
+statements all relevant levels may not be correct.
+CPNE works in a fashion very similar to CSSN. If the class has local classes
+declared (ZCPKDP bit set in prototype), the ZDNKDP bit in the block must be set
+to prevent the display from being deallocated
+when the class object is terminated.
+The display may be needed when calling a procedure attribute of one of the local
+classes, which may again be terminated and without a display.
+Any REF or ARRAY locations on the current prefix level of the object are
+initialized to NONE via SADB on allocation.
+CPIN is called to initialize REF and ARRAY cells in the outer prefix levels.
+If parameters exist, control goes back to SIMULA code for parameter
+transmission, otherwise CSEN is called directly.
+Parameter transmission is done as for a procedure but is simpler since
+only value and reference mode parameters are possible and label, switch
+and procedure parameters are not allowed. See III.1.6.3.2.1.1.
+CSEN enters the declaration coding of the outermost prefix. CPCD transfers
+control to the declaration coding at the next inner level or the statements
+at the outermost level.
+CPCI transfers control to the statements of the next inner prefix level
+at an explicit or implicit INNER statement. At the end of the statements at
+the innermost level without an explicit INNER,
+CPE0 is called to terminate and detach the class object.
+If an explicit inner exists for some prefix, compiled code effects the
+transfer either directly or via ZCPIEA of the prefix, if the code address
+is not available at compile time (external or system class).
+Control returns with an object reference in the top ac either when the class
+terminates or when an explicit or implicit detach is performed. See below
+(quasi-parallel sequencing).
+.p 0,2,10;III.1.6.3.4##Entering a prefixed block
+.s;A prefixed block is set up in a way very similar to a class object.
+Calling sequence:
+.br;########MOVEI###XSAC,prototype address
+.br;########PUSHJ###XPDP,CPSP
+.br;########<parameter transmission>
+.br;The display is copied from the statically enclosing block, adding the address
+of the prefixed block itself at the innermost level.
+Initialization is done as for a class object.
+In order to implement quasi-parallel sequencing as described by CBL 9.2,
+an enclosing detached block must be linked dynamically to this prefixed block.
+This is done by setting RP of the nearest enclosing detached block to
+(address of this prefixed block, 0).
+If this is the outermost prefixed block, the dynamic link is set to point to
+itself.
+After any parameter transmission, which is similar to that for a class,
+CSEN transfers control to the declaration
+coding at the outermost prefix level as for a class. Instead of the last call
+to CPCD, however, CPPD is called to transfer control to the statements
+of the outermost prefix. The block terminates via compound tails of prefixes and
+ultimately via CPE0, which restores
+the XCB of the static environment before exiting to the instruction after
+the prefixed block.
+.p 0,2,6;III.1.6.3.5##Implementation of quasi-parallel systems
+.s;Quasi-parallel systems (QPS) are described in CBL 9.2.
+In the present section the actual implementation of a QPS control structure is
+outlined.
+.p 0,2,10;III.1.6.3.5.1##Information needed to define a QPS
+.s;A QPS consists of
+.br;a) A prefixed block, called the main program of the QPS.
+.br;b) Any enclosed detached class objects or prefixed blocks.
+.br;c) Any other blocks enclosed by the main program.
+.br;The COMPONENTS of the QPS are the detached instances.
+Blocks of category (c) are relevant only to define "enclosed",
+which is interpreted according to CBL 9.1, q v.
+The QPS structure is defined by the reactivation points of its components.
+The reactivation point RP = (RBI,RA) of a component is interpreted in the
+following way:
+.br;If RA is zero, RBI points to an enclosed prefixed block which contains the
+actual reactivation point. If RA is non-zero, it points to the program address
+where execution should resume, with XCB=RBI.
+.s;The basic means for controlling the execution of a QPS are provided by the
+system procedures DETACH and RESUME, CBL 9.2.
+The procedure CALL has been implemented to simplify programming of
+coroutines.
+.p 0,2,10;III.1.6.3.5.2##DETACH statement
+.s;The detach statement works according to CBL 9.2.1.
+The effects described there are implemented by the CPDT procedure
+in the following way:
+.s;a) The smallest operating block instance, X, is attached, either because it
+has just been generated via NEW or because it has been reattached via CALL.
+.br;Actions: RP := (X,RA), where RA is program point after call on detach.
+ZDNDET is set, and control returns to old RP (calling block,return address).
+.s;b) X is already detached.
+.br;Actions: RP := (X,RA) as above.
+The main program of the innermost enclosing QPS is then found by following
+static links for detached objects, dynamic links for attached objects, until
+a prefixed block is found. The static link SL of a block B
+is the block address found at
+offset B.ZBIZPR.ZCPSBL relative to B.
+RP = (BI,RA) of the main program is found. If the program address RA is zero,
+the reactivation point is inside BI (an enclosed prefixed block), and
+RP := BI.RP, whose program address RA is then examined, etc until
+a non-zero program address is found. This is where execution resumes, with XCB
+set to RP.BI (ZDRZBI).
+.p 0,2,10;III.1.6.3.5.3##RESUME statement
+.s;The resume procedure has the effects described in CBL 9.2.2.
+The RTS routine CPRS implements resume.
+Assume that the detached object to be resumed is Y, component of a QPS called S.
+Resume is called inside a currently operating component X of the same QPS.
+.s;Actions: X, the nearest detached block instance, is found by dynamic links
+starting from XCB. RTS error (RESUME operating) if X=Y.
+X.RP := (CB,RA), where CB is current block, pointed to by XCB and
+RA = address after resume statement.
+To check for errors, all enclosing detached instances are found by
+following static and dynamic chains from X as in the detach procedure
+(the operating chain is followed) until the outermost block is reached.
+If any of the encountered blocks is Y, we have an error.
+Starting from Y, find actual reactivation point by following RP = (BI,RA)
+until RA is non-zero. Resume execution at that RP.
+.p 0,2,10;III.1.6.3.5.4##CALL statement
+.s;The CALL procedure (CPCA) is not part of the Common Base but is a recommended
+extension.
+CALL essentially reverses the effect of DETACH, as follows:
+.br;Assume the statement CALL(Y), executed within a QPS component X.
+X and Y are components of the same QPS S.
+Y may not be attached, terminated or operating.
+X is found starting from XCB, following RP until a detached block is found.
+Error if X=Y. Copy Y.RP to X.RP to set correct reactivation point.
+As in CPRS, all detached blocks enclosing X are found via
+static and dynamic links and checked against Y (error if identical).
+Attach Y to caller by setting off the ZDNDET bit and setting
+RP = (CB,RA), where CB is
+current block, RA is program address after CALL statement.
+The reactivation point of Y is found as in CPRS and execution resumed there.
+.p 0,2,10;III.1.6.3.5.4##Object termination
+.s;Ignoring any compound tails after explicit INNER statements,
+the effect of passing through the final END of an object is to detach
+and terminate the object. CPE0 is called.
+For a class object, CPE0 sets the ZDNTER bit and transfers control to CPDT
+(see detach). The same is done for a prefixed block, but since detach has no
+effect, control is returned to CPE0 which restores XCB and transfers control
+to the statement after the prefixed block.
+.p 0,2,4;III.1.6.3.5.5##GOTO statement leading out of an object
+.s;See CBL 9.2.4.
+.p 0,2,6;III.1.6.3.6##INNER statement
+.s;The INNER statement is implemented by the CPCI routine, which transfers control
+to the statement coding at the next inner prefix level. Has no effect if there
+is no inner level.
+.p 0,2,10;III.1.6.3.7##GOTO statements, switches
+.s;GOTO statements are normally handled by compiled code. If the target of the
+GOTO implies change of current block (CB), CSGO is called, however.
+The parameter to CSGO is a dynamic label (ZDL instance).
+CSGO follows the operating chain from the current block until the target block
+is found or the outermost block is reached.
+Class objects passed on the way are terminated and subblock addresses
+eliminated from displays when passing.
+Since the target must be operating, a
+GOTO out of a detached object is allowed only if it leads out of the nearest
+enclosing prefixed block, and a transfer to a connected label will be allowed
+if and only if the inspected block is operating.
+A SWITCH element is evaluated by CSSC, which takes a dynamic switch address
+(ZDS instance) and a switch index as parameters and returns a dynamic label
+address (ZDL).
+If the switch element is a statically visible label, the static description is
+translated to the dynamic form.
+If the switch element is a designational expression, a dummy procedure block
+is set up and the switch thunk is entered, to return later via CSES.
+CSES works like CSEP except that the dynamic label is already in
+the top ac's.
+.p 0,2,10;III.1.6.4##Execution control by compiled code
+.s;Apart from calling sequences to RTS routines,
+the principal means of execution control in compiled code are
+conditional statements and expressions, WHILE loops, FOR loops and
+simple GOTO statements.
+Only FOR loops are interesting from the RTS point of view, because
+the return address of a FOR loop is stored in the display vector. One word
+is required in the display vector for each FOR loop nesting level in the
+current block.
+.pg;III.1.7##I/O handling
+.br;#########------------
+.p 0,2,10;I/O handling in a SIMULA program covers the following basic areas:
+.s;BASICIO functions, i e setting up and opening SYSIN and SYSOUT.
+In DECsystem10 SIMULA, file specifications may be read and
+runtime switches interpreted.
+.s;Creation and setup of file objects of the various file classes, allocation
+and handling of buffers.
+.s;Implementation of the basic I/O functions OPEN, CLOSE, INIMAGE, (BREAK)OUTIMAGE,
+LASTITEM, LOCATE, ENDFILE.
+.s;I/O editing functions: INCHAR, OUTCHAR, ININT etc.
+.p 0,4,10;III.1.7.1##BASICIO functions
+.s;The functions related to the definition of BASICIO in CBL 11 are mostly
+implemented in the OCIN module of the RTS. Pointers to the standard
+file objects SYSIN and SYSOUT are placed in the static lowseg area at offsets
+YSYSIN and YSYSOUT respectively. FILE prototypes are placed in the
+transfer vector (SIMRTS module), whereas declaration and statement coding and
+symbol tables are placed in the IO module.
+A special naming scheme is adopted for quantities relating to file subclasses:
+.br;Each class is denoted by 4 letters: IOFI (FILE), IOIN (infile), IOOU (outfile),
+IOPF (printfile) and IODF (directfile).
+SIMRPA defines a macro for each prototype. If the class code is xxxx (=IOIN etc),
+then .xxxx is the global name (prototype base address), xxxx%S is the address
+of the initial statements, xxxx%D is the start of declaration coding, D%xxxx is the
+name of the macro, xxxx%I is the first address after inner in the statement part,
+xxxx%M is the block map address, and xxxx%Y is the address of the symbol table.
+.s;Before allocating SYSIN and SYSOUT, a possible specification file defined via
+a compile-time /R switch is read. Encountered switches are acted upon, buffer
+space is allocated, and a specification table for files is built.
+This table will be consulted whenever a file subclass is created.
+.s;When any specification file has been processed, _.SAGI is called to
+initialize the storage allocation system, leaving the buffers and specification
+tables below the bottom of the storage pool.
+.s;Next, the SYSIN infile object is set up.
+Normally, SYSIN and SYSOUT will both be the user's TTY, but the specification
+file may define SYSIN and/or SYSOUT differently. In the absence of
+specifications for SYSIN or SYSOUT, the logical name SYSIN or SYSOUT is checked
+to find out if it has been assigned as a device name. If so, the file named
+SYSIN or SYSOUT on that device is used, otherwise the TTY is used.
+See OCIN for complete algorithm.
+SYSIN.open(blanks(n)) is performed, where n=80 or the width of the TTY line in
+the case when SYSIN is a TTY.
+.s;The SYSOUT printfile object is then set up, and LINELENGTH is determined
+as 132 or the width of the TTY line if applicable. The actual execution of
+SYSOUT.open(blanks(LINELENGTH)) is left to OCEI which is then entered.
+.s;The final actions of BASICIO, SYSIN.close and SYSOUT.close, are performed
+at program end via OCEP.
+.p 0,2,10;III.1.7.2##File object generation, file setup, buffer allocation
+.s;The calling sequence for a file object generation is similar to that
+for a SIMULA-coded class, for example:
+.br;.left margin 16
+PUSHJ###XPDP,CPNE#######;NEW infile("INPUT")
+.br;XWD#####-n,IOIN
+.br;DMOVE###XWAC2,[XWD#0,-2+[ASCII/INPUT/]
+.br;###############XWD#5,0]
+.br;PUSHJ###XPDP,TXCY
+.br;XWD#####1,[1B0]
+.br;DMOVEM##XWAC2,OFFSET(ZFISPC)(XWAC1)
+.br;PUSHJ###XPDP,CSEN
+.br;.left margin 8
+This calling sequence, when executed, causes the following actions:
+.br;- The file object is created via CPNE and SADB. The display is copied
+from the block referenced at offset -n in the display of the current block.
+.br;- CSEN changes XCB and sets the return information, then transfers
+control to the declarations of the outermost prefix level, IOFI%D.
+Neither IOFI%D nor IOIN%D, which is entered next, contains any real
+declaration coding, only calls CPCD. The statement coding part of IOFI,
+IOFI%S, which is then entered, is also empty, transferring control to
+IOIN%S via CPCI (inner).
+At IOIN%S, the real initial actions for the infile start by setting flags
+and clearing certain switches, then calling the SETUPFILE routine of the
+IONF module
+.s;- SETUPFILE uses the information in ZFISPC
+(copy of text parameter to NEW ...)
+and any specification table created at BASICIO initialization (see above) to
+determine the characteristics of the file which is to be input and/or
+output. If sufficient information is not available or a dialogue is expected,
+the user is interrogated for the missing information.
+A free software channel is claimed and OPENed.
+Device and file name, number and size of buffers, etc is determined,
+if necessary by consulting the user.
+CREATEFILE allocates and links the buffers, performs new OPEN on the same
+channel as before, and performs LOOKUP and/or ENTER.
+.p 0,2,10;III.1.7.3##Other basic I/O functions
+.s;Apart from the I/O functions mentioned above, the following procedures contained
+in the IO module are
+essential: OPEN, CLOSE, INIMAGE, (BREAK)OUTIMAGE, LASTITEM, LOCATE, ENDFILE.
+The remaining procedures are merely applications of text handling procedures.
+Most of the procedures conform to the definitions in CBL chapter 11.
+Special information:
+.s;- OPEN (IOOP): Special actions must be done via the routine REOPEN in IONF
+if the file was once opened and then closed.
+Buffers must be allocated and chained, information fetched from
+the specification table, an OPEN UUO must be performed etc.
+These things are normally done at file creation (see above), and the SIMULA
+procedure OPEN simply does what CBL specifies.
+For DIRECTFILES, however, OPEN computes file record length
+from image.length, allowing for <CR><LF> and rounding up
+to a multiple of 5 (word alignment), and computes
+max LOCATION from file size and record length.
+.s;- CLOSE (IOCL), in addition to doing what CBL prescribes, also
+outputs the last image for an outfile, provided pos > 1.
+The software channel is released and YIOCHTB updated.
+If the channel table entry refers to two file objects
+representing a bi-directional device such as a terminal,
+the channel is not released until the last of the two
+files is closed.
+.s;- INIMAGE (IOIG) has the following special properties: 
+Carriage returns and null characters are ignored. Line feed is taken
+as end of image but is not transmitted to the image. Form feed, vertical tab
+and altmode (octal 14, 13, 33) are taken as image delimiters and are also
+taken as part of the image.
+If inimage tries to read past the end of the file or reads an unwritten record
+inside a directfile, a special end-of-file record starting with /* and padded
+with blanks is transmitted to the image.
+.s;- OUTIMAGE (IOOG). Only image.strip is moved to the buffer to save
+file space and time. Carriage-return is tagged on to the end.
+If the buffer is output immediately, as for a TTY file, a line feed
+is added before output. Pending line feeds from the last line, if
+any, are output to the buffer before the current line is output.
+This is because of our interpretation of SPACING for PRINTFILES.
+.s;- BREAKOUTIMAGE (IOBO). Works as OUTIMAGE, except that no CR-LF is added.
+To enable spaces at the end to be significant, image is not stripped
+shorter than image.pos-1.
+.s;- LASTITEM (IOLI) works according to CBL, except that horizontal tab (octal 11)
+is treated like the space character.
+.s;- ENDFILE is implemented as an ordinary variable in the infile or directfile
+object. ENDFILE is set to -1 (TRUE) when inimage finds that
+the file is exhausted, i.e_. when the last character in the file
+was read by the previous inimage call.
+.s;- LOCATE merely checks if the argument is in range and if so, sets off
+endfile flags and sets a new LOC value = argument.
+No operations directed to an external device are performed here.
+.s;Special considerations for directfile:
+.s;- The images in a directfile are all of the same length, given by the
+size of the text given as IMAGE when calling OPEN.
+Images are buffered within disk buffers (only DSK
+allowed as device), and the disk buffers are held in core as long as
+possible to minimize actual I/O. When inimage or outimage is performed on
+a disk block not currently in core, the block is read first if it exists.
+If no outimage was performed on a buffer, it is not rewritten on disk when
+replaced in core.
+Close does not imply that the last image is written as for outfiles.
+.p 0,2,10;III.1.7.4##Editing procedures for input/output.
+.s;The editing procedures, e g INCHAR, ININT, OUTFRAC, are defined in terms of
+the corresponding text attributes. The definitions given in CBL
+usually cover those functions sufficiently.
+The "inaccessible" function FIELD of CBL 11.3.1 is implemented as .IOFD.
+Deviations from CBL:
+.br;INCHAR (IOIC) and INTEXT (IOIT) test for ENDFILE before calling inimage.
+In this way characters from the end-of-file image can be read.
+.pg;III.1.8##Text handling
+.br;#########-------------
+.s;Text handling is performed by the modules TX and TXBL which contain a) RTS
+procedures and functions corresponding to the text attributes found in section
+10 of CBL, b) the non-local procedures BLANKS and COPY. Text relations and
+text value assignment are also handled by special procedures. A routine for
+creating a temporary text variable (ZTT) is also part of the TX module.
+Some attributes are implemented by inline coding.
+The representation of text information is described in I.5, data structures,
+and LH2 appendix B.
+.p 0,2,10;III.1.8.1##Text attributes
+.s;Most text attributes are implemented by straightforward translation of the
+CBL definition. Some implementation dependent details are outlined below.
+.br;Pos is ZTVCP+1, i e pos=1 implies ZTVCP=0 which is convenient since it
+allows NOTEXT to be represented by two zero words.
+The attributes LENGTH, POS and MORE are implemented by inline code.
+The function attributes MAIN (TXMN), GETCHAR (TXGC), GETINT (TXGI),
+GETREAL (TXGR) and GETFRAC (TXGF) are called as follows:
+.br;########MOVEI###XTAC,Xtop
+.br;########PUSHJ###XPDP,function
+.br;where Xtop and Xtop+1 contain the text reference on entry and the returned
+function value on return.
+The other attributes: SETPOS (TXSE), PUTCHAR (TXPC), PUTINT (TXPI),
+PUTREAL (TXPR), PUTFIX (TXPX) and PUTFRAC (TXPF) are called with the text
+reference in XWAC1 and XWAC2, other parameters in XWAC3, XWAC4, etc.
+The additional procedure LOWTEN (TXLT) is called in the same way.
+.p 0,2,10;III.1.8.2##Other text procedures
+.s;Texts are generated by COPY (TXCY), BLANKS (TXBL) and by INTEXT (IOIT), which
+is part of the I/O sub-system (III.1.7).
+Text assignment of the form T1 := T2 is performed by TXVA, and comparison
+of text values, e g T1 < T2, is performed by TXRE. TXRE and TXVA are
+called with XTAC pointing to the first ac of the 4 consecutive ac's
+that contain the texts T1 and T2 respectively.
+The relation between T1 and T2 is coded in the result of TXRE as -1, 0 or +1.
+TXCY is called with an inline parameter specifying any intermediate results:
+.br;########PUSHJ###XPDP,TXCY
+.br;########XWD###n,admap
+.br;Thus an accumulator stack may have to be saved over storage allocation.
+The parameter to TXCY is saved in YTXZTV over a possible garbage collection.
+TXBL is called like TXCY.
+The text procedure TXDA, called like TXCY, in certain cases
+creates a ZTT object containing a dummy text variable which stands for a
+text expression. The output of TXDA is the dynamic address of this text
+variable i e [XWD 1,ZTT object address] and also its absolute address in the
+next ac.
+.pg;III.1.9##Parameter handling
+.br;#########------------------
+.s;Since value and reference mode parameters to ordinary procedures, classes
+and prefixed blocks are handled entirely by compiled code, parameter handling
+in the RTS is limited to unusual circumstances - treatment of name mode
+parameters, transmission of parameters to formal, virtual, FORTRAN and NOCHECK
+MACRO-10 procedures.
+.p 0,2,10;III.1.9.1##Access to name mode parameters
+.s;Inside a procedure, a name parameter is accessed in different modes and
+contexts. The PH module contains run-time procedures for handling
+name mode parameters, calling thunks, etc.
+.p 0,2,10;III.1.9.1.1##The value of a name mode parameter
+.s;If the value of the parameter is required, PHFV is usually called.
+PHFV handles parameters of kind simple, i e not array, procedure or switch.
+Label parameters are handled by PHFM, and text parameters are handled by PHFV
+only in contexts where the text descriptor will not be modified, as in
+T.strip.
+.s;PHFV starts by calling PHINIT (see below).
+The parameter does not have a thunk if the actual parameter is a simple
+variable or constant. The absence of a thunk is signalled by the ZFLNTH bit
+of the formal location. In this case, the value of the parameter is loaded
+directly from the ZFL instance, from a block instance or from the literal pool.
+See ZFL format. In other cases, the parameter must be computed by a thunk.
+This is done via ENTERTHUNK, PROCVALUE (if actual parameter is a parameter-less
+procedure) and THUNKRETURN. Since calling the thunk implies loss of control
+(the only link back to PHFV is via the return address for ENTERTHUNK), care
+must be taken to call ENTERTHUNK in such a way as to retain all useful
+information.
+If the thunk returns a dynamic address, i e the thunk is not a value type
+thunk (ZFLVTD bit), the value must be retrieved via the dynamic address.
+Conversion of the value is done by PHCV (entry PHCV1) if necessary
+(ZFLCNV bit).
+PHEXIT returns to compiled code with the value in the proper ac(s).
+.p 0,2,10;III.1.9.1.2##The dynamic address of a name mode parameter
+.s;The dynamic address of a parameter X is needed
+.s;a) when X is used on the left hand side of an assignment (X:=... or X:-...).
+The actual parameter in this case may be a simple variable,
+a value or reference mode parameter or an array component, possibly
+accessed via remote referencing (<object expression>.<attribute>).
+PHFA is used in this case, except for type TEXT, which is handled by PHFV
+for value assignment and PHFT for text denotes (X:-...).
+.s;PHFA works as follows:
+PHINIT is called. Then, if the ZFL type for the parameter signifies a
+value rather than a dynamic address, an error message is issued.
+If no thunk exists, the dynamic address is computed from the ZFL, otherwise
+the thunk is evaluated via ENTERTHUNK and THUNKRETURN.
+If the parameter type is REF, the prototype pointer is taken from ZFLZQU
+before returning to compiled code via PHEXIT.
+.s;b) when X is specified PROCEDURE, ARRAY, SWITCH or LABEL.
+PHFM is used in this case. PHFM works like PHFA except that no check for
+illegal assignment need be made.
+.s;c) when X is specified TEXT and used in a context where the text descriptor
+may be affected as with text editing procedures like GETCHAR, PUTINT.
+PHFT is used in these cases and for text denotes (X:-...).
+.br;PHFT starts by PHINIT and works essentially like PHFA if the parameter
+representation yielded via the ZFL or a thunk is a dynamic address.
+In this case, the actual parameter, possibly accessed by
+remote referencing, is a text variable (or parameter by
+value or reference) or a text array component.
+.br;If the actual parameter is a constant, a RTS error is signalled. This is so
+if ZFLVTD=1 and no thunk has been compiled.
+The remaining case is when the actual parameter is a text expression computed
+by a thunk. Evaluation is done as in PHFV, but before returning to compiled
+code, a dummy text variable must be created. TXDA creates a ZTT record with
+a copy of the descriptor computed for the text expression. The dynamic
+address of this dummy descriptor is returned from PHFT to compiled code.
+.p 0,2,10;III.1.9.1.3##Assignment to formal parameters by name
+.s;If X is a formal parameter by name, an assignment of the form X:=<rhs>
+is carried out as follows: a) PHFA computes the dynamic address to one or
+two ac's. These ac's are preserved over the execution of <rhs>.
+.br;b) The assignment is carried out by PHFS. Assume that the dynamic address of
+X is in XWACi (and possibly a qualification in XWACi+1), and the value of <rhs>
+in XWACj (+XWACj+1). The calling sequence to PHFS is:
+.br;########HLLZ####X0,X###;ZFL instance
+.br;########PUSHJ###XPDP,PHFS
+.br;########XWD#####XWACj,XWACi
+.br;PHFS carries out qualification checking and possible conversion
+before transmitting the value.
+.p 0,2,10;III.1.9.1.4##Accumulator handling in PH procedures
+.s;The procedures PHFA, PHFM, PHFT and PHFV interface with compiled code
+via the two local subroutines PHINIT and PHEXIT.
+The calling sequence to any of the procedures is
+.br;########[dynamic address of X to XWAC1+n]
+.br;########PUSHJ###XPDP,PHFy
+.br;########XWD#####n,admap
+.br;where y is A, M, T or V, n is the number of intermediate results and
+admap is zero or the address of a relocation map for the n results.
+PHINIT calls .CSSA. to save these results if n > 0, then puts
+the dynamic address of X in XWAC1 (normal case).
+The absolute address of X, the formal location or ZFL instance,
+is loaded to XFAD, and the two ZFL words are loaded to XFL0 and XFL1.
+After computing the parameter, possibly via a thunk, each routine
+returns to compiled code via PHEXIT.
+PHEXIT modifies the stack to skip the inline parameter. If intermediate results
+were saved (YCSZAC(XLOW) nonzero), PHEXIT returns via .CSRA, otherwise directly.
+.p 0,2,10;III.1.9.1.5##Thunk evaluation
+.s;The execution of a thunk is started via ENTERTHUNK, which is called by
+JSP XRET,PHET. Before executing the thunk code, information must be
+placed in the thunk save area allocated in the display of the block
+where the actual parameter belongs. The offset of the thunk save area (ZTS)
+is found at the head of the thunk as shown by the following general coding
+sequence compiled for a thunk:
+.p 0,1,6;########XWD#####d,0
+.br;########<code to compute the actual parameter>
+.br;########MOVEI###XSAC,d(XCB)
+.br;########JSP#####d+OFFSET(ZTSRAD)(XCB)
+.s;where d is the offset of the thunk save area in relation to the end
+of the display vector.
+In the thunk save area are saved the dynamic address of the formal
+location, the return address to object code (found in XPDP stack), the
+return address to the present RTS routine (value of XRET), the acs
+pointer (YCSZAC) and XCB. This information is sufficient to restore
+the environment on return from the thunk, provided that the save area
+itself can be found, which is guaranteed by having the thunk return its
+address in XSAC as seen above. The new XCB is taken from ZFLZBI, and the
+thunk is entered with the ZTS address in XSAC.
+.s;In the rare case when the value of a procedure without parameters is
+required, the thunk makes an intermediate return with the dynamic address
+of the procedure in XWAC1 and XWAC2. PROCVALUE (called by JSP XRET,PHPV)
+checks if the procedure should have parameters after all (error if so), and
+then returns to the thunk with a new return address taken from XRET put
+into the save area. X0 is stacked on entering PHPV so that SIMDDT can get
+the correct code address for the error message.
+.s;When the thunk returns to the RTS, which may be after execution of a substantial
+amount of code including execution of the thunk itself recursively,
+THUNKRETURN uses the information in the thunk save area based on XSAC to
+restore the environment where the parameter was accessed. On exit from
+THUNKRETURN (PHTR), XFAD points to the formal parameter X (ZFL instance),
+the return to SIMULA code is stacked, YCSZAC points to any saved intermediate
+results, XCB is restored, and XFL0 contains the first ZFL word.
+.p 0,4,6;III.1.9.2##Parameter transmission to formal, virtual and NOCHECK MACRO-10
+procedures
+.s;The parameters to formal, virtual and NOCHECK MACRO-10 procedures
+cannot be checked fully at compile time,
+since the formal parameter specifications are not known.
+Procedures in this category are called via CSSW. The computation
+and transmission of actual parameters is carried out by the RTS procedure PHPT,
+which has a very special calling sequence:
+.lm 16;.nf;.p 0,1,24;
+[compute dynamic address of formal or virtual
+procedure to top ac's]
+PUSHJ   XPDP,CSSW
+XWD	n,admap
+Z	npar
+PUSHJ   XPDP,PHPT
+[Z	prototype address]	;Only for REF
+.i -8;ZAP1:   actual parameter descriptor (ZAP) for first param.
+XWD	d,ZAP2
+[thunk for first parameter, if any thunk is needed]
+[Z	prototype address]	;Only for REF
+.i -8;ZAP2:   ZAP for second parameter
+XWD	d,ZAP3
+[thunk for second parameter]
+...
+[Z	prototype address]	;Only for REF
+.i -8;ZAPn:   ZAP for n'th parameter
+XWD	d,ZAPEND
+[thunk for n'th parameter]
+.i -8;ZAPEND: XWD	0,0
+PUSHJ   XPDP,CSEN	;enter procedure body
+.f;.lm 8
+.s;In the above sequence, d is the offset of the last word of the
+thunk save area in the display vector, and npar is the number of actual
+parameters.
+CSSW is informed that PHPT is to be called by the [Z npar] instruction
+placed as a second inline parameter to CSSW.
+In any other situation involving CSSW, this instruction must be an executable
+instruction. CSSW uses the absence of this information to give an error message
+if the procedure expects parameters but has not been provided with an actual
+parameter list.
+.s;The number of actual parameters is checked against the number of formal
+parameters, except for a NOCHECK MACRO-10 procedure (ZPCNCK bit set in the
+prototype).
+The parameters are treated in  sequence. Information from the ZAP
+or the ZFL in case of a passed-on name mode parameter is loaded
+to standard registers. In the NOCHECK case, the formal parameter
+type and kind are copied from those of the actual parameter.
+The prototype of a NOCHECK MACRO-10 procedure has formal parameter descriptors
+(ZFP) for 31 formal parameters all specified name. This means that
+ZFL instances will be computed and stored for all parameters.
+The actual parameter  is  first
+checked  for compatibility.  If ZAPNTH is set, the ZAP specifies
+the address or value of the  quantity  directly  (generally,  by
+effective  block level and offset).  The quantity can be loaded,
+possibly converted or qualification checked, and stored in the formal location.
+Note that the qualification of an actual REF parameter is found in the
+word preceding the ZAP. If the formal parameter is specified NAME, a
+ZFL instance is computed  and  stored. A NOCHECK MACRO-10 procedure is treated
+as having only name mode parameters.  If  a  thunk  has  been
+compiled,  and  the  formal  parameter  is not of name mode, the
+thunk must be evaluated to yield the value.  This is done in the
+same  way  as in PHFA or PHFV, with the additional requirement
+that the current positions in the actual (ZAP) and formal  (ZFP)
+descriptor  lists  must  be remembered.  This is done by storing
+the addresses of the ZAP and the ZFP descriptors in  the  formal
+location  until  the value has been computed.  Since the dynamic
+address of the formal location is saved in the thunk save  area,
+the  formal  and actual descriptor positions can be recovered on
+return from the thunk.  The dummy ZAP of all zeros finishes  the
+parameter list.
+.p 0,2,6;III.1.9.3##Parameter transmission to FORTRAN procedures
+.s;A FORTRAN procedure is identified to the SIMULA system via the attribute
+file produced by the SIMULA compiler when the interface code is compiled.
+See LH2 appendix E.
+The prototype of the procedure and its associated core map (ZMP)
+contains information assuming a special block layout documented
+in the PHFO module. The value of ZPCDEC is the address of PHFO, which
+is thus entered after block allocation and parameter transfer, which
+is done exactly as for a SIMULA procedure.
+PHFO has the task of adapting the parameters to FORTRAN formats and
+calling the actual FORTRAN procedure. If the returned parameter values
+have to be converted, PHFO does this before returning to SIMULA code.
+Both old (F40) FORTRAN and new FORTRAN-10 procedures can be handled.
+During execution of the FORTRAN procedure, YFOXCB in the static area has
+the XCB value corresponding to the procedure block.
+More information is available in the PHFO module listing.
+.page
+III.1.10##SIMSET and SIMULATION
+.br;##########---------------------
+.s;The standard classes SIMSET and SIMULATION are implemented in the SS and
+the SU modules, respectively, where prototypes, symbol tables and RTS
+procedures implementing the main classes and their attributes, are found.
+Names for quantities referred by the prototypes are generated in SIMRPA
+in the same way as for the FILE subclasses, see III.1.7.1.
+The classes involved are represented by the symbols (fixup numbers used by
+the compiler): SSST (SIMSET), SSLG (LINKAGE), SSHD (HEAD), SSLK (LINK),
+SUSI (SIMULATION), SUPS (PROCESS), SUMA (Main Program of SIMULATION).
+D%SUSI is thus the macro for implementing the SIMULATION prototype,
+SUSI%S is the statement coding (SUSI.ZCPSTA) of SIMULATION, etc.
+The present RTS design places SS and SU in the low segment to be loaded
+with the compiled SIMULA program. Since some information in the
+class prototypes is dependent upon the level where the SIMULA program
+uses SIMSET or SIMULATION as a prefix, the SIMULA compiler must
+supply this level as global symbols to be used for relocation by
+LINK-10 or the LOADER. Because both the effective block level
+and its negation are involved, two symbols, .SIMLV and .SIMVL, are defined.
+_.SIMVL defines ZPREBL of the SIMSET and SIMULATION prototype, i e the
+offset from the block address where the display element pointing to the
+class object itself can be found at run time.
+_.SIMLV is the complement of .SIMVL, i e a positive quantity, which is used to define the
+display vector lengths (ZPCDLE) of the classes involved.
+_.SIMVL is also used as ZCPSBL (static environment block level) for the
+prototypes of SIMSET and SIMULATION attributes.
+.p 0,2,10;III.1.10.1##SIMSET implementation
+.s;SIMSET is defined in CBL 14.1. The implementation is a straightforward
+translation of this definition. FIRST, LAST and PREV (recommended extension) are
+implemented inline by the compiler.
+The SIMSET prototype is SSST (entry .SSST). No special actions are performed
+for declarations (SSST%D) or initial actions (SSST%S). Coding to set
+up a block prefixed by SIMSET is no different from any prefixed block
+setup by CPSP.
+.p 0,2,10;III.1.10.1.1##Classes local to SIMSET
+.s;SIMSET has the class attributes LINKAGE, LINKAGE class HEAD and LINKAGE class
+LINK.
+LINKAGE (SSLG) objects have the two links ZLGPRE and ZLGSUC implementing
+the inaccessible variables SUC and PRED defined in CBL 14.1.2.
+ZLGSUC and ZLGPRE share a 36-bit word.
+No additional data is needed for HEAD and LINK.
+.p 0,2,10;III.1.10.1.2##Procedure attributes of LINKAGE, HEAD and LINK
+.s;The procedure attributes are implemented in a straightforward manner following
+CBL definitions. Parameters to pure procedures are passed in XWAC1, XWAC2, etc,
+and parameters to functions are passed in ac's starting with XWACn,
+where XTAC has the address of XWACn.
+.p 0,2,10;III.1.10.2##SIMULATION
+.s;The standard class SIMULATION is defined in CBL 14.2.
+The SU module contains prototypes and actions of SIMULATION, PROCESS
+and MAIN PROGRAM, procedure attributes of SIMULATION and
+procedures to implement the activation statement.
+The sequencing set is implemented as a binary tree of EVENT NOTICES (ZEV).
+Event notices are referred by process objects (and the event notice refers
+back to the process) which are scheduled. For storage management reasons,
+event notices are contained in event notice records (ZER) and chained to
+free lists when not in use. The event notice records are chained to
+the SIMULATION block and to each other. If several SIMULATION blocks
+exist, they are chained to each other for garbage collection reasons.
+The SQS tree is rooted at the last eventnotice (largest scheduled time),
+which is located via ZSULT of the SIMULATION block.
+The current event notice (smallest scheduled time) is found via ZSUFT.
+The three links ZEVZBL (upward link), ZEVZLL (left) and ZEVZRL (right)
+are used to define the tree in such a way that the EVTIME (ZEVTIM) values
+of the left hand subtree are always smaller than those of the
+right hand subtree and thus the path from last to first event is via left links.
+ZEVZBL is used for backtracking when the left or right link does not exist.
+Depending on the order of scheduling statements, several possible trees
+exist for a certain sequence of events. Example:
+.p 0,2,16;.nf;
+First                                Last
+(ZSUFT)				    (ZSULT)  (dummy)
+------   ------   ------   ------   ------   ------
+[  1 ]<--[  2 ]<--[  3 ]<--[  8 ]<--[ 10 ]<--[ZZZZ]
+------   ------   ------   ------   ------   ------
+                             !        !
+                             V        V
+         ------   ------   -------   ------
+         [  4 ]<--[  6 ]<--[  7  ]   [  9 ]
+         ------   ------   -------   ------
+                    !
+                    V
+                  ------
+                  [  5 ]
+                  ------
+.s;.fill
+where left arrows denote left links and down arrows denote right links.
+ZSUFT (current) refers to the ZEV labeled 1, and the root is the last event
+(10).
+ZZZZ stands for the largest possible real value [3777777777777 octal] and
+this node is placed in the tree to facilitate ranking of times.
+The tree is manipulated at the request of scheduling statements:
+ACTIVATE/REACTIVATE, HOLD, PASSIVATE, CANCEL, WAIT.
+Eventnotices are allocated by SANE, which allocates a new eventnotice record
+(ZER) when no more free eventnotices are found in the current record.
+Special measures have to be taken to preserve event notice addresses
+over a possible garbage collection. Since the garbage collector
+can only relocate addresses that point to the start of recognizable
+records, i e with a ZDN part, eventnotice addresses in global
+locations have to be split into two parts, ZER address + offset, before
+allocating a new ZER record. The global locations that can be used are
+YSUPCP and YSUSCP. See SU and SANE coding.
+The address of the (current) SIMULATION block is found via
+the global location YSULEV in the static area, which is set up by the
+initial actions of SIMULATION to contain the instruction
+MOVE  XSAC,.SIMVL(XCB). The effective block level of SIMULATION is
+thus found in the right half of this word.
+The procedure ACTIVATE described in CBL 14.2 is implemented as SUAC.
+CURRENT, IDLE, MAIN, TERMINATED and TIME are implemented inline.
+The rest is straightforward translation of the CBL definition, where the SQS
+is implemented as described above without referring to the CBL definition
+of class EVENT NOTICE.
+To simplify SQS handling, a dummy ZEV with ZEVTIM=max real value is inserted
+at the start. ZEVTIM is represented in single precision floating point format.
+SUAC is called with an activation mask in X0, process reference in XWAC1,
+second parameter (process or time) in XWAC2. See SU module for details.
+.pg;III.1.11##Standard procedures and functions
+.br;##########---------------------------------
+.s;The following standard procedures and functions are available in DEC-10 SIMULA:
+.p 0,2,10;.nofill
+SIMULA name	Fixup (1) Access (2)	result  param.	call
+					type	types		(3)
+.s;ABS		inline    G		R/L     R/L
+ACCUM		SUAM	  SU		-	R,R,R,R		(5)
+ARCCOS		MAAC      G		R       R		F
+ARCSIN		MAAS      G		R	R		F
+ARCTAN		MAAT      G		R       R		F
+		MAATD     G             L       L		F
+BLANKS		TXBL	  G		T	I		A2
+BREAKOUTIMAGE	IOBO	  IOOU					P
+CALL		CPCA	  G		-	O		A1
+CANCEL		SUCA	  SU		-	SUPS		P
+CARDINAL	SSCA      SSHD		I       		A1
+CHAR		inline	  G		C       I
+CLEAR		SSCL	  SSHD					P
+CLOSE		IOCL	  IOFI					P
+COPY		TXCY	  G		T	T		A2
+COS		MACO      G		R       R		F
+		MACOD     G             L       L		F
+COSH            MACH      G             R       R		F
+CURRENT		inline	  SU		SUPS
+DETACH		CPDT	  G					P
+DIGIT		inline    G		B	C
+DISCRETE	RDDI	  G		I	A,I		R1
+DRAW		RDDR	  G		B	R,I		R1
+EMPTY		SSEY	  SSHD		B			A1
+EJECT		IOEJ	  IOPF					P
+ENDFILE		inline	  IOIN,IODF	B
+ENTIER		inline	  G		I	L/R
+EVTIME		SUEV	  SUPS		R			A1
+ERLANG		RDER	  G		R	R,R,I		R1
+EXP		MAEX	  G		R	R		F
+		MAEXD     G		L	L		F
+FIRST		inline	  SSHD		SSLK
+FOLLOW		SSFW	  SSLK		-	SSLG		P
+GETCHAR		IOGC	  TEXT		C			A1
+GETFRAC		IOGF	  TEXT		I			A1
+GETINT		IOGI	  TEXT		I			A1
+GETREAL		IOGR	  TEXT		L			A1
+HISTD		RDHI	  G		I	A,I		A1
+HISTO		RDHO	  G		-	A,A,R,R		P
+HOLD		SUHO	  SUPS		-	R		P
+IDLE		inline	  SUPS		B
+INCHAR		IOII	  IOIN,IODF	C			I1
+INFRAC		IOIF	  IOIN,IODF	I			I1
+INIMAGE		IOIG	  IOIN,IODF				I1
+ININT		IOIG	  IOIN,IODF	I			I1
+INREAL		IOIR	  IOIN,IODF	L			I1
+INTEXT		IOIT	  IOIN,IODF	T	I		I2
+INTO		SSIT	  SSLK		SSHD			P
+Integer to	MACL	  G		L	I		F
+long real
+LAST		inline	  SSHD		SSLK
+LASTITEM	IOLI	  IOIN,IODF	B			I1
+LETTER		inline	  G		B	I
+LINEAR		RDLI	  G		R	A,A,I		R1
+LINE		inline	  IOPF		I
+LINESPERPAGE	IOLP	  IOPF		-	I		P
+LOCATE		IOLT	  IODF		-	I		P
+LOCATION	inline	  IODF		I
+Long real to	MACI	  G		I	L		F
+integer
+LOWTEN		TXLT	  G		-	C		P
+MAIN		TXMN	  TEXT		T			T1
+MOD		inline	  G		I	I,I
+MORE		inline	  TEXT		B
+		inline	  IOFI		B
+NEGEXP		RDNE	  G		R	R,I		R1
+NEXTEV		SUNE	  SUPS		SUPS			A1
+NORMAL		RDNO	  G		R	R,R,I		R1
+OPEN		IOOP	  IOFI		-	T		P
+OUT		SSOU	  SSLK					P
+OUTCHAR		IOOC	  IOOU,IODF	-	C		P1
+OUTFIX		IOOX	  IOOU,IODF	-	L,I,I		P1
+OUTFRAC		IOOF	  IOOU,IODF	-	I,I,I		P1
+OUTIMAGE	IOOG	  IOOU,IODF	-			P
+OUTREAL		IOOR	  IOOU,IODF	-	L,I,I		P1
+OUTTEXT		IOOT	  IOOU,IODF	-	T		P1
+PASSIVATE	SUPA	  SUPS		-			P
+POISSON		RDPO	  G		I	R,I		R1
+POS		inline	  TEXT,IOFI	I
+PRECEDE		SSPC	  SSLK		-	SSLG		P
+PRED		SSPD	  SSLG		SSLK			A1
+PREV		inline	  SSLG		SSLG
+PUTCHAR		TXPC	  TEXT		-	C		T1
+PUTFIX		TXPX	  TEXT		-	L,I		T1
+PUTINT		TXPI	  TEXT		-	I		T1
+PUTFRAC		TXPF	  TEXT		-	I,I		T1
+PUTREAL		TXPR	  TEXT		-	L,I		T1
+RANDINT		RDRA	  G		I	I,I,I		R1
+RANK		inline	  G		I	C
+RESUME		CPRS	  G		-	O		P
+SETPOS		TXSE	  TEXT		-	I		P
+		TXSE	  IOFI (6)	-	I		P
+SIGN		inline	  G		I	R/L
+SIN		MASI	  G		R	R		F
+		MASID	  G		L	L		F
+SINH		MASH	  G		R	R		F
+SQRT		MASQ	  G		R	R		F
+		MASQD	  G		L	L		F
+STRIP		TXST	  TEXT		T	T		A1
+SUB		TXSU	  TEXT		T	I,I		A1
+SUC		SSSC	  SSLG		SSLK			A1
+TAN		MATA	  G		R	R		F
+TANH		MATH	  G		R	R		F
+TERMINATED	inline	  SUPS		B
+Text assignment TXVA	  G		-	T,T		T4
+Text relation	TXRE	  G		B	T,T		T4
+TIME		inline	  SU		R
+UNIFORM		RDUN	  G		R	R,R,I		R1
+WAIT		SUWA	  SUPS		-	SSHD		P
+** (power)	MARR	  G		R	R,R		F
+		MALL	  G		L	L,L		F
+		MARI	  G		R	R,I		F
+		MALI	  G		L	L,I		F
+.fill
+.p 0,2,10;Notes:
+.s;Type codes used: B=Boolean, C=character, A=real array, L=long real,
+I=integer, O=ref(any class), R=real.
+SUPS etc - see note (2).
+.s;(1) Fixup is the identifying code given to the symbol by the initial
+expansion of the RTSYMBOLS macro in SIMMCR. Values < 400000 octal are used as
+fixup numbers for external lowseg references. Values > 400000 are used
+as absolute addresses in the high segment, referring to the transfer vector in
+SIMRn0 (SIMRn1 and SIMRn2).
+.s;(2) If the access code is G, the procedure is available in any SIMULA program
+and not an attribute. Procedures marked SU are available only in SIMULATION
+blocks. TEXT signifies a text attribute, and the other four-letter codes
+signify attributes to the corresponding classes:
+.br;FILE (IOFI), INFILE (IOIN), OUTFILE (IOOU), DIRECTFILE (IODF), PRINTFILE (IOPF),
+LINKAGE (SSLG), LINK (SSLK), HEAD (SSHD), PROCESS (SUPS).
+.s;(3) Calling sequences:
+.s;In all cases but F (FORTRAN sequence), parameters are in successive ac's
+starting with the current top of stack ac, called Xtop.
+For pure procedures and for most function calls, Xtop=XWAC1. Most
+procedures are optimized for this case and are coded to place the parameters
+in standard ac's before processing and restore ac's on exit.
+In the case of text and class attributes, the first actual parameter
+(in Xtop and Xtop+1) is the class or text reference. The result is placed
+in Xtop (+Xtop+1) or where Xtop points.
+.s;A1 is used for most functions which are attributes of a class or of TEXT:
+.nf;.lm 16
+ [load address of top ac to XTAC]
+ [object reference in Xtop or text reference in Xtop and Xtop+1]
+ PUSHJ###XPDP,f
+.f;.lm 8
+where f is the function fixup code.
+.s;A2 is used for a global function when garbage collection may occur:
+.nf;.lm 16
+ [Any arguments to Xtop, Xtop+1 etc]
+ PUSHJ	XPDP,f
+ XWD	n,admap
+.f;.lm 8
+where n is Xtop-XWAC1 and admap points to a bit map showing which ac's
+XWAC1 etc contain pointers. Admap is zero if n is zero.
+.s;F is the calling sequence used for arithmetic functions taken from the
+FORTRAN library and for TAN (copied from ALGLIB):
+.nf;.lm 16
+ [Put the first parameter in .YFARG]
+ [any second parameter in .YFAR2]
+ MOVEI	XFP,.YFADR
+ PUSHJ	XPDP,f
+ (D)MOVE Xtop,X0
+.f;.lm 8
+where XFP=X16, and .YFADR, .YFADR+1 have the addresses of .YFARG, .YFAR2.
+.s;I1 is used for certain I/O functions:
+.nf;.lm 16
+ [File ref in Xtop]
+ [parameters in Xtop+2, Xtop+3, ...]
+ MOVEI	XTAC,Xtop
+ PUSHJ	XPDP,f
+.f;.lm 8
+Note that Xtop+1 is not used. Xtop.image.pos is affected.
+.s;I2 is similar to A2, with a file reference in Xtop, first parameter in Xtop+1.
+.s;P is the sequence for a pure procedure statement:
+.nf;.lm 16
+ [object reference or first parameter in XWAC1]
+ [Rest of parameters in XWAC2, ...]
+ PUSHJ	XPDP,p
+.f;.lm 8
+where p is the procedure address.
+.s;P1 is used for output editing procedures:
+.nf;.lm 16
+ [File ref in XWAC1]
+ [parameters in XWAC3, XWAC4, ...]
+ PUSHJ	XPDP,p
+.f;.lm 8
+.s;T1 corresponds to P1 for text editing, with XWAC1 a pointer to
+a text descriptor (ZTV instance).
+.s;R1 is used for random drawing functions. As A1 except that the last integer
+parameter (random stream number) must be an integer variable (possibly value
+parameter).
+.s;.s;
+(5) The interpretation of "NAME" for the 3 first parameters is
+"address of cell".
+.s;(6) <file ref>.setpos is implemented as <file ref>.image.setpos.
+.pg;.nm ch 2
+.ch SIMULA FOR DEC SYSTEM 10#############TD, RTS
+.nm 1
+III.2##RTS DECOMPOSITION
+.s;The RTS is coded as several source modules, each containing one or more
+RTS subroutines or system class prototypes. The source modules, when compiled
+by MACRO-10 together with the required UNIVERSAL and other parameter files,
+yield REL files which are combined into:
+.s;1) SIMLIB.REL, created by FUDGE2 (or MAKLIB) from those REL files
+compiled with a zero origin (relocatable) and thus meant for the low
+segment, plus some chosen routines from SYS:FORLIB.
+.s;2) SIMRTS, the high segment, which may exist as SIMRn0.EXE
+(n = SIMULA version number, e.g_. 4)
+in a one high segment version, or more commonly as
+.br;2a) SIMRn1.EXE, containing the most frequently used high segment routines. Created by LOAD - SSAVE.
+.br;2b) SIMRn2.EXE, which contains routines for program initialization, file
+creation and initialization. Created by LOAD - SSAVE.
+SIMRn1 and SIMRn2 are not in core simultaneously. The transfer from one to the
+other is handled by the transfer vector and the OCSW routine (see III.1.6.2).
+Some routines are included both in SIMRn1 and SIMRn2.
+.s;3) SIMDDn.ABS, containing self-relocating code for the debugging sub-system.
+Created by executing SUTABS.REL loaded with SIMDDT.REL.
+.s;4) SIMHGH.REL, containing the same REL files as
+used for creating SIMRn0.EXE (those marked 0 or 1,2 in III.2.2).
+To be used for debugging or for loading a SIMULA program (partly)
+in the high segment.
+.pg;III.2.1##SIMLIB components
+.br;#########-----------------
+.s;.nofill
+Module	Global symbols
+.s;OCSP	.OCSP
+PHPT	.PHPT
+MA	.MACI	.MACL
+RDDI	.RDDI
+RDDR	.RDDR
+RDER	.RDER
+RDHI	.RDHI
+RDHO	.RDHO
+RDLI	.RDLI
+RDNE	.RDNE
+RDPO	.RDPO
+RDNO	.RDNO
+RDRA	.RDRA
+RDUN	.RDUN
+TAN	TAN.
+SU	.SUSI
+SS	.SSST
+SANE	.SANE
+PHFO	.PHFO
+[The following routines are taken from SYS:FORLIB]
+ACOS.	ACOS.
+ASIN.	ASIN.
+ATAN.	ATAN.
+SQRT.	SQRT.
+SINH.	SINH.
+COSH.	COSH.
+TANH.	TANH.
+EXP1	EXP1.	EXP1.0	EXP1.2	EXP1.4	EXP1.6
+EXP3	EXP3.	EXP3..	EXP3.0	EXP3.2	EXP3.4	EXP3.6
+EXP2	EXP2.	EXP2..	EXP2.0	EXP2.2	EXP2.4	EXP2.6
+EXP.	EXP.
+ALOG.	ALG10.	ALOG.
+SIN.	COS.	COSD.	SIN.	SIND.
+DEXP.2	DEXP.2	DEXP2.
+DEXP.3	DEXP.3	DEXP3.
+DEXP.	DEXP.
+DLOG.	DLG10.	DLOG.
+DSQRT.	DSQRT.
+DSIN.	DCOS.	DSIN.
+DATAN	DATAN.
+FORXIT	EXIT
+CFRXIT	CEXIT.
+EXIDOT	EXIT.
+.fill
+.s;OCSP is loaded with all SIMULA main programs, the others on demand by library
+search. OCSP loads the initial high segment.
+.pg;III.2.2##SIMRTS components
+.br;#########-----------------
+.s;The following is contained in SIMRTS:
+.s;.nofill
+Module	Segment	Global symbols
+.s;
+SIMRTS	0	.IODF	.IOFI	.IOIN	.IOOU
+		.IOPF	.PDERR
+SIMRT1	1	.IODF	.IOFI	.IOIN	.IOOU
+		.IOPF	.OCSW	.PDERR
+SIMRT2	2	.IODF	.IOFI	.IOIN	.IOOU
+		.IOPF	.OCSW	.PDERR
+CS	1	.CSCA	.CSEN	.CSEP	.CSER
+		.CSES	.CSEU	.CSGO	.CSNA
+		.CSQU	.CSRA	.CSSA	.CSSA.
+		.CSSB	.CSSC	.CSSN	.CSSW
+		.CSSW0
+CSSADM	2	.CSRA	.CSSA.
+CP	1	.CPCA	.CPCD	.CPCI	.CPDT
+		.CPE0	.CPNE	.CPPD	.CPRS
+		.CPSP
+IO	1	IODF%D	IODF%I	IODF%M	IODF%S
+		IODF%Y	IOFI%D	IOFI%I	IOFI%M
+		IOFI%S	IOFI%Y	IOIN%D	IOIN%I
+		IOIN%M	IOIN%S	IOIN%Y	IOOU%D
+		IOOU%I	IOOU%M	IOOU%S	IOOU%Y
+		IOPF%D	IOPF%I	IOPF%M	IOPF%S
+		IOPF%Y	.IOBO	.IOCS	.IOCL
+		.IOCLA	.IOCS	.IOEJ	.IOFD
+		.IOIG	.IOLI	.IOLN	.IOLP
+		.IOLT	.IONB	.IOOG	.IOOP
+		.IORB	.IOSP
+IOED	1	IOTXR	.IOIC	.IOIF	.IOII
+		.IOIR	.IOIT	.IOOC	.IOOF
+		.IOOI	.IOOR	.IOOT	.IOOX
+IONF	2	.IOCF	.IOCOM	.IOENT	.IOLOK
+		.OCINE	.OCINK
+PH	1	.PHCV	.PHFA	.PHFM	.PHFS
+		.PHFT	.PHFV
+SA	1,2	.SAAB	.SAAR	.SACL	.SADB
+		.SADE	.SAGC	.SAGI	.SAIN
+		.SANP
+TX	1	.TXCY	.TXDA	.TXGC	.TXGF
+		.TXGI	.TXGR	.TXLT	.TXMN
+		.TXPC	.TXPF	.TXPI	.TXPR
+		.TXPX	.TXRE	.TXSE
+TXBL	1,2	.TXBL	.TXST	.TXSU	.TXVA
+OCIN	2	YOCSWL	.OCIN	.OCIN4	.OCIN5
+		.OCIN6	.OCIN7	.OCINB	.OCINF
+		.OCINI	.OCINJ	.OCINY	.OCINZ
+OCIO	1,2	.IOERF	.IOFER	.IOTYS	.OC8T
+		.OCDT	.OCIN1	.OCIN2	.OCIN8
+		.OCIN9	.OCINC	.OCIND	.OCING
+		.OCINH	.OCLA	.OCOO
+OCEP	1	.FORER	.FOREX	.OCEI	.OCEP
+		.OCLD	.OCTR	.OCUU
+REL:HELPER.REL 2 .HELPR
+.fill
+.s;Modules marked 0 are only used in the one high segment version SIMRn0.EXE.
+Those marked 1 are used in SIMRn1.EXE, those marked 2 in SIMRn2.EXE.
+All modules except CSSADM.REL, SIMRT1.REL and SIMRT2.REL are used in SIMRn0.EXE.
+.pg;.nm ch 3
+.ch SIMULA FOR DEC SYSTEM 10#############TD, RTS
+.nm 1
+III.3##LOW SEGMENT ORGANIZATION
+.s;Normally (1), the low segment of an executing SIMULA program contains:
+.fn 5;.s;.c;--------------
+.br;(1) Part or all of the program can also be loaded in the high segment
+if a shared SIMULA program is desired or if the program is very big and
+more space in the low segment is needed for data. See SIMHGH.HLP.
+Also useful for debugging the RTS.
+!
+.s;1) The compiled code of the SIMULA main program.
+.s;2) Code for any external classes or procedures, possibly
+compiled by MACRO-10 (or an equivalent processor, e g BLISS) or FORTRAN.
+.s;3) RTS routines loaded from SIMLIB by library search. OCSP is loaded with
+all SIMULA programs, the other routines are loaded as needed.
+.s;4) If SIMDDT is loaded directly at the start of execution (DEBUG or
+LOAD - REENTER), it occupies the space directly following the last routine
+loaded by LINK-10 or LOADER.
+.s;5) The so-called STATIC area is allocated next. See SIMRPA. The static area
+is addressed by loading the right half of .JBOPS to a register, usually called
+XLOW (default XLOW=X16) and using the symbols declared via the STATIC macro
+in SIMRPA as offsets.
+The RTS stack based on XPDP is part of the static area.
+.s;6) The dynamic low segment area starts with
+.br;6a) an area for buffers and buffer headers,
+.br;6b) the IOSPEC table,
+.br;6c) more buffers if needed.
+.br;See IO.MAC for table layouts and record definitions.
+.s;7) The storage pool for dynamically allocated objects is at the end of the
+low segment. SIMDDT and its work areas may be allocated in the pool if
+not loaded at program start.
+.pg;III.3.1##Low segment layout
+.br;#########------------------
+.s;.nofill
+-------------------------  <---  0
+!   JOBDAT area		!
+!-----------------------!  <--- 140 (octal)
+!	main		!
+!	program		!
+!-----------------------!
+!  external procedures	!
+!  and classes		!
+!-----------------------!  <--- OCSP
+!	RTS		!
+!	routines	!
+!-----------------------!  <--- YOCDDT if non-zero
+_.  (SIMDDT if loaded)	.
+:-----------------------:  <--- .JBSA,	.JBOPS
+!   Static area		!
+!-----------------------!  <--- YOCBST
+!   Initial buffer	!
+!   area		!
+!-----------------------!  <--- YIOSPC
+!   IOSPEC table	!
+!-----------------------!
+!   Buffer area		!
+!   continued		!
+!-----------------------!  <--- YSABOT
+!   Storage pool	!
+!   for SIMULA		!
+!   objects		!
+! - - - - - - - - - - - !  <--- YSATOP
+!   Unused part of	!
+!   pool		!
+!-  -   -   -   -   -  -!  <--- YSALIM
+! Space for a ZAC obj.	!
+-------------------------  <--- .JBREL
+.fill
+.pg;.nm ch 4
+.ch SIMULA FOR DEC SYSTEM 10#############TD, RTS
+.nm 1
+III.4##RTS INTERFACE
+.s;The RTS interfaces with a) the user,
+b) the monitor and file system, c) the compiled program.
+Within the RTS, there are interfaces d) between low and high
+segment, e) between SIMDDT and the rest of the RTS.
+.p 0,2,10;III.4.1##RTS interface with the user
+.br;#########---------------------------
+.s;The user communicates with the RTS by the following means:
+.s;- The user TTY, which is used by the RTS for error messages and other
+diagnostics, for the file initialization dialogue if specified
+(III.1.7), to receive SIMDDT commands, etc. The TTY is used both as
+SYSIN and as SYSOUT if no other specification has been given.
+.s;- A specification file may be read if the /R switch is given at
+compile-time.
+See III.1.7.
+.p 0,2,5;III.4.2##RTS interface with monitor and file system
+.br;#########------------------------------------------
+.s;
+This is described mainly in III.1.6 and III.1.7.
+.p 0,2,10;III.4.3##RTS interface with compiled program and internally
+.br;#########--------------------------------------------------
+.s;SIMRTS, the high segment of RTS, interfaces with the compiled program
+via the transfer vector and the static area.
+The low segment of the RTS interfaces with compiled program via global symbols
+and the static area.
+.p 0,2,8;III.4.3.1##Low segment - high segment interface
+.s;Since the high segment (SIMRTS) is created independently of any
+low segment that is present at run time, communication between the
+segments must go through fixed addresses or via a base register
+and fixed offsets. Both methods are used, as explained below.
+.p 0,2,10;III.4.3.1.1##References to high segment from low segment
+.s;High segment routines are called via a transfer vector, consisting of
+JRST and PUSHJ instructions. The transfer vector is created
+by expansion of the RTSYMBOLS macro, with a suitable
+definition of the macro which is called for each entry. No global
+variables are placed in the high segment.
+.p 0,2,10;III.4.3.2##References from the high segment to the low segment
+.s;The (static) area for global variables and tables is placed at the initial .JBFF
+location. .OCSP saves the address of the global area in .JBOPS, right half.
+When referring from either the high or the low segment to those global
+locations, a base register must be used, which is loaded by a HRRZ instruction from .JBOPS when needed. The symbolic name of that register should always be XLOW. The actual value of XLOW may change throughout the run time
+system, but usually XLOW=XFP is used.
+The global variables are thus always indexed by XLOW.
+.s;Some low segment data must be loaded together with the SIMULA program.
+These are:
+.s;*	Pseudo or extended accumulators which are
+global locations defined at load time, with the names .YXA1, .YXA2, etc.
+The compiler refers to those locations by consecutive fixup numbers,
+which are translated to external references. In order to have access to
+those locations also from the high segment, the address of .YXA1
+must be placed in the static area based on XLOW. YXACAD(XLOW) contains that address.
+.s;*	Address and value list for communication with FORTRAN library
+subroutines, e g SIN, COS, and the exponentiation routines.  The address
+list consists of two words at address .YFADR. Those words have the
+addresses of the two doublewords .YFARG and .YFAR2.
+When calling, e g, the SQRT function, the argument is placed in .YFARG
+and XFP is made to point to .YFADR, before executing the PUSHJ.
+As an example, the following calling sequence is generated for the
+statement y:=sqrt(x):
+.nf;.p 0,1,7
+	MOVE	XWAC1,x
+	MOVEM	XWAC1,.YFARG
+	MOVEI	XFP,.YFADR
+	PUSHJ	XPDP,SQRT. (fixup MASQ in RTSYMBOLS)
+	MOVE	XWAC1,0
+	MOVEM	XWAC1,y
+.fill
+.p 0,2,10;III.4.3.3##References from the RTS to the compiled program
+.s;SIMDDT uses the main line number table address to find line number
+and symbol tables for the main program and any external procedures or classes.
+The RTS stack, starting at YOBJRT of the static area, is used for
+referring to compiled code in several RTS routines and in SIMDDT.
+_.JBSA points either to .MAIN or .OCRE0 (DEBUG command).
+The data area for the outer program block and its display vector are placed
+in compiled code. Program objects (subblocks, procedures, classes, prefixed
+blocks) refer to compiled code via the prototype pointer.
+Other blocks may also contain references to compiled code.
+The SIMULATION or SIMSET block level is defined by global symbols (see III.10).
+.p 0,2,10;III.4.3.4##Access to SYSIN, SYSOUT objects, to SIMULATION block
+.s;The SYSIN file object address is found at offset YSYSIN in the static area.
+Code is compiled to load an ac from .JBOPS before accessing SYSIN.
+Access to SYSOUT is via YSYSOUT.
+In a SIMULATION program, YSULEV contains information (MOVE XSAC,offset of
+simulation block address in current display) to find the SIMULATION block.
+Since these three offsets are used by compiled code, they must not be changed
+unless absolutely necessary (old SIMULA rel files will be useless).
+.pg;.nm ch 5
+.ch SIMULA FOR DEC SYSTEM 10#############TD, RTS
+.nm 1
+III.5##COMMON MACRO PARAMETER FILES
+.s;MACRO-10 modules in the RTS refer to the UNIVERSAL files SIMMAC.UNV,
+SIMMCR.UNV and SIMRPA.UNV, created from the corresponding _.MAC files.
+SIMMAC is described elsewhere (I.6).
+SIMMCR contains information used at code generation, chiefly record definitions
+for static and dynamic records used at run time.
+SIMRPA contains additional definitions used mostly at run time but also
+for code generation in some cases.
+.p 0,2,10;III.5.1##UNIVERSAL SIMMCR
+.br;#########----------------
+.s;SIMMCR contains the following:
+.br;- Definitions of register names XIAC, XFP, XCB, XSAC, XTAC, XRAC, XRAC1.
+.br;- TYPZDN macro, used to define the constants for run-time dynamic record
+discrimination (ZDNTYP field) and also in the garbage collector to define
+a jump table for record processing.
+The last tag value used, QZDNTM, is defined.
+.br;- RTS error codes used at compile time.
+.br;- Parameter descriptor codes used in ZFL and ZAP records.
+.br;- Record definitions (DR, DF) for dynamic records ZDN, ZBI, ZBP, ZCL, ZPB, ZTE,
+ZTT, ZAR, ZAC, ZER, ZDR, ZYS, ZXB, ZTV, ZDV, ZDS, ZLD, ZDL, ZDA, ZRV, ZDP,
+ZFL, ZSU, ZEV, ZLG, ZPS,
+static records ZPR, ZPC, ZCP, ZMP, ZSL, ZSR, ZTD, ZPD, ZFP, ZFR, ZAP,
+ZLN, ZSD, ZSM, ZTH and miscellaneous definitions: ZTS (thunk save area),
+YFOFAD, YFOAAD, YFOPAD.
+.br;- The RTSYMBOLS macro, which gives values to most symbols used to access
+RTS routines and system class prototypes.
+The entries in the RTSYMBOLS macro are calls of an X macro, used for
+procedure entries, and a Y macro, used for prototypes.
+The X macro is invoked:
+.br;########X(ROUT,SEG,SIM,N)
+.br;ROUT is the mnemonic used for the entry.
+SEG is L (low segment), 1 (SIMRn1), 2 (SIMRn2) or 3 (both SIMRn1 and SIMRn2).
+An empty second parameter stands for 1.
+SIM is the letter S if the symbol has a SIMULA name (exists in initial
+symbol table), empty otherwise.
+N, if present, gives the global name to be used for the entry
+point to the routine, otherwise the global name is formed by prefixing ROUT with a dot.
+.br;The Y macro is invoked:
+.br;########Y(PROT,SEG,SIM,F)
+.br;PROT corresponds to ROUT. If SEG is 1,2 or 3, the prototype will be expanded
+in the transfer vector directly to be accessible to compiled code via PROT.
+The initial expansion reserves space for the prototype to get the correct
+values of the following entries.
+F, if present, shows the size of the variable part of the prototype (after
+the fixed ZPC part, i e parameter descriptors for formal parameters).
+RTSYMBOLS, when expanded with the initial definitions of X and Y, defines
+fixed high segment addresses if SEG=1,2 or 3, consecutive fixup numbers
+starting with 1 if SEG=L.
+The high segment addresses are used directly in compiled code as
+entry addresses to RTS procedures and prototypes. The fixup numbers are
+coupled with an external symbol table defined in PASS 3 of the compiler
+by another expansion of RTSYMBOLS (with X and Y redefined).
+In the SIMRTS module used to produce SIMRTS.REL, SIMRT1.REL or SIMRT2.REL,
+another expansion of RTSYMBOLS produces the transfer vector used at
+run time.
+RTSYMBOLS also defines fixup numbers for pseudo ac's and the FORTRAN
+subroutine interface cell - .YFADR, .YFARG, .YFAR2.
+A readable representation of RTSYMBOLS is produced by compilation
+(with listing) of the following MACRO-10 code:
+.s;.nofill
+	TITLE	RTSYMBOL VALUES
+
+	SEARCH	SIMMAC,SIMMCR
+
+	IF2,<END>
+	DEFINE XX(NA,VAL,S1,EN)<
+	PRINTX NA	VAL	S1	EN
+>
+	DEFINE X(ROUT,S,DUM,N)<
+	IFNB <N>,<XX(ROUT,_\ROUT,S,N)>
+	IFB  <N>,<XX(ROUT,_\ROUT,S,.'ROUT)>
+>
+	DEFINE Y(PROT,SEG,S,F)<
+	XX(PROT,_\PROT,SEG,.'PROT)
+>
+	PRINTX SYMBOL	VALUE	SEG	ENTRY
+	PRINTX ------------------------------
+	RTSYMBOLS
+	END
+.fill
+.pg;III.5.2##UNIVERSAL SIMRPA
+.br;#########----------------
+.s;SIMRPA contains definitions needed mostly in the RTS and in some
+compiler modules.
+.p 0,2,10;III.5.2.1##SIMRPA macros
+.s;The following macros are defined:
+.s;LOWADR(X) - defines XLOW=X and loads XLOW from .JBOPS.
+.s;SETLOW(X) - defines XLOW=X, does not change X.
+.s;IFNONE(X) - skips if X==NONE.
+.s;TRIMSTACK - removes top of XPDP stack.
+.s;ERRMAC(A) - defines the error message macro to be used in component A (A'ERR).
+.s;RIGHTHALF(A) - compile time message if A is not a right half field,
+where A is a field designator.
+.s;SAVEALLACS - All ac's are saved at offset YUUOAC of the static area.
+.s;CALLOW, CDEFER, CENABLE, CFORBID - control _^C-REENTER SIMDDT interface
+(see III.1.6.2.3.3).
+.s;TEXT(T), RTEXT(T), RRTEXT(T) - used for garbage collector debugging.
+.s;ERRCODE(N0,A) - Defines the initial error number used in module A, Q'A'ENO=N0.
+.s;RTSMODULE(M,M1,SEG) - Defines TITLE, ERRMAC(M), high or low segment
+relocation.
+.s;PROCINIT(A) - Defines declarations for IO, OCIO, OCIN modules when expanded.
+A is module name.
+.s;RDINIT(e) - Defines macros and initial info for submodule RD'e
+of RD.MAC (submodules are separated by PRGEND).
+.s;DCLASS(NAM,...) - Defines D%'NAM (prototype macro) for the standard
+class with index code NAM, e g IOFI (FILE).
+.s;DSZCML - Defines symbol table record (ZSM) for a standard class.
+.s;DZSD - Defines symbol table entry for local quantity.
+.s;SYSCLASS - Used to define codes QCLPB, QSUSI, QSSLG, QSUPS, QIOFI for the
+ZCPGCI field in the prototype. Used by garbage collector to indicate
+special relocation. SYSCLASS is used there to define a jump table.
+.p 0,2,10;III.5.2.2##Constants defined in SIMRPA
+.s;Alternative ac names are defined.
+Compile time constants like QIOLP (default LINESPERPAGE value).
+Entry point offsets for SIMDDT.
+Constants referring to monitor tables, FORTRAN error codes, interrupt
+conditions.
+.s;The offsets in the STATIC area are defined via the STATIC macro.
+These offsets begin with the letter Y.
+.p 0,2,6;III.5.2.3##Record definitions in SIMRPA
+.s;The following records are defined:
+.br;ZFS, ZFI, ZIF, ZOF, ZPF, ZDF, ZBH, ZSW, ZBU, ZYS as SFD block, ZXB, ZFD.
+.p 0,2,5;III.5.2.4##Switch definitions in SIMRPA
+.s;Switches used in OC, IO and SA modules are defined.
+.pg;.nm ch 6
+.ch SIMULA FOR DEC SYSTEM 10#############TD, RTS
+.nm 1
+III.6##TESTING
+.s;Special debugging tools have been developed for the I/O subsystem (see I.10,
+test standard), and the garbage collector (SAGC, III.6.2).
+For the rest of the RTS, the standard debugging tool, DDT has been used.
+SIMDDT can also be used (in conjunction with DDT).
+At present (version 4 of SIMULA) the debugging tools for SAGC cannot
+be used, however.
+.p 0,2,10;III.6.1##Debugging with DDT
+.br;#########------------------
+.s;III.6.1.1##Debugging using rel files for all RTS components
+.s;DDT debugging is simplified if all REL files both for low and high segment
+are available. In this case the required files are loaded directly and possibly
+saved as an EXE file. SIMLIB may be used in library search mode.
+Note that local symbols are not available for routines in SIMLIB.
+If all required rel files are loaded directly with DDT via a DEBUG command,
+breakpoints may be set anywhere before starting the program.
+The following command sequence may be used:
+.nofill
+	.DEBUG SIMPRO.SIM,/REL REL:SIMHGH.REL,REL:HELPER.REL
+	[set breakpoints]
+	_^[G (or .OCRE0_^[G if SIMDDT start is wanted)
+	[execution]
+.fill
+where _^[ stands for <altmode> and SIMHGH.REL contains the modules
+SIMRTS, CS, CP, IO, IOED, OCIN, OCIO, PH, SA, TX, OCEP.
+The REL files from SIMHGH.REL may also be loaded separately.
+SIMRTS.REL (the one-segment version)
+must always be the first module in the high segment.
+If possible, REL files compiled with QDEBUG=1 and QSYS=0 should be used
+(see implementation guide).
+For complete garbage collector debugging, SADEB.REL must be included.
+See III.6.2.
+If execution is made to start in SIMDDT, DDT may be entered by
+typing _^C when a command is expected, then issuing the DDT command.
+Control is returned to SIMDDT by executing "JRST 2,@.JBOPC_^[X" and then
+typing a SIMDDT command.
+Note that SIMDDT may be used to force a garbage collection via the
+VARIABLES command. This is useful when a garbage collection error is expected.
+See III.6.2 for ways to dump SIMULA objects and to trace garbage collector actions.
+.p 0,2,10;III.6.1.2##Debugging the SYS version of the RTS
+.s;Debugging the SYS version of the RTS high segment is rather difficult.
+If possible, the rel files should be used as described in III.6.1.1.
+With DDT, breakpoints can be set in the low segments without difficulty, but
+breakpoints cannot be set in the high segment at all if the SHR files from
+SYS are used at user level. One possible way is to GET and SAVE SIMRn1 and
+SIMRn2 from SYS, creating unsharable EXE files on the user area, then load the program
+with DDT (DEBUG/D SIMPRO) and SAVE it, then ASSIGN DSK SYS
+(after setting the SYS switch via SETSRC).
+If breakpoints must be placed in SIMRn1, set a breakpoint at .MAIN+6, then
+set the required high segment breakpoints after stopping at .MAIN+6.
+It is also possible to start in SIMDDT and enter DDT at a breakpoint as
+shown above.
+If breakpoints in SIMRn2 are needed, set a breakpoint at .OCSP+73 (may be
+changed, check for JRST 400047) and start. SIMRn2 is then in core.
+If you need to set breakpoints at other invocations of SIMRn1 or SIMRn2 than
+the first one, patches must be made in the high segment. It is possible e g
+to place "EXIT 1,", which works as _^C, in a high segment location,
+noting the replaced instruction.
+If the replaced instruction is is HRRZ 16,.JBOPS (LOWADR), it may be
+redundant, otherwise the replaced instruction has to be executed in DDT
+explicitly (_^[X command) before returning via .JBOPC as shown above.
+This debugging mode should not be used unless it is necessary to reproduce
+an error.
+If the error can be shown to occur when all rel files are loaded,
+debugging should be done as in III.6.1.
+If the SYS version has only one high segment, debugging is somewhat
+simplified.
+.pg;III.6.2##Testing facilities in the garbage collector
+.br;#########-------------------------------------------
+.s;.nt WARNING
+.s;The testing facilities are currently (version 4) not usable.
+.en
+.s;In the test version (QDEBUG=1, QSYS=0), the garbage collector (SAGC, shortened
+as GC) processing can be traced. The global cell at offset YSASW in the static
+area contains 5 switches to determine the amount of test output produced.
+The switches are:
+.s;.nofill
+Switch	bit no	Meaning
+.s;SAGCPE	0	1 if no output on nnnGCP.TMP
+SWGCTE	1	1 for test output from GC
+SWGCT2	2	1 for test output on TTY
+SWGCT3	3	1 for test output on SYSOUT
+SWGCT4	4	1 if GC runtime and low seg limit
+		should be logged.
+.s;.fill
+If SAGCPE is off, the GC parameters used in the storage allocation algorithms
+are output in append mode on the file nnnGCP.TMP after each garbage collection,
+where nnn is job number.
+The data on this file can be analysed by the utility program
+SUTGCA (see chapter V). SAGCPE is set off by default if QDEBUG=1.
+Initialization is done by .SAGI, which opens the file. SAGCPE is set off if I/O errors
+occur on the file.
+.s;If SWGCTE is on, the test version logs GC actions. In PHASE1 the start
+addresses of all chained records are output. In PHASE2 all referenced records
+in the pool are logged with old address, new address, record length given.
+In PHASE3 all updated pointers are given with old and new values.
+Finally, in PHASE4, the old address, new address, and length for each moved
+record are output.
+SWGCTE is off by default.
+.s;SWGCT2 and SWGCT3 specify the output destination for test output.
+Default is TTY (SWGCT2 and NOT SWGCT3).
+.s;If SWGCT4 is set a short log message is given on each GC execution.
+.s;The default switch settings can be changed by patching the .SAGI routine.
+The appropriate bits in the first instruction compiled for SETON
+SWGCT2(XLOW) can be set. The bits may also be changed in YSASW(XLOW)
+at a DDT breakpoint.
+.p 0,2,10;The SADEB.MAC module contains a number of dump routines to be used for GC
+testing as well as the output routines for logging as specified above.
+.s;_.SAPD dumps the whole object pool.
+.s;_SAPDRE dumps a single record in the pool.
+.s;_.SQSDU dumps the sequencing set of SIMULATION (SQS).
+.s;The routines are invoked by the _^[X command in SIMDDT, executing a PUSHJ 17,r
+instruction, where r is the appropriate routine.
+.s;When calling SAPDRE, XCUR==X6 must contain the start address of the record.
+For easier handling of the dump routines, note that the DDT command
+"PUSHJ 17,.SAPD<PD:", for example, defines PD as PUSHJ 17,.SAPD.
+Thus PD_^[X may be used to get a pool dump.
+.pg;.nm ch 7
+.ch SIMULA FOR DEC SYSTEM 10#############TD, RTS
+.nm 1
+III.7##SAMPLE PROGRAM
+.s;As an illustration of what happens at run time, the execution of the
+following SIMULA program is analysed in some detail, referring to line numbers
+as allocated by the compiler:
+.p 0,2,10;.nofill
+B1     1   BEGIN
+       2      CLASS pb1;;
+B2     3      pb1 BEGIN
+       4         CLASS c1;
+B3     5         BEGIN
+       6            CLASS c2;
+B4     7            BEGIN
+       8               detach;
+       9               rc3:-NEW c3;
+      10               resume(rc3);
+E4    11            END c2;
+      12            CLASS c3;
+B5    13            BEGIN
+      14               detach;
+E5    15            END c3;
+      16            REF(c2)rc2;
+      17            REF(c3)rc3;
+      18            CLASS pb2;;
+      19            rc2:-NEW c2;
+      20            detach;
+B6    21            pb2 BEGIN
+      22               CLASS pb3;;
+B7    23               pb3 BEGIN
+      24                  resume(rc2);
+E7    25               END pb3;
+E6    26            END pb2;
+E3    27         END c1;
+      28         REF(c1)rc1;
+      29         rc1:-NEW c1;
+      30         resume(rc1);
+      31         resume(rc1);
+E2    32      END pb1;
+E1    33   END program;
+.s 2;
+.fill
+Tracing with SIMDDT gives the following execution order by source line number:
+3, 2, 29, 19, 8, 20, 30, 21, 18, 23, 22, 24, 9, 14, 10, 15, 31,
+25, 26, 27, 32.
+.s;This is explained as follows:
+.s;Start before line 1 at the entry point .MAIN given by .JBSA.
+Call OCSP, which swaps in SIMRn2, transfers control to OCIN for initialization
+(SYSIN and SYSOUT setup etc). OCIN transfers control to .OCEI via the
+transfer vector in SIMRn2, swapping in SIMRn1 to replace SIMRn2 (.OCSW).
+OCEI returns to compiled code.
+.s;CSER is called to initialize the reduced subblock starting at line 1, using
+_.SAIN to initialize data according to subblock map.
+.s;At line 3, CPSP, using SADB and .SAIN, sets up the prefixed block
+with its display vector and dynamic link. CSEN is called to start
+declarations in the prefix (ZPCDEC of the pb1 prototype) then via
+CPCD to ZPCDEC of the prefixed block, then via CPPD to line 2 (statements
+of the prefix), continuing via CPCI (implicit inner) to ZCPSTA of the
+block (line 29).
+.s;At 29 a c1 object is generated and entered: CPNE [SADB [.SAIN] CSEN] -
+ZPCDEC - CPCD - ZCPSTA (line 19).
+.s;At 19, create c2 like c1, ending up at line 8.
+.s;At line 8, detach (CPDT) detaches c2 and returns the reference to the caller,
+continuing at line 20, where c1 is detached, returning to line 30.
+.s;At line 30, resume (CPRS) of c1 leads to the reactivation point at line 21.
+.s;At line 21 a prefixed block again starts via CPSP, CSEN, prefix class (line 18),
+continuing at line 23, where a new prefixed block is started (lines 22, 24).
+.s;At line 24 c2 is resumed at its reactivation point line 9.
+C3 is resumed (line 14) and detaches to line 10.
+.s;At line 10, c2 terminates via CPE0. CPE0 calls CPDT, leading to the QPS
+reactivation point at line 15, where c3 terminates, detaching to line 31
+of the surrounding prefixed block.
+The resume (CPRS) at line 31 leads to line 25 in the innermost prefixed block
+via operating chain and back down via dynamic links.
+.s;The prefixed blocks terminate in turn via CPE0 and ZCPIEA links:
+lines 25, 26. C1 terminates via CPE0 and CPDT, leading to
+line 32, where the pb1 prefixed block terminates via CPE0 and ZCPIEA.
+.s;OCEP terminates program execution, closing files via .IOCLA and .IOCL.
+Returns to monitor level via EXIT 1,.
+    

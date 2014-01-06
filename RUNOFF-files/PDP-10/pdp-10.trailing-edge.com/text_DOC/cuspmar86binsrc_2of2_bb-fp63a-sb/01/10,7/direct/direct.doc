@@ -1,0 +1,307 @@
+DIRECT.DOC -- Changes from V6(441) to V7(502)
+February, 1986
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1972,1974,1977,1979,1981,1986
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE FOR USE ONLY  ON  A  SINGLE
+COMPUTER SYSTEM AND MAY BE COPIED ONLY WITH THE INCLUSION OF THE ABOVE
+COPYRIGHT NOTICE.  THIS SOFTWARE, OR ANY OTHER COPIES THEREOF, MAY NOT
+BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY OTHER PERSON EXCEPT FOR
+USE ON SUCH SYSTEM AND TO ONE  WHO  AGREES  TO  THESE  LICENSE  TERMS.
+TITLE  TO  AND  OWNERSHIP OF THE SOFTWARE SHALL AT ALL TIMES REMAIN IN
+DEC.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DEC ASSUMES NO RESPONSIBILITY  FOR  THE  USE  OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DEC.
+DIRECT.DOC -- Changes from V6(441) to V7(502)                   Page 2
+February, 1986
+
+
+1.0     SUMMARY
+
+DIRECT version 7  runs  on  all  monitors.   It  has  been  tested  on
+7.02/7.03.  DIRECT version 7 fully supersedes all previous versions.
+
+DIRECT version 7 is documented in the  system  commands  manual.   See
+also the help file DIRECT.HLP.
+
+DIRECT performs a directory listing of any  of  several  media.   Most
+commonly,  it  is  used to obtain a directory listing of the disk.  It
+can produce a similar listing of a FAILSAFE, FRS, or BACKUP mag  tape.
+DIRECT  can  also analyze a tape for the presence of tape labels (both
+in ASCII and SIXBIT) as well as SAVE files.  DIRECT can also produce a
+listing  of  DECtapes  and  of  TMPCOR.   The directory listing can be
+formatted for speed, compactness, completeness (even extreme  detail),
+or for sorting by SORT.
+
+
+
+2.0     EXTERNAL CHANGES
+
+The main reason for DIRECT version  7  is  to  utilize  the  new  SWIL
+library   ("Scan-Wild-I/o-Library,  which  functionally  replaces  the
+version 7 SCAN, WILD, and HELPER modules), as  well  as  to  fix  some
+minor bugs.
+
+Following is a list of the "external" or  visible-to-the-user  changes
+in DIRECT version 7.
+
+
+2.1     Listing Format
+
+The directory output listing format has been  "standardized"  for  all
+supported  listing  device-types.   In  particular, DECtape and TMPCOR
+listings are now formatted just like disk listings, and obey the  same
+rules  (and are controlled by the same set of switches, such as /FAST,
+/NORMAL, /WIDTH, etc.).
+
+Two new switches have been added, /DTA and /TMPCOR to force  directory
+listings  of DECtapes and TMPCOR to be formatted as they used to be in
+versions of DIRECT previous to version  7.   Additionally,  the  /FDTA
+switch was removed (/FAST works).
+
+
+2.2     /DETAIL listing format
+
+The /DETAIL listing  format  now  includes  the  new  .RBTYP,  .RBBSZ,
+.RBRSZ,  and  .RBFFB  "file  type/format" words, as well as the .RBIDT
+BACKUP "incremental date/time" word.
+
+
+2.3     Magtape buffers
+
+DIRECT version 7 now automatically builds buffers for magtape devices,
+DIRECT.DOC -- Changes from V6(441) to V7(502)                   Page 3
+February, 1986
+
+
+and  will  expand  the  buffers  as  needed  in order to read in large
+records  (DIRECT  only  checks  the  first  tape  record,   subsequent
+oversized  records will report the usual "Block Too Large" I/O error).
+Alternatively, the /BLOCKSIZE switch may be used to explicitly specify
+the  size  of  buffers for DIRECT to build for the magtape device.  If
+/BLOCKSIZE is used, then DIRECT will NOT automatically expand  buffers
+to read the tape.
+
+Due to the addition of the /BLOCKSIZE switch (in  the  SWIL  package),
+the  /BLOCKS  switch in DIRECT has been removed, and replaced with the
+/NOWORDS switch.
+
+
+2.4     File specification and file expression syntax and semantics
+
+While the command syntax and semantics remain  essentially  unchanged,
+there are a few minor changes evident to the user.
+
+2.4.1   Node names
+
+SWIL allows node names to be included in file specifications (you  can
+even  wildcard  the  node  names), but DIRECT supports only local host
+directory listings (use the NFT program for remote  network  directory
+listings),  and  will  issue  an error message if you specify any node
+other than the local host.
+
+2.4.2   Device names
+
+SWIL allows  device  names  to  be  wildcarded  (e.g.,  "DSK?:").   By
+default, only mounted disk structures are matched to wildcarded device
+names.  You can specify the /ANYDEVICE switch in conjunction with  the
+wildcarded device name and SWIL will match against all devices on that
+system, including terminals, tapes, etc.  To match only disk structure
+names,  the /DSKONLY switch may be used.  Logical names, ersatz device
+names, and pathological device names are never matched.
+
+2.4.3   Pathological devices
+
+SWIL fully supports pathological device name definitions.
+
+2.4.4   Guide words
+
+SWIL implements several  new  'GUIDE'  words  used  in  building  file
+expressions.   Following  is  the  list  of  currently supported guide
+words:
+
+
+     1.  AND    Match if both simple specs match
+
+     2.  OR     Match if either simple spec matches
+
+     3.  NOT    Match if first spec but not second spec
+DIRECT.DOC -- Changes from V6(441) to V7(502)                   Page 4
+February, 1986
+
+
+     4.  BEGIN  Begin matching with secondary file
+
+     5.  END    End matching with secondary file
+
+     6.  IFAND  Match if secondary file exists
+
+     7.  IFNOT  Match if secondary file doesn't exist
+
+     8.  IFSAME Match if secondary file is the same
+
+     9.  IFDIFF Match if secondary file is different
+
+    10.  IFOLDE Match if primary file is older than secondary file
+
+    11.  IFNEWE Match if primary file is newer
+
+    12.  IFBIGG Match if primary file is bigger
+
+    13.  IFSMAL Match if primary file is smaller
+
+
+For example, "*.* 'IFAND' SYS:" selects all  your  files  (first  spec
+defaults  to  "DSK:[-]")  which also exist on SYS:  (defaults to *.*).
+"*.* 'IFSAME' SYS:" operates in a similar manner, but the extant  file
+on SYS:  must also be the same length, logical creation date/time, and
+the same I/O mode.  "*.* 'IFBIGGER' SYS:" would match any files  which
+exist  on  SYS:  and are smaller than your counterpart file.  The last
+five operators are  considered  "successful"  if  the  secondary  file
+doesn't  exist  (i.e.,  "BLAH.BAR  'IFBIGGER'  SYS:"  wins if the file
+doesn't exist on SYS:).
+
+
+2.5     /[NO]SBRMSG switch
+
+The /[NO]SBRMSG switch has been added to control the issuance  of  the
+[new-to-version-7]  "DRTSBR  Skipping BACKUP repeater record" message.
+The default is /NOSBRMSG.
+
+
+
+3.0     KNOWN BUGS AND DEFICIENCIES
+
+If  /SORT  on  several  file  specs  with  distinct  directories,  the
+directories  will  not  be  listed  (even  if  concatenated).  This is
+because  of  the  notion  that  distinct  directories   can   not   be
+concatenated   (in   WILD),  and  that  distinct  requests  to  DIRECT
+(separated by commas) are treated separately.
+
+
+
+4.0     INSTALLATION INSTRUCTIONS
+
+Compile with JOBDAT, MACTEN, UUOSYM, and SWIL as universals  on  UNV:,
+and load with SWIL library .REL file on REL:.  For example:
+DIRECT.DOC -- Changes from V6(441) to V7(502)                   Page 5
+February, 1986
+
+
+     .LOAD DIRECT
+
+
+
+5.0     INTERNAL CHANGES
+
+The internal changes to  DIRECT  are  available  in  the  source  file
+DIRECT.MAC, near the begining of the file under the subtitle "Revision
+History".
+
+
+
+6.0  SUGGESTIONS
+
+SORT CAPABILITIES SHOULD BE BUILT IN.
+
+(SPR 10-9943) ADD A SUPER GRAND TOTAL TO COVER AN ENTIRE MAG TAPE.
+
+(SPR 10-14,278) HAVE /DETAIL/SORT FORMAT OUTPUT ON  A  LINE  PER  FILE
+BASIS, CONDUCIVE TO SORTING.
+
+
+
+7.0  SPECIFICATIONS 7.1 Find File Format
+
+DIRECT can write two parallel  binary  "find  files"  suitable  for  a
+program  to  later read in order to find where certain files are kept.
+These "find files" can also be read by DIRECT by specifying  /FIND  in
+the command line.
+
+This facility is useful for maintaining online directories of normally
+offline  files  (either  disk  or  BACKUP magtapes).  The capabilities
+provided  with  DIRECT  version  7  do  not  provide  any  means   for
+identifying  (for  example)  on  which  reel  of  a  BACKUP  saveset a
+particular file resides (an RP06 can fill 6 2400' tapes at 1600bpi) or
+even  the  tape  REELID.   DIRECT's  "find"  ability  is  really  only
+concerned with identifying  which  offline  disk  structure(s)  has  a
+particular file.
+
+The /FNDBLD switch will cause DIRECT to write the "find  files";   the
+/FIND  switch  will  cause  DIRECT  to read the "find files";  and the
+/FNDDAT switch identifies the "find files" to be used by /FIND.
+
+The first and shorter "find file" contains just filename and extension
+information.   This  file is generated with an extension of .FPF (Find
+Pointer File).   This  file  is  intended  only  for  quickly  finding
+possible  matches  -  to  really  identify  a file requires the second
+(.FDF) file.  Each file entry in the .FPF file is two words long:
+
+     00/ File name in SIXBIT
+     01/ Extension in SIXBIT,,0
+
+The second file contains all the necessary retrieval  information  for
+each  file.   This  file  is generated with an extension of .FDF (Find
+DIRECT.DOC -- Changes from V6(441) to V7(502)                   Page 6
+February, 1986
+
+
+Data File).  Each file entry in the .FDF file is sixteen words long:
+
+     00/ Node name in SIXBIT (reserved for future)
+     01/ Device/structure name in SIXBIT
+     02/ UFD (binary)
+     03/ SFD 1 (SIXBIT)
+     04/ SFD 2 (SIXBIT)
+     05/ SFD 3 (SIXBIT)
+     06/ SFD 4 (SIXBIT)
+     07/ SFD 5 (SIXBIT)
+     10/ File name (SIXBIT)
+     11/ Extension (SIXBIT),,protection and mode (LH .RBPRV)
+     12/ Word count (binary)
+     13/ Creation time (universal format)
+     14/ Access time (universal format)
+     15/ Version (binary)
+     16/ 0 (reserved for future)
+     17/ 0,,Checksum (binary)
+
+
+[End of DIRECT.DOC]

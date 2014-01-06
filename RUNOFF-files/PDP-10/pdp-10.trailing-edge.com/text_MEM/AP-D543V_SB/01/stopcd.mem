@@ -1,0 +1,1450 @@
+
+
+
+SPECIFICATION
+
+
+
+
+
+                                STOPCD
+
+                     LIST OF MONITOR ERROR STOPS
+
+
+
+
+
+
+
+
+
+
+                    Date:     July, 1975
+                    File:     STOPCD.RNO
+                    Edition:  3
+
+
+
+
+
+
+
+
+
+
+This document reflects the 6.02 release of the monitor.
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a commitment by Digital Equipment
+Corporation.  Digital Equipment Corporation assumes no  responsibility
+for any errors that may appear in this manual.
+
+The software described in this document is furnished to the  purchaser
+under  a license for use on a single computer system and can be copied
+(with inclusion of DIGITAL's copyright notice) only for  use  in  such
+system, except as may otherwise be provided in writing by DIGITAL.
+
+Digital Equipment Corporation assumes no responsibility for the use or
+reliability  of  its  software  on  equipment  that is not supplied by
+DIGITAL.
+
+
+
+Copyright  C  1971, 1972,  1973,  1974,  1975,  by  Digital  Equipment
+Corporation, Maynard, Massachusetts
+                                                                Page 2
+
+
+1.0  INTRODUCTION
+
+This document describes the different types  of  error  stops  in  the
+monitor  and  then lists all the error stops that can occur.  When the
+monitor detects an internal error it executes the STOPCD  macro  which
+produces a message of the form:
+
+          ?CPUn MONITOR ERROR.  STOPCODE NAME xxx
+
+where n is the number of the CPU that executed the  STOPCD  macro  and
+xxx  is a mnemonic in the STOPCD macro.  These mnemonics are listed in
+Section 2.0 of this document.  Also listed are the name of the monitor
+module  containing  the  STOPCD,  the  type  of  STOPCD,  and  a brief
+explanation.
+
+There are four types of STOPCD's:
+
+     1.  DEBUG -   If  a  priority  interrupt  is  in  progress,   the
+         condition  is  not  immediately  harmful to any job or to the
+         system.  The monitor transmits the following message  to  the
+         CTY:
+
+              ?CPUn MONITOR ERROR.  STOPCODE NAME xxx
+              CONTINUING SYSTEM
+
+         and continues.  No immediate operator action is required.
+
+         If no priority interrupt is in progress, a DEBUG STOPCD  acts
+         and counts as a JOB STOPCD.
+
+     2.  JOB -  If no priority interrupt is in progress, the condition
+         jeopardizes  the  integrity  of the current job.  The monitor
+         transmits the following message to the CTY:
+
+              ?CPUn MONITOR ERROR.  STOPCODE NAME xxx
+              ?ABORTING JOB
+
+         and another message to the user's terminal:
+
+              ?MONITOR ERROR;  UUO AT xxxxxxxx
+
+         where xxxxxxxx is one of the following:
+
+              USER LOC n
+              EXEC LOC n;  EXEC CALLED FROM EXEC LOC m
+              EXEC LOC n;  EXEC CALLED FROM USER LOC m
+
+         The monitor then aborts the current job  and  continues.   No
+         immediate operator action is required.
+
+         If a priority interrupt is in progress,  a  JOB  STOPCD  acts
+         like a STOP STOPCD.
+
+     3.  STOP - The condition jeopardizes the integrity of the  system
+         as  a  whole.  The monitor transmits the following message to
+         the CTY:
+
+              ?CPUn MONITOR ERROR.  STOPCODE NAME xxx
+              RELOAD MONITOR
+
+         All jobs are aborted and the system  initiates  an  automatic
+                                                                Page 3
+
+
+         reload of the monitor.
+
+     4.  HALT - The condition is so serious that the entire system  is
+         affected  and  the  monitor cannot be reloaded automatically.
+         The system halts requiring that the operator manually perform
+         the  entire  CRASH  procedure  as  described  in the Software
+         Notebooks in the Operator's Procedure entitled CRASH,  Saving
+         a  Crashed  Monitor  and  Restarting,  or in Chapter 5 of the
+         Operator's Guide.
+
+
+
+     In addition, if the monitor  can  determine  the  information,  a
+     supplementary message:
+
+         JOB n ON TTYxxx RUNNING xxxxxx
+         UUO IS xxxxxxxxxxxx AT USER PC xxxxxx
+         FILE dev:file.ext[n,m]
+
+     is transmitted to the CTY after ?CPUn MONITOR ERROR in  order  to
+     help the operator find the user causing the problem.
+
+
+
+1.1  FINDING THE STOPCD'S IN THE CODE
+
+Sometimes STOPCD's come up which are not documented.  This may be  the
+result  of  patches  specific to an installation or patches made after
+the release of the monitor.
+
+If a STOPCD message comes up which can not be found  in  this  manual,
+the  following  procedure  may  be  used to find the place in the code
+where the STOPCD occurred.
+
+First, consult the listing of the  monitor's  global  symbols  (GLOB).
+The STOPCD's are listed as:
+
+S..XXX     MODNAM   where XXX is  the  mnemonic  for  the  STOPCD  and
+                    MODNAM  is the name of the module where the STOPCD
+                    is coded.
+
+By checking the CREF listing for the given module, the programmer  can
+determine  the  line  number  where  the  STOPCD  can  be  found.  The
+commentary that can be found in the code is sometimes  sufficient  for
+determining how an error occurred.
+
+
+
+1.2  HOW TO SET THE MONITOR TO RELOAD ON DEBUG AND JOB STOPCD'S.
+
+As an added aid to debugging it is possible to cause a reload  on  all
+STOPCD's.
+
+There are two ways in which the system programmer can set the  monitor
+to  reload  on  either the DEBUG or the JOB STOPCD's.  Both techniques
+involve the setting of bits for the symbol DEBUGF or DEFDEB.  This can
+be  done  by  changing  the contents of DEBUGF with FILDDT or EDDT, or
+defining DEFDEB with MONGEN.  The bit values are:
+
+          bit 0 = 1  This allows system debugging if EDDT is available
+                     on the system.  If bit 0 = 0, a reload will occur
+                                                                Page 4
+
+
+                     on all STOP STOPCD's, if the system has  been  up
+                     at least 5 minutes.
+
+          bit 1 = 1  This causes a reload on all DEBUG STOPCD's.
+
+          bit 2 = 1  This causes a reload on all JOB STOPCD's.
+
+          bit 3 = 1  This disables auto reload.
+
+          bit 4 = 1  This stops the system if CPU1 halts.
+
+
+The following command sequence should be used to set the bits  through
+FILDDT:
+
+     .R FILDDT
+
+     FILE:  SYSTEM/S                ; this loads the symbol table
+
+     FILE:  /M/P                    ; enables the user to poke 
+                                    ; locations
+                                    ; in the running monitor.
+
+     DEBUGF/300000,,0               ; this turns on both bits 1 and 2
+                                    ; so there will be a reload on all
+                                    ; STOPCD's
+     ^Z                             ; EXIT
+
+The same thing may be accomplished at MONGEN time.  When the  hardware
+configuration dialogue asks for:
+
+          OCTAL "SYMBOL, VALUE"
+
+the programmer should enter:  DEFDEB,  300000000000.
+
+If FILDDT was used to effect this change on the running  monitor,  any
+crashes  wipe out the change.  However, if MONGEN was used, the change
+is still in effect when the monitor is reloaded.  It is also  possible
+to  patch a copy of the monitor on disk with DDT or FILDDT to make the
+change effective after reloads.
+                                                                Page 5
+
+
+2.0  STOPCODES
+
+NAME    ROUTINE    TYPE                     DESCRIPTION
+
+
+28B     XTCSER     DEBUG      The  DA28  command  register   contained
+                              erroneous  status  bits  during  an  I/O
+                              operation.
+
+4IF     FSXKON     DEBUG      "RP04 INVALID FUNCTION".  FILIO tried to
+                              do an RP04 only function on an RS04 like
+                              ECC error recovery or an unload.
+
+5WE     D85INT     DEBUG      "DC75  WRONG  PDP11  CODE".   The  PDP11
+                              designated as a DC75 was not running the
+                              proper code.
+
+6MS     D76INT     DEBUG      "DC76 MESSAGE IS SHORT".  A portion of a
+                              message  was  lost  between the DC76 and
+                              the -10.
+
+6PP     D76INT     STOP       "DC76 PUTTER  PROBLEM".   There  was  an
+                              interrupt  level  call to putter while a
+                              non-interrupt call was in progress.
+
+6QF     D76INT     DEBUG      "DC76  QUEUE  FULL".    The   queue   of
+                              messages  to  the  DC76  was  full.  The
+                              queue was designed to be big  enough  to
+                              hold the worst case messages.
+
+AAD     FILFND     DEBUG      "ACCESS  TABLE  ALREADY  DORMANT".    An
+                              attempt  was  made  to  unlink an access
+                              table from an NMB ring, but  the  access
+                              table was already dormant.
+
+AAO     KISER      JOB        "ACCESS ALLOWED OFF".  When the  monitor
+        KLSER                 was remapping IOWD's from  user  virtual
+                              addresses  to physical addresses, a page
+                              map entry fetched from the  user's  page
+                              map  had  the  access  allowed  bit  off
+                              (virtual memory monitor only).
+
+AES     FILFND     JOB        "ABNORMAL END OF SEARCH  LIST".   FILFND
+                              got  to  the end of the search list when
+                              it did not expect to be there.
+
+AHB     FILIO      DEBUG      "ALREADY  HAVE  BUFFER".   The   monitor
+                              attempted  to  get a monitor buffer when
+                              it already had one.
+
+AHS     ONCMOD     HALT       "ALREADY HAVE  STRUCTURE".   The  tables
+                              which  drive  ONCMOD's  'DESTROY' option
+                              duplicated a structure name.
+
+AOC     FILFND     DEBUG      "ALREADY OWN CB".  A job wanted  the  CB
+                              resource but already had it.
+
+APE     KISER      JOB        "ABSOLUTE  PAGE EXCEEDED".  MAPIO  found
+        KLSER                 an  IOWD  which  would  have  caused  an
+                              address  check.   All  IOWD's  have been
+                              checked prior to calling MAPIO.
+                                                                Page 6
+
+
+APF     VMSER      DEBUG      "ALLOCATED PAGE FREE".  While the  pages
+                              allocated   to   a  segment  were  being
+                              scanned, a page on the  free  core  list
+                              was encountered.
+
+AR1     ONCMOD     DEBUG      "ASKDEC RETURNED CPOPJ1".  ASKDEC gave a
+                              skip return when one was not expected.
+
+ARF     KISER      STOP       "ATTEMPT TO RETURN FREE PAGE".   A  page
+        KLSER                 that was going to  be  returned  to  the
+                              free core list was already free.
+
+BAC     CORE1      JOB        "BIT ALREADY  CLEAR".   An  attempt  was
+                              made  to  zero  bits which were not one.
+                              This is  the  SETZRS  routine  which  is
+                              called from many modules.
+
+BAD     FILFND     JOB        "BLOCK ALREADY DORMANT".  An attempt was
+                              made  to  put  an already dormant access
+                              table in the free core list.
+
+BAO     FILIO      DEBUG      "BIT ALREADY ONE".  The monitor tried to
+                              allocate   a  block  which  was  already
+                              allocated.
+
+BAZ     FILIO      DEBUG      "BIT   ALREADY   ZERO".    The   monitor
+                              attempted  to  return  blocks which were
+                              already  free.   This  happens  when   a
+                              damaged file is deleted.
+
+BFO     TAPUUO     DEBUG      "BETTER FIND ONE".  When an attempt  was
+                              made  to  generate the transfer list for
+                              read backwards, the end of the  original
+                              transfer list could not be found.
+
+BFU     NETSER     DEBUG      "BUSY FOULED UP".  More than one  buffer
+                              got allocated to the DC75 or DAS85.
+
+BMR     FILUUO     JOB        "BLOCK MISSING FROM RIB".   A  block  in
+                              the file was not pointed to by the RIB.
+
+BNF     COMMON     HALT       "BOOTS NOT FOUND".  BOOTS could  not  be
+                              found on disk.
+
+BNR     FILUUO     JOB        "BLOCK NOT IN RIB".  A pointer was  lost
+                              from the RIB.
+
+BNT     FILFND     DEBUG      "BLOCK NOT THERE".  A core  block  (A.T.
+                              or  UFB)  which was known to exist could
+                              not be found.
+
+BNZ     CORE1      DEBUG      "BIT  NOT  ZERO".   A  call  to   CSETOS
+                              attempted to set a bit which was already
+                              one.
+
+BPT     FILFND     JOB        "BAD SEARCH  LIST  POINTER".   A  search
+                              list could not be built.
+
+BRC     COMCON     DEBUG      "BAD RETURN FROM CMPBIT".  When the flag
+                              bits  for the directory entry were being
+                              computed, a nonexistent page was found.
+                                                                Page 7
+
+
+BSN     SEGCON     STOP       "BAD SEGMENT NUMBER".  There was a  high
+                              segment number discrepancy.
+
+BSY     XTCSER     DEBUG      The DA28 interrupted with the busy  flag
+                              set.
+
+BTL     SCNSER     STOP       "BACKWARD TTY LINK".  The TTY buffer was
+                              linked improperly causing the routine to
+                              write   over   a   previously   received
+                              character.
+
+BWA     FILIO      JOB        "BLOCK WENT AWAY".   A  block  that  was
+                              allocated was not there anymore.
+
+C0P     COMMON     DEBUG      "CPU0 PARITY".   On  CPU0  there  was  a
+                              parity   error   with  no  parity  error
+                              recovery code, an I/O page failure, or a
+                              timer time-out.
+
+C1N     CP1SER     DEBUG      "CPU1  NXM".   Nonexistent  memory   was
+                              encountered on CPU1.
+
+C1P     COMMON     DEBUG      "CPU1 PARITY".   On  CPU1  there  was  a
+                              parity   error   with  no  parity  error
+                              recovery code, an I/O page failure, or a
+                              timer time-out.
+
+CAO     FILUUO     DEBUG      "CLUSTER  ADDRESS   ODD".    A   cluster
+                              address could not be converted to a disk
+                              block number.
+
+CAS     REFSTR     HALT       "COULDN'T    ALLOCATE    SPACE".     The
+                              refresher filled the disk.
+
+CDD     MSGSER     JOB        "CAN'T DISCONNECT DEVICE".  The  release
+                              call   on   MPX  called  disconnect  and
+                              disconnect failed with an illegal format
+                              or the device not connected.
+
+CFP     CLOCK1     JOB        "CAN'T FIND PDB".  JBTPDB(J)=0 at  SETR2
+                              in a monitor which does not swap PDB's.
+
+CGS     ONCMOD     HALT       "CAN NOT GET STR".  The  DESTROY  option
+                              could not create a structure data block.
+
+CIF     FHXKON     DEBUG      "RC10 IS NOT FANCY".  An  RP04  function
+                              was  attempted  on  an  RC10  controlled
+                              device.
+
+CIO     REFSTR     DEBUG      "CFP IS ODD".  The refresher noticed the
+                              number  of  blocks  per  cluster did not
+                              divide into the  number  of  blocks  per
+                              supercluster.
+
+CL0     SCNSER     STOP       "CHUNK LINK TO 0".  The TTY chunks  were
+                              messed up.
+
+CME     FILFND     DEBUG      "CFP MODULO ERROR".  CFP did  not  start
+                              at an even supercluster boundary.
+                                                                Page 8
+
+
+CMS     VMSER      DEBUG      "CORE1 MUST SKIP".  CORE1 gave a nonskip
+                              return when asked for core in use.
+
+CMU     SEGCON     STOP       "CORE MESSED UP".  CHKTAL found that the
+                              monitor's  core  usage  tables  did  not
+                              check with each other.
+
+CNA     SCHED1     STOP       "CORE   NOT   AVAILABLE".    The    core
+                              allocation  routine gave an error return
+                              while attempting to allocate core for  a
+                              swap-in, after it had been verified that
+                              enough core was available.
+
+CNE     FILUUO     DEBUG      "CLUSTER NOT EVEN".  When an attempt was
+                              made  to  allocate  initial blocks for a
+                              file, the block which  was  computed  as
+                              the  start  of  a  supercluster  did not
+                              start at an even supercluster address.
+
+CRE     TAPSER     DEBUG      "CANNOT  RECOVER  ERROR".    The   error
+                              recovery  procedure  was  called with an
+                              I/O   request   block   already   marked
+                              nonrecoverable.
+
+CRP     CORE1      JOB        "CANNOT RETURN PUSH DOWN LIST".   GIVEPL
+                              was  called and the push down list would
+                              not fit back into the job data area.
+
+CRW     KILOCK     STOP       "CA RESOURCE WRONG".  The CA request was
+                              not negative.  The interlock on the LOCK
+                              call was not available, but no  one  was
+                              doing a LOCK call.
+
+CSA     COMCON     DEBUG      "CANNOT SET ACCESS ALLOWED".  During the
+                              save  of an EXE file a page was paged in
+                              but had its access allowed bit off.   An
+                              attempt  to  turn  that  bit  on  failed
+                              (virtual memory monitor only).
+
+CSE     FILIO      STOP       "CHECKSUM ERROR".  The word  pointed  to
+                              for  checksumming  was not in the user's
+                              address space.
+
+CWN     NETSER     DEBUG      "CORE ALLOCATION WENT NEGATIVE".  NETSER
+                              attempted  to  give  back more free core
+                              than it had.
+
+DBZ     FILIO      DEBUG      "DEPLPC BIT ZERO".  The  last  group  of
+                              pointers  for  a  file  was not the last
+                              group in the RIB.
+
+DCR     FILUUO     DEBUG      "DELRIB CPOPJ  RETURN".   DELRIB,  which
+                              should  always  give  a skip return, did
+                              not skip.
+
+DDS     FILUUO     DEBUG      "DELRIB  DIDN'T  SKIP".   DELRIB,  which
+                              should  always  give  a skip return, did
+                              not skip.
+                                                                Page 9
+
+
+DER     FILUUO     DEBUG      "DELRIB RETURN  ERROR".   DELRIB,  which
+                              should  always  give  a skip return, did
+                              not skip.
+
+DFU     NETSER     DEBUG      "DEVICE  UNRECOGNIZED".   UUOCON  called
+                              the   network  service  routine  with  a
+                              device not on the network.
+
+DHA     FILIO      DEBUG      "DON'T HAVE AU".  The monitor  attempted
+                              to  give  up the AU resource when it did
+                              not have it.
+
+DHB     FILIO      DEBUG      "DON'T HAVE BUFFER".  The buffer  return
+                              routine had no buffer to return.
+
+DHD     FILIO      DEBUG      "DON'T HAVE DA".  The monitor  attempted
+                              to  give  up the DA resource when it did
+                              not have it.
+
+DNF     FILUUO     DEBUG      "DDB NOT FOUND".   No  predecessor  disk
+                              device  data  block  was  found  when an
+                              attempt was made to return a DDB.
+
+DNR     FILUUO     DEBUG      "DELRIB NONSKIP RETURN".  DELRIB,  which
+                              should  always  give  a skip return, did
+                              not skip.
+
+DNS     FILUUO     DEBUG      "DELRIB NONSKIP RETURN".  DELRIB,  which
+                              should  always  give  a skip return, did
+                              not skip.
+
+DPL     COMCON     DEBUG      "DIRECTORY PAGE LOST".   The  page  that
+                              had to be written out (not paged out) to
+                              make room to create the  directory  page
+                              could  not  be  brought back in (virtual
+                              memory monitor only).
+
+DPN     COMCON     DEBUG      "DIRECTORY   PAGE   NONEXISTENT".    The
+                              directory  page  for  an  EXE  file  was
+                              supposed to be destroyed, but  it  could
+                              not be (virtual memory monitor only).
+
+DPO     SEGCON     DEBUG      "DIRECTORY   PAGE   OVERLAP".    On    a
+                              nonvirtual  memory  system another entry
+                              was being fetched from the directory and
+                              the   end   of  the  page  was  reached.
+                              However, there is a limit of one page on
+                              a nonvirtual memory system.
+
+EPO     ERRCON     DEBUG      "EXEC  PDL  OVERFLOW".   The   monitor's
+                              extended pushdown list overflowed.
+
+ERB     REFSTR     DEBUG      "ERROR   READING   BAT   BLOCK".     The
+                              refresher could not read the BAT block.
+
+ERD     ONCMOD     DEBUG      "ERROR REFRESHING DISK".  REFSTR had  an
+                              error refreshing a specific structure.
+
+ERF     TAPSER     STOP       "ERROR RECOVERY FAILURE".  During  error
+                              recovery  an  IORB  (I/O  request block)
+                              other  than  this   controller's   error
+                                                               Page 10
+
+
+                              recovery IORB was posted complete to the
+                              error recovery procedure.
+
+ERH     REFSTR     DEBUG      "ERROR READING HOME.SYS".  The refresher
+                              could not read HOME.SYS.
+
+ERM     ONCMOD     DEBUG      "ERROR READING MFD".  An error  occurred
+                              in   trying   to  read  the  MFD  during
+                              ONCE-only.
+
+ERP     REFSTR     HALT       "EXTRA RETRIEVAL POINTER".  The HOME.SYS
+                              RIB  filled  up while the disk was being
+                              refreshed.
+
+ERS     ONCMOD     DEBUG      "ERROR READING SAT".  An error  occurred
+                              while   reading  the  SAT  table  during
+                              ONCE-only.
+
+ESS     FILFND     JOB        "EMPTY SYSTEM SEARCH LIST".
+
+EUE     ERRCON     DEBUG      "EXEC UUO ERROR".  The monitor  executed
+                              an illegal UUO (call).
+
+EWB     REFSTR     DEBUG      "ERROR WRITING  BLOCK".   The  refresher
+                              had an error writing a block.
+
+EWH     REFSTR     DEBUG      "ERROR  WRITING   HOME   BLOCKS".    The
+                              refresher could not write home blocks.
+
+EWR     ONCMOD     DEBUG      "ERROR WHILE REFRESHING".  The refresher
+                              had  an  error  while refreshing all the
+                              disks in the system.
+
+FAD     FILUUO     DEBUG      "FILE ALREADY DORMANT".  An access table
+                              was  found  to be dormant during a CLOSE
+                              call.
+
+FDP     FILIO      DEBUG      "FIXED-HEAD   DEVICE   POSITIONED".    A
+                              position  done  interrupt  was  received
+                              from a  fixed  head  device.   This  may
+                              indicate a hardware problem.
+
+FFU     NETSER     STOP       "F FOULED UP".  An attempt was  made  to
+                              put  a job to sleep, but the job did not
+                              exist.
+
+FIP     VMSER      DEBUG      "FREE PAGE IN USE".  When the free  core
+                              list was being scanned, a page allocated
+                              to a segment was encountered.
+
+FLE     SCNSER     STOP       "FREE LIST EMPTY".  The number  of  free
+                              TTY  chunks did not agree with the count
+                              of the number of free TTY chunks.
+
+FPF     KILOCK     STOP       "PAGE ON FREE LIST IS NOT FREE".  A page
+                              on  the  free  core list was linked to a
+                              page which was  not  on  the  free  core
+                              list.
+
+FPI     KISER      STOP       "FREE  PAGE  IN USE".  A page taken from
+        KLSER                 the free list was not free.
+                                                               Page 11
+
+
+FPN     KILOCK     STOP       "FREE PAGE NOT FOUND".  When a page  was
+                              being  moved,  a free page in PAGTAB was
+                              not on the free core list.
+
+FPZ     SCNSER     STOP       "FREE POINTER  ZERO".   An  attempt  was
+                              made  to  place  a  character in the TTY
+                              buffer when the count of the  number  of
+                              free  chunks  was positive, but the free
+                              list was empty.
+
+HBE     REFSTR     DEBUG      "HOME BLOCK ERROR".  An  error  occurred
+                              during  an  attempt  to  read  the  home
+                              blocks   while   refreshing    a    file
+                              structure.
+
+HDS     XTCSER     STOP       "HIBER DID NOT SKIP".   A  call  to  the
+                              HIBER subroutine did not skip.
+
+HIF     FILIO      DEBUG      "HOLE IN FILE".  Although the last block
+                              in the file existed, some block prior to
+                              the last was missing.
+
+HWU     FILIO      JOB        "HARD WRONG UNIT".  The wrong unit on  a
+                              disk  controller interrupted.  This is a
+                              hardware problem.
+
+IBI     CLOCK1     JOB        "INTERRUPT BLOCK ILLEGAL".  An interrupt
+                              block  was  out of bounds in preparation
+                              for an interrupt to a job.
+
+IBZ     FILIO      JOB        "I/O TO BLOCK  ZERO".   An  attempt  was
+                              made  to  read or write block zero.  The
+                              only way block  0  can  be  read  is  by
+                              reading   HOME.SYS[1,4]   or  using  the
+                              SUSET.   call.   If  neither   condition
+                              holds, there is a monitor error.
+
+ICC     PSISER     HALT       "INVALID CONDITION CODE".  The condition
+                              which  caused  this  interrupt  did  not
+                              exist.
+
+ICN     SEGCON     DEBUG      "INCORE COUNT NEGATIVE".  When the count
+                              of the number of jobs in core which were
+                              sharing a high segment was  decremented,
+                              the count became negative.
+
+ICW     KALOCK     DEBUG      "IN  CORE  COUNT  IS  WRONG".   A   high
+                              segment  was  in  the way of a job to be
+                              locked, and the low segments  associated
+                              with  the  high  segment  could  not  be
+                              found.
+
+IDC     ONCMOD     HALT       "IMPOSSIBLE   DRUM   CONDITION".     The
+                              nonexistent   "write   header   lockout"
+                              switch for the RD10 was set.
+
+IFI     TAPSER     STOP       "ILLEGAL FUNCTION AT  INTERRUPT  LEVEL".
+                              An illegal function was found in an IORB
+                              (I/O request block) while  at  interrupt
+                              level.
+                                                               Page 12
+
+
+IFU     NETSER     DEBUG      "INTERRUPT FLAG  UNRECOGNIZED".   D85INT
+                              called NETSER with an invalid interrupt.
+
+IIP     FILIO      DEBUG      "IO IN PROGRESS".  An attempt  was  made
+                              to  start  a  monitor read or write on a
+                              DDB which was IO active.
+
+IME     KISER      DEBUG      "ILL.  MEM-REF FROM EXEC".  An EXEC mode
+        KLSER                 page fault took place.
+
+INU     TAPSER     STOP       "INTERRUPT ON NONEXISTENT UNIT".  TAPSER
+                              received   an  interrupt  to  service  a
+                              nonexistent unit.
+
+IPF     VMSER      DEBUG      "IN USE  PAGE  FREE".   When  the  pages
+                              which  were  allocated to a segment were
+                              being scanned, a page on the  free  core
+                              list was encountered.
+
+IPM     VMSER      DEBUG      "ILLEGAL   POINTER   IN   MEMTAB".    An
+                              inconsistency   was   detected   in  the
+                              swapping data base.
+
+IPN     VMSER      DEBUG      "IPCF  PAGE  NONEXISTENT".   After  IPCF
+                              pages  were  swapped  out, they were not
+                              found in the swap list.
+
+IRE     KISER      JOB        "IOWD  RELOCATION  ERROR".  Following  a
+        KLSER                 job's  paging,  an  error  occurred   in
+                              changing the IOWD to an absolute IOWD.
+
+ISS     TX1KON     DEBUG      "IMPOSSIBLE STORED  STATUS".   The  TX01
+                              generated  CU  status without device end
+                              for a  unit  believed  to  be  off-line.
+                              This should never happen.
+
+IUN     FILUUO     DEBUG      "INVALID UNIT NUMBER".  MFD  RIB  for  a
+                              file structure was on an invalid unit.
+
+JAC     UUOCON     DEBUG      "JOB DATA AREA CLOBBERED".   JOBHCU  was
+                              greater than 17.
+
+JDJ     ONCMOD     DEBUG      "JFFO DIDN'T JUMP".  Logical unit number
+                              could not be determined.
+
+JIT     SYSINI     HALT       "JOB  IN  TRANSIT".   Lock was non-zero.
+
+JNC     FILIO      DEBUG      "JOB NOT IN  CORE".   A  job  which  had
+                              active  disk  I/O was not in core.  This
+                              was detected  when  the  interrupt  took
+                              place.
+
+KAS     TAPSER     STOP       "KONTROLLER   ALREADY   STARTED".    The
+                              controller  was  busy  when  TAPSER  was
+                              ready to start I/O.
+
+KDS     DPXKON     DEBUG      "KONEC2 DIDN'T  SKIP".   The  subroutine
+                              KONEC2 should always give a skip return.
+
+KID     SYSINI     HALT       "KONTROLLER IS DOWN".  A controller went
+                              down during disk initialization.
+                                                               Page 13
+
+
+KN1     CP1SER     HALT       "KT10A NOT ON CPU1".  CPU1 does not have
+                              dual     protection    and    relocation
+                              registers.
+
+KNF     XTCSER     STOP       "KONTROLLER NOT FREE".  A request by  an
+                              external    processor   was   made   and
+                              recognized by the DA28C  but  conflicted
+                              with the current use of the controller.
+
+KNS     TAPSER     STOP       "KONTROLLER NOT SELECTED".   An  attempt
+                              was  made  to  start I/O on a controller
+                              that was not selected.
+
+KOL     TAPSER     STOP       "KONTROLLER OFF-LINE".   Start  I/O  was
+                              called   on   a   controller   that  was
+                              off-line.
+
+LN1     ERRCON     STOP       "NO TTY LINE".  The controlling teletype
+                              could not be found.
+
+LNP     FILIO      DEBUG      "LAST  POINTER  NOT  A   POINTER".    An
+                              allocation  was  done  and  a  RIB error
+                              occurred.  When an attempt was  made  to
+                              deallocate  the  space,  the RIB pointer
+                              was not valid.
+
+LNS     SCNSER     STOP       "LINE NOT SETUP".  RH(U)=0 on  the  call
+                              to TSETBI.
+
+LNT     ERRCON     STOP       "LDB (LINE) NOT THERE".  The controlling
+                              teletype could not be found.
+
+LPU     FILUUO     JOB        "LAST  POINTER  UNIT-CHANGE".   A   unit
+                              change pointer was the last pointer in a
+                              RIB, when a unit change  pointer  should
+                              always be followed by a data pointer.
+
+LTS     NETSER     DEBUG      "LINK  TO  SELF".   Buffers  pointed  to
+                              themselves in a linked list.
+
+MAU     CP1SER     DEBUG      "MASTER   ALREADY    UNLOCKED".     CPU0
+                              attempted  to  give  up (unlock) the CPU
+                              interlock, but it did not own  it  (have
+                              it locked).
+
+MCM     METCON     DEBUG      "MCDB MISSING".  After the metering of a
+                              monitor data point, an attempt to remove
+                              a Meter Channel Data Block failed.
+
+MCN     FILFND     DEBUG      "MOUNT COUNT NEGATIVE".  The mount count
+                              on a structure went negative.
+
+MHB     FILIO      DEBUG      "MUST HAVE BUFFER".  An attempt was made
+                              to read a RIB into a monitor buffer when
+                              there was no monitor buffer for the job.
+
+MIW     ONCE       STOP       "MEMORY INTERLEAVING WRONG".  There  was
+                              a   memory   interleaving   error.   The
+                              operator must correct the problem.
+                                                               Page 14
+
+
+MIZ     VMSER      DEBUG      "MEMTAB IS ZERO".  An inconsistency  was
+                              detected in the swapping data base.
+
+MMN     ERRCON     HALT       "MONITOR MEMORY NONEXISTENT".  A  memory
+                              dropped  off-line, and one or more pages
+                              of  the  monitor  were  in   nonexistent
+                              memory.
+
+MMP     ERRCON     HALT       "MONITOR MEMORY  PARITY".   The  monitor
+                              referenced  an  instruction or important
+                              data with bad parity.
+
+MMR     KILOCK     STOP       "MOVING MONITOR PAGE NOT REQUIRED".  The
+                              expected  number  of monitor pages to be
+                              moved could not be moved, because  there
+                              were no free pages to move them to.
+
+MNM     SYSINI     STOP       "MONITOR IN  NONEXISTENT  MEMORY".   The
+                              monitor  overlapped  a page of core that
+                              was   previously   determined   to    be
+                              nonexistent.
+
+MPN     KILOCK     STOP       "MONITOR PAGE NOT FOUND".  A page of the
+                              monitor to be moved was not found in the
+                              exec.  page map.
+
+MXM     MSGSER     JOB        "MPX: DDB MISSING".  The DDB  chain  got
+                              messed up;  the pointer to an MPX DDB on
+                              the DDB chain was not right.
+
+NAP     FILUUO     JOB        "NOT  ADDRESS  POINTER".   A   retrieval
+                              pointer  did  not  point to a valid disk
+                              address.
+
+NCA     CLOCK1     STOP       "NO CORE ASSIGNED".  An attempt was made
+                              to  start  a  job  with  no  core memory
+                              assigned.
+
+NDA     FILFND     JOB        "NO DUMMY ACCESS TABLE".  The routine to
+                              remove the dummy A.T.  (TAKOU) could not
+                              find the block to delete.
+
+NDC     ONCMOD     STOP       "NO  DF10C  CODE".   Monitor   was   not
+                              assembled  for  DF10C  in  KI mode.  Set
+                              switch inside cabinet door to KA mode.
+
+NDJ     SCNSER     DEBUG      "NO DDB FOR JOB".  A job's TTY  DDB  did
+                              not  exist.   All  jobs  (even  detached
+                              jobs) must have a DDB.
+
+NDP     CLOCK1     DEBUG      "NOT DDB  POINTER".   WSYNC  was  called
+                              with a strange address in F.
+
+NDS     CLOCK1     STOP       "NULL  JOB  DID  SAVGET".   The   MONSTR
+                              routine  was  called  while the null job
+                              was running.
+
+NED     ONCE       HALT       "NO EXEC  DDT".   ONCE  determined  that
+                              there were breakpoints set, but EDDT was
+                              not loaded with this monitor.
+                                                               Page 15
+
+
+NER     FILUUO     DEBUG      "NO EXTENDED RIB".  The pointer  to  the
+                              last  block  of  the file was not in the
+                              RIB and there was no extended RIB.  This
+                              happens  when  a  pointer  gets lost for
+                              some reason.
+
+NEV     UUOCON     STOP       "NO EVM".  The DDB did  not  have  exec.
+                              virtual memory.
+
+NFC     SCNSER     STOP       "NO FREE CORE".  All the TTY chunks were
+                              used up.  This condition was checked for
+                              earlier and space was available.
+
+NFS     VMSER      DEBUG      "NO FIRST SLOT".   At  the  start  of  a
+                              fragment, the first physical page of the
+                              fragment could not be found in the  page
+                              map.
+
+NFU     SYSINI     DEBUG      "NO FIRST UNIT".  There was not a  first
+                              unit in the system search list.
+
+NHF     KALOCK     STOP       "NO HOLE FIT".  HOLSRT could not find  a
+                              hole  for  this  job  even though KALOCK
+                              just created one.
+
+NIV     TAPUUO     STOP       "NULL INTERRUPT VECTOR ADDRESS".  An I/O
+                              request  block was executed and returned
+                              to TAPUUO with a zero interrupt vector.
+
+NMB     FILIO      DEBUG      "NEED MONITOR BUFFER".  An  attempt  was
+                              made  to  write  a RIB without a monitor
+                              buffer to write it from.
+
+NMC     ONCMOD     HALT       "NO MORE  CORE".   ONCE-only  filled  up
+                              core.
+
+NMU     REFSTR     DEBUG      "NO MORE UNITS".  The refresher wrote  a
+                              wrong RIB.
+
+NNF     FILUUO     DEBUG      "NMB NOT FOUND".  GETNMB could not  find
+                              a  name  block.  Either DEVACC or ACCNMB
+                              was wrong.
+
+NNR     FILUUO     JOB        "NO NEXT RIB".  During a  CLOSE  monitor
+                              call  the  last  block of the file could
+                              not be found.   This  indicates  that  a
+                              data pointer was lost.
+
+NNU     ONCMOD     DEBUG      "NOT NEW UNIT".  The monitor expected to
+                              find  a  new  unit pointer while reading
+                              SAT.SYS.
+
+NOT     SCNSER     DEBUG      "NO OPR TTY".  DEVOPR=0.
+
+NPC     SCHED1     STOP       "NO PDB IN CORE".  When an  attempt  was
+                              made  to  requeue  a  job  and reset its
+                              quantum run time, no process data  block
+                              was found for that job.
+
+NPD     FILIO      DEBUG      "NO POINTERS IN DDB".  An  extended  RIB
+                              was  needed  because the pointers in the
+                                                               Page 16
+
+
+                              DDB were exhausted, but  there  were  no
+                              pointers in the DDB.
+
+NPF     KILOCK     STOP       "NEXT   PAGE   FREE".     The    monitor
+                              encountered  a free page while searching
+                              a segment's pages for the target page.
+
+NPJ     DATMAN     DEBUG      "NO PDB FOR JOB".  A call to FNPDBS  did
+                              not find a PDB.
+
+NPN     KASER      STOP       "NONEXISTENT  K/PAGE  NOT FREE".  A K or
+        KISER                 page of  nonexistent  memory belonged to
+        KLSER                 either the monitor or  some  job.   This
+                              should   only  happen  if  the  operator
+                              continues after a NXM halt.
+
+NPP     KISER      STOP       "NO PI IN PROGRESS".  Channel 7 code was
+        KLSER                 called from UUO level.  The  page  table
+                              could be messed up if this were allowed.
+
+NPU     ERRCON     STOP       "NULL PUSH-DOWN UNDERFLOW".  There  were
+                              more  POP's  on  the  null pushdown list
+                              than matching PUSH's.
+
+NRB     TAPSER     STOP       "NO REQUEST BLOCK".   A  done  interrupt
+                              occurred on a controller or unit, and no
+                              request block was found corresponding to
+                              the interrupt.
+
+NRF     VMSER      DEBUG      "SWPLST NOT REALLY  FRAGMENTED".   There
+                              was  a  pointer  to  a fragmented SWPLST
+                              entry, but  the  entry  was  not  really
+                              fragmented.
+
+NRM     FILUUO     JOB        "NEXT  RIB  MISSING".   There  were  not
+                              enough  pointers  in  the RIB to account
+                              for the number of  blocks  written,  and
+                              there were no more RIB's.
+
+NRS     ONCMOD     DEBUG      "NO RIB IN  SAT".   SAT.SYS  had  a  RIB
+                              error.
+
+NSE     VMSER      DEBUG      "NO SWPLST ENTRY".  When an attempt  was
+                              made  to  compute  the  unit  and  block
+                              number represented by  a  SWPLST  entry,
+                              the pointer to SWPLST pointed to a zero.
+
+NSL     FILFND     JOB        "NO SUCH SEARCH LIST".  When an  attempt
+                              was made to find the search list pointer
+                              for the  current  job,  either  the  job
+                              number  was  0, there was no PDB, or the
+                              search list was null.
+
+NSR     REFSTR     HALT       "NO SECOND RIB".  The refresher tried to
+                              create a file with only one RIB.
+
+NSS     REFSTR     DEBUG      "NO  SPACE  FOR  SAT".   The   refresher
+                              filled up the disk.
+
+NSU     FILIO      DEBUG      "NO SUCH  UNIT".   The  RIB  of  a  file
+                              indicated a nonexistent unit.
+                                                               Page 17
+
+
+NUB     FILFND     JOB        "NO UFD BLOCK".  There was no UFD for  a
+                              file even though the file existed.
+
+NUE     FILUUO     JOB        "NO UFD ERROR".  There was no UFD for  a
+                              file being written.
+
+NUI     XTCSER     DEBUG      "NONEXISTENT  UNIT  INTERRUPT."  A  unit
+                              which  was  not known interrupted.  This
+                              occurs when the content of  the  feature
+                              register is wrong during system loading.
+
+NUP     FILUUO     DEBUG      "NO UNIT CHANGE POINTER".  The  RIB  did
+                              not start with a unit change pointer.
+
+NUS     VMSER      DEBUG      "NO UNIT FOR SWAPPING".   There  was  no
+                              unit   in   the   active  swapping  list
+                              corresponding to the unit  indicated  by
+                              an entry in SWPLST.
+
+NWD     FILIO      DEBUG      "NO WRITING DDB".  FILIO  thought  there
+                              were  multiple writers and had to update
+                              the DDB's, but  no  writing  DDB's  were
+                              found.
+
+NXU     FILIO      DEBUG      "NONEXISTENT  UNIT".   A   unit   change
+                              pointer pointed to a unit which does not
+                              exist in this structure.
+
+O1F     VMSER      DEBUG      "ONLY ONE (1) FRAGMENT".  Swapping space
+                              was  fragmented,  but there was only one
+                              entry in the fragment table.
+
+ONC     FILUUO     DEBUG      "ODD NUMBERED CLUSTER".  The  number  of
+                              blocks  allocated  to  a file was not an
+                              even multiple of the number of  clusters
+                              allocated.
+
+P2L     VMSER      STOP       "PAGE  TOO  LOW".   An  address  in  the
+                              user's  page  map  was too low, i.e., in
+                              the monitor.
+
+PAO     COMCON     STOP       "PAGE ALREADY OUT".  After  a  page  was
+                              paged  out  to create a directory for an
+                              EXE file, the directory still could  not
+                              be created.
+
+PCN     IPCSER     DEBUG      "PACKET COUNT NEGATIVE".  The count  for
+                              the   system's   unreceived  sends  went
+                              negative.
+
+PDA     FILIO      DEBUG      "POINTERS WITH DIFFERENT ADDRESSES".   A
+                              pointer   within  the  RIB  and  monitor
+                              buffer differed.
+
+PEW     VMSER      DEBUG      "PAGTAB ENTRY WRONG".   When  the  pages
+                              allocated   to   a  segment  were  being
+                              scanned, a page on the  free  core  list
+                              was encountered.
+
+PEZ     KISER      STOP       "PAGPTR EQUALS ZERO".   The  pointer  to
+        KLSER                 the free core list was found to be  zero
+                                                               Page 18
+
+
+                              when  an attempt was made to find a free
+                              page.
+
+PFA     KILOCK     STOP       "PAGE  FREE   ALREADY".    The   monitor
+                              encountered  a free page while searching
+                              a segment's pages for the target page.
+
+PFC     VMSER      STOP       "PAGE ON  FREE  CORE  LIST".   When  the
+                              pages  allocated to a segment were being
+                              scanned, a page on the  free  core  list
+                              was encountered.
+
+PGL     COMCON     STOP       "PAGES GOT LOST".  No pages  were  found
+                              that could be paged out to make room for
+                              the directory of an  EXE  file  (virtual
+                              memory monitor only).
+
+PIE     ERRCON     STOP       "PRIORITY  INTERRUPT  ERROR".   A   jump
+                              occurred  to  40  + 2n +..., n=1,2,...7.
+                              This is caused by a device  interrupting
+                              to the wrong location.
+
+PIF     VMSER      DEBUG      "PAGE  IS   FREE".    When   the   pages
+                              allocated   to   a  segment  were  being
+                              scanned, a page on the  free  core  list
+                              was encountered.
+
+PIN     VMSER      DEBUG      "PAGE IN WORKING SET".  A page which was
+                              verified  to  not  be in the working set
+                              was in it.
+
+PIP     KISER      DEBUG      "PI IN PROGRESS".  A trap took  place at
+        KLSER                 PI-level,    usually    pushdown    list
+                              overflow.
+
+PIW     VMSER      DEBUG      "PAGE IS NOT IN WORKING  SET".   A  page
+                              which  had  to be in the working set was
+                              not.
+
+PJ0     CLOCK1     DEBUG      "REQUEUE JOB 0".  An attempt was made to
+                              requeue job 0 (the null job).
+
+PLP     FILIO      DEBUG      "PAST LAST POINTER".  SCNPTR  could  not
+                              find  a  block which should have been in
+                              the file.
+
+PMU     KISER      STOP       "PAGTAB MESSED UP".  The table used  for
+        KLSER                 core allocation was not correct.
+
+PNE     FILIO      DEBUG      "POINTERS   NOT   EQUAL".    After   the
+                              pointers  in  the  RIB were updated from
+                              the DDB, a discrepancy was found in  the
+                              cluster number.
+
+PNM     FILFND     DEBUG      "PHYSICAL   NAME    MISMATCH".     After
+                              determining  that  a  name referred to a
+                              disk unit, the physical name was lost.
+
+PNP     KILOCK     STOP       "PAGE  NOT  PRESENT".   The  destination
+                              could not be found in the free core list
+                              or in the present segment.
+                                                               Page 19
+
+
+POP     CLOCK1     DEBUG      "PI ON PROGRESS".  An APR error happened
+                              while  at  PI  level.  This was either a
+                              NXM (any processor) or  a  PDL OV  (KA10
+                              only).   The KI10 or KL10 will stop with
+                              IME or PIP, as well as with this STOPCD.
+
+POR     SEGCON     STOP       "PROCESS OUT OF RANGE".  An attempt  was
+                              made  to  add  a  high  segment  to  the
+                              address space of a nonexistent job.
+
+PQE     FILIO      DEBUG      "POSITION QUEUE EMPTY".  A disk unit was
+                              in  position  wait state, but there were
+                              no files in its queue to be positioned.
+
+PSF     KISER      STOP       "PAGE IN SEGMENT FREE".  When space  was
+        KLSER                 being allocated for this job, a page  on
+                              the  free core list was found within the
+                              job.
+
+PTH     KLSER      HALT       "PARITY TRAP HALT".  There  was  a  hard
+                              exec.   mode  page fail trap as a result
+                              of AR or ARX parity.
+
+PTP     KLSER      HALT       "PAGE TABLE PARITY".  There was  a  hard
+                              page  fail  trap  as  a result of a page
+                              table parity error.
+
+PTT     CORE1      JOB        "PAST TOP OF TABLE".  A call  to  SETZRS
+                              attempted   to   zero   more  bits  than
+                              existed.
+
+RBQ     SCHED1     STOP       "REQUEUING TO BEGINNING OF  QUEUE".   An
+                              attempt  was  made  to  requeue  to  the
+                              beginning of a  queue  which  is  always
+                              illegal in the 602 scheduler.
+
+RCC     SCNSER     STOP       "RANGE CHECKED CHUNK".  A call to TTPUTC
+                              or  TTGETC specified a character address
+                              (in T2) which was not in the TTY  buffer
+                              pool.    This  is  sometimes  caused  by
+                              attempting TTY output without setting up
+                              U to point to an LDB.
+
+RDP     FSXKON     DEBUG      "RS04 DOES NOT POSITION".   FILIO  tried
+                              to do positioning on an RS04.
+
+RDS     SEGCON     STOP       "REMAP DID NOT SKIP".  Monitor was doing
+                              a remap and an error occurred.
+
+REH     ERRCON     HALT       "RECURSION IN ERROR HANDLER".  A  STOPCD
+                              was  executed  while STOPCD recovery was
+                              in progress.
+
+RFU     TAPSER     STOP       "RECOVERY  FOULED  UP".   During   error
+                              recovery   the   ERP   (error   recovery
+                              procedure) state  word  had  an  invalid
+                              state  number  at  the  completion of an
+                              operation.
+
+RIE     XTCSER     DEBUG      "REMOTE  INTERRUPT  ERROR".   An   error
+                              occurred  during  an  interrupt  from  a
+                                                               Page 20
+
+
+                              remote processor.
+
+RIF     DPXKON     DEBUG      "RP10 IS NOT FANCY".  An  RP04  function
+                              was  attempted  on  an  RP10  controlled
+                              device.
+
+RJZ     SCHED1     STOP       "REQUEUE  JOB  ZERO".   A  job  with  an
+                              invalid job number was being requeued.
+
+RNA     TAPSER     STOP       "REQUEST NOT ACTIVE".  There was a  done
+                              interrupt,   and   the   request   block
+                              corresponding to it was not active.
+
+ROS     SEGCON     JOB        "RAN OUT OF  SEGMENTS".   There  was  no
+                              high  segment  number available to add a
+                              high segment to a job's  address  space.
+                              This  should  not  happen, because there
+                              are always at least as many high segment
+                              numbers   available  as  there  are  job
+                              numbers available.
+
+ROU     ONCMOD     HALT       "RAN OUT OF UNITS".  When an attempt was
+                              made to get the address of the next data
+                              block  in  the  structure,  the  pointer
+                              indicated the end of the list.
+
+RPM     ONCMOD     DEBUG      "RETRIEVAL POINTER MISMATCH".  The  unit
+                              change  pointer  in file SAT.SYS did not
+                              point to  the  next  unit  in  the  file
+                              structure.
+
+S2L     SWPSER     STOP       "SWAP  TOO  LOW".   A  swapping  request
+                              would have clobbered part of the monitor
+                              (nonvirtual memory monitor only).
+
+SAC     ERRCON     DEBUG      "STRANGE  APR   CONDITION".    The   low
+                              priority  APR  service routine could not
+                              find  any  errors,   though   the   high
+                              priority  APR  service  routine  said an
+                              error took place.
+
+SAU     CP1SER     DEBUG      "SLAVE ALREADY  UNLOCKED".   UNLOKS  was
+                              called but the interlock was not set.
+
+SBT     FILUUO     DEBUG      "SHOULD NOT BE TRUNCATING".  The highest
+                              block number in the file was too small.
+
+SBW     VMSER      DEBUG      "SWPLST BITS WRONG".  An entry in SWPLST
+                              said  that  both I/O was in progress and
+                              I/O was done.
+
+SCB     XTCSER     DEBUG      "SPURIOUS CONI BITS".  A DA28C interrupt
+                              occurred for no valid reason.
+
+SCO     CP1SER     HALT       "SPLIT CYCLE ON".  CPU1 had:
+
+                              1.  Address stop switch set, or
+
+                              2.  Fast AC's turned off.
+                                                               Page 21
+
+
+SER     FILUUO     JOB        "SETDDO ERROR  RETURN".   There  was  no
+                              room  to  build a DDB even though GET4WD
+                              had just found room.
+
+SFI     FILUUO     JOB        "STR  FREE-COUNT   INCONSISTENT".    The
+                              structure  had  free  space but no units
+                              within the  structure  had  free  space.
+                              The sum of the parts exceeded the whole.
+
+SFU     FILIO      DEBUG      "SWAPPER FOULED UP".  The swapper  tried
+                              to do I/O with a nonswapping DDB.
+
+SIN     VMSER      DEBUG      "SWPCNT IS NEGATIVE".  The count of  the
+                              number  of outstanding swapping requests
+                              went negative when an entry from  SWPLST
+                              was being deleted.
+
+SLF     VMSER      DEBUG      "SWPLST FULL".  An entry  could  not  be
+                              made  in  the  list  because  the SWPLST
+                              table was full.
+
+SLM     FILUUO     DEBUG      "SEARCH LIST MISSING".  SETSRC could not
+                              set  up  the  search list even though it
+                              could when the monitor call started.
+
+SLZ     VMSER      DEBUG      "SLECNT IS  ZERO".   The  subroutine  to
+                              find  an entry in SWPLST was called when
+                              there were no entries in SWPLST.
+
+SMU     SCHED1     DEBUG      "SWPCNT MESSED UP".  The  count  of  the
+                              number  of completed swapping operations
+                              was positive, but no completed  swapping
+                              request  could  be found (virtual memory
+                              monitor only).
+
+SNF     KILOCK     STOP       "SEGMENT NOT FOUND".  A page  which  was
+                              not  on  the  free  core  list  was  not
+                              contained  in  any   segment's   address
+                              space.
+
+SNI     SWPSER     DEBUG      "SWAPPING  NOT  IN  PROGRESS".    SPRCNT
+                              (number   of  swaps  in  progress)  went
+                              negative (virtual memory monitor only).
+
+SOD     SCHED1     STOP       "SPACE ON DISK".  The call to CORGET  in
+                              SWAPI  assigned space on the disk.  That
+                              is not allowed on a swap-in.
+
+SOR     ERRCON     STOP       "SEGMENT OUT  OF  RANGE".   The  segment
+                              number  in  AC  J  was  larger  than the
+                              maximum segment number in the system.
+
+SPM     FILUUO     JOB        "SECOND POINTER MISSING".   The  pointer
+                              to  the  second RIB was missing from the
+                              first RIB.
+
+SRE     ONCMOD     DEBUG      "SAT  READ  ERROR".   ONCE-only  had  an
+                              error reading the SAT table.
+                                                               Page 22
+
+
+SRO     SWPSER     DEBUG      "SPACE RAN OUT".  VIRTAL  was  positive,
+                              but no swapping unit had any room on it.
+
+SSD     SWPSER     STOP       "SWAP SPACE DISAPPEARED".  The count  of
+                              the  number  of  words of swapping space
+                              free showed  more  space  than  the  SAT
+                              table for swapping.
+
+SSM     TX1KON     STOP       "STORED STATUS MISSING".  When the  DX10
+                              should  have  stored extended status, it
+                              did not.
+
+SSO     KILOCK     STOP       "SEGMENT SWAPPED OUT".  A  high  segment
+                              which  was  neither dormant nor idle had
+                              no low segment in core sharing it.
+
+SWJ     VMSER      DEBUG      "SWAPPED IN WRONG JOB".  The job  number
+                              of the job just swapped in did not match
+                              the job number in the UPMP.
+
+SWN     SWPSER     DEBUG      "SQREQ WENT NEGATIVE".   SWPSER  got  to
+                              SWPINT  when the swapper thought nothing
+                              was happening  (virtual  memory  monitor
+                              only).
+
+TC0     XTCSER     DEBUG      Work entries which were queued when  the
+                              DA28C was busy were not executed.
+
+TC1     XTCSER     STOP       The LIPS protocol status was wrong  when
+                              an I/O transfer started.
+
+TC2     XTCSER     DEBUG      A remote  processor  interrupt  occurred
+                              when  the control was not idle, i.e., in
+                              use by software.
+
+TC3     XTCSER     DEBUG      The accounting for  pseudo-active  tasks
+                              in the control data block was wrong.
+
+TC4     XTCSER     DEBUG      The accounting for  pseudo-active  tasks
+                              in a unit control block was wrong.
+
+TC5     XTCSER     DEBUG      The accounting for  pseudo-active  tasks
+                              in a unit control block was wrong.
+
+TC6     XTCSER     DEBUG      The accounting for  pseudo-active  tasks
+                              in the control data block was wrong.
+
+TC7     XTCSER     STOP       A job that was trying to grab the  DA28C
+                              control obtained it, but the control was
+                              not free according to the  control  data
+                              block.
+
+TCI     FILUUO     DEBUG      "TRUNCATION  CHECK   INCONSISTENT".    A
+                              rename   which  was  causing  truncation
+                              attempted to truncate  too  many  blocks
+                              even though that was already checked.
+
+TMP     FILIO      DEBUG      "TOO MANY POINTERS".   There  were  more
+                              retrieval  pointers  than would fit in a
+                              RIB.  There is  a  counter  (DEVRSU)  to
+                              prevent this from happening.
+                                                               Page 23
+
+
+TMR     REFSTR     HALT       "TOO  MANY  RETRIEVAL  POINTERS".    The
+                              SAT.SYS RIB filled up during a refresh.
+
+TMU     ONCMOD     HALT       "TOO MANY UNITS".  After the  last  unit
+                              was  retrieved,  additional  data blocks
+                              were pointed to.
+
+TOW     CP1SER     HALT       "TRAP OFFSET WRONG".  The CPU1 interrupt
+                              vector was in the same place as the CPU0
+                              interrupt vector.
+
+UAS     TAPSER     STOP       "UNIT ALREADY STARTED".   The  unit  was
+                              already  doing I/O when TAPSER was ready
+                              to start I/O.
+
+UDE     FILIO      DEBUG      "UNIT DOESN'T  EXIST".   A  unit  change
+                              pointer  pointed  off  into  never-never
+                              land.
+
+UDM     FILUUO     JOB        "UFD DATA  MISSING".   The  core  tables
+                              indicated  that  the UFD was longer than
+                              it really was.
+
+UFI     FILUUO     DEBUG      "UNIT FREE-COUNT INCONSISTENT".  No free
+                              space  was  found  on a unit even though
+                              the free-count was positive.
+
+UIF     ONCMOD     HALT       "UNIT IN FILE  STRUCTURE".   The  tables
+                              which drive ONCE-only's 'DESTROY' option
+                              duplicated a unit.
+
+UIL     ERRCON     STOP       "UUO AT INTERRUPT LEVEL".  An  interrupt
+                              service   routine  executed  an  illegal
+                              monitor call.
+
+UIP     XTCSER     DEBUG      "NOT A UNIQUE INTERRUPT".  Two different
+                              types  of  usage  were  defined  for the
+                              DA28C control.
+
+UNF     FILUUO     DEBUG      "UFB NOT  FOUND".   A  rename  was  done
+                              across UFD's and the UFB was not found.
+
+UNJ     COMMON     DEBUG      "UUO  FROM  NULL  JOB".   The  null  job
+                              executed  a  monitor call other than the
+                              doorbell monitor call.
+
+UNL     VMSER      DEBUG      "UPMP NOT LAST".  The UPMP was  not  the
+                              last page swapped out.
+
+UNS     TAPSER     STOP       "UNIT NOT SELECTED".   A  unit  was  not
+                              selected  when TAPSER was ready to start
+                              I/O.
+
+UPC     FILUUO     JOB        "UNIT CHANGE  POINTER  CLOBBERED".   The
+                              pointer  to  a  unit  of  a RIB was lost
+                              during RIB definition.
+
+UPI     FILIO      DEBUG      "UNIT POINTER ILLEGAL".  An attempt  was
+                              made  to  create  an  extended  RIB on a
+                              nonexistent unit.
+                                                               Page 24
+
+
+UWS     VMSER      DEBUG      "UNIT WRONG STATE".  On a hung  swapping
+                              device  the  UDB indicated an unexpected
+                              state.
+
+WAD     VMSER      DEBUG      "WSBTBL  AND  AABTBL  DISCREPANCY".   An
+                              access  page  fault  occurred for a page
+                              which should have had the access allowed
+                              bit on in the page map.
+
+XTH     SCHED1     DEBUG      "XJOB  TOO  HIGH".   The  count  of  the
+                              number of jobs which must be swapped out
+                              and back in to satisfy a core  expansion
+                              request  was  positive, but no expanding
+                              job could be found.
+
+ZBC     REFSTR     DEBUG      "ZERO   BLOCKS   PER   CLUSTER".     The
+                              refresher was called with HOMBPC=0.
+
+
+

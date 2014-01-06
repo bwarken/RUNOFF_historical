@@ -1,0 +1,1531 @@
+
+
+
+                                 PERF
+
+                System Performance Evaluation Package
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                       Date:     February 1978
+                       File:     SPAP10
+                       Version:  1
+
+
+
+
+
+
+
+
+
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a commitment by Digital Equipment
+Corporation.  Digital Equipment Corporation assumes no  responsibility
+for any errors that may appear in this document.
+
+The software described in this document is furnished under  a  license
+and  may  be  used or copied only in accordance with the terms of such
+license.
+
+Digital Equipment Corporation assumes no responsibility for the use or
+reliability  of  its  software  on  equipment  that is not supplied by
+DIGITAL.
+
+
+
+
+
+          Copyright     C     1978 by Digital Equipment Corporation
+                                                                Page 2
+
+
+
+
+
+
+
+
+
+                               CONTENTS
+
+
+
+                                                                 Page
+
+
+PREFACE                                                               
+
+CHAPTER  1     INTRODUCTION                                      1-1  
+
+CHAPTER  2     MONITOR DATA COLLECTION CODE AND PROGRAM               
+               DESCRIPTIONS                                      2-1  
+
+         2.1   PART 1--COLLECTING PERFORMANCE DATA(MONITOR            
+               DATA COLLECTION CODE)                             2-1  
+         2.2   PART 2--RECORDING DATA ON DISK (LINES.MAC)        2-1  
+         2.3   PART 3--PRODUCING GRAPH, REPORTS, AND                  
+               SUMMARIES                                         2-2  
+         2.3.1   SIMP1.FOR                                       2-2  
+         2.3.2   GRAPH1.FOR                                      2-2  
+         2.3.3   LNSRPT.FOR                                      2-3  
+
+CHAPTER  3     PROGRAM OPERATION                                 3-1  
+
+         3.1   HOW TO START RECORDING PERFORMANCE EVALUATION          
+               DATA                                              3-1  
+         3.2   HOW TO EXAMINE THE LINES JOB FOR PERCENTAGE OF         
+               CPU TIME USED                                     3-1  
+         3.3   HOW TO PRINT THE RESOURCE UTILIZATION GRAPH       3-1  
+         3.4   HOW TO PRINT THE PERFORMANCE EVALUATION                
+               REPORTS                                           3-2  
+
+CHAPTER  4     REPORT DESCRIPTIONS                               4-1  
+
+         4.1   RESOURCE UTILIZATION GRAPH                        4-1  
+         4.2   RESOURCE UTILIZATION REPORT (RPTA)                4-2  
+         4.3   PQ1 REQUEUE DATA (RPTB)                           4-3  
+         4.4   PROCESSOR QUEUE DATA (RPTC)                       4-3  
+         4.5   SPECIAL QUEUE DATA (RPTD)                         4-4  
+         4.6   CLASS PERCENTAGES (RPTE)                          4-5  
+         4.7   SUMMARY REPORT (RPTS)                             4-5  
+
+APPENDIX A     EXAMPLE GRAPH, REPORTS, AND SUMMARIES             A-1  
+
+
+
+                               FIGURES
+
+
+FIGURE   A-1   Resource Utilization Graph                        A-3
+         A-2   Resource Utilization Report (RPTA)                A-4
+         A-3   PQ1 Requeue Data (RPTB)                           A-5
+         A-4   Processor Queue Data (RPTC)                       A-6
+         A-5   Special Queue Data (RPTD)                         A-7
+         A-6   Class Percentages (RPTE)                          A-8
+         A-7   Summary Report (RPTS)                             A-9
+                                                                Page 3
+
+
+                           CONTENTS (CONT.)
+
+
+
+                                                                 Page
+
+
+
+                                TABLES
+
+
+TABLE    2-1   Installation-Dependent Parameters                 2-3
+         4-1   Resources Recorded on the Resource Utilization
+               Graph                                             4-1
+         A-1   Primary and Secondary Percentage Allocations
+               of Scheduler Classes                              A-2
+                                                                Page 4
+
+
+
+
+
+
+
+
+
+                               PREFACE                               _______
+
+
+
+This document describes the DECsystem-10 System Performance Evaluation
+Package.    This   package  was  developed  by  the  Western  Michigan
+University (WMU) Academic Computer Center.
+
+The performance evaluation package consists of three parts:
+
+     1.  Monitor code that allows you to collect performance data.
+
+     2.  A user-mode program that allows you to  record  the  data  on
+         disk.
+
+     3.  A number of user-mode programs that allow you  to  produce  a
+         graph, reports, and summaries.
+
+
+The objectives of the performance evaluation package are:
+
+     1.  To provide information  on  the  usage  of  important  system
+         resources.
+
+     2.  To provide a useful tool for analyzing system performance.
+
+
+Chapter 1 is an introduction.  Chapter 2 describes all of the programs
+used  in  the  performance  evaluation  package  and  the monitor data
+collection code.  Chapter 3 tells you how  to  operate  the  programs.
+Chapter  4  describes  the  graph, the reports, and the summaries that
+make up Part 3 of the performance evaluation  package.   The  Appendix
+contains examples of the graph, the reports, and the summaries.
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 1
+
+                             INTRODUCTION                             ____________
+
+
+
+This document describes the DECsystem-10 System Performance Evaluation
+Package.    This   package  was  developed  by  the  Western  Michigan
+University (WMU) Academic Computer Center.
+
+The performance evaluation package consists of three parts:
+
+        Part 1--Monitor code that allows you  to  collect  performance        ____ _
+        data.  (See Section 2.1.)
+
+        Part 2--A user-mode program that allows you to record the data        ____ _
+        on disk.  (See Section 2.2.)
+
+        Part 3--A number of  user-mode  programs  that  allow  you  to        ____ _
+        produce reports, summaries, and a graph.  (See Section 2.3.)
+
+
+The objectives of the performance evaluation package are:
+
+     1.  To provide information  on  the  usage  of  important  system
+         resources.
+
+     2.  To provide a useful tool for analyzing system performance.
+
+
+When you use the performance evaluation package, you can  collect  and
+record data at the following levels:
+
+        Level 1--contains the data required to  produce  the  Resource        _____ _
+        Utilization  Graph  (Figure  A-1) and the Resource Utilization
+        Report, RPTA (Figure A-2).
+
+        Level 2--contains  all  of  the  data  in  level  1  plus  the        _____ _
+        additional data required to produce the reports that allow you
+        to tune the scheduler (that is, PQ1 Requeue Data, RPTB (Figure
+        A-3),  Processor  Queue Data, RPTC (Figure A-4), Special Queue
+        Data, RPTD (Figure A-5), and Class Percentages,  RPTE  (Figure
+        A-6)).
+
+You may print the above reports  individually  or  in  groups  if  the
+monitor is assembled at level 2.
+
+In addition to the reports listed above, you  may  produce  a  Summary
+Report,  RPTS (Figure A-7), to summarize the data in RPTA, RPTB, RPTC,
+RPTD, and RPTE at any interval.
+
+Chapter 4 contains a complete description of each of these reports.
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 2
+
+        MONITOR DATA COLLECTION CODE AND PROGRAM DESCRIPTIONS        _______ ____ __________ ____ ___ _______ ____________
+
+
+
+This chapter describes Parts 1 through 3 of the performance evaluation
+package.
+
+Section 2.1, which describes the  monitor  code  that  allows  you  to
+collect  performance  data, corresponds to Part 1.  Section 2.2, which
+describes the user-mode program that allows you to record the data  on
+disk, corresponds to Part 2.  Section 2.3, which describes a number of
+user-mode programs that allow you to produce  a  graph,  reports,  and
+summaries, corresponds to Part 3.
+
+
+
+2.1  PART 1--COLLECTING PERFORMANCE DATA(MONITOR DATA COLLECTION CODE)     ____ _____________ ___________ ____________ ____ __________ _____
+
+The standard monitor tables contain the data  for  level-1  recording.
+Therefore,  level-1 recording does not require any new code or monitor
+tables.  To  perform  level-1  collection,  assemble  the  monitor  by
+setting the FTPSCD assembly switch to 0.
+
+The SCDPER monitor table contains  the  data  for  level-2  recording.
+GETTAB  142  (GTSPA under feature test switch FTPSCD) reads this data.
+To perform level-2 collection, assemble the  monitor  by  setting  the
+assembly switch FTPSCD to -1.
+
+
+
+2.2  PART 2--RECORDING DATA ON DISK (LINES.MAC)     ____ ____________ ____ __ ____ ___________
+
+The LINES program starts as a detached job running in  [1,2]  (or  any
+number with SPY privileges).  Then, once per minute, LINES records the
+monitor performance data.  Every 5  to  10  minutes,  LINES  adds  the
+accumulated data to the end of a disk file.  The name of the disk file
+is in the form
+
+                         mmmdd.DAT
+
+where
+
+     mmm  is a 3-character alphabetic representing the month
+
+      dd  is a 2-character numeric representing the day of the month
+
+For example, on 9 March the filename is MAR09.DAT.
+MONITOR DATA COLLECTION CODE AND PROGRAM DESCRIPTIONS         Page 2-2_______ ____ __________ ____ ___ _______ ____________
+
+
+You can cause LINES to assemble in such  a  way  that  it  can  record
+either level-1 or level-2 data on the disk if the monitor is assembled
+at a sufficient recording level.  To do this, set the FTSCHED assembly
+switch to the following values:
+
+     1.  To record level-1 data, set FTSCHED to 0.
+
+     2.  To record level-2 data, set FTSCHED to -1.
+
+
+LINES changes its own program name once  per  minute  to  display  the
+percentage of the central processor (CPU) time used in the last minute
+(this is for reading from SYSTAT, and so forth).
+
+
+
+2.3  PART 3--PRODUCING GRAPH, REPORTS, AND SUMMARIES     ____ ____________ ______ ________ ___ _________
+
+Sections 2.3.1 through 2.3.3  describe  the  user-mode  programs  that
+allow you to produce a graph, reports, and detailed summaries.
+
+
+
+2.3.1  SIMP1.FOR       _________
+
+The SIMP1 program is the preprocessor  for  the  GRAPH1  program.   It
+compresses  LINES data into a number of contiguous 20-minute intervals
+with date headings.
+
+
+
+2.3.2  GRAPH1.FOR       __________
+
+The GRAPH1 program produces an 8-1/2- by 11-inch graph of 24 hours  of
+data (7:00 am to 7:00 am).  This data consists of the following:
+
+     1.  The amount of CPU time used.
+
+     2.  The number of lines used.
+
+     3.  The rate of swapping.
+
+     4.  The rate of reading and writing on the public disk structure.
+
+To tailor the scaling  of  the  Resource  Utilization  Graph  to  your
+installation,   you   must   supply   various   installation-dependent
+parameters and then reassemble the GRAPH1  program.   GRAPH1  contains
+the following two sets of parameters:
+
+     Set 1 - The parameters that determine the  maximum  scale  values     ___ _
+             used in plotting.
+
+     Set 2 - The parameters that determine the scale  values  used  in     ___ _
+             printing   the   maximum   percentage  for  any  1-minute
+             interval.
+
+Table 2-1 lists the Set 1 and Set 2 installation-dependent parameters.
+MONITOR DATA COLLECTION CODE AND PROGRAM DESCRIPTIONS         Page 2-3_______ ____ __________ ____ ___ _______ ____________
+
+
+                              Table 2-1
+                  Installation-Dependent Parameters
+
+
+       Parameter             Description           Default Value
+
+    Set 1      Set 2
+
+
+  ABSMAX(1)    MXLT     Maximum number of           64 lines
+                        active terminal lines
+
+  ABSMAX(5)    MXST     Maximum swapping rate   36,000 blocks/minute
+
+  ABSMAX(4)    MXDT     Maximum disk I/O rate    5,000 blocks/minute
+
+
+
+
+
+2.3.3  LNSRPT.FOR       __________
+
+The LNSRPT program formats the data from  LINES  to  provide  detailed
+reports.  There are six detailed reports.  They are:
+
+     1.  Resource Utilization Report (RPTA)
+
+     2.  PQ1 Requeue Data (RPTB)
+
+     3.  Processor Queue Data (RPTC)
+
+     4.  Special Queue Data (RPTD)
+
+     5.  Class Percentages (RPTE)
+
+     6.  Summary Report (RPTS)
+
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 3
+
+                          PROGRAM OPERATION                          _______ _________
+
+
+
+This chapter contains step-by-step instructions that tell you  how  to
+operate  the  program.   Each  section  tells  you  how  to  perform a
+different task.  These instructions  are  in  the  form  of  a  sample
+dialogue  between  you  and  the  system.  In every case, anything the
+system prints is underscored.
+
+
+
+3.1  HOW TO START RECORDING PERFORMANCE EVALUATION DATA     ___ __ _____ _________ ___________ __________ ____
+
+     .GET SYS: LINES
+
+     .CSTART
+
+     .DETACH
+
+
+
+3.2  HOW TO EXAMINE THE LINES JOB FOR PERCENTAGE OF CPU TIME USED     ___ __ _______ ___ _____ ___ ___ __________ __ ___ ____ ____
+
+     (Displayed in Job Name for LINES))     __________ __ ___ ____ ___ ______
+
+     .SYS[1,2]
+
+     9  DET     51%     3+SPY     SL     SW     59
+
+
+
+3.3  HOW TO PRINT THE RESOURCE UTILIZATION GRAPH     ___ __ _____ ___ ________ ___________ _____
+
+     .RUN SIMP1
+
+     *JAN,25,1977        ;graph(s) will be printed for 24-hour periods
+                         ;from 7:00 am this day
+
+     *JAN,25             ;to 7:00 am this day
+
+     *EXIT
+
+     .RUN GRAPH
+
+     DATE IS JAN,25
+
+     .PRINT GRAPH.DAT
+PROGRAM OPERATION                                             Page 3-2_______ _________
+
+
+3.4  HOW TO PRINT THE PERFORMANCE EVALUATION REPORTS     ___ __ _____ ___ ___________ __________ _______
+
+     .RUN LNSRPT
+
+     DAY(MMMDD):  JAN25  ;data filename for day desired, in  the  form
+                         ;mmmdd
+
+     FROM(HR,MIN): 12,01 ;HR, MIN of beginning of period desired
+
+     TO(HR,MIN):  12,15  ;HR, MIN of end of period desired
+                         ;defaults for "FROM" and  "TO"  are  0,0  and
+                         ;24,00
+
+     OPTION:  RPTA       ;options are RPTA, RPTB, RPTC, RPTD, RPTE,
+                          RPTS
+
+     OPTION:  RPTB       ;ALL for all the above, HELP for help
+
+     OPTION:  RPTS       ;RPTS for summary option
+
+     OPTION:  <CR>       ;end with a blank line
+
+     SUMMARY EVERY:  10  ;summary  period  for  RPTS   (default:    60
+                         ;minutes)
+
+     OUTPUT FILES:  SCHEDA.DAT SCHEDB.DAT SCHEDS.DAT
+
+     .PRINT SCHED?.DAT
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 4
+
+                         REPORT DESCRIPTIONS                         ______ ____________
+
+
+
+This chapter explains the format and content of the  various  reports.
+For  an example of each of the reports, see Figures A-1 through A-7 in
+the Appendix.
+
+
+
+4.1  RESOURCE UTILIZATION GRAPH     ________ ___________ _____
+
+There are four resources recorded on the  Resource  Utilization  Graph
+(Figure  A-1).   Each  of  these  resources  is identified by a unique
+letter code.  (See Table 4-1.)
+
+
+                              Table 4-1
+         Resources Recorded on the Resource Utilization Graph
+
+
+     Code           Description                 Default Value
+
+
+      C     Amount of CPU time used
+
+      L     Number of terminal lines used          64 lines
+
+      S     Swapping rate                    36,000 blocks/minute
+
+      D     Disk I/O rate                     5,000 blocks/minute
+
+
+In addition, the code letter O appears wherever two or more  resources
+overlap.
+
+The vertical scale on the graph represents the percentage of resources
+used.   Figure  A-1  is  plotted using the maximum values indicated in
+Table 4-1 as 100 percent.  However, you may specify  other  values  as
+parameters  in the graph program to change the scale.  In other words,
+your 100 percent need not be based on the same maximum values  as  the
+100 percent in Figure A-1.
+
+The maximum swapping rate of 72,000 blocks per minute is based  solely
+on  the  hardware transfer speed;  it does not take into consideration
+either hardware- or software-latency times.  Therefore,  you  may  not
+specify  more  than 72,000 blocks per minute, no matter how many block
+sequences are transferred.
+REPORT DESCRIPTIONS                                           Page 4-2______ ____________
+
+
+On the other hand, the disk rate of 5,000 blocks per minute  is  based
+on  single-transfer 128-word blocks.  This figure is ultraconservative
+if larger blocks are written (as occasionally happens).
+
+The maximum of 64 lines is based on the total number of terminal ports
+that are available to users.
+
+The data is plotted for 20-minute intervals from data that is recorded
+at  1-minute  intervals.   In  other  words,  this  is  a summary of a
+20-minute plot.
+
+The horizontal scale on the graph represents  the  time  of  day.   It
+begins  at  7:00  am  of  the indicated day and ends at 7:00 am of the
+following day.
+
+At the bottom of the graph several maximum values are printed to  show
+the highest values of the indicated variable for any recorded 1-minute
+interval during the day.  Typically, these values are larger than  any
+point plotted on the graph.  This is because the graph plots a summary
+(average) of a 20-minute interval.  Where applicable, the user-defined
+maximum  value  is  indicated  after  the observed maximum percentage.
+Remember, if you wish, these values can be different  from  the  scale
+values used in Figure A-1.
+
+
+
+4.2  RESOURCE UTILIZATION REPORT (RPTA)     ________ ___________ ______ ______
+
+RPTA contains  the  minute-by-minute  data  from  which  the  Resource
+Utilization  Graph is plotted, plus a number of additional data items.
+RPTA includes the following data items:
+
+
+            Data Item                        Meaning
+
+          LINES          The number of dial-up lines currently in use.
+
+          JOBS           The number of job slots currently in use.
+
+          CPU-MIN(%)     The percentage of the CPU  time  used  during
+                         the last minute.
+
+          OVRHEAD(%)     The  percentage  of  monitor  overhead   used
+                         during the last minute.
+
+          DSK-MIN        The  number  of  128-word  blocks  read   and
+                         written  on  the public file structure during
+                         the  last  minute  (expected  maximum   5,000
+                         blocks per minute).
+
+          SWP-MIN        The number of 128-word blocks swapped to  and
+                         from memory during the last minute.
+
+          TTY-BUF(%)     The percentage  of  buffer  pool  space  used
+                         during the last minute.
+
+          C.B.(%)        The percentage of the memory blocks pool used
+                         during the last minute.
+
+          SWAP-K(%)      The percentage of swapping space used  during
+                         the last minute (includes dormant segments).
+REPORT DESCRIPTIONS                                           Page 4-3______ ____________
+
+
+4.3  PQ1 REQUEUE DATA (RPTB)     ___ _______ ____ ______
+
+RPTB contains data on the requeues that usually go to PQ1 (unless  the
+job is in HPQ).  RPTB includes the following data items:
+
+
+        Data Item                            Meaning
+
+          DTASL          Number of times that a job was put  to  sleep
+                         to  wait for a DECtape to position during the
+                         last minute.
+
+          MTASL          Number of times that a job was put  to  sleep
+                         to  wait  for  a  magnetic  tape  to position
+                         during the last minute.
+
+          EWCNT          Number of jobs requeued because an event wait
+                         was satisfied.
+
+          TISJB          Number of jobs requeued  because  a  terminal
+                         input wait was satisfied.
+
+          TOSJB          Number of jobs requeued  because  a  terminal
+                         output wait was satisfied.
+
+          PISJB          Number   of   jobs   requeued    because    a
+                         pseudo-terminal input wait was satisfied.
+
+          POSJB          Number   of   jobs   requeued    because    a
+                         pseudo-terminal output wait was satisfied.
+
+          REQSS          Number of jobs requeued because a  SLEEP  was
+                         satisfied.
+
+          REQWK          Number of jobs requeued  because  of  a  WAKE
+                         monitor call (includes HIBERNATE for a number
+                         of conditions).
+
+          REQJSD         Number of jobs requeued because of a  service
+                         completion by DAEMON.
+
+          REQPQ1         Number  of  jobs  requeued  to  PQ1  for  all
+                         reasons.
+
+
+
+
+4.4  PROCESSOR QUEUE DATA (RPTC)     _________ _____ ____ ______
+
+RPTC contains data on the activity in the  various  processor  queues.
+RPTC includes the following data items:
+
+
+        Data Item                            Meaning
+
+          XPQRP1         Number of jobs  in  PQ1  that  expired  their
+                         quantum runtime during the last minute.
+
+          XPQRP2         Number of jobs  in  PQ2  that  expired  their
+                         quantum runtime during the last minute.
+
+          XPQRHP         Number of jobs in  HPQs  that  expired  their
+                         quantum runtime during the last minute.
+REPORT DESCRIPTIONS                                           Page 4-4______ ____________
+
+
+        Data Item                         Meaning
+
+          XPICP1         Number of jobs  in  PQ1  that  expired  their
+                         in-core protect time during the last minute.
+
+          XPICP2         Number of jobs  in  PQ2  that  expired  their
+                         in-core protect time during the last minute.
+
+          XPICHP         Number of jobs in  HPQs  that  expired  their
+                         in-core protect time during the last minute.
+
+          SWPKP1         Number of K swapped in for PQ1 jobs.
+
+          SWPKP2         Number of K swapped in for PQ2 jobs.
+
+          SWPJP1         Number of PQ1 jobs swapped in.
+
+          SWPJP2         Number of PQ2 jobs swapped in.
+
+          SWPJHP         Number of HPQ jobs swapped in.
+
+          RNTPQ1         CPU seconds used by PQ1 jobs.
+
+          RNTPQ2         CPU seconds used by PQ2 jobs.
+
+          RNTHPQ         CPU seconds used by HPQ jobs.
+
+
+
+
+4.5  SPECIAL QUEUE DATA (RPTD)     _______ _____ ____ ______
+
+RPTD contains data on  the  activity  in  the  special  queues.   RPTD
+includes the following data items:
+
+
+          Data Item                          Meaning
+
+          SWAP TIMES     The time required to swap in a PQ1 or CMQ job
+                         from  the  time  it  enters  PQ1  to the time
+                         swap-in is completed.
+
+          NUMBER         The  number  of  observations  of  swap  time
+                         recorded  by  the  monitor  during  the  last
+                         minute.
+
+          MEAN           The  average  swap   time   for   the   above
+                         observations.
+
+          STDV           The  standard   deviation   for   the   above
+                         swap-time observations.
+
+          WASTE CORE     The amount (in pages) of memory  occupied  by
+                         jobs  that  are  not  runnable  (that  is, in
+                         long-term wait,  terminal  I/O  wait,  SLEEP,
+                         STOP, and so forth).
+
+          NUMBER         The number of  observations  of  wasted  core
+                         recorded  by  the  monitor  during  the  last
+                         minute.
+REPORT DESCRIPTIONS                                           Page 4-5______ ____________
+
+
+          Data Item                          Meaning
+
+          MEAN           The average waste core  (in  pages)  for  the
+                         above observations.
+
+          STDV           The  standard   deviation   for   the   above
+                         waste-core observations.
+
+
+
+4.6  CLASS PERCENTAGES (RPTE)     _____ ___________ ______
+
+RPTE contains data on the percentage of accumulated CPU time  used  by
+the various classes.  RPTE includes the following data item:
+
+
+          Data Item                           Meaning
+
+          CLAS N         The percentage of accumulated CPU  time  used
+                         by class N.
+
+
+
+4.7  SUMMARY REPORT (RPTS)     _______ ______ ______
+
+The data contained in RPTA, RPTB, RPTC, RPTD, and RPTE is overwhelming
+if printed minute by minute for a whole day.  Therefore, RPTS provides
+a convenient way to summarize the data in the reports at any interval.
+(See Figure A-7.)
+
+
+
+
+
+
+
+
+
+
+
+
+                             APPENDIX A
+
+                EXAMPLE GRAPH, REPORTS, AND SUMMARIES                _______ ______ ________ ___ _________
+
+
+
+This appendix contains an example of the  Resource  Utilization  Graph
+(Figure  A-1)  and  examples  of  each  of  the  following performance
+evaluation reports:
+
+     1.  Resource Utilization Report.  (See Figure A-2.)
+
+     2.  PQ1 Requeue Data, RPTA.  (See Figure A-3.)
+
+     3.  Processor Queue Data, RPTC.  (See Figure A-4.)
+
+     4.  Special Queue Data, RPTD.  (See Figure A-5.)
+
+     5.  Class Percentages, RPTE.  (See Figure A-6.)
+
+
+The data was  collected  on  the  Western  Michigan  University  (WMU)
+computer  system  during  a  24-hour period.  The Resource Utilization
+Graph was plotted from data collected over the entire 24  hours.   The
+data  contained  in  RPTA,  RPTB,  RPTC,  RPTD, and RPTE was collected
+during  the  15-minute  period  from  12:01  pm  to  12:15  pm.   RPTS
+summarized the data at 10-minute intervals.
+
+The WMU computer system consisted of the following:
+
+     1.  A KI10 with 160K memory.
+
+     2.  Six RP02 disk packs and two RP03 disk packs on one channel.
+
+     3.  Two RD10 swapping disks on one channel.
+
+     4.  Two TU20 tape drives on the I/O bus.
+
+     5.  A 6.03 monitor with the WMU class scheduler configured for 74
+         jobs and 16 scheduler classes.
+
+Table A-1 lists the various  classes  along  with  their  primary  and
+secondary percentage allocations.
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                          Page A-2_______ ______ ________ ___ _________
+
+
+                              Table A-1
+  Primary and Secondary Percentage Allocations of Scheduler Classes
+
+
+                              Percentage Allocations
+                    Class
+                              Primary     Secondary
+
+
+                      0         95            95
+
+                      1          3             3
+
+                      2          1             1
+
+                      3          1             1
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                          Page A-3_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                Figure A-1  Resource Utilization Graph
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                          Page A-4_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            Figure A-2  Resource Utilization Report (RPTA)
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                          Page A-5_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                 Figure A-3  PQ1 Requeue Data (RPTB)
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                          Page A-6_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+               Figure A-4  Processor Queue Data (RPTC)
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                          Page A-7_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                Figure A-5  Special Queue Data (RPTD)
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                          Page A-8_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                 Figure A-6  Class Percentages (RPTE)
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                          Page A-9_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  Figure A-7  Summary Report (RPTS)
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                         Page A-10_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              Figure A-7  Summary Report (RPTS) (Cont.)
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                         Page A-11_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              Figure A-7  Summary Report (RPTS) (Cont.)
+EXAMPLE GRAPH, REPORTS, AND SUMMARIES                         Page A-12_______ ______ ________ ___ _________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              Figure A-7  Summary Report (RPTS) (Cont.)
+

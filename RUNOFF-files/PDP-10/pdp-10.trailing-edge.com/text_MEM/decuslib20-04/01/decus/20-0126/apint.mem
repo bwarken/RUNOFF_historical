@@ -1,0 +1,438 @@
+Program Description 36                                     Page 1
+
+
+                        ATOPLT INTERNALS
+                        ----------------
+
+
+                            Rob Cook
+                       La Trobe University
+                         Computer Centre
+                            6-Jul-77
+
+
+
+1.0  INTRODUCTION
+
+     The ATOPLT package draws  graphs  given  the  points  to  be
+plotted  and certain titling information.  The package is used by
+calling subroutines using a FORTRAN  subroutine  call  interface.
+ATOPLT is capable of supporting a variety of graphics devices and
+basic software plotting packages.  It should be  relatively  easy
+to convert it to run on any computer with a FORTRAN system.
+
+     ATOPLT draws graphs including up  to  14  discrete  sets  of
+data.   Normally  scaling  of the plot to fit the data is done by
+ATOPLT, but the caller can use separate subroutines to  change  a
+variety  of  parameters that affect the way the plot is produced.
+By suitable choice of parameters ATOPLT will  window  data,  plot
+integers  or  text  strings  as  the  labels  at  each  tick, use
+logarithmic scales and add least squares lines.
+
+     PN-25 describes the ATOPLT package from a user's  viewpoint,
+and APL02.RND contains a description of the constituent files and
+an installation guide.
+
+     This document refers to ATOPLT version 2A(47).
+
+
+
+2.0  ENTRY POINTS
+
+ 1.  ATOPLT
+
+          Subroutine ATOPLT draws a graph  containing  up  to  14
+     discrete  data  sets.   It  calls a number of subprograms to
+     check the actual parameters (APDATA), draw the framework and
+     draw tick labels and axis titles (APBORD), draw and join the
+     data points (APLINE), add a notes box explaining  each  data
+     set  (APNOTE),  add least squares lines (APPLSQ, APPLSP) and
+     close down the plot (APCLOS).
+
+ 2.  ONEPLT
+
+          Subroutine ONEPLT draws a graph containing 1 data  set.
+     It is almost identical to ATOPLT but its calling sequence is
+     simpler.
+
+ 3.  ATOLOG
+
+          Subroutine ATOLOG allows the caller to specify that  he
+     wants  logarithmic scaling in the X or Y direction (or both)
+     in subsequent ATO- or ONEPLTs.  A call to ATOLOG causes  the
+     linking  loader  to  load  the  log  scaling  and  labelling
+Program Description 36                                     Page 2
+
+
+     subprograms in preference to dummy routines that are  loaded
+     otherwise.
+
+ 4.  ATOCHL
+
+          Subroutine  ATOCHL  allows  the   caller   to   specify
+     character  labels that he wants used as tick labels on the X
+     or Y axis (or both) in future calls to ATO-  or  ONEPLT.   A
+     call to ATOCHL causes the linking loader to load subprograms
+     that write the  character  labels  in  preference  to  dummy
+     routines that are loaded otherwise.
+
+ 5.  ATOLSQ, ATOLSP
+
+          The subroutines ATOLSQ  and  ATOLSP  specify  that  the
+     caller wants least squares lines drawn on his plots for some
+     of the data sets plotted in future calls to ATO- or  ONEPLT.
+     With ATOLSP the caller specifies a fixed point through which
+     each least squares line must  pass.   Calls  to  ATOLSQ  and
+     ATOLSP  force  the  linking  loader  to  load  least squares
+     drawing routines instead  of  dummies  which  are  otherwise
+     loaded.
+
+ 6.  ONELSP
+
+          ONELSP is identical  to  ONEPLT  except  that  a  least
+     squares line is added, by calling ATOLSQ before ONEPLT.
+
+ 7.  SIMPLT and SIMPLS
+
+          These subroutines are  merely  simplified  versions  of
+     ONEPLT  and  ONEPLS.  The caller does not have to supply all
+     the  titling  information  which  can  be  confusing  to   a
+     beginner.
+
+ 8.  ATOPRM
+
+          Subroutine ATOPRM allows the caller  to  alter  a  wide
+     range  of  parameters  that  affect the way that the plot is
+     drawn (see Appendix A of PN25 for  a  complete  list).   For
+     each  new  parameter value ATOPLT checks the value against a
+     maximum and minimum, which may be some  other  parameter  or
+     may be an absolute value.
+
+ 9.  ATOGET
+
+          Subroutine ATOGET allows the caller to obtain the value
+     of selected ATOPLT parameters.
+
+
+
+
+3.0  COMPONENTS OF ATOPLT
+
+     ATOPLT is divided into a large number of  modules  that  are
+called  at  lower  levels.   All  modules  have names of the form
+AP????.  Similarly, there are several blocks of names COMMON with
+names AP????.
+Program Description 36                                     Page 3
+
+
+                         *** Warning ***
+
+               Users of ATOPLT should  be  careful
+               to not use names of this form to be
+               quite safe.
+
+
+
+
+
+4.0  ATOPLT'S INTERNAL DATA BASE
+
+     ATOPLT  contains  several  named  COMMON  areas   containing
+constant data and data that is used during plot drawing.
+
+ 1.  COMMON /APPRM/
+
+          APPRM contains all the parameters whose values  may  be
+     changed  by  the  ATOPLT caller using the ATOPRM subroutine.
+     Its definition is
+
+              COMMON /APPRM/APPARM(45), APLO, APHI
+
+          APPARM contains the  parameter  values;   APLO  is  the
+     lowest  index  (1)  and  APHI  holds the highest index (45).
+     Indices higher than 45 are reserved by La  Trobe  University
+     for  future  versions of ATOPLT.  Users should extend APPARM
+     locally by adding zero and negative indices, by changing all
+     occurences  of the COMMON definition and by defining the new
+     parameter default values and APLO value  in  the  subroutine
+     APDVIC   in   the   plotter  specific  files  APGLD.FOR  and
+     APTEK.FOR.
+
+          In addition, if new parameters are added, their  limits
+     should  be added to the arrays HICHEK and LOCHEK in the DATA
+     statements in subroutine ATOPRM in file APLOT.FOR.
+
+          Note that all parameters in APPARM are  assumed  to  be
+     REALs for checking purposes.
+
+ 2.  COMMON /APFIX/
+
+          APFIX   contains   various   common   parameters   used
+     throughout  the  ATOPLT  package.   The  values of the APFIX
+     variables  are  defined  in  subroutine   APNAME   in   file
+     APNAM.FOR.
+
+
+     X = 1          X index in all  the  2-membered  arrays  that
+                    contain both X and Y values
+
+     Y = 2          Y index
+
+     RV             rounding  value  used   in   floating   point
+                    calculations where rounding is important
+
+     RD             used to round to 2 decimal places
+Program Description 36                                     Page 4
+
+
+     LU = 6         logical  unit  number   for   writing   error
+                    messages to the user's terminal
+
+     MOV = 3        code  for  moving  the  pen  with  pen-up  in
+                    Calcomp calling sequences
+
+     DRW = 2        code for moving the pen with pen-down
+
+ 3.  COMMON /APVER/
+
+          APVER contains version number  details.   VEDIT  is  an
+     INTEGER   edit   number.   VERSIO  is  a  3  membered  array
+     containing the text 'ATOPLT v:2A', and VCHAR is  the  length
+     of the VERSIO string.  VERSIO and VCHAR are used to plot the
+     ATOPLT identification message  on  each  plot.   APVER  data
+     values are defined in subroutine APNAME in file APNAM.FOR.
+
+ 4.  COMMON /APINT/
+
+          APINT holds values that are calculated  internally  for
+     each  plot  and  used  throughout the remainder of a drawing
+     operation.  Each member is a 2-membered array for the X  and
+     Y  values.  The values are calculated in the function APDATA
+     and in the subroutine APAXIS.
+
+
+     ORGVAL         user's data values at the origin of the plot
+
+     ENDVAL         user's data values at the extrema of the axes
+
+     MINVAL         minimum of all the user's data values
+
+     MAXVAL         maximum of all the user's data values
+
+     TIKINC         increment in user values between two adjacent
+                    ticks
+
+     TIKVAL         user fixed value  to  appear  at  some  tick.
+                    Only used if TIKTYP is non-zero
+
+     TIKSPC         spacing between two ticks  in  plotter  units
+                    (mm normally)
+
+     TIKTYP         INTEGER type of tick value fixing (0 :  none,
+                    1 :  one tick fixed, 2 :  origin fixed)
+
+     FLINT          LOGICAL flag, .TRUE.  for INTEGER tick labels
+
+     TIKSIZ         height of the major ticks in plotter units
+
+     NUMTIK         INTEGER number of ticks along the axis
+
+     ENDPOS         coordinates  of  the  ends  of  the  axes  in
+                    plotter units
+
+Program Description 36                                     Page 5
+
+
+5.0  DATA CHECKING AND INITIALISATION OF APINT
+
+     APDATA is called to check the data and to build  APINT.   It
+returns .TRUE.  if there is some error, .FALSE.  if all was OK.
+
+     The  minimum  and  maximum  data  values  are  obtained   by
+subroutine  APRANG, and they are checked for log-compatibility if
+necessary by APLOGN.
+
+     The various data that form APINT are gathered from APPRM and
+then  subroutine APAXIS is called to decide the origin value, the
+value increment per tick and the tick spacing based on  the  tick
+type code.
+
+     Other useful APINTs are filled in.
+
+
+
+6.0  DRAWING THE GRAPH BORDER, LABELS AND TITLES
+
+     Subroutine APBORD is called to draw the  border,  and  calls
+subroutines APOPEN, APVERS, APFRAM, APTITL and APLABL in order.
+
+     APOPEN is a basic plotting subroutine  that  lives  in  file
+APSUB.FOR and issues a call to the Calcomp-like routine PLOTS.
+
+     APVERS draws the ATOPLT identification, version  number  and
+date/time stamp in the bottom left hand corner of the plot.
+
+     APFRAM draws the frame and the ticks.  Subroutine APTICK  is
+called once for each side of the box.  APTICK starts from the end
+of the last side and works along the axis  drawing  ticks  as  it
+goes.
+
+     APLABL draws a label at every other tick along the X  and  Y
+axes.  It calls one of the routines
+
+APSLAB              for normal labels (no logarithms)
+APLLAB              for logarithmicly scaled labels
+APCLAB              for character labels
+
+depending on whether ATOLOG or ATOCHL have been called  for  that
+axis.   APSLAB  and  APLLAB  are subdivided into routines to draw
+REAL or INTEGER labels.
+
+     APTITL draws a title for the X and Y axes and  a  title  for
+the entire plot.  If APSLAB was used to write labels, APTITL adds
+an exponent factor to the axis title, using subroutine APPSEX.
+
+
+
+7.0  DRAWING AND JOINING THE DATA POINTS
+
+     One call to subroutine APLINE draws all points of  all  data
+sets  and  joins  them if required.  APLINE takes each point, log
+scales it if required, scales it  to  fit  in  the  axes,  checks
+whether  the  point  is  in  the  data window by calling function
+APWIND, and draws the line  (up  or  down)  and  the  next  point
+symbol.   If  only  part of the line between the points is within
+the window, then only that part is drawn.  A count of the  points
+Program Description 36                                     Page 6
+
+
+drawn  for each special symbol (1-14) is kept in array FLNOT, for
+use by the notes-box drawing subroutines.
+
+     Function APWIND finds the endpoints of the part of the  line
+that is within the window.  It returns:
+
+
+     1         if the end is outside the window but the start  is
+               inside
+
+     0         if the finish is within the window
+
+     -1        if both points are outside the window and the line
+               does not cross the window at all
+
+APWIND uses subroutine  APCROS  to  determine  whether  the  line
+crosses  the  window  and the coordinates of the crossing points.
+APCROS in turn uses subroutine APSECT to find the intersection of
+the line with each side of the window, if any.
+
+
+
+8.0  ADDING THE NOTES BOX
+
+     APNOTE checks whether there are any notes to draw.  If so it
+draws  a  box  at  the  end of the X-axis and then looks at array
+FLNOT to see which symbols were used.  For each  symbol  used  an
+entry  is  written  in  the notes box, taking the title from data
+supplied by the caller in the NOTES array.  The notes box is only
+drawn for ATOPLT calls;  never for ONEPLT.
+
+
+
+9.0  LOG LABELLING
+
+     ATOLOG merely sets a flag  to  say  that  log  labelling  is
+required  on  one  axis or the other and makes a dummy call to an
+entry point in the log label writer, to ensure that it is  loaded
+in  preference  to  the  dummy  routine.  When ATOPLT gets to the
+stage of writing the tick labels, it notices that  log  labelling
+is in force and calls the log labeller, APLLAB.  APLLAB's special
+trick is to add an exponent to each tick label  when  the  values
+start  to  get  too  big  to fit into the normal width for a tick
+value (2 decimal places).
+
+     Function APLOGN is used to take the log of a number, and  to
+check that the number is positive before it tries.
+
+
+
+10.0  DRAWING CHARACTER LABELS
+
+     Subroutine ATOCHL remembers that character labels are to  be
+drawn  on  a particular axis, and stores the array of label texts
+supplied by the user.  This implies that there is a  fixed  limit
+on  the  number  of labels that can be used, but the alternative,
+using strict FORTRAN, is to call a  user  routine  for  the  next
+label each time.
+Program Description 36                                     Page 7
+
+
+     It is assumed that the user would want to fix the origin and
+increment if using character labels, so he must also supply these
+values.
+
+     ATOCHL calls a dummy entry to the  character  label  drawer,
+APCLAB, so that it is loaded instead of the normal dummy.
+
+     APCLAB is called to draw the labels instead of the  standard
+labelling routine.
+
+
+
+11.0  DRAWING LEAST SQUARES LINES
+
+     ATOLSQ  and  ATOLSP  flag  that  least  squares  drawing  is
+required  for  certain  special symbol data sets.  Again they set
+flags and force the loading of the least squares line  drawer  by
+calling a dummy entry point.
+
+     After the main drawing is completed, ATOPLT calls APLSQC and
+if  there  are any lines to be added, APLSQC calculates the lines
+and draws them, using APLINE to ensure the correct windowing.
+
+
+
+12.0  GETTING AND SETTING ATOPARAMETERS
+
+     ATOGET merely looks up the  values  in  APPARM  and  returns
+them, given that the items required exist.
+
+     ATOPRM checks the range of each value before setting it into
+APPARM.   The arrays HICHEK and LOCHEK tell ATOPRM how to perform
+the range checks.  If the value in the check arrays is less  than
+1000,  then  the check is made against another ATOParameter whose
+index is the value in the check array.  If the value  is  greater
+than  1000,  the  check  is made against an absolute value, to be
+found in array CONST in function APPVAL.  If the check is against
+the plot size, the scale factor is taken into consideration.
+
+
+
+13.0  GLOBAL SUBPROGRAMS
+
+     There are two important functions  that  are  used  in  many
+places inside ATOPLT.
+
+     APPWR returns the exponent e, when the number  is  expressed
+in  the  form  "v * 10^e",  and  1 < v < 10.   This  is  used  to
+                                   -
+determine the number if decimal  places  used  by  a  number  for
+plotting tick labels and exponents.
+
+     APRND returns the nearest multiple of  m  to  v.   If  m  is
+positive, the multiple is above, otherwise below.
+Program Description 36                                     Page 8
+
+
+14.0  SUBROUTINE DEPENDENCIES
+
+     The order of the  files  within  the  library  is  important
+because  the  library  file  is  searched  sequentially  and  the
+subroutines must be located in the correct order.
+
+        APLOT   main subroutine package
+        APSUB   basic plot subroutine interface
+        APNAM   called by ONEPLT and ATOPLT but only to
+                ensure that DATA blocks are filled
+        APdev   device dependant subroutine called by APNAM
+                to ensure that APPARM is filled.

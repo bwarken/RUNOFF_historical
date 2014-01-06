@@ -1,0 +1,225 @@
+
+
+
+          Installation Instructions for DX20/RP20 Microcode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    Date:     20-Jan-83
+                    Software Version:  3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1982,1983 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+Installation Instructions for DX20/RP20 Microcode               Page 2
+
+
+1.0  INTRODUCTION
+
+This document describes the procedures  necessary  for  installing  or
+updating  the  DX20  microcode  required  to  run  an  RP20  subsystem
+connected to a DECsystem-10.  Refer to the TOPS-10 Installation  Guide
+for  the  procedures  for  installing  or  updating the TOPS-10 system
+software.
+
+
+
+2.0  REQUIRED COMPONENTS
+
+The magnetic tape from which these directions were  obtained  contains
+all  the files necessary to install or update the DX20/RP20 microcode.
+These files are as follows:
+
+BOOT.EXB    A new front-end BOOT file  with  the  DX20/RP20  microcode
+            loaded.   This file should be transferred to the front-end
+            file system according to the procedures described below.
+
+
+                                       NOTE
+
+                This version of BOOT was assembled to run with  KL
+                paging  and will be loaded into physical memory at
+                256K by the front-end.  This should be the correct
+                version  for virtually all sites.  If this version
+                is not correct for your installation, refer to the
+                RPBOOT.CTL control file distributed on the monitor
+                tape  for  instructions  on   building   different
+                versions.
+
+
+
+DXMCD.ADX   The DX20/RP20 microcode in the format read by  BOOTDX  and
+            loaded with BOOT.
+
+FE.EXE      The utility necessary to transfer files to  and  from  the
+            front-end  file system.  Note that this program is also on
+            the system distribution tape.  It is  duplicated  here  to
+            put  everything  necessary  to  install the microcode on a
+            single tape.
+
+README.MEM  This file.
+
+
+
+3.0  RESTORING THE FILES
+
+To install the DX20/RP20 microcode, restore the files on this tape  to
+disk  into some convenient directory.  Make sure that you have all the
+files listed in the section above and carefully read this document  to
+familiarize youself with the procedures used in the installation.
+Installation Instructions for DX20/RP20 Microcode               Page 3
+
+
+4.0  INSTALLING THE MICROCODE FILES
+
+To install the DX20/RP20 microcode that is loaded  by  BOOTDX,  simply
+copy DXMCD.ADX to SYS:  where it can be found by BOOTDX.
+
+
+
+5.0  INSTALLING THE NEW BOOT
+
+BOOT is  loaded  with  the  DX20/RP20  microcode  and  will  pass  the
+microcode  to  the  monitor when the moniotor is loaded.  As a result,
+you must copy the BOOT from this tape to the front-end file system for
+all CPUs in your system.
+
+
+                                 NOTE
+
+               This part of the procedure should not be
+               done  during  timesharing.  Do this on a
+               stand-alone machine.
+
+
+To copy BOOT to the front-end file system, follow the procedure  below
+while logged into [1,2]:
+
+     1.  Copy BOOT.EXB, and FE.EXE to [1,2] on a structure that is  in
+         the job search list.
+
+     2.  If you are on a multi-CPU system, type the command:
+
+         .SET CPU ONLY CPU n
+
+         where n is the CPU number of the CPU that has  the  front-end
+         that you want to update.  Do not do this step if you are on a
+         single CPU system.
+
+     3.  Type the following command:
+
+         .RUN FE               ;Run the FE program
+
+
+The FE program is the TOPS-10 half of the path to transfer files  from
+the TOPS-10 disk to the front-end disk.  The other half of the path is
+provided by the front-end PIP program.
+Installation Instructions for DX20/RP20 Microcode               Page 4
+
+
+Go to the CTY of the CPU that has  the  front-end  that  you  want  to
+update and type the following:
+
+        ^\                         ;Type control-backslash
+        PAR>MCR MOU                ;Start up MOU
+        MOU>FE:                    ;Mount the FE device
+        MOU -- MOUNT COMPLETE      ;MOU types this prompt
+        MOU>^Z                     ;Type a control Z to exit MOU
+        ^\                         ;Type a control-backslash
+        PAR>MCR PIP                ;Start up PIP
+        PIP>SY:BOOT.*;*/LI         ;Do a directory of BOOT.*
+
+                                   ;PIP types the directory
+
+You have now mounted the FE device (the logical device that  completes
+the  path  to  the  -10  disk)  and taken a directory of BOOT.*.  This
+directory is important in case you have to  delete  the  new  copy  of
+BOOT, so you should keep it handy.
+
+The next step in the procedure is to copy the new BOOT  from  the  -10
+disk  to  the  front-end  disk.  Note the "/NV" switch in the commands
+below.  It  is  important  because  it  prevents  the  new  BOOT  from
+superseding the old one.  Now type the following:
+
+        PIP>SY:BOOT.EXB/NV=FE:[1,2]BOOT.EXB
+                                   ;Copy the file to the front-end
+        PIP>SY:BOOT.*;*/LI         ;Do another directory
+
+                                   ;PIP types the directory again
+
+You should now compare the previous directory with  the  new  one  and
+make  sure  that  BOOT  was  copied  successfully.   To  complete  the
+procedure, type the following:
+
+        PIP>^Z                     ;Type a control Z to exit PIP
+        ^\                         ;Type a control-backslash
+        PAR>MCR DMO                ;Start up DMO
+        DMO>FE:                    ;Dismount the FE device
+        DMO -- DISMOUNT COMPLETE   ;DMO types this prompt
+        DMO>^Z                     ;Exit from DMO
+        ^\                         ;Type a control-backslash
+        PAR>^Z                     ;Return to the monitor
+
+This sequence of commands transfers  BOOT.EXB[1,2]  to  the  front-end
+file  system  using  the next available generation number.  You should
+now test the new BOOT by reloading your monitor in the normal manner.
+
+This completes the installation of the DX20/RP20 microcode.
+Installation Instructions for DX20/RP20 Microcode               Page 5
+
+
+6.0  WHAT TO DO IF IT DOESN'T WORK
+
+If, after copying the new BOOT to the front end, you discover that  it
+doesn't  work,  you  should  delete  the  appropriate  file  from  the
+front-end file system.  You can do this by  comparing  the  first  and
+second  directory  listings  that  resulted  from the procedure above.
+Once you know which file to delete,  you  can  do  so  by  typing  the
+following (n is the generation number obtained from the directories):
+
+        ^\                         ;Type a control-backslash
+        PAR>MCR PIP                ;Start up PIP
+        PIP>SY:BOOT.EXB;n/DE       ;Delete the file.  n=the generation
+                                   ;number from the directory listing
+        PIP>^Z                     ;Exit from PIP
+        ^\                         ;Get to the PARSER
+        PAR>^Z                     ;Return to the monitor

@@ -1,0 +1,189 @@
+
+
+
+FAL.DOC -- Changes from V1 to V2(37)
+May 1985
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (c) DIGITAL EQUIPMENT  CORPORATION  1985,1986.   ALL  RIGHTS
+RESERVED.
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+FAL.DOC                                                         Page 2
+
+
+FAL.DOC -- Changes from V1 to V2(37)
+May 1985
+
+
+
+1.0  SUMMARY
+
+FAL is the network File Access Listener, which provides a file  server
+to network processes within a DECnet network.  Interaction with FAL is
+implied whenever a network user attempts access to  files  on  systems
+other  than  his local system.  FAL version 2 requires TOPS-10 version
+7.02 or later and Galaxy version 5 or later.
+
+FAL has undergone major modifications from version 1 to  2(27).   This
+includes  the addition of multithreaded operation and OPR/ORION/QUASAR
+interface.  FAL is no longer a component of the  NFT/NIP/FAL  program.
+There  is  no  longer  a  need  to run one FAL job for each FAL server
+desired;  multiple FAL streams can be handled by a single job.
+
+
+
+2.0  EXTERNAL CHANGES
+
+While there are few changes to FAL that are visible  to  network  file
+users,  there are many changes that are visible to the system operator
+due to the inclusion of the OPR/ORION/QUASAR interface.  As  a  result
+of this interface, FAL no longer accepts commands from the controlling
+terminal;  all command processing is done via OPR.  OPR  may  also  be
+used  to list the status of all started FAL streams.  A sample list of
+FAL related OPR commands follows.   All  commands  are  documented  in
+detail in the Operator's Command Language Reference Manual.
+
+OPR>SET FAL-STREAM 0:2 NETWORK DECNET
+OPR>SET FAL-STREAM 3:5 NETWORK ANF10
+OPR>DEFINE FILE-ACCESS REJECTION-LIST [1,2] ,NODEA::[1,*]
+OPR>DEFINE FILE-ACCESS NETWORK-PPN [377777,377777]
+OPR>START FAL-STREAM 0-5
+OPR>SHOW STATUS FAL-STREAM
+OPR>SHOW PARAMETERS FAL-STREAM
+
+Additionally, FAL will log all connect/disconnect/reject events to OPR
+and the operator log file.
+
+One other change has been made to FAL which may be of  major  concern:
+FAL will now reject all connections made on behalf of a user/PPN which
+does not have the network file access  privilege  set  in  the  user's
+profile.   This  privilege  bit  can  be given to a user via the REACT
+program.  If such a rejection occurs, FAL will log an error message to
+OPR which explicitly states this as the reason for rejection.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+FAL may not run detached, as is the case with other Galaxy components.
+FAL.DOC                                                         Page 3
+
+
+There  are non-fatal conditions under which FAL's I/O library routines
+will OUTSTR error messages to  the  FAL  job's  controlling  terminal,
+which would cause the job to block if it were running detached.  Until
+this is corrected, it is recommended that  FAL  be  run  as  an  OPSER
+subjob.
+
+Node/PPN  rejection  lists  cannot  contain   wildcarded   node   name
+specifications  (as  with  the  old  FAL) due to restrictions in OPR's
+parsing routines.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+FAL.MAC must be compiled with the following universal  files  on  UNV:
+MACTEN,  UUOSYM,  SWIL, GLXMAC, QSRMAC, ORNMAC, ACTSYM and JOBDAT, and
+is loaded with REL:GLXLIB.REL and REL:SWIL.REL.
+
+.LOAD FAL
+.SAVE FAL
+
+The system wide OPR.ATO file must be edited to log in an run FAL on an
+OPSER subjob, as in:
+
+:SLOGIN
+:DEFINE FAL=
+FAL-R FAL
+
+Additionally, the OPR startup file (SYSTEM.CMD) should  be  edited  to
+configure  and run the desired number of FAL streams.  For example, to
+start three streams serving DECnet and  two  streams  serving  ANF-10,
+rejecting   all   access   claiming   to   be   [1,2]   and  declaring
+[377777,377777] as the default network access PPN,
+
+DEFINE FILE-ACCESS REJECTION-LIST [1,2]
+DEFINE FILE-ACCESS DEFAULT-PPN [377777,377777]
+SET FAL-STREAM 0:2 NETWORK DECNET
+SET FAL-STREAM 3:4 NETWORK ANF
+START FAL-STREAM 0:4
+
+
+
+5.0  INTERNAL CHANGES
+
+The  largest  internal  changes  to  FAL  were  the  addition  of  the
+multithread  schedular and the addition of the QUASAR interface.  As a
+result of  these  changes,  FAL  is  no  longer  a  component  of  the
+NFT/NIP/FAL  program,  but runs as a standalone Galaxy component.  The
+source code for FAL is now contained in a single source file, FAL.MAC,
+which  loads  with  the  standard  network  access library (SWIL), and
+GLXLIB.  Since these two libraries have different  subroutine  calling
+and  AC  naming  conventions,  the  code  has  been  split  into three
+submodules  within  the  source  file:   FALUNV,  a   universal   file
+containing  all  symbols definitions and macros global to the two code
+segments, FALGLX, which contains the GLXLIB interface and  the  stream
+FAL.DOC                                                         Page 4
+
+
+scheduler,  and  FAL,  which  is  the  traditional network file access
+listener.  Other internal changes (by edit number) are:
+
+6         Fix typo that broke RSX/RSTS/VAX  non-wildcarded  directory;
+          Do  not  generate  a FOP field (at FFAD28), just "echo" back
+          whatever the remote has sent (keeps RSTS happy, probably the
+          right thing to do anyway).
+
+11        Send ACK between each file for DIRECTORY LIST if talking  to
+          a DAP protocol version 7 (or later) accessor.
+
+12        A zero-length USERS.TXT file causes UTXINI to do a  "random"
+          core  allocation,  typically  resulting in ?PC out of bounds
+          (by deallocating part of the hi seg).
+
+
+
+6.0  SUGGESTIONS
+
+None.

@@ -1,0 +1,889 @@
+
+
+
+BASIC.DOC -- Changes from V1C(211) to V2(252)
+May 1979
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1977, 1979 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR ANY  OTHER
+COPIES THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+BAS2.DOC                                                          Page 2
+
+
+BASIC.DOC -- Changes from V1C(211) to V2(252)
+May 1979
+
+   1.0  SUMMARY...............................................  3
+   2.0  EXTERNAL CHANGES......................................  3
+      2.1  INPUT, INPUT LINE, And LINPUT......................  3
+      2.2  Performance Improvements...........................  4
+      2.3  COMMON.............................................  4
+      2.4  BASIC Initialization...............................  6
+      2.5  Command Files......................................  7
+         2.5.1  DO Command....................................  7
+         2.5.2  The QUIET COMMAND And VERBOSE COMMAND 
+                Commands......................................  8
+         2.5.3  The STATUS Command............................  8
+      2.6  Compile And Run Time Reporting.....................  8
+      2.7  BASIC System Version Validity Checking.............  9
+      2.8  CHAINing From EXE File To EXE File.................  9
+      2.9  The RUN Command....................................  9
+      2.10  Memory Management Improvements....................  9
+      2.11  The VAL% Function.................................  10
+      2.12  New Error And Warning Messages....................  10
+         2.12.1  New Command Errors...........................  10
+         2.12.2  New Compiler Errors And Warnings.............  10
+         2.12.3  New Run Time Errors And Warnings.............  10
+   3.0  KNOWN BUGS AND DEFICIENCIES...........................  11
+      3.1  BASIC Software Bugs................................  11
+      3.2  BASIC Restrictions.................................  11
+      3.3  Operating System Deficiencies......................  12
+      3.4  BASIC Documentation Errors.........................  12
+         3.4.1  Undocumented Functions........................  12
+         3.4.2  CTRLC And RCTRLC..............................  13
+         3.4.3  SLEEP.........................................  13
+         3.4.4  ISAM files....................................  13
+         3.4.5  Null Data Items...............................  14
+   4.0  INSTALLATION INSTRUCTIONS.............................  15
+      4.1  Files Included On This Tape........................  15
+      4.2  Installation.......................................  15
+      4.3  Creating A BASIC Initialization Command File.......  15
+   5.0  INTERNAL CHANGES......................................  16
+   6.0  SUGGESTIONS...........................................  18
+      6.1  Output To Files....................................  18
+      6.2  VAL% And VAL.......................................  18
+      6.3  Array References...................................  18
+BAS2.DOC                                                          Page 3
+
+
+BASIC.DOC -- Changes from V1C(211) to V2(252)
+May 1979
+
+
+
+1.0  SUMMARY
+
+     BASIC-PLUS-2/20  is  a  powerful  implementation   of   the   BASIC
+programming  language for the DECSYSTEM-20.  This release of the product
+is a development release which includes  performance  improvements,  the
+COMMON statement with "blank" COMMON preserved across a CHAIN statement,
+and several other new functional enhancements.
+
+     BASIC-PLUS-2/20 runs on a  KL-20  processor  under  release  3A  or
+higher  of  the TOPS-20 monitor.  It supercedes all previous versions of
+the   BASIC   language   on   the   DECSYSTEM-20.    During   execution,
+BASIC-PLUS-2/20 requires the BASIC run-time system, BASOTS.EXE, which is
+included on this tape.
+
+     The external changes to BASIC-PLUS-2/20 version 2 are described  in
+this  document  in  section  2.0  (BAS2.DOC).   The  presently published
+documentation includes the BASIC-PLUS-2 Language Reference Manual (order
+number  AA-0153A-TK)  and the BASIC-PLUS-2/20 User's Guide (order number
+AA-0152A-TM).  This DOC file together  with  the  current  documentation
+will  be  adequate  for  most  users  to  make  use of the new version 2
+facilities.  There is a new BASIC-PLUS-2/20 manual for  TOPS-20  planned
+for release this summer.
+
+
+
+2.0  EXTERNAL CHANGES
+
+     The   sections   below   describe   the   enhancements   made    to
+BASIC-PLUS-2/20  version  2.   The  BASIC-PLUS-2  documentation  will be
+updated to reflect these changes.  For now, the  sections  below  should
+describe  the  features  well  enough  for users to write programs using
+them.
+
+
+
+2.1  INPUT, INPUT LINE, And LINPUT
+
+     Due to several bugs in the product, these  statements  had  several
+incorrect  side  effects  when  an  INPUT  request  from  a  file  found
+insufficient data in a record to satisfy the request.  Versions prior to
+version  2 would issue an error message but would automatically continue
+reading the next and succeeding records  until  the  INPUT  request  was
+satisfied.   This meant that what was probably a fatal user error, would
+not correctly stop the program.
+
+     Version 2 has corrected this by causing an INPUT request which  has
+insufficient  data  items  in  the  current  file  record  to generate a
+trapable fatal error.  The  only  exception  to  this  is  for  terminal
+devices for which the user is reprompted for the missing items.  This is
+provided for convenience since with a terminal device the user  has  the
+opportunity to correctly input the missing items, where from a file, the
+BAS2.DOC                                                          Page 4
+
+
+items would be incorrectly read from the next data record.
+
+
+
+2.2  Performance Improvements
+
+     Version 2 of BASIC has several major performance  improvements.   A
+collection  of  customer  applications were obtained as requested at the
+Spring 1978 DECUS.  The  applications  were  analzyed,  and  performance
+improvements were made in the following areas:
+
+
+     1.  The PRINT package - Output to files  are  now  buffered  across
+         PRINT statements doing fewer SOUT JSYS's.
+
+     2.  FOR Loops now generate more efficient code when the  beginning,
+         ending, and / or increment expressions are actually a constant.
+
+     3.  Array references to an array element which has been dimensioned
+         and is not in a MAP buffer or in COMMON will be 40% faster.
+
+     4.  The string package has been improved.
+
+     5.  There is a new function VAL% (see section  2.11)  which  is  10
+         times faster than VAL.
+
+
+The applications averaged a 32% percent run time performance improvement
+overall  due  to  the  above  enhancements.   It  is expected that other
+programs should see a similar improvement.
+
+For some suggestions on writing faster programs, refer to section 6.0.
+
+
+
+2.3  COMMON
+
+     The COMMON statement has the following forms:
+
+             COM  { (name) }  variable-list
+                         or
+          COMMON  { (name) }  variable-list
+
+     The COMMON statement allows the user to declare a data area  called
+a  COMMON  area,  and  the  declaration  of  the variables which will be
+allocated in this area.  These variables will retain their values across
+a  CALL  statement,  and may be referenced in any SUB program which also
+contains a COMMON statement declaring this COMMON area.   The  names  of
+the variables and arrays do not need to be the same for each declaration
+of the COMMON area in a particular SUB.  However, the data types of  the
+variables,  and  the  type  and  dimensions  of  the  arrays  must match
+positionally in each  declaration.   If  they  do  not  match  properly,
+variables  will  overlay  one  another  in a fashion such that undesired
+equivalencing will occur.  Version 2 of  BASIC-PLUS-2  will  not  detect
+this  and  no  warning will result.  Some future version of the compiler
+may issue a warning if this occurs.  The example below  shows  a  proper
+BAS2.DOC                                                          Page 5
+
+
+use of a COMMON area called XYZ which has three elements.
+
+          00010 COMMON (XYZ) A,B,C
+          00020 A = 1 \ B = 2 \ C = 3
+          00030 CALL P
+          00040 END
+          00050 !
+          00060 SUB P
+          00070 COMMON (XYZ) X,Y,Z
+          00080 PRINT X; Y; Z
+          00090 SUBEND
+          
+          RUN
+           1  2  3
+          
+          READY
+
+     All declarations for one COMMON area must  appear  together.   This
+means  that  if several COMMON statements are used to declare one COMMON
+area, then they must appear together  with  no  intervening  MAP  buffer
+declarations,  a declaration for another COMMON area, or any other BASIC
+statement.  For example:
+
+     LEGAL                         ILLEGAL
+     -----                         -------
+
+     10 COMMON (FOO) A,B           10 COMMON (FOO) A,B
+     20 COMMON (FOO) C             20 COMMON (BAR) Z$
+     30 COMMON (BAR) Z$            30 COMMON (FOO) C
+
+In the above example, the declaration of the COMMON  area  FOO  contains
+three elements;  A, B, and C.  This declaration is equivalent to:
+
+          00010 COMMON (FOO) A,B,C
+
+     The variables in a COMMON area retain their  values  until  an  END
+statement is executed in the MAIN program.  If a COMMON declaration does
+not include a name then it is  referred  to  as  "blank"  COMMON.   This
+COMMON  area,  if  declared prior to all other COMMON statements and MAP
+statements, will retain all values  across  the  execution  of  a  CHAIN
+statement.   If  the  above rule isn't followed, the user will receive a
+warning from the compiler indicating that the "blank" COMMON  area  will
+not  be  preserved.   The blank COMMON area defined by the program being
+chained to must be the same size as the blank COMMON area in the program
+which  contained  the CHAIN statement and must also be declared prior to
+all other MAP and COMMON area declarations.  If it is  not,  or  if  the
+program  being CHAINed to does not have a "blank" COMMON area, a warning
+message will result at run time but execution will continue  as  always,
+with all MAP and COMMON areas being initialized.
+
+     The major advantage to the "blank" COMMON facility is  that  larger
+applications can be developed and segmented into pieces which CHAIN from
+one another.  In the past in  order  to  pass  data  between  two  BASIC
+programs, one would have to write data to a file, perform the CHAIN, and
+the program CHAINed to would read the data from the file  and  continue.
+This  procedure  is very costly.  The "blank" COMMON area will allow the
+BAS2.DOC                                                          Page 6
+
+
+data to be passed with no overhead.
+
+     For  COMMON  areas  between  MAIN  and  SUB   programs   subsequent
+declarations of a COMMON area may be smaller than the first declaration,
+but must not be any larger than the first declaration.  For example:
+
+     MAIN PROGRAM                  SUBPROGRAM
+     ---- -------                  ----------
+
+     10 COMMON (FOO) A,B,C         100 COMMON (FOO) A1,B1,C1
+     20 COMMON (FOO) D$,E$(100)    200 COMMON (FOO) D1$
+
+Also note as stated before, the  names  of  the  corresponding  variable
+names need not be the same.
+
+     If an array is to be defined in a COMMON statement, its  dimensions
+must  be  specified as in an array declaration in a DIMENSION statement,
+and it may not also appear in a DIMENSION statement in that SUB or  MAIN
+program.
+
+     String variables are fixed in  length.   The  length  of  a  string
+variable  may  be  specified  in  the same manner as they are in the MAP
+statement.  For example:
+
+          00010 COMMON LINE.REC$=80%, MY.ARRAY$(5%)=10%, XX$
+
+In the above  example,  LINE.REC$  would  have  a  fixed  length  of  80
+characters,  each  element  of MY.ARRAY$ would have a fixed length of 10
+characters.  If no string length is specified for a string  variable  in
+COMMON,  it assumes a default length of 16 characters.  Therefore in the
+above example the variable XX$ has a length of 16 characters.
+
+     String variables in COMMON are just like string  variables  in  MAP
+buffers  in  that  they are fixed in length and are always padded on the
+right with blanks.
+
+     Variables which  are  in  COMMON  must  be  declared  in  a  COMMON
+statement before the first reference to that variable.
+
+
+
+2.4  BASIC Initialization
+
+     BASIC has several commands  which  allow  various  features  to  be
+enabled or disabled, such as QUIET CHECK, which would disable the syntax
+checking facility of BASIC.  Currently there is no way  for  the  system
+manager  to  set  the default for these status switches.  A new facility
+has been added for version 2 which allows the system manager to  set  up
+the defaults for these status commands and much more.
+
+     The system manager can create a file called BASIC.INI which must be
+placed on the SYS:  area along with BASIC.EXE and BASOTS.EXE.  This file
+can contain any BASIC command or immediate mode  statement  which  could
+otherwise be typed to BASIC at command level.  Each time BASIC is run by
+a user, the commands from this file are processed by BASIC until the end
+of  the  file  is  reached or a command or run time error occurs.  BASIC
+BAS2.DOC                                                          Page 7
+
+
+then releases the command file and types READY.
+
+     The prime motivation for this is that many installations have  many
+users  running BASIC, which can degrade the system performance.  One way
+of making BASIC put less of a load  on  the  system,  and  increase  the
+interactive speed of BASIC while users enter programs, is to disable the
+syntax checking faciltiy built into BASIC.  The  "QUIET  CHECK"  command
+does  just  this.  Thus the system manager could create a BASIC.INI file
+which contains this command, and  all  users  would  have  the  facility
+turned off as the default.
+
+     Any users who really want to have the facility, can enable  it  for
+themselves by giving the command "VERBOSE CHECK".  The default for BASIC
+currently is "VERBOSE CHECK".
+
+     If no BASIC.INI file is found on device SYS:   then  BASIC  behaves
+exactly as it did in previous versions of the product.
+
+
+
+2.5  Command Files
+
+2.5.1  DO Command - 
+
+     Version 2 has implemented a  command  file  facility  which  allows
+users  to instruct BASIC to accept commands from a file, instead of from
+the users terminal.  The new command to do this is the  DO  command  and
+has the following format:
+
+          DO {  <file-specification>  }
+
+The file specification is optional  after  the  command.   If  it's  not
+specified BASIC will prompt the user.  For example:
+
+          DO
+          Command file name--PAYROLL.CMD
+
+If no file type is specified, BASIC will assume a default of .CMD.
+
+     Currently, a command file may contain any command or immediate mode
+statement  which could otherwise be typed by the user from the terminal,
+except the DO command  itself.   Therefore  command  files  may  not  be
+nested.  This restriction may be removed some time in the future.
+
+     If any error occurs while processing a command from a command file,
+the command file is closed and released, the line which caused the error
+is echoed to the user's terminal, the error reported, and  the  user  is
+returned  to  READY  with  BASIC  accepting  commands  from  the  user's
+terminal.
+BAS2.DOC                                                          Page 8
+
+
+2.5.2  The QUIET COMMAND And VERBOSE COMMAND Commands - 
+
+     The commands read from the command file can be echoed on the user's
+terminal if the user gives the command VERBOSE COMMAND.  As each line is
+read from the a command file, it will be echoed on the  user's  terminal
+along  with  a  prompt  if  the command normally would have prompted the
+user.  The default setting for this is QUIET COMMAND.
+
+
+
+2.5.3  The STATUS Command - 
+
+     The status command can be used to determine the current setting  of
+the COMMAND switch.  For example:
+
+          STATUS
+          VERBOSE CHECK
+          VERBOSE HEADER
+          VERBOSE WARN
+          QUIET COMMAND
+          MODE NODEF *
+          
+          READY
+
+
+
+2.6  Compile And Run Time Reporting
+
+     BASIC will now report compile time and  run  time  separatly.   The
+number  reported  previously  as "RUNTIME" was actually the compile time
+plus the run time.
+For example:
+
+          00010 FOR I% = 0% TO 9%
+          00020   PRINT I%;
+          00030 NEXT I%
+          00040 PRINT
+          00050 END
+          
+          RUN
+          
+          NONAME.B20
+          Monday, January 1, 1979 16:45:00
+          
+           0  1  2  3  4  5  6  7  8  9
+          
+          
+          Compile time: .043 secs
+          Run time: .066 secs           Elapsed time: 00:00:01
+          
+          READY
+          
+The compile time is reported whenever "VERBOSE HEADER" is enabled and  a
+compile  is done.  This means that the DEBUG and BUILD commands will now
+report compile time and elapsed time as well.  Due to the new  behaviour
+of  the  RUN  command (see section 2.9), the RUN command will not always
+BAS2.DOC                                                          Page 9
+
+
+report compile time since a compilation may not always be done.
+
+
+
+2.7  BASIC System Version Validity Checking
+
+     Version 2 of BASIC now will verify that the version of the compiler
+and  OTS  (BASIC.EXE  and  BASOTS.EXE respectively) are in fact both the
+same  version.   This  will  eliminate  the  possibility  of  the   user
+inadvertantly  using  an  old  BASOTS.EXE with the new compiler, or vice
+versa.  The user will receive a warning message, but BASIC will continue
+and try to work.
+
+     Also, if a precompiled program is run, (an EXE file), and it is not
+compatible  with  this  version of the OTS, then the user will receive a
+warning diagnostic which instructs the user to rebuild the program.  EXE
+files  built  with  version  1A  or  1  of BASIC will cause this warning
+because the data types of the LEN and FIX functions have been changed by
+version 1B to return an integer and a real value respectively.  Refer to
+section 2.1 in the 1B DOC file for more information.   EXE  files  built
+with  version  1B or 1C will work correctly with version 2, and need not
+be rebuilt.
+
+
+
+2.8  CHAINing From EXE File To EXE File
+
+     When BASIC CHAINs from a BASIC EXE file to another BASIC EXE  file,
+and  the  program  was  run  from the EXEC and not from within the BASIC
+environment, then BASOTS will change the name of program for  the  users
+job to be the first six characters of the program name being CHAINed to.
+
+
+
+2.9  The RUN Command
+
+     The RUN command in versions prior to version 2 would always compile
+the  current  program  before beginning execution.  Version 2 will first
+determine if the program has changed.  If not, and if the compiled  code
+is  still  valid,  it  will  begin  execution of the program immediately
+without doing the unnecessary (and expensive) compile.  This may  reduce
+the  system  load  in  an  environment  where users were often rerunning
+programs not realizing that this involved recompilation.
+
+
+
+2.10  Memory Management Improvements
+
+     The free storage manager used by both the BASIC  compiler  and  the
+user  program  during execution has been made more efficient by handling
+stack expansion and contraction as needed.  This will allow  for  larger
+programs  to  be  compiled,  and  user programs to be larger with larger
+arrays possible.  The estimated increase in usable space is about 30%.
+BAS2.DOC                                                         Page 10
+
+
+2.11  The VAL% Function
+
+     This function is the same  as  the  VAL  function  except  that  it
+returns  an  integer value instead of a real value, and accepts a string
+representing an integer number as an argument.  The function is 10 times
+faster than the VAL function and so it is much better to use VAL% if the
+program is dealing with integer quantities.
+
+     Also additional precision is possible with integers and so VAL% can
+be used instead of VAL, to make use of this additional precision.
+
+
+
+2.12  New Error And Warning Messages
+
+     The following sections describe new error messages and warnings the
+user  may receive relating to the new version 2 facilites.  All existing
+error messages have been converted to upper and lower case characters as
+well.
+
+
+
+2.12.1  New Command Errors - 
+
+? DO command illegal from within a command file
+
+
+
+2.12.2  New Compiler Errors And Warnings - 
+
+? Multi-statement COMMON area declaration out of order
+
+? COMMON or MAP area previously declared in line nnnnn
+
+? <variable-name> has been previously referenced or declared
+
+? COMMON area declared in line nnnnn longer than specified in line nnnnn
+
+% "Blank" COMMON area will not be preserved across a CHAIN
+
+
+
+2.12.3  New Run Time Errors And Warnings - 
+
+These warnings may occur at run time but are non-trappable:
+
+% Old BASIC not compatible with this BASOTS, must use current BASIC
+
+% EXE file not compatible with this BASOTS, program must be rebuilt
+
+% Incompatible version of BASOTS being used, must use current version
+
+% "Blank" COMMON area not preserved across CHAIN due to size inconsistency
+BAS2.DOC                                                                 Page 11
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+     This section is divided into four subsections.  The  first  section
+describes  the  current set of known bugs which have not yet been fixed.
+The second describes known  deficiencies  in  BASIC  which  will  remain
+restrictions  for  this  release.   The third section describes problems
+known with TOPS-20 release 3A which affect BASIC.  The fourth  clarifies
+and corrects the current documentation.
+
+
+
+3.1  BASIC Software Bugs
+
+     There are no unresolved known bugs at the  time  of  this  release.
+The  version  2  product does however have several DDT patches which are
+recommended.  These patches and the  problems  they  fix  are  described
+thoroughly in the beware file BAS2.BWR contained on this tape.
+
+
+
+3.2  BASIC Restrictions
+
+
+     1.  It is not possible to continue a  BASIC  program  after  typing
+         control-C  (^C).   Due  to  the  design  of  BASIC-PLUS-2, this
+         behavior cannot be implemented without a major rewriting of the
+         compiler.  It is not planned to implement it in the foreseeable
+         future.
+
+     2.  MAP buffers larger than 256K are not detected and will  produce
+         unpredictable results.
+
+     3.  If a record file is created on disk, and is subsequently opened
+         from a BASIC program with a smaller record size, BASIC will not
+         detect the error until the first operation is attempted on  the
+         file.  An error will be generated at that time.
+
+     4.  STREAM files by definition are a sequence of ASCII  characters.
+         For  this  reason  it  is  not  possible to specify a MAP which
+         contains numeric fields.  Currently BASIC will not  detect  the
+         condition as an error, and erroneous data will result.
+
+     5.  When an element of a virtual array which is on  a  non-existent
+         page is referenced, that page is created.  This will cause
+
+                   ?  433 Illegal memory read
+
+         if the user has only read access to the file.
+
+     6.  MAP statements must not appear on the same line  as  any  other
+         MAP or COMMON statement.  The compiler will not flag this as an
+         error but the results of using the MAP will be unpredictable.
+
+BAS2.DOC                                                                 Page 12
+
+
+3.3  Operating System Deficiencies
+
+
+     1.  There are several problems with the FLIN JSYS which BASIC  uses
+         to  read  all  floating  point  numbers and convert them into a
+         machine representation.
+
+
+         1.  The letter "D" will be accepted as a substitute for "E"  in
+             the  exponent  field  of  a  floating point number.  On the
+             other hand however the lower case letter "e"  will  not  be
+             accepted.
+
+         2.  "Nines Disease":  A single bit of  precision  is  sometimes
+             lost when floating point numbers are read.  For example the
+             number .55 will be represented internally as .549999  .   .
+             .
+
+         3.  Numbers  whose  magnitude  is  greater  than  the   largest
+             floating  point  number  representable in the hardware, but
+             less than 10^64 will not give any error and will result  in
+             the  largest  representable  floating  point  number.   For
+             numbers larger than 10^64, FLIN and  therefore  BASIC  will
+             give  an  error,  and  result in the largest floating point
+             number.
+
+
+
+     2.  If the terminal page  length  is  set  to  0  and  TERMINAL  NO
+         INDICATE  is  set, any program which outputs a form feed to the
+         terminal will cause the monitor to loop, sending  linefeeds  to
+         the  user's  terminal.   This  will  be  fixed  in release 4 of
+         TOPS-20.
+
+     3.  The vertical tab character  (VT)  does  not  act  as  a  record
+         terminator  for record input using a GET when the input is from
+         the terminal.  This will be fixed in release 4 of TOPS-20.
+
+
+
+
+3.4  BASIC Documentation Errors
+
+3.4.1  Undocumented Functions - 
+
+     The following  functions  are  not  completely  documented  in  the
+CURRENT manuals.
+
+     1.  POS Function - The POS function has two forms:
+
+         1.  POS(  string1,  string2,  expression  )  -  This  form   is
+             documented on page 7-12 of the Language Reference Manual.
+
+         2.  POS%(  file-expression  )  -  This  function  takes  as  an
+             argument  the  channel  number  of  an open terminal format
+             file, (0 for the terminal), and returns the  current  print
+BAS2.DOC                                                                 Page 13
+
+
+             position.
+
+
+     2.  MAR% ( file-expression ) - Returns the current MARGIN width  of
+         the specified terminal format file.
+
+     3.  VPS%( file-expression ) - Returns the  current  vertical  print
+         position  (current line count) of the specified terminal format
+         file.
+
+     4.  PPS%( file-expression ) - Returns the current page count of the
+         specified terminal format file.
+
+     5.  USR$ - Returns string of connected structure and directory.
+
+     6.  LINO ( line-number ) - Expects a real (as opposed  to  integer)
+         line number as an argument.  Returns that number (i.e.  LINO(3)
+         returns 3%).  The advantage of using LINO instead of the actual
+         number is that LINO is recognized by the resequencing operator,
+         which changes the argument  to  its  corresponding  resequenced
+         line  number.   This  allows the user to take full advantage of
+         the ERL function.
+
+
+
+
+3.4.2  CTRLC And RCTRLC - 
+
+     The CTRLC  and  RCTRLC  functions  are  documented  backwards.   An
+appropriate description of them is as follows:
+
+CTRLC - Enable control-^C trap.  Typing ^C causes a branch to the  error
+handler.  Stays in effect until a RCTRLC is executed.
+
+RCTRLC - Disable control-^C trap.  Typing ^C returns the user  to  READY
+mode.  This is the initial default.
+
+
+
+3.4.3  SLEEP - 
+
+     The Language Manual indicates on  page  5-13  that  a  job  may  be
+awakened  from the SLEEP state by typing a line terminator.  This is not
+true.
+
+
+
+3.4.4  ISAM files - 
+
+     You cannot specify an array name or an array item (e.g.  A$(1))  as
+a  primary  or  alternate  ISAM  key in an OPEN statement.  The language
+manual does not mention this restricton.
+
+     This restriction can be circumvented by specifying an alternate map
+which contains a string scalar variable which overlays the array element
+which is to be the key.  For example:
+BAS2.DOC                                                                 Page 14
+
+
+        10 MAP (XYZ) A$(10)=5
+        20 MAP (XYZ) DUMMY1$=5, KEY$=5, DUMMY8$(8)=5
+
+where A$(1) is to be the key.  KEY$ is the same as A$(1) and thus can be
+used to specify the key in an OPEN statement.
+
+
+
+3.4.5  Null Data Items - 
+
+     If a null  data  item  is  encountered  when  a  numeric  value  is
+expected, then no assignment will be made to the variable, and the input
+will continue with the next item in the input list.  A null data item is
+indicated  as  shown in the following example by from 0 to any number of
+spaces or tabs, followed by a comma.
+
+     00010      A,B,C = 1234
+     00020      INPUT A,B,C
+     00030      END
+
+If this program is run, and the user types 3,,5 where the  second  input
+value  is  null, no assignment will occur for variable B.  Therefore the
+values of A, B, and C after the INPUT will be 3, 1234, 5 respectively.
+
+     Note however if the null  data  item  is  found  when  expecting  a
+string,  then  this  null  data item is actually the null string and the
+assignment will be made to the string variable.  For example:
+
+     00010      A$,B$,C$ = 'INITIAL'
+     00020      INPUT A$,B$,C$
+     00030      END
+
+When this program is run, and the user types:
+
+     ?  FOO,,BAR
+
+the value of A$, B$, and C$ will be "FOO", "" (null string),  and  "BAR"
+respectively.
+
+     The description of  "null  data  items"  above  is  to  provide  an
+explanation of BASIC's current behavior, so that some confusion might be
+avoided.  It has not been determined whether or  not  this  behavior  is
+correct  or  not, and, if not, how it will change in some future version
+of BASIC-PLUS-2/20.
+BAS2.DOC                                                                 Page 15
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+4.1  Files Included On This Tape
+
+     This tape contains two savesets which contain the following sets of
+files:
+
+1.  <DOCUMENTATION>
+
+     o  BAS2.BWR        - The beware file
+     o  BAS2.DOC        - This file
+
+2.  <BINARIES>
+
+     o  BASIC.EXE       - The BASIC-PLUS-2/20 compiler
+     o  BASOTS.EXE      - The BASIC-PLUS-2/20 run-time system
+
+
+
+4.2  Installation
+
+     There is a beware file containing several recommended  DDT  patches
+to the product.  These are described in full in the beware file BAS2.BWR
+and it should be carefully read before the BASIC product is installed.
+
+     The .EXE files should be placed on <SUBSYS>.  BASIC will  look  for
+its  run-time  system  BASOTS.EXE  on logical device SYS:, so you should
+make sure  that  your  installation  has  <SUBSYS>  in  its  system-wide
+definition of SYS:.
+
+     It is recommended that  the  system  manager  make  this  DOC  file
+available to all BASIC users and that they read this file.
+
+
+
+4.3  Creating A BASIC Initialization Command File
+
+     Version 2 of BASIC has implemented a new facility which allows  the
+system  manager  to  create  a file which can contain BASIC commands and
+immediate mode statements which will be processed each time a user  runs
+BASIC.   The  file  must  be  called BASIC.INI and placed on device SYS:
+along with BASIC.EXE and BASOTS.EXE.  Refer  also  to  section  2.2  for
+additional information.
+
+     If BASIC.INI does not exist, then  BASIC  will  behave  exactly  as
+previous  versions  of  BASIC have.  This faciltiy is therefore optional
+and need only be used if the system manager wishes BASIC to do something
+special upon starting up.
+
+     An example of a possible use for this  command  file  would  be  to
+change  the  default  for  the  syntax  checking  feature of BASIC to be
+disabled since this can cause BASIC to put a heavy load on the system if
+there  are  many  BASIC users.  This can be done by creating a BASIC.INI
+file which contains the command "QUIET CHECK".  If any user then  wishes
+to  use  the  syntax checking feature, the user would issue the "VERBOSE
+CHECK" command which would enable syntax checking just for him/her.
+BAS2.DOC                                                                 Page 16
+
+
+5.0  INTERNAL CHANGES
+
+Edit                     Description
+----                     -----------
+
+212 - 214 Reserved.
+
+215       Implemented COMMON with "blank" COMMON area preserved across a
+          CHAIN statement.
+
+216       Implemented compile time reporting separately  from  run  time
+          reporting.
+
+217       Implemented command files and the DO command,  and  the  BASIC
+          initialization mechanism.
+
+220       Implemented OTS, EXE file, compiler version validity checking.
+
+221       If a CHAIN is done from an EXE file to another  EXE  file  and
+          not from within the BASIC environment, then do a SETNM JSYS to
+          change the program name.
+
+222       Improve the PRINT package speed.
+
+223       Expresssions  containing  unary  operators  are   not   always
+          correctly evaluated.  For example:
+
+                    12/-3*2 would yield -2 instead of -8
+
+224       The command file facilty should have a QUIET and VERBOSE  mode
+          which  in  VERBOSE  mode  would  echo  all commands as they're
+          processed.
+
+225       None.  The READ statement would generate an extra call to  the
+          OTS  READ routine if an array element was the last item on the
+          I/O list.
+
+226       Some MACRO routines are allocating too much stack storage.
+
+227       Improve the PRINT package speed.
+
+230       If a READ statement is called from within a  function  and  an
+          array element is in the I/O list, then an internal error and /
+          or incorrect results will occur.
+
+231       If QUIET HEADER is the status while a compile or run is  done,
+          and then VERBOSE HEADER is given

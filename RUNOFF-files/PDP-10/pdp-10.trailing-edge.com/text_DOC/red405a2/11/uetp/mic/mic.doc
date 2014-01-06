@@ -1,0 +1,190 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              MIC - Macro Interpreted Commands
+
+
+                         F.D. Brown
+
+
+                          1-Dec-78
+MIC - Macro Interpreted Commands                      Page 2
+
+
+     MIC (Macro Interpreted Commands) provides  the  TOPS-20
+user  with a method of storing command files on the disk and
+having them performed on his  terminal.   It  provides  more
+capability  than  the  standard TAKE command, in that it can
+have user input as well as EXEC commands.
+
+     The format of the command file is similar to that of  a
+batch  control  file.   That  is to say that it uses the "@"
+character to indicate command lines and "*" to indicate user
+input.   In  addition  it  provides  a means of substituting
+parameters  at  "execution"  time.   The  command  file  has
+parameter calls embedded within it and the actual values are
+supplied by the user when he invokes the macro.
+
+1.   Command Format.
+
+     A command file is invoked by  the  EXEC  command  "DO".
+This command has the format:
+
+          @DO Command-file Parameter-list
+
+where "Command-file" is the name of the macro file  (default
+type  is  .MIC) and "Parameter-list" is a list of parameters
+seperated by commas and terminated by a carriage-return.
+
+     Parameters are referenced in the command  file  by  the
+inclusion  of  an apostrophe (') followed by a letter in the
+range A-Z indicating the parameter number.  'A is the  first
+parameter, 'B is the second, and so on.
+
+     MIC commands can be nested by simply including  a  "DO"
+command  within  the outer macro.  Note:  the nested command
+file will have a completely new set of parameters  and  will
+not have direct access to the previous set.  This means that
+any parameters of the outer command file which  need  to  be
+accessed  by  the  inner  macro  will  have  to be passed as
+parameters in the "DO" command.
+
+     At the termination of a MIC macro (or the  outer  macro
+if several are nested), MIC will print the message:
+
+          [MICEMF - End of MIC File: FILE.TYP.GEN]
+
+where FILE.TYP.GEN is the filename used in the "DO" command.
+
+2.   Interaction with MIC.
+
+     It is possible  to  interact  with  MIC  in  a  limited
+fashion.   A  MIC  macro  can  be  suspended,  continued  or
+aborted.  A macro can be suspended  by  typing  one  or  two
+Control-Bs  (^B).   A  single  Control-B  will  suspend  the
+current MIC macro (and any outer macros) when EXEC or a user
+program next requires input.  MIC will indicate that it will
+no longer type by printing the message:
+
+          [MICBRK - MIC is breaking]
+MIC - Macro Interpreted Commands                      Page 3
+
+
+on the users terminal.  Two Control-Bs have a similar effect
+except  the  message  will be printed immediately.  Thus two
+Control-Bs act similarly to two  Control-Cs  to  the  extent
+that  they  both  apply immediately whereas a single control
+character does not take effect until the terminal is  in  an
+input wait state.  During a "break" state, the user can type
+commands and/or user input without having to worry about MIC
+typing  anything.   Note:  if MIC is not in a "break" state,
+the user can still type characters ahead but input from  the
+user and input from MIC will be mixed in an undefined way if
+the terminal is in an input wait state.
+
+     A suspended MIC macro can be continued by typing one or
+two  Control-Ps  (^P).  The use of one versus two Control-Ps
+is the same as in the above paragraph.  To indicate that MIC
+will now type it prints the message:
+
+          [MICPRC - MIC is proceeding]
+
+on the users terminal and will continue from  the  point  in
+the macro file at which it was suspended.
+
+     A MIC macro can be aborted at any time by  the  use  of
+one  or  two  Control-As (^A).  On intercepting this control
+character MIC will display the message:
+
+          [MICABT - MIC is aborting]
+
+on the users  terminal  and  will  close  the  current  file
+without  typing  any  more.   Note:   a  Control-A will only
+terminate the current macro file.  It will  not  affect  any
+outer  macro  in  process  so  if it is desired to abort all
+macros in progress it would be necessary  either  to  use  a
+Control-A  to abort each level or, alternatively, to use the
+"KMIC" command to kill MIC completely  (see  description  of
+the KMIC command below).
+
+3.   KMIC Command.
+
+     The KMIC command kills all  MIC  processing.   It  will
+close  all macro files This command has no parameters and so
+has the simple format:
+
+          @KMIC
+
+It is typed automatically by MIC if, at the end of  a  macro
+(or  outer  macro  if  there were nested calls), the user is
+left in command mode.  This is so that another "DO"  command
+can  be  given  without MIC nesting.  If the user is left in
+"user mode" on completion of a macro this command  will  not
+be  given.   MIC  will  automatically be terminated when the
+user program exits.
+
+MIC - Macro Interpreted Commands                      Page 4
+
+
+4.   Error Messages.
+
+     There are a few error messages which may be  output  by
+MIC (rather than EXEC).  These are documented below:
+
+     1.  ?MICPND - Parameters Nested too Deeply - Aborting
+
+         This error message means that a parameter call  has
+         nested (perhaps by calling itself) beyond the limit
+         allowed - currently 40 deep.
+
+     2.  ?MICJSE - JSYS Error:
+
+         This is a general trap for unexpected  errors.   It
+         will  be  followed  by  some  diagnostic  from  the
+         monitor indicating the cause of the error.
+
+
+     Currently these are the only two errors which MIC  will
+report.   There  are some error messages which are output by
+EXEC on the "DO" and "KMIC" commands:
+
+     1.  ?MIC not found
+
+         This error indicates that the  file  MIC.EXE  could
+         not be found.  EXEC will look for the file on SYS:,
+         and if not found there on the users  DSK:.   If  it
+         cannot  be found on either area, this error message
+         will occur.
+
+     2.  ?MIC Macros nested too deeply
+
+         This error will occur if a user has tried  to  nest
+         "DO"  commands  beyond the limit that EXEC permits.
+         Currently this limit is approximately fourty.
+
+     3.  ?MIC is not running
+
+         This error message will  be  printed  if  a  "KMIC"
+         command  is  typed  when  MIC is not active for the
+         user.
+

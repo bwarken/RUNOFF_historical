@@ -1,0 +1,704 @@
+
+
+
+APLSF.DOC  -- Changes from V1C(315) to V2(435)
+September 1979
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1976,1979 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+APLSF.DOC                                                       Page 2
+
+
+APLSF.DOC  -- Changes from V1C(315) to V2(435)
+September 1979
+
+
+
+
+
+
+1.0  SUMMARY
+
+APLSF is the implementation on the DECSYSTEM-20 of  the  APL  language
+with shared system functions and system variables.  It runs on a KL-20
+processor under release 3A  or  later  of  the  TOPS-20  monitor.   It
+requires  the  compatibility package, PA1050, during execution, and is
+documented   in    the    APLSF    Programmer's    Reference    Manual
+(DEC-20-LASFA-A-D).   Version  2 is documented in the TOPS-10/20 APLSF
+Language Manual (AA-H200A-TK).
+
+Version 2 runs under release 3A or later of the TOPS-20  monitor.   It
+has been tested in-house under 3A and 4.
+
+The reason for this release is to correct outstanding  bugs  in  APLSF
+Version  1C  and  to  incorporate  several  functional enhancements as
+described below.
+
+APLSF Version 2 fully supersedes Version 1C and includes edits #316 to
+#435.
+APLSF.DOC                                                       Page 3
+
+
+2.0  EXTERNAL CHANGES
+
+
+     1.  The current setting of )MAXCOR is now saved across  a  )CALL,
+         so  it is possible to return from a )CALL even if )MAXCOR had
+         been expanded in the workspace before the )CALL.
+
+     2.  There are now TTY mnemonics for diamond (.DM),  left  bracket
+         (.LB),  left  tack (.LK), right bracket (.RB), and right tack
+         (.RK).
+
+     3.  Nonprinting elements of the atomic  vector  (.BXAV)  are  now
+         displayed  as  squish  quad  (.SQ).   Note that this is not a
+         valid character and cannot be typed to APL.
+
+     4.  When doing APL output to an ASCII sequential  file  while  in
+         TTY  mode,  the  default terminal type is now LA36 instead of
+         2741 (which is not supported by TOPS-20).
+
+     5.  Error numbers  are  now  catenated  to  the  front  of  error
+         messages.   Also, the error line printed when an error occurs
+         occasionally has fewer added spaces and the caret position is
+         sometimes one position to the right of where it used to be.
+
+     6.  LIB:  now refers to whatever the user has logical  name  LIB:
+         defined  to  be,  instead  of  the APL system library.  LIBn:
+         still refers to the system library.
+
+     7.  It is now possible to open a PTY as an ASCII sequential file.
+         As noted in the next item, lower case input will be converted
+         to upper case just as with any ASCII  sequential  file.   The
+         new  system  variable .BXTIMEOUT will be set if the input was
+         not terminated with a line feed.
+
+     8.  When doing TTY mode input from ASCII sequential files,  lower
+         case characters are converted to uppercase (instead of random
+         operators).
+
+     9.  The omega function (.OM) has been removed from the version  2
+         manual.   Omega  still  works  in  version  2 but will not be
+         supported after version 2.  The .OM symbol has other proposed
+         uses  in  the  APL  language and the optimizing effect of .OM
+         will be implememted for reduce-iota-rho.
+
+    10.  The definitions of  I-beams  (.IB)  have  been  moved  to  an
+         appendix  of  the version 2 manual.  They are still supported
+         in version 2 and  most  will  still  be  supported  in  later
+         versions  for  compatibility with other vendors.  However, we
+         strongly recommend that system  variables  and  functions  be
+         used instead of I-beams.
+
+    11.  Quote-quad (.QQ) or quad-del (.QD) input following .QQ or .QD
+         output  precedes  the  input  string  with a string of blanks
+         equal in length to the preceding output.  If  such  preceding
+         output  was  longer  than  390  characters (the maximum input
+APLSF.DOC                                                       Page 4
+
+
+         length), a LINE TOO LONG error occurs and  correct  input  is
+         awaited.
+
+    12.  For  niladic  function  F  which  returns   no   value,   the
+         expressions  "1;F", "1+F" and "F+1" give value errors since a
+         value is needed by the  primitive  function  but  F  did  not
+         return  one.  The expression "F;1" returns 1 to be consistent
+         with the expression "F", which executes F but prints nothing.
+         Note  that  the  ";"  function is a monadic output catenator,
+         operating on  the  expression  to  its  right.   ";"  is  not
+         intended to be a statement separator.
+
+    13.  On the -20, GENSF can now set the device for the library area
+         and  the  )HI  file as well as the directory.  The default is
+         now PS:  instead of DSK:  so APLSF will be able to find these
+         areas  even  if  you  are  not connected to PS:.  You must be
+         connected to  the  device  specified  for  these  areas  when
+         running  GENSF  in  order  for the generation procedure to be
+         successful.  Notice that this device is  also  used  for  the
+         billing file.
+
+
+
+
+2.1  Functional Changes
+
+
+     1.  .BXMTP has been modified to simulate some of the  TAPOPs  not
+         in  PA1050.   It  still has problems if the file has not been
+         opened.  Specifically, density and mode cannot  be  set  from
+         inside  APL before the file is opened.  Use the SET TAPE Exec
+         command to set these tape parameters.
+
+
+
+
+2.2  Functional Additions
+
+2.2.1  Error Trapping - The following system variables  and  functions
+have  been  added  to  allow  program handling of error conditions and
+other events.
+
+     1.  .BXBREAK - This is a monadic function which causes  execution
+         to  terminate,  suspending  the current function and entering
+         immediate mode.  It prints its argument  before  breaking  to
+         the terminal.
+
+     2.  .BXERROR - This is a variable which is  set  by  APL  to  the
+         error  message  for  the  last  error.  (It contains the text
+         which is normally printed on the terminal.)
+
+     3.  .BXSIGNAL - This is a dyadic function which signals an  error
+         from the current function.  It causes the current function to
+         terminate before generating the error.  Its right argument is
+         either a valid APL error or a user defined error in the range
+APLSF.DOC                                                       Page 5
+
+
+         500-999.  Its optional left argument is  the  message  to  be
+         associated with the error.
+
+     4.  .BXTRAP - This variable is similar to .BXLX.  It can  be  set
+         to an expression which will be executed when an error occurs.
+
+
+
+
+2.2.2  Limiting Input Wait - The  following  two  variables  allow   a
+program  to  limit  the  amount  of time a user is given to respond to
+quote-quad or quad-del input.
+
+     1.  .BXTIMELIMIT - The number of milliseconds to  wait  for  user
+         input.  If 0, then no limit.  If -1, no waiting is done (only
+         characters which were typed ahead are read).
+
+     2.  .BXTIMEOUT - Flag indicating whether or not user timed out on
+         last  input.   (This  flag is also used with PTYs to indicate
+         whether or not last input was terminated with a LF).
+
+
+
+
+2.2.3  New Character Arrays - The  following  system   variables   are
+useful subsets of .BXAV.
+
+     1.  .BXALPHA - The 27 letters, .LD-Z.
+
+     2.  .BXALPHAU - The 27 underscored letters, .Z@-.ZZ.
+
+     3.  .BXASCII - The 128 ASCII codes.   These  codes  are  sent  to
+         files  as  is,  regardless  of  the  terminal type.  They are
+         useful when doing graphics.
+
+     4.  .BXCTRL - The 32 control characters, octal 0-37.
+
+     5.  .BXNUM - The 10 digits, 0-9.
+
+
+
+
+2.2.4  New File Functions -
+
+     1.  .BXRENAME - This is a dyadic system function which  allows  a
+         user to rename a file from within APL.  Its right argument is
+         the channel associated with the file to be renamed.  Its left
+         argument is the new filespec.
+
+     2.  .BXAPPEND - This is a dyadic system function which  allows  a
+         user  to  append data to /BU or /DA files.  Its left argument
+         is the data item to be  appended  to  the  file.   Its  right
+         argument  has  the  same  format  as the right argument to an
+         output quad (.OQ)  and  specifies  how  the  data  is  to  be
+         formatted in the file.
+APLSF.DOC                                                       Page 6
+
+
+     3.  Two new file types, /AS* and /BS*, have been added  to  allow
+         users  to append to ASCII and binary sequential files.  These
+         file types are analogous to /IS*.
+
+APLSF.DOC                                                       Page 7
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+3.1  Deficiencies And Restrictions
+
+The known deficiencies and restrictions in APLSF are:
+
+     1.  The  caret  symbol  indicating  where  an  error  in  an  APL
+         statement  was  first  detected is sometimes displayed in the
+         wrong position.  With the introduction of error trapping  and
+         .BXERROR, it is desirable to fix this.  We will attempt to do
+         so in the future.  With this in mind, we recommend that users
+         do not write programs which depend on the current positioning
+         of the caret.
+
+     2.  It is not possible to display the trace or stop vector  of  a
+         function.  This is a restriction which will not be removed in
+         the foreseeable future.
+
+     3.  It is impossible to  enter  an  invalid  TTY  mnemonic  in  a
+         character  string  when  using  a TTY terminal, just as it is
+         impossible  to  enter  an  illegal  overstrike  from  an  APL
+         terminal.  This is a permanent restriction.
+
+     4.  Monadic domino uses an inordinate amount of core.  This is  a
+         deficiency  due  to  the  algorithm  used, which does monadic
+         domino by simulating a dyadic domino with a left argument  of
+         the  identity  matrix.   Thus,  it  must  construct  a double
+         precision identity matrix.
+
+
+
+
+3.2  Outstanding Bugs
+
+The known outstanding bugs in APLSF are:
+
+
+     1.  Erasing a pendent or a suspended function can cause a  SYSTEM
+         ERROR, depending on the state of the function when erased.
+
+     2.  The compression of a zero-by-n matrix returns a length  error
+         when  the  left argument is an n-element vector, but works if
+         it is a scalar.
+
+     3.  A niladic branch inside a multistatement line will fail  with
+         a SYNTAX ERROR.
+
+     4.  Linefeeds  typed  during  linefeed  editing  may  appear   as
+         carriage   return   linefeed  pairs.   This  is  a  temporary
+         restriction which will be  corrected  in  version  4  of  the
+         compatibility  package.   A patch to PA1050 which solves this
+         problem  is  included  in  the  beware  file  on  this   tape
+         (APLSF.BWR).
+APLSF.DOC                                                       Page 8
+
+
+     5.  The )LIB command updates  the  access  dates  of  the  listed
+         files.  In particular, )LIB/A updates the access dates to the
+         current date before printing them.  This is  a  problem  with
+         the compatibility package.
+
+APLSF.DOC                                                       Page 9
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+4.1  Files Included on This Tape
+
+There are four savesets on this tape:  DOCUMENTATION, BINARIES,  WSINT
+and REL LIBRARIES.
+
+The contents of DOCUMENTATION are:
+
+     APLSF.DOC    This documentation file.
+
+     APLSF.BWR    The beware file, containing DDT patches.
+
+     APLSF.HLP    The HELP message to  respond  to  the  monitor  HELP
+                  command.
+
+     APLSF.RNH    The RUNOFF input for the HELP file.
+
+     APLSF.RND    The RUNOFF input for the .DOC file.
+
+The contents of BINARIES are:
+
+     APLSF.EXE    The APLSF executable file.
+
+     GENSF.EXE    Generation program for APLSF.   See  below  for  its
+                  use.
+
+     BILING.1     The APLSF workspace which processes the APL  billing
+                  file.
+
+The contents of WSINT are:
+
+     APLCNV.DOC   DOC file for the interchange package.
+
+     APLTAP.EXE   Program to read/write interchange tapes.
+
+     WSIN.APL     Workspace for conversion to APLSF.
+
+     WSOUT.APL    Workspace for conversion from APLSF.
+
+The contents of REL LIBRARIES are:
+
+     APLS22.REL   REL Library for APLSF-20 v2.
+
+     APLS22.LNK   LINK indirect file for APLSF-20 v2.
+
+     APLG22.REL   REL Library for GENSF-20 v2.
+
+     APLG22.LNK   LINK indirect file for GENSF-20 v2.
+
+     APLW22.REL   REL Library for APLSF-20 v2 WSINT.
+
+     APLW22.LNK   LINK indirect file for APLSF-20 v2 WSINT.
+
+The following two files are not distributed.  They  are  generated  by
+APLSF.DOC                                                      Page 10
+
+
+APLSF.
+
+     APLHSF.APL   The APLSF HI file, if a HI message is desired.
+
+     ACCTSF.APL   The APLSF accounting file.
+
+The default is to put all files on the subsystem area PS:<SUBSYS>, and
+to  make the APL library area be PS:<SUBSYS>.  There is no need to put
+the files from the REL LIBRARIES saveset on disk.
+
+
+
+4.2  Changing the Default Installation Parameters
+
+The default installation parameters are as follows:
+
+     The installation name is DECSYSTEM-20 APLSF.
+     The automatic save facility, .BXAUS, is off.
+     The structure used for the HI file and the library is PS:.
+     The name of the accounting file is ACCTSF.APL.
+     The directory used for the accounting file is <SUBSYS>.
+     The directory used for the HI file and the library is <SUBSYS>.
+     The default value  of  )MAXCOR  (and  thus  the  default  maximum
+          workspace size) is 40P.
+
+If a change in the parameters is desired, put the .EXE file on  device
+DSK:, run GENSF.EXE and answer the questions.  The program updates the
+.EXE file.  Then rename and distribute  the  different  files  to  the
+appropriate disk structures and directories.
+
+
+
+4.3  Creating a HI Message
+
+If you wish a HI message, login as the operator, sign  on  APLSF,  and
+execute the command
+
+     )HI 'THIS IS MY HI MESSAGE'
+
+Then sign off APLSF.  This generates APLHSF.APL on the  structure  and
+the directory specified for the )HI file by GENSF.
+
+The )HI message is truncated to 239 characters.  The error message "WS
+NOT  FOUND"  means that the )HI file directory specified by GENSF does
+not exist.
+APLSF.DOC                                                      Page 11
+
+
+5.0  INTERNAL CHANGES
+
+5.1  Edits
+
+
+EDIT #    SPR       REMARKS
+
+316       27504     Fix CRLF  idle-character  handling:   use  correct
+                    idle   character  for  TTYs  and  reset  the  idle
+                    character control count properly.
+
+317       27492     Fix  input  routine  for  integers  of   magnitude
+                    greater than 2^27-1.
+
+320       12872     Prevent  function  line  editor   from   accepting
+                    negative line numbers (with random results).
+
+321       Dev       Implement .BXRENAME.
+
+322       Dev       Implement .BXAPPEND and /AS* file type.
+
+323       Dev       Implement .SQ for all  nonprinting  characters  in
+                    .BXAV.
+
+324       Dev       Implement .BXASCII.
+
+325       -----     Modify .BXMTP to simulate some of the  TAPOPs  not
+                    in PA1050.  (-20 only)
+
+326       -----     Correctly handle nonalphanumeric SIXBIT characters
+                    in user-specified installation name.
+
+327       12947     Check allocated space on  codestring  creation  to
+                    avoid overwriting data.
+
+330       -----     Change default PPN to be  user's  PPN  if  PPN  of
+                    current workspace is [0,0].
+
+331       -----     Change default APL output type for TTYs from  2741
+                    to LA36.
+
+332       Dev       Implement .BXTIMELIMIT and .BXTIMEOUT.
+
+333       -----     Have TTY mode input from  ASCII  sequential  files
+                    convert lower to upper case.
+
+334       -----     Internal edit.
+
+335       -----     Internal edit to  circumvent  TOPS-20  bug.   (-20
+                    only)
+
+336       -----     Withdrawn.
+
+337       -----     Correctly print nonalphanumeric SIXBIT  characters
+                    in user name.
+APLSF.DOC                                                      Page 12
+
+
+340       -----     Internal edit.
+
+341       Dev       Implement .BXERROR.
+
+342       -----     Fix LIB:  definitions on -20.  (LIB:   belongs  to
+                    user, LIBn:  belongs to APL) (-20 only)
+
+343       Dev       Implement .BXBREAK.
+
+344       -----     Add TTY mnemonics for diamond (.DM), left  bracket
+                    (.LB), left tack (.LK), right bracket (.RB), right
+                    tack (.RK).
+
+345       -----     Internal edit.
+
+346       Dev       Don't set .BXERROR on EOF.
+
+347       Dev       Append  .XQ  execute  error  message  to  previous
+                    .BXERROR.
+
+350       Dev       Implement .BXTRAP.
+
+351       -----     For  LA36,  shift  out  after  MONITOR:    message
+                    instead of before.
+
+352       Dev       Implement .BXSIGNAL.
+
+353       -----     When doing )SI, have .XQs show up as  .XQ  instead
+                    of .EP.
+
+354       Dev       Make .BXBREAK work inside .XQ.
+
+355       -----     Internal edit.
+
+356       -----     Fix shadowing of .BXERROR.
+
+357       -----     Internal edit.
+
+360       Dev       Allow .BXBREAK in APL-BASIC.
+
+361       -----     Fix SIXBIT to NINEBIT of nonalphanumerics.
+
+362       -----     .BXFLS, .BXENQ and .BXDEQ were  returning  invalid
+                    error numbers on TOPS20.
+
+363       -----     Make .BXBREAK clear )SI when done  from  protected
+                    function.
+
+364       Q00429    Prevent loop or system error when generating error
+                    during subscripted catenate.
+
+365       Q00377    Put setting  of  )MAXCOR  into  TMPCOR  so  it  is
+                    possible  to  return  from a )CALL even if )MAXCOR
+                    has been expanded.
+APLSF.DOC                                                      Page 13
+
+
+366       -----     Correctly save terminal type across )CALL.
+
+367       -----     Internal edit.
+
+370       -----     Correctly restore localized system variables  when
+                    )LOADing  or  )COPYing  a  workspace  saved with a
+                    different version of APL.
+
+371       Q00448    If .BXPW is set to a width less than )TABS,  reset
+                    )TABS to new width (as is done with )WIDTH).
+
+372       -----     Prevent  workspace  damage  from  occurring   when
+                    setting .BXTRAP to a system command.
+
+373       -----     Allow .BXSIGNAL and .BXBREAK in immediate mode.
+
+374       -----     Introduce the idea of system variables  which  can
+                    be  set by the system but not the user (needed for
+                    .BXTIMEOUT and .BXERROR).
+
+375       Q03193    Fix .BXRENAME on channels 2 and 5.
+
+376       Q00431    Fix  real  to  integer  conversion   of   negative
+                    numbers.
+
+377       Dev       Implement  /BS*  (sequential  append  for   binary
+                    files).
+
+400       Dev       Allow recursive error trapping.  Prevent  it  only
+                    with  errors  which  occur  in  the  .BXTRAP  line
+                    itself, not in any functions which are called.
+
+401       -----     Internal edit.
+
+402       -----     Remove 1030, ONTEL and TYCOM terminal  types  from
+                    HELP  message.   They are still supported, but are
+                    not documented.
+
+403       -----     Fix printing of error line when error occurred  at
+                    end of execute string.
+
+404       -----     Take CRLF out from before ATTENTION SIGNALED error
+                    message  so  error number appears on the same line
+                    as message.
+
+405       -----     Internal edit.
+
+406       -----     Fix problem with printing real matrices  (e.g.   2
+                    2.RO.FL/.IO0).
+
+407       -----     Make .BXGAG work on TOPS20.
+
+410       -----     Have  .NT  print  @T  in  escape,  and   turn   on
+                    .LK,.DM,.LB,.RB,.RK output mnemonics.
+APLSF.DOC                                                      Page 14
+
+
+411       -----     Add local version numbers.
+
+412       -----     Make product version number available to GENSF and
+                    keep MAKILB from loosing it.
+
+413       -----     Allow inner products with right function = and .NE
+                    to compare alpha's with numerics (i.e.  'ABC'.=1 0                                                                 _
+                    1)
+
+414       QAR561    Fix edit 370 to set ASVSYMTAB  on  )CLEAR  and  to
+                    RELWS WS with version = 0.
+
+415       QA3420    Fix edit 367 to contract core on  )LOAD:   problem
+                    only  occurs  on  the  -10 when loading smaller WS
+                    after larger.
+
+416       QA3266    Give LINE TOO LONG error if INBUF  would  overflow
+                    when putting in leading blanks on .QQ or .QD input
+                    following .QQ or .QD output.
+
+417       QAR560    Prevent  INCHAR  from  discarding  any   character
+                    except a linefeed following a carriage-return.
+
+420       -----     When the  quad-error  data  entry  gets  allocated
+                    after  a  partially-built data entry that gtcore()
+                    was trying to get core for when a wsfull  occured,
+                    move the quad-error data entry above the partially
+                    built data entry and update globals  as  necessary
+                    prevent the workspace from being trashed.
+
+421       Q00546    Correct function-line wraparound during output  of
+                    a  numeric vector (broken during implementation of
+                    .BXERROR).
+
+422       -----     Prevent system errors  during  evaluation  of  the
+                    expression F+1) where F is a niladic function that
+                    does not return a value.
+
+423       Q00511    Correct  two  more  problems  with   function-line
+                    wrap-around.
+
+424       -----     Make   DGETSCI   accept   double   precision    -1
+                    (=533400,,0 0,,0) as integer -1.
+
+425       Q00518    Make .BXTIMELIMIT set < -1 a DOMAIN ERROR.
+
+426       QAR547    Fix dyadic .BXSIGNAL to correctly ignore left  arg
+                    if right arg is system error number.
+
+427       -----     Be able to load release 4 UDDT,  which  has  pages
+                    below 770.
+
+430       QAR612    Change the wording in GENSF (XLIMCOR) to  ask  for
+                    the default setting of )MAXCOR, not an upper bound
+                    on memory.
+APLSF.DOC                                                      Page 15
+
+
+431       QAR613    Allow -20 to specify LIBn:  structure (default  is
+                    PS:).
+
+432       -----     Fix the dqren() interface to cmdsyn()  to  prevent
+                    wsid-filename default, accidentally deleted files,
+                    lost default file extension, and infinite loops.
+
+433       QAR564    INLINE loops when .bxTIMEOUT = 1  on  PTY  because
+                    FILINP didn't reset TIMOUT (DEVTYP UUO is CALLI 53
+                    octal not decimal).
+
+434       -----     Create PATCH.REL to define PATCH:  area to be used
+                    instead of PAT..  (which could get wiped out by an
+                    exapanding WS).
+
+435       QA3587    Fix typos in FS on -10 in /BS*.  Make STRTIO leave
+                    BLKNUM  and  INDEX = 0 so WRTSETUP will do read of
+                    last block which write goes into on append.
+APLSF.DOC                                                      Page 16
+
+
+6.0  SUGGESTIONS
+
+6.1  Continuing a detached APL job
+
+In the event of a line drop or system crash, a user's job  may  become
+detached.  After reestablishing a connection with the system, the user
+should check to see if his/her job is still there.  If  so,  the  user
+should reattach to the job using the ATTACH command.  Then, to restore
+the job to its previous state, the user should type CONTINUE.  If  the
+user  instead types APLSF, a new version of APL will be loaded and the
+job's previous core image will be destroyed,  along  with  the  user's
+workspace.
+
+
+
+[End of APLSF.DOC]
+  

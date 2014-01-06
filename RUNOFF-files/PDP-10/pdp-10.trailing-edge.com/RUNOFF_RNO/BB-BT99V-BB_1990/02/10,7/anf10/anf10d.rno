@@ -1,0 +1,1561 @@
+.lm 0;.rm 72;.page size 59,72
+.fg 10
+.center;DIGITAL EQUIPMENT CORPORATION
+.
+.center;DISTRIBUTED PROCESSING NETWORK FACILITIES
+.s2
+.center;DECNET-10
+.s4
+.center;Specification for:
+.s
+.center;Network Control Language
+.s
+.center;N C L
+.s2
+.center;Date:  14-July-75  PRELIMINARY
+.s
+.center;Address any technical comments to:
+.s
+.literal
+                           Dave McClure
+                           Digital Equipment Corp.
+                           200 Forest Street
+                           Marlboro, Massachusetts
+.end literal
+.page
+.title DECNET-NCL
+.subtitle 14-Jul-75 - PRELIMINARY
+.figure 10
+Copyright (C) 1975, Digital Equipment Corporation
+.s2
+This material may be copied, in whole or in part, provided that the above
+copyright notice is included in each copy along with an acknowledgement that
+the copy describes the NCL protocol developed by Digital Equipment Corporation.
+.s
+This material may be changed without notice by Digital Equipment Corporation, 
+and Digital Equipment Corporation is not responsible for any errors which may
+appear herein.
+.page
+.center;CONTENTS
+.s2
+.literal
+1.0	INTRODUCTION
+1.1	NCL Functions
+    
+2.0	COMMUNICATION ENVIRONMENT
+  
+3.0	NCL MESSAGES
+3.1	User Interface an Operation
+3.2	Message Formats
+3.3	Data Messages
+3.4	Unnumbered Control Messages
+3.5	Numbered Control Messages
+  
+4.0	OPERATION
+4.1	Logical Link Operation
+4.2	Network Testing and Maintenance
+4.3	Routing
+   
+5.0	INTERFACE TO OPERATING SYSTEMS
+   
+6.0	CONSIDERATIONS IN DESIGN
+   
+Appendix A - Object Types
+Appendix B - Message Summary
+Appendix C - Device Specific Attributes
+Appendix D - Sample Messages
+.end literal
+.page
+.hl1 INTRODUCTION
+.s
+This document defines the Network Control Language (NCL) for the Digital
+Equipment Corp.   DECsystem-10 distributed computing network facilities
+(DECNET-10).  DECNET-10 CONSISTS OF SOFTWARE/HARDWARE PACKAGES, INTEGRATED
+INTO DIGITAL'S PRODUCTS, THAT ALLOW EASY INTERCOMPUTER COMMUNICATIONS
+BETWEEN COMPUTER SYSTEMS CONNECTED TOGETHER BY COMMUNICATION LINKS.  DECNET-10
+MAY BE USED TO CREATE DISTRIBUTED PROCESSING COMPUTER NETWORKS SUITABLE FOR USE IN A 
+VARIETY OF APPLICATION AREAS.  FOR AN OVERVIEW OF THE DECNET system see the
+product brochure or the technical summary document on DECNET.
+.s
+The basic goals of DECNET-10 are to create facilities that permit device
+sharing and interprogram communication among the systems connected together
+in a DECNET-10 environment.  To achieve these goals and allow easy integration
+into existing systems, DECNET-10 has been designed to use a layered structured
+approach.  Each layer in the system performs a distinct set of functions, within
+each layer these functions have been separated into distinct functional modules.
+The structuring of the system into layered communication levels and functional
+modules within these levels provides the implementor with the flexibility
+necessary to integrate the network functions into existing systems.  The design
+also allows for ease of subsetting and future development within the DECNET
+implementations.
+.s
+The presentation in this document is at the overall design level and does not 
+imply the actual structure of the implementations.  The structure of DECNET 
+implementations depends heavily on the facilities available and structure of
+the individual systems, for example, multiprogramming, protection mechanism,
+memory management and I/O mechanisms.  The implementations will, as much as 
+possible, reflect the structured layered design inherent in the DECNET system.
+.s
+The key to a successful network is the standardization and compatibility of the
+protocols used in the system.  Each level (layer) in the DECNET-10 structure
+corresponds to one or more specific protocols reflected in that level.  The
+levels in the structure are divided as follows:
+.s
+.literal
+	1.  Hardware level	- The transmission/reception of the
+				  data bits over a physical link.
+				  This layer is concerned with
+				  transmission techniques
+				  (synchronous, asynchronous,
+				  parallel), character synchronization
+				  and modem operation.
+  
+	2.  Physical link level	- The interface of message packets
+				  to/from the hardware level.  The
+				  physical link level is concerned
+				  with message error detection and
+				  recovery, message sequencing and
+				  message synchronization over the 
+				  physical links.
+	3.  Logical link level - The multiplexing/demultiplexing of
+				  the physical link message stream
+				  into individual message streams for
+				  each logical link level is concerned
+				  with end-to-end sequencing and
+				  acknowledgment, message segmenting
+				  and routing.
+  
+	4.  Dialogue level	- The conversion created from
+				  converting the messages sent over a
+				  logical link into a meaningful
+				  exchange between users.
+
+.end literal
+The hardware level is implemented via a device driver and interrupt service
+routine.  Its purpose is to exchange data with the interface and to handle
+synchronization and modem control for the hardware.
+.s
+The physical link level implements the link protocol for error detection and
+recovery.  In DECNET-10 this is an implementation of DDCMP (Digital Data
+Communications Message Protocol).
+.s
+The logical link level creates logical data links via the NCL (Network Control
+Language).  NCL commands support the creation of the logical links and the
+transfers of user data over those links.
+.s
+The dialogue level is the conversation built from an exchange of messages
+between users.  This level of exchange occurs between general user processes
+and between user processes and the functional modules supporting I/O devices,
+file structures, and program transfers.
+.s
+The diagram below shows how the various level of protocol are related.
+.s
+.literal
+              Device  -----                 ----- Functional modules
+                           \              /
+                      ----- DDCMP ---  NCL  -----
+                           /              \
+              Drivers -----                 ----- User processes
+  
+ Levels:      Hardware   Physical      Logical        Dialogue
+                           link          link
+      
+.end literal
+
+.center;DECNET-10 Structure
+.s
+.hl2 NCL Functions
+.s
+NCL creates a mechanism for general communication between processes
+operating in DECNET-10 systems.  It is concerned with the creation of
+conversation paths (logical links), the routing and flow control of data
+over those links and the diagnosiblity of problems in the transfer of data
+through the network, NCL assumes an error-free physical data link over
+which it may pass messages to adjacent systems.  In DECNET-10 this error-free
+link is created from the DDCMP line discipline, the device driver, the
+hardware interface, modems (if any), and the physical wire link.
+.s
+NCL provides the following functions within a network system:
+.s
+.literal
+	1.  Functions to the dialogue level:
+
+		a.  Create a conversation path (logical link).
+
+		b.  Transmit data over a logical link.
+
+		c.  Receive data over a logical link.
+
+		d.  Interrupt over a logical link.
+
+	2.  Functions for operation of link:
+
+		a.  Multiplex logical links into physical links.
+
+		b.  Control traffic over logical links.
+
+		c.  Ensure end-to-end delivery of data
+		    in proper sequence.
+
+	3.  Functions for network supervision:
+
+		a.  Route messages through net.
+
+		b.  Detect node/link failures and
+		    maintain routing paths.
+
+	4.  Functions for network maintenance:
+
+		a.  Maintain error logs.
+
+		b.  Examine and deposit remote node memory.
+.end literal
+.page
+.hl1 COMMUNICAITON ENVIRONMENT
+.s
+The Network Control Language consists of two, essentially independent, 
+functions.  The first is conerned with the creation and operation of the
+logical links, the mechanism for interprogram communication in DECNET. 
+The second is concerned with the creation and operation of a communication
+network and is used by the first function for message routing and network
+maintenance.  If one looks at the two systems engaged in a single conversation
+the network appears as:
+.s
+.left;  User process---NCL---Communication Net---NCL---User process
+.s
+.center;NOTE
+.literal
+		This diagram shows logical data flow and
+		does not include the physical links and
+		DDCMP protocol used in actual data flow.
+.end literal
+.s
+The communication net is used to transfer data from the NCL on one
+node to the NCL on another node.  The communciation net may physically
+consist of simply the two nodes connectecd by a single wire:
+.s
+.literal
+	1.  Node A------Node B
+  
+one or more nodes in between:
+  
+	2.  Node A---Node X---Node Y---Node B
+  
+or more complex topologies:
+  
+	3.  Node A---Node X----Node Y
+                     |         |
+                     --------Node Z------Node B
+  
+.end literal
+.s2
+The actual data transfers over the net, for instance in example 2, go from
+node A/NCD to Node A/DDCMP to Node X/DDCMP to Node X/NCL, where a routing
+decision is made; to Node X/DDCMP to Node Y/DDCMP to Node Y/NCL, where 
+another routing decision is made; to Node Y/DDCMP to Node B/DDCMP to Node B/NCL
+to the user.  As can be seen the NCL's at nodes A and B perform both logical
+link functions and routing functions while the NCL's at nodes X and Y may 
+perform only routing functions.  If one considers only the end-to-end or 
+logical link functions of NCL then the system may be viewed as the end NCL
+modules with a communication net used to physically transport the data between
+the systems.  This communication net may have a number of varying properties
+including:
+.s
+.literal
+	1.  Guaranteed sequential delivery of messages (sequential nodes)
+  
+	2.  Possible non-delivery or delivery out of order
+	    (non-sequential nodes)
+.end literal
+.page
+.hl1 NCL MESSGAES
+.s
+NCL networks can contain two types of nodes; "sequential" and "nonsequential".
+.s
+A sequential node is one that has only one path from it to any other node in 
+the network.  A sequential node whose DDCMP ACKs a message is committed to
+pass the message on in numerical order to its destination.  The message can
+only be discarded if the destination node has become disconnected.
+.s
+In a nonsequential network, there may be multiple paths from one node
+to any other node.  Because of the possibility of having several paths,
+a message may become lost and require retransmission (e.g., an intermediate
+node's DDCMP ACKs a message and then the node dies).  Further, messages to
+a nonsequential node may arrive out of numerical order (e.g., the route of 
+the second message differs from that of the first message and the second
+message arrives before the first).  A nonsequential node whose DDCMP ACKs
+a message should pass the message on to its destination, but passing the
+message is not required.
+.s
+Nonsequential nodes maintain an end-to-end numbering scheme for all
+important messages in order to determine whether their messages have
+arrived at their destinations.  The NCL-REP, NCL-ACK, and NCL-NAK messages
+are used to maintain the message numbering scheme.
+.s
+For nonsequential networks, it is important that messages not lie around
+too long.  (Consider the case of node A sending message 1 to node B,
+then transmitting messages 2 through 256 and having the message numbers
+wrap-around to 1 again.  The second copy of message 1 is sent from node A,
+but the first one suddenly arrives at node B.  Node B then believes that the
+old message 1 arriving is actually the second.)  Therefore, in nonsequential
+networks, if the DDCMP routine is unable to successfully transmit a message to 
+the next node on the path within a fixed period of time, the message is
+disposed of, and the DDCMP messages are realigned using the RESET and RESAK
+messages.  Any node can calculate the maximum length of time a message can be
+outstanding (time period times maximum number of links), and use this time for
+its NCL-REP timer.
+.s
+.hl2 User Interface and Operation
+.s
+The basic goal of NCL is to create paths of conversation between users
+(interprocess communication) and manage the operation of these paths.  The
+user has four basic commands that may be issued to NCL for the operation of
+this communications mechanism:
+.s
+.literal
+	1.  CONNECT	- directs NCL to create a communication path
+			  (logical link) between the processes issuing the
+			  command (usually with an ASSIGN system command,
+			  INIT UUO, OPEN UUO, or FORTRAN OPEN statement)
+
+	2.  TRANSMIT	- directs NCL to send user data over the logical
+			  link (usually performed with an OUTPUT UUO or
+			  FORTRAN WRITE statement)
+
+	3.  RECEIVE	- directs NCL to receive data over the link
+			  (usually done with an INPUT UUO or a FORTRAN
+			  READ statement)
+
+	4.  DISCONNECT	- terminates the conversation and destroys the
+			  logical link (usually done with a DEASSIGN
+			  system command, RELEASE UUO, or FORTRAN CLOSE
+			  statement)
+
+.end literal
+To minimize system buffer occupancy, NCL does not move any data over the
+link until a transmit request has a corresponding receive request, implying
+a user buffer for the incoming data.  The commands are interpreted by NCL
+and result in one or more messages exchanged by NCL modules.  These messages,
+to be described in the next section are:
+.s
+.left;  1.  CONNECT command - Connect message (Control Message)
+.s
+.left;  2.  TRANSMIT command - Data message
+.s
+.left;  3.  RECEIVE command - Data request (Control Message)
+.s
+.left;  4.  DISCONNECT command - Disconnect message (Control Message)
+.s2
+.hl2 Message Formats
+.s
+This section describes the basic messages and their formats.  Sections 4.0
+through 4.1.3 describe the state transitions and operation of the NCL.  The
+following notation is used to describe the messages:
+.s
+.left;  Field (length) :  coding = description of field
+.s
+.left;  Field = the name of the field being described
+.s
+.left;  Length = the length of the field as:
+.s
+.literal
+	1.  a number meaning number of 8-bit bytes
+
+	2.  a number followed by a "B" meaning number of bits
+
+	3.  the letters "EX" meaining extensible field - Extensible
+	    fields are variable length consisting of 8-bit bytes,
+	    where the high-order bit of each byte denotes whether the
+	    next byte is part of the same field.  A 1 means the next
+	    byte is part of this field while a 0 denotes the last
+	    byte.  Extensible fields can be ASCII or binary.  If
+	    ASCII they are merely variable length strings of 7-bit
+	    ASCII.  If binary then 7-bits from each byte are
+	    concatenated into a single binary field.
+  
+  coding = the representation type used A=7-bit ASCII, B=binary
+                                        BM=bit map (each bit has
+                                        specific meaning)
+  If length and coding are omitted Field represents a number of
+  subfields specified in description.
+  
+.end literal
+All fields are transmitted low-order bit first on the data links unless
+otherwise specified.  All number values are in decimal representation.
+.s
+Parentheses "( )" around a field indicate that the field can be repeated.
+The parentheses are not part of the NCL syntax.
+.s
+.center;NOTE
+.s
+.literal
+		The size of extensible fields may be
+		limited to some maximum number of bytes
+		or bits.
+.end literal
+.s
+Users exchange data over conversation paths (logical links) created by
+NCL.  The NCLs also exchange data for creation and supervision of the
+logical links as well as for network control and routing.  There are two
+types of messages, therefore, that are exchanged by NCLs.  Data Messages
+(DM) carry the dialogue level information between processes and Control
+Messages (CM) carry information between NCL modules.  Control Messages can 
+be either numbered (NCMs) or unnumbered (UCMs).
+.s
+Messages exchanged by NCL, both DM and CM, may pass through several
+intermediate nodes along the communication path or may be directly connected
+by a physical link.  In the former case the message must include routing
+information for use by intermediate nodes; in the latter case such information
+may be omitted for efficiency.  It is recommended that messages always be 
+built to include both the destination and source node addresses.  This 
+eliminates the need to rebuild the message to include routing information if
+a link should go down.
+.s
+Messages take the following general form:
+.s
+.literal
+         NCT   DNA   SNA   NCA   NCN   DAT
+
+NCT(EX) : BM =  A group of flags denoting characteristics of the
+                message.  They have the following meaning if set:
+		
+		bits 0-2- the type of the field in binary
+			0 = data message or numbered control
+			    message
+			1 = ACK,
+			2 = NAK,
+			3 = REP,
+			4 = START
+			5 = STACK
+			6 = node-ID
+		bit 3 - DNA and SNA present - routing informaiton
+			is included following this field
+		bit 4 - This is a trace mode message
+		bit 5 - Interrupt message (does not affect the data
+			request count)
+		bit 6 - Non-sequential node
+		bit 7 - Reserved for extension (currently 0)
+
+DNA(EX) : B =	The destination node identifier (binary number) -
+		where 0 = next node on link - used to address
+		adjacent node over synchronous line.  This field
+		is optional and is included only if NCT bit 3 is
+		set.
+
+
+				NOTE
+
+              	The user usually addresses node using
+              	an ASCII name which is internally mapped
+              	into the destination node address.
+
+SNA(EX) : B =	The source node identifier - (maximum of 6 bits
+		with 6.02 monitors) may not be 0.  This field is
+		optional and is included only if NCT bit 3 is set.
+
+				NOTE
+
+              	The omission of the DNA defaults to
+              	DNA = 0 and implies the SNA as the
+              	adjacent node sending this message.
+
+NCA(1) : B =	Network Control ACK.; the number of the last 
+		network control message correctly received.
+
+NCN(1) : B = 	the number of this network control message.
+
+DAT = 		the message information for DM or CM.
+
+.end literal
+.hl2 Data Messages
+.s
+If any of the three low-order bits of NCT are set, the message is an
+Unnumbered Control Message; otherwise it is a Data Message (DM) or a
+Numbered Control Message.  If the first byte of DAT is zero, then the
+message is a Numbered Control Message; otherwise it is a Data Message.
+.s
+For a DM, DAT is:
+.s
+	DNA DAP
+.literal
+
+DLA(EX) : B =	the logical link destination address for this
+		message. This is the address for a conversation
+		and is usually dynamically assigned via the
+		connection procedure.  The maximum size for DLA is
+		12 bits.  Zero is an illegal DLA address.
+  
+DAP =		a data message in accordance with the Data Access Protocol
+   
+.end literal
+.hl2 Unnumbered Control Messages
+.s
+If bits 0-2 of NCT indicate that the message is an unnumbered control
+message, and the message is a START, STACK, or NODE-ID message, then
+DAT has the form:
+.s
+	NNM SNM SID
+.s
+.literal
+
+NNM(EX) : B =	node name identifying node.  Maximum of 12 bits;
+		zero means the next node over an asynchronous line.
+  
+SNM(EX) : A =	station name.
+  
+SID(EX) : A =	software identification containig two sub-fields;
+		(1) name and version of the operating system and
+		network software, (2) creation data of the software.
+  
+.end literal
+
+
+If bits 0-2 of NCT indicate that the message is an unnumbered control
+message and the message is not a START, STACK, or NODE-ID, then DAT
+is empty.
+.s
+.hl2 Numbered Control Messages
+.s
+If the three low-order bits in NCT and the first byte of DAT are zero,
+the message is a Numbered Control Message (NCM).  NCMs are used to
+pass information between NCL modules.  These message are divided into
+three group:
+.s
+	1. NCMs related to operation of logical links
+.s
+	2. NCMs related to network testing
+.s
+	3. NCMs related to routing
+.s
+All NCMs have the following form for DAT:
+.s
+	<0> (CNT TYP CMD)
+.s
+.literal
+
+
+CNT(1) : B = 	the number of bytes in this NCM (not including CNT
+		byte) - allows blocking of NCMs.
+  
+		This field is OPTIONAL depending on bit 4 of NCT.
+  
+TYP(1) : B =	the number representing the type of NCM.  These
+		numbers are given with each NCM description and in
+		the summary in Appendix A.  Types 128-255 are
+		reserved for any user extensions to NCL.
+  
+CMD = 		the data specific to each NCM.
+.end literal
+
+.page
+.hl3 Control Message for Logical Link Operation
+.s
+.hl4 CONNECT (TYP = 1)
+.s
+The connect message is used to establish a logical link (communication
+path) between processes in the network.  The state transitions for the
+connection sequence, given in section 4.1.1, basically consist of the
+exchange of connect initiate and connect confirm messages.  The form of
+CMD for the connect message is:
+.s
+.left;     DLA   SLA   DNF   SFN   MML  FEA
+.s
+.literal
+DLA(EX) : B =	destination message link address (i.e., the index
+		into the node's connection database, maximum of
+		12 bits; zero is illegal.
+
+SLA(EX) : B = 	source message link address, maximum of 12 bits;
+		zero is illegal.
+
+DPN = 		destination process name.  Consists of:
+
+		OBJ PID
+
+OBJ(1) : B =	object type for process
+
+			0 = terminal handler
+			1 = terminal
+			2 = Card reader
+			3 = Line printer
+			4 = Paper-tape reader
+			5 = Paper-tape punch
+			6 = Plotter
+			7 = Magnetic-tape
+		       10 = DECtape
+		  200-377 = reserved
+
+PID(EX) : A = 	task-name and qualifier (e.g., PPN or UIC)
+
+SPN =		source process name.  Consists of
+
+		OBJ PID
+
+MML(1) : B =	maximum NCL message length for connection;
+		including NCL header, but not including DDCMP
+		information.
+
+FEA =		feature included.  Consists of:
+
+		DCM RLN DVT
+
+DCM(1) : BM =	data code and mode
+		0 = ASCII
+		1 = EBCDIC
+		2 = Image
+		3 = Hollerith (CDR only)
+		4 = DEC image (CDR only)
+		5 = reserved
+		6 = compressed format
+
+RLN(EX) : B =	maximum record length.  Dependent on device;
+		Usual values are 132 for line printer, 80 for card
+		reader, etc.
+
+DVT = 		device specific attributes.  See Appendix C.
+
+.end literal
+.hl4 DISCONNECT (TYP = 2)
+.s
+The disconnect message is used to destroy a logical link previously
+established and/or confirm that a connection rejection has been
+completed.  The state transitions usually consist of the exchange of
+disconnect initiate and disconnect confirm messages.  The form of CMD
+for the disconnect message is:
+.s
+.left;    DLA   SLA   RSN
+.s
+.literal
+
+
+DLA(EX) : B =	destination message link address (i.e., the index
+		into the node's connection database).  Maximum of
+		12 bits; zero is illegal.
+  
+SLA(EX) : B = 	source message link address.  Maximum of 12 bits;
+		zero is illegal.
+  
+RSN(1)  : B =	the reason for the disconnect.
+  
+		0 - no specific reason
+		1 - object type unsupported
+		2 - too many connects to node
+		3 - too many connects to process
+		4 - process does not exist
+
+
+.end literal
+
+.hl4 NEIGHBOURS (TYP = 3)
+.s
+The NEIGHBOURS message for non-sequential nodes includes all adjacent
+nodes that a node will route to.
+.s
+For sequential nodes, the NEIGHBOURS message includes all nodes it will
+route to.
+.s
+Each time a node (1) acquires a new neighbor, (2) loses a neighbor,
+or (3) changes a link level, it sends a NEIGHBOURS message to all the
+nodes known to it.  The form of CMD for the NEIGHBOURS message is:
+.s
+.left;     (  NNM  LVL  )
+.s2
+.literal
+
+NNM(EX) : B =	node name identifying node
+  
+LVL(1)  : B =	link value used to determine the preferred path.
+		(The preferred path is the path whose link values
+		add up to the lowest number.)
+   
+.end literal
+.hl4 REQUEST CONFIGURATION (TYP = 4)
+.s
+The request configuration message is sent to the NCL module at another
+node to get information on the operating system and version being
+used, the NCL options supported and the node address and name.  This
+information is returned in a configuration message.  The byte labelled
+CMD is omitted for this message.
+.s
+.hl4 CONFIGURATION (TYP = 5)
+.s
+This message returns the system configuration and options in response
+to a request configuration message.  The form of CMD is:
+.s
+.left;   ( OBJ  NDV )
+.s
+OBJ(1) : B = 	object type for process as described in Section 3.5.1.1.
+.s
+NDV(EX) : BM =	the number of devices available
+.s2
+.hl4 DATA REQUEST (TYP = 6)
+.s
+The DATA REQUEST message informs the destination node that the source node
+is willing to accept data.  The CMD form is:
+.s
+.left;   DLA  DRQ
+.s  
+.literal
+DLA(EX) : B =	description message link address.  Maximum of 12 bits.
+  
+DRQ(1)  : B =	number of data requests outstanding.  Each data
+		request enables one DDCMP message to be received.
+
+.end literal
+.page
+.hl4 STATION CONTROL (TYP = 7)
+.s
+Station control messages are used to perform operations with the
+bootstrap level of remote station software.  CMD for STATION CONTROL
+messages is one of the following forms:
+.s
+.literal
+	BOOT -		LNM	<000>
+	EXAMINE -	LNM	<001>	AD1	AD2
+	DEPOSIT -	LNM	<002>	ADR	DATA
+	GO TO -		LNM	<003>	ADR
+	CLEAR -		LNM	<004>	AD1	AD2
+	DEBUG -		LNM	<005>
+	ACCEPT -	LNM	<011>	ADR	DATA
+	EXAMINE DATA -	LNM	<012>	ADR	DATA
+	REJECT -	LNM	<013>
+	REQUEST BOOT -	LNM	<014>	TYPE	SER	DES
+	REQUEST LOAD -	LNM	<015>	TYPE	SER	DES
+
+
+LNM(1) : B =	the number of the line connecting the destination
+		node to the node which is to receive the station
+		control message.  Zero means the destination node;
+		N means that the node connected to line (N-1) of
+		the destination node is to receive the message.
+  
+DES(EX) : A =	a string of ASCII characters which describes ther
+		program to be loaded.  This is usually a file
+		description.
+  
+SER(EX) : B =	the serial number of the node to be booted.
+  
+TYPE(EX) : B =	the code for the type of node requesting the load.
+		1 = DC71 (PDP81 with DP01).
+		2 = DC72 (PDP8E with DP8E).
+		3 = PDP-11/40 with DU11.
+		4 = DAS82 (PDP-11/40 with DQ11).
+  
+ADR(3) : B =	an address made up of three concatenated bytes,
+		with the low-order byte arriving first (on the
+		PDP-8 based nodes, the length of this field is 2
+		bytes).  ADR indicates the address in the remote
+		node which is being operated on.
+  
+AD1(3) : B =	an address made up of three bytes (two for PDP-8s)
+		indicating the lower limit of the range of
+		locations to be operated on.
+  
+AD2(3) : B =	an address made up of three bytes (two for PDP-8s)
+		indicating the upper limit of the range of
+		locations to be operated on.
+  
+DATA(EX) : B =	the information portion of the STATION CONTROL
+		messages.  When only one ADP is specified with a
+		data stream for deposit, the data is deposited in
+		sequential locations starting at the address
+		specified and continuing until the data runs out
+		(determined by the byte count).
+.end literal
+.page
+.hl1 OPERATION
+.s
+This section describes the operation of NCL with respect to the
+message categories:
+.s
+	1. Messages related to logical link operation.
+.s
+	2. Messages related to routing.
+.s
+.hl2 Logical Link Operation
+.s
+The basic function of NCL is to provide an interprocess communication
+mechanism between processes located on different nodes in a DECNET
+system.  This mechanism operates via a communication path known as a
+logical link.
+.s
+Logical links define the end points of a conversation (dialogue) and
+in no way imply the technique used for message transmission between
+those end points or the line discipline used.
+.s
+The NCL modules creating the link and passing data over it must know
+certain characteristics of the communication system being used.  Much
+of this has been described earlier in the discussion on characteristics
+of the communication network.  The two important characteristics are
+those of non-sequential delivery or sequential delivery.  These 
+characteristics determine whether or not certain NCL options must be 
+used to guarantee sequential message delivery to the user. The NCL
+functions for operation of logical links include:
+.s
+	1. creation/destruction of logical links.
+.s
+	2. control of traffic over logical links.
+.s
+	3. insure sequentiality and delivery.
+.s
+	4. create a mechanism for interruption over logical links.
+.s
+These functions are described below.
+.s
+.hl3 Creation of Logical Links
+.s
+The establishment of a logical link is a cooperative effort between
+the processes wishing to engage in a conversation.  The protocol
+achieves security and protection by letting the parties involved in a
+conversation decide if they should converse.  The creation of a link
+involves an exchange of connect messages.  One of the processes issues
+a connect command to NCL through an interface in the operating system
+environment (such as the ASSIGN command).  This command causes NCL to
+send a connect-initiate message to the destination NCL.  This message 
+includes the names of the processes wishing to connect and any
+additional information one process wishes to pass along to the other,
+such as passwords, device characteristics, etc.
+.s
+The destination process receives this information and decides whether
+or not to complete the connection.  If it does, it issues a connect
+command and NCL sends a connect-confirm message back to complete the
+connection procedure.  Otherwise, it issues a connect-reject command
+causing a disconnect message to be sent and the logical link broken.
+.s
+There are two other reasons for rejecting connections:
+.s
+	1. an error was detected and an error message was sent back
+.s
+	2. a connect-rejection by NCL (disconnect message)
+.s
+To improve the efficiency of logical link operation the connection
+procedure encodes the process names and associated queues into an
+address which is passed over in the connect-initiate (SRCADDR) and a
+corresponding encoding returned from the other end in a
+connect-confirm.
+.s
+The following notation is used for this and other state diagrams:
+.s
+.literal
+  CI(a,b)    - connect initiate:dest addr=a, src addr=b
+
+  CC(a,b)    - connect confirm
+
+  DM(a,n)    - data message:  dest addr = a, message number = n
+
+  DR(a,n,k)  - data request:  dest addr = a, request count = n, ack
+               number = k
+
+  DS(a,b)    - disconnect by NCL
+
+.end literal
+The state operations for connection are:
+.s
+.literal
+  1.  Normal connection
+
+           CI(0,a)---------------->
+       complete <----------------CC(a,b)
+
+  2.   Connection rejection
+
+           CI(0,a)---------------->
+                <----------------DS(a,0)
+  
+  3.   Sender aborts or cancels connection
+
+           CI(0,a)---------------->
+           connect cancelled
+
+                  <--------------CC(a,b)
+           DS(b,a)--------------->
+                  <--------------DS(a,b)
+
+  4.   Error in connect parameters
+
+           CI(0,a)--------------->
+                  <--------------DS(CI(0,a))
+
+  5.   Error in confirming parameters
+
+           CI(0,a)--------------->
+                  <--------------CC(a,b)
+           DS(CC(a,b))--------------->
+                  <--------------DS(a,b)
+
+.end literal
+These state examples are not exhaustive but give the operation in the
+basic cases.
+.s
+.hl3 Message Transfer Over Logical Links
+.s
+When the connection procedure has been completed, each end of the
+logical link has a reference number (destination address) it uses to
+address the logical link.  This address is used in data messages sent
+over the link and in control messages referencing the link.
+.s
+The design of NCL does not include any provision for disk storage of
+incoming messages.  A user wishing such a facility may add it locally 
+without affecting NCL operation.
+.s
+In order to minimize system buffer occupancy a traffic control scheme
+has been included in the operation of the logical links:  a message is
+not transmitted over a logcial link until the receiving user has
+allocated a buffer for storage of the message (issued a receive command
+to NCL).  This is implemented on the logical link by a request count scheme.
+Whenever a receive command is issued, the destination NCL sends a data request
+message.  When a transmit is issued the source NCL checks the current data
+request count.  If the count is greateer than 0, NCL sends the message and
+decrements the count.  To improve efficiency, NCL need not send data request
+messages with each request but may wait for a number of them to accumulate and 
+then send the total in one message.
+.s
+The operation is as follows:
+.s
+	1. User issues receive command.
+.s
+	2. NCL sends a data rquest for N messages.
+.s
+	3. Other NCL modules may then send N data messages.
+.s
+When a user issues a transmit command, the NCL module checks the
+current local request count and if greater than zero, sends the
+message.
+.s
+The state operations for message transfer are:
+.s
+.literal
+	1. Single request and acknowledge
+  
+	   User issues "receive"
+  
+		DR(a,1,b)--------------->
+  
+		User issues "transmit"
+  
+		<----------------DM(a,b+1)
+  
+	   Acknowledge message (numbered)
+		DR(a,0,b+1)-------------->
+  
+	2. Acknowledge and request
+  
+	   dR(a,1,b)---------------->
+		<-----------------DM(a,b+1)
+	   DR(a,1,b+1)-------------->
+		<-----------------DM(a,b+2)
+	   DR(a,1,b+2)-------------->
+  
+
+.end literal
+There are many other possibilities due to timing but these examples
+give the basic flavor of the traffic control/acknowledgement schemes.
+.s
+.hl3 Interruption Over Logical Links
+.s
+The NCL has a mechanism for allowing interruption over a logical link.
+This feature allows:
+.s
+.literal
+	1.  Interruption to "wake-up" a user and start data transfer.
+	    This is very useful on links with intermittent transfers
+	    because the user is not required to have an outstanding
+	    receive.
+  
+	2.  Interruption of the normal data stream to inform the user of
+	    some unusual condition.
+.end literal
+.s
+The interrupt message is sent without any previous request and is
+passed to the user outside the normal buffer mechanism scheme usually
+through some local interrupt mechanism (i.e. synchronous system traps, 
+event flags, mail boxes, etc.).
+.s
+Some implementations may limit the amount of data that may be sent in
+an interrupt message.
+.s
+.hl3 Destruction of Logical Links
+.s
+Logical links may be terminated upon request from the user, failure of
+the user process, or failure of a communication link or intermediate
+node.  All these cases are handled in about the same way, the main
+difference being that the processes are notified of the different 
+reason for disconnection.  If it is process-initiated, the NCL module
+sends a disconnect message upon receipt of a disconnect command from
+the user.  This message may include optional data the disconnecting
+process wishes to pass to the other end.  All transmit and receive
+commands currently pending are terminated, the user only being sure
+that transmit commands that have completed have been received at the
+destination node.  Upon receipt of a disconnect message the receiving
+NCL notifies the process via some local mechanism and also terminates
+any pending commands.  It returns a disconnect-confirm message to
+close off the logical link.  Messages received between the sending of
+a disconnect message and the receipt of a disconnect-confirm are
+discarded.  The processes on the link must complete their conversation
+prior to issuing the disconnect command.  It has the effect of
+immediately "hanging up".  Either process may initiate a disconnect,
+not necessarily the one that initiated the connection.
+.s
+In the aborting case the same things happen except the receiving 
+process is notified that this is a disconnect abort and is not passed
+any optional data, as in the process-initiated case.  Some examples of
+disconnection states are:
+.s
+.literal
+	DI(a,b) - disconnect initiate: dest addr=a, srcaddr=b
+  
+	DC(a,b) - disconnect confirm
+  
+	DA(a,b) - disconnect abort
+  
+	1. User initiates disconnect
+  
+	  DI(a,b)----------->(on numbered links resent on timeout)
+	                      complete
+	  complete<----------DC(b,a)
+  
+	2.  User aborts
+  
+	    DA(a,b)---------->(on numbered links resent on timeout)
+                               complete
+            complete<---------DC(b,a)
+.end literal
+.s
+.hl2 Network Testing and Maintenance
+.s
+Current knowledge of network testing and maintenance is limited to
+those operations available using the Remote Debugger DDT11.  Further
+information on DDT11 can be obtained in the DECNET-10 User's Manual in
+the chapter on Network Maintenance.
+.page
+.hl2 Network Message Routing
+.s
+To enhance the operation and characteristics of DECNET-10, NCL allows
+routing of messages within the system.  This means that the computer
+systems (nodes) in which the communicating processes exist do not have
+to be directly connected by a physical link.  Routing allows
+conversations with processes to which there are paths, not necessarily
+direct wire connections.  This means that intermediate nodes act as
+routers in the forwarding of messages.
+.s
+The basic concepts of routing are fairly straightforward.  A message
+enters a node and is given to NCL.  NCL examines the routing information,
+deciding if it is the destination system.  If not, it executes a routing
+algorithm, whose purpose is to associate the destination address with an
+outgoing physical link number.
+.s
+The routing header in NCL includes some characteristics flags, the
+destination node address and the source node address.  In 
+point-to-point only communications this header may be omitted for
+efficiency.  The receipt of a message without a DNA and SNA implies
+that the receiver is the destination node and the node on the other
+end of the physical link is the source node.  The NCT flags are used
+by the routing algorithm to pick the outgoing link.  Routing algorithms
+can be very simple table lookups or very complex computations attempting
+to find optimal paths on a dynamic basis.  The algorithms used, and the 
+information that must be exchanged by routine nodes is what makes routing
+a complex problem.  The mechanics of receiving a message and forwarding
+it on another link are rather simple.
+.s
+Sections 4.3.1 through 4.3.3 descirbe the routing techniques employed in
+DECNET-10.  This is independent of the other two sections of the
+NCL specification, logical link operation and maintenance and testing.
+Other routing algorithms and techniques may be used without affecting
+logical link operation.  All NCLs in a network must, however, be aware
+of the characteristics of the routing algorithm and communication
+system in order to choose an option consistent with the routing.  This
+has been discussed earlier in the characteristics of the communication
+system and the operation of numbered and unnumbered logical links.
+.s
+.hl3 Sequential Node Routing
+.s
+Sequential nodes in a network can only send messages down a single
+link.  Therefore, the routing from sequential nodes is direct until a
+non-sequential node is reached.  At the non-sequential node, adaptive
+routing techniques are used to pass the message to the destination.
+.s
+.hl3 Adaptive Routing - Non-Sequential Nodes
+.s
+The most dynamic scheme is the adaptive routing technique that adapts
+to changes in the topology and selects the best path for message
+routing.  The technique uses the NEIGHBOURS message to pass
+information between network nodes on the current state of each others
+neighbours.  This technique is based on the concept that a node's
+routing information is no better than the routing information of its
+neighbors (adjacent nodes).  When a node routes a message to one of
+its neighbors it is then up to the neighbor to route it further.  It
+does no good for a node to have "better" information than the node to
+which it is sending the message for further routing.
+.s
+Based on this concept, nodes send NEIGHBOURS messages to adjacent
+nodes whenever there is a change to their route path table which will
+change routing path information.  Since NEIGHBOURS messages are sent
+only to neighbor nodes they themselves do not require
+routing.  This eliminates the race condition problem when routing 
+ messages are being routed with invalid routing tables trying to update
+ these tables.
+.s
+Nodes operating in such an environmen may be either end nodes or
+routing nodes.  End nodes perform no routing and are either sources or
+destinations for messages.  The requirements are that these nodes
+accept NEIGHBOURS messages and either discard them or keep the names
+of valid nodes; and if they have multiple physical links they keep
+the link numbers for each valid node.  End nodes may, thus, oeprate
+either intelligently by knowing all valid nodes and checking messages
+before sending them out; or by simply sending and handling the routing
+error messages when they are sent back.
+.s
+Routing nodes must send NEIGHBOURS messages when physical link status
+changes (up or down) and when they have updated their tables and this
+causes a routing change.  Routing nodes may maintain alternate paths
+in their routing table if desired.  The lack of this will result in
+the absence of a path when the primary route fails.  The node may then
+have to wait until it receives a NEIGHBOURS message with a new route
+to the destination node if one exists.
+.s
+Transit values are assigned to links based on their goodness or 
+"cost".  They may have values from 1-9, 1 being a better or lower cost
+link.  Once transit values in route tables reach 127 they remain at
+this maximum value.  Each node adds its link transit value to values
+received in NEIGHBOURS messages to obtain the total cost to the destination
+node.
+.s
+The basic rule in using routing in a non-sequential network is that
+the total transit cost from the neighbour doing the routing must be
+less than the total transit cost from the node itself.
+.s
+.hl3 Multiple Path Routing
+.s
+There are many cases when a node has more traffic to another node than
+the bandwidth of the highest speed link or path between them.  In
+theses cases the nodes may wish to use several paths simultaneously for
+increased performance and high reliability.  It is possible to do this
+in a number of ways.  One way is to assign multiple addresses to nodes
+and different routing paths to each address.  When logical links are
+assigned, the operating system may alternately map the node name into
+these multiple addresses.  There are not changes to NCL in this case.
+Some logical links take one path, while some take another.  Unnumbered
+logical links may be used if the routing for each link is sequential.
+.s
+NCL may choose to send messages through a logical link which does not
+have the lowest transit cost if the DDCMP queues for that link are
+backed up.  Again, NCL can chooses an alternate route to the
+destination as long as the neighbour it routes through has a transit
+cost to the destination less than the cost of the node itself.
+.s
+.hl1 INTERFACE TO OPERATING SYSTEMS
+.s
+The NCL interface to a TOPS-10 network operating system is via system
+commands and monitor calls (UUOs).  The elements in the interface are
+described in the DECNET-10 User's Guide.
+.s
+.hl1 CONSIDERATION IN DESIGN
+.s
+To be completed.
+.page
+.no subtitle
+.no headers
+.s4
+.center;APPENDIX A
+.s
+.center;OBJECT TYPES
+.s4
+This is the current list of object types defined for processes in
+DECNET-10.
+.s
+.literal
+Object	Type Number	Object Description
+
+	0 =		terminal handler
+
+	1 =		terminal
+
+	2 =		Card reader
+
+	3 =		Line printer
+
+	4 =		Paper-tape reader
+
+	5 =		Paper-tape punch
+
+	6 =		Plotter
+
+	7 =		Magnetic-tape
+
+       10 =		DECtape
+
+  200-377 =		reserved
+.end literal
+.page
+.s4
+.center;APPENDIX B
+.s2
+.center;MESSAGE SUMMARY
+.s4
+.literal
+Unnumbered Control -  NCT  DNA  SNA  NCA  NCN  NNM  SNM  SID
+
+Numbered Control   -  NCT  DNA  SNA  NCA  NCN  <0>  CMD
+
+Data Messages      -  NCT  DNA  SNA  NCA  NCN  DLA  DAP
+
+
+
+CMD message formats are:
+
+CONNECT            -  CNT  <1>  DLA  SLA  DPN  SPN  MML  FEA
+DISCONNECT         -  CNT  <2>  DLA  SLA  RSN
+NEIGHBOURS         -  CNT  <3>  NNM  LVL
+REQ CONFIG         -  CNT  <4>  OBJ  NDV  PID
+CONFIGURATION      -  CNT  <5>
+DATA REQUEST       -  CNT  <6>  DLA  DRQ
+STATION CONTROL    -  CNT  <7>  STC
+
+.end literal
+.page
+.s4
+.center;APPENDIX C
+.s
+.center;DEVICE SPECIFIC ATTRIBUTES
+.s2
+.center;Table C-1
+.s
+.center;Card Reader Specific Attributes
+.s4
+.literal
+
+	WORD	BITS	MEANINIG
+
+	1	0-1	speed
+			0 = don't care
+			1 = <300 cards/minute
+			2 = between 300 and 600 cards/minute
+			3 = >600 cards/minute
+		2	mark sense if set
+		3	hardware EOF required if set
+		4	suppress EOF card detection if set
+		5-6	unused
+		7	extensible bit - should be zero
+
+.end literal
+.page
+.literal
+
+DEVICE SPECIFIC ATTRIBUTES					Page C-2
+
+.end literal
+.s4
+.center;Table C-2
+.s
+.center;Line Printer Specific Attributes
+.s2
+.literal
+
+	WORD	BITS	MEANING
+
+	1	0-1	speed
+			0 = don't care
+			1 = <300 lines/minute
+			2 = between 300 and 600 lines/minute
+			3 = >600 lines/minute
+		2	lower case required
+		3	removable character set required
+		4	multi-part paper required
+		5	12 channel skipping required
+		6	unused
+		7	extensible bit - should be set to 1
+	2	0-1	skip requirements
+			0 = don't care
+			1 = changeable from handler
+			2 = changeable at site
+			3 = changeable, but don't care how
+		2	requires overprint if set
+		3	6 lines/inch printer required
+		4	8 lines/inch printer required
+		5	changeable fromwidth required if set
+		6	unused
+		7	extensible bit - should be zero
+
+.end literal
+.page
+.literal
+
+DEVICE SPECIFIC ATTRIBUTES					Page C-3
+
+.end literal
+.s4
+.center;Table C-3
+.s
+.center;Terminal Specific Attributes
+.s2
+.literal
+	WORD	BITS	MEANING
+
+	1	0	modem control
+		1	auto-baud detection
+		2	handler can set baud rates
+		3	2741
+		4	Baudot
+		5	auto-dial line
+		6	unused
+		7	extensible bit - should be zero
+
+.end literal
+.page
+.s4
+.center;APPENDIX D
+.s
+.center;SAMPLE MESSAGES
+.s2
+D.1  SAMPLE CONNECT MESSAGE
+.s
+110,10,3,46,133,0,13,1,24,44,0,0,1,15,112,0,110,7
+.s2
+.literal
+BYTE	CONTENTS	MEANING
+
+1	110		NCT - bit 0 is zero which indicates that this
+			message is either a Data Message or Numbered
+			Control Message; bit 3 is set indicating that 
+			SNA and DNA bytes are present;  bit 6 being
+			set indicates that the sender is a non-sequential
+			node.
+2	10		DNA - the destination node number is 10.
+3	3		SNA - the source node number is 3.
+4	46		NCA - the last network message correctly received
+			was message number 46.
+5	133		NCN - this is message number 133.
+6	0		this byte differentiates a Numbered Control
+			Message from a Data Message.  Zero indicates that
+			this is a Numbered Control Message.
+7	13		CNT - this byte indicates that there are 13 bytes
+			remaining in this message.
+8	1		this byte identifies that this is a CONNECT
+			message.
+9	24		DLA - the destination message link address is 24.
+			If this byte was zero, the message would be a
+			CONNECT initiate.  Since it is zero, the message
+			is a CONNECT confirm.
+10	44		SLA - the source message link address is 44.
+11	0		OBJ - the destination object type for the process
+			is TTY handler.
+12	0		PID - the destination process identification is
+			the default choice.
+13	1		OBJ - the source object type for the process is
+			TTY.
+14	15		PID - the source process unit number is 15.
+15	112		MML - the maximum message length is 112 bytes.
+16	0		DCM - the data code is ASCII
+.end literal
+.page
+.literal
+SAMPLE MESSAGES							Page D-2
+SAMPLE CONNECT MESSAGE
+
+17	110		RLN - the record length is 110 (octal) characters.
+18	7		DVT - the attributes of the terminal are:  (1)
+			modem control, (2) auto-baud, and (3) the handler
+			can set the baud rates.
+
+
+D.2  SAMPLE DISCONNECT MESSAGE
+
+110,10,3,46,137,0,4,2,76,40,0
+
+
+BYTE	CONTENTS	MEANING
+
+1	110		NCT - bit 0 is zero which indicates that this
+			message is either a Data Message or Numbered
+			Control Message;  bit 3 is set indicating that
+			SNA and DNA bytes are present;  bit 6 being set
+			indicates that the sender is a non-sequential
+			node.
+2	10		DNA - the destination node number is 10.
+3	3		SNA - the source node number is 3.
+4	46		NCA - the last network message correctly received
+			was message number 46.
+5	137		NCN - this is message number 137.
+6	0		this byte differentiates a Numbered Control 
+			Message from a Data Message.  Zero indicates that
+			this is a Numbered Control Message.
+7	4		CNT - this byte indicates that there are 4 bytes
+			remaining in this message.
+8	2		this byte indentifies that this is a DISCONNECT
+			message.
+9	76		DLA - the destination message link address is 76.
+10	40		SLA - the source message link address is 40.
+11	0		RSN - the value zero indicates that this is a
+			normal disconnection.
+
+
+D.3  SAMPLE NEIGHBOURS MESSAGE
+
+110,6,22,46,153,0,5,3,10,55,5,110
+
+BYTE	CONTENTS	MEANING
+
+1	110		NCT - bit 0 is zero which indicates that this
+			message is either a Data Message or Numbered
+			Control Message; bit 3 is set indicating that
+			SNA and DNA bytes are present;  bit 6 being set
+			indicates that the sender is a non-sequential
+			node.
+2	6		DNA - the destination node number is 6.
+3	22		SNA - the source node number is 22.
+.end literal
+.page
+.literal
+SAMPLE MESSAGES								Page D-3
+SAMPLE NEIGHBOURS MESSAGE
+
+
+4	46		NCA - the last  network message correctly received
+			was message number 46.
+5	153		NCN - this is message number 153.
+6	0		this byte differentiates a Numbered Control
+			Message from a Data Message.  Zero indicates that
+			this is a Numbered Control Message.
+7	5		CNT - this byte indicates that there are 5 bytes
+			remaining in this message.
+8	3		this byte indentifies that this is a NEIGHBOURS
+			message.
+9	10		NNM - one neighbour of node 22 is node number 10.
+10	55		LVL - the link value between nodes 22 and 10 is 55.
+11	5		NNM - another neighbour of node 22 is node number 5.
+12	110		LVL - the link value between nodes 22 and 5 is 110.
+
+
+D.4  SAMPLE REQUEST CONFIGURATION MESSAGE
+
+110,20,77,66,122,0,1,4
+
+BYTE	CONTENTS	MEANING
+
+1	110		NCT - bit 0 is zero which indicates that this
+			message is either a Data Message of Numbered
+			Control Message; bit 3 is set indicating that
+			SNA and DNA bytes are present; bit 6 being set
+			indicates that the sender is a non-sequential
+			node.
+2	20		DNA - the destination node number is 20.
+3	77		SNA - the source node number is 77.
+4	66		NCA - the last network message correctly received
+			was message number 66.
+5	122		NCN - this is message number 122.
+6	0		this byte differentiates a Numbered Control
+			Message from a Data Message.  Zero indicates that
+			this is a Numbered Control Message.
+7	1		CNT - this byte indicates that there is 1 byte
+			remaining in this message.
+8	4		this byte identifies that this is a REQUEST
+			CONFIGURATION message.
+
+
+D.5  SAMPLE CONFIGURATION MESSAGE
+
+110,40,26,55,100,0,7,5,1,10,2,1,3,1
+
+BYTE	CONTENTS	MEANING
+
+.end literal
+.page
+.literal
+SAMPLE MESSAGES							Page D-4
+SAMPLE CONFIGURATION MESSAGE
+
+1	110		NCT - bit 0 is zero which indicates that this
+			message is either a Data Message or Numbered
+			Control Message;  bit 3 is set indicating that
+			SNA and DNA bytes are present;   bit 6 being set
+			indicates that the sender is a non-sequential
+			node.
+2	40		DNA - the destination node number is 40.
+3	26		SNA - the source node number is 26.
+4	55		NCA - the last network message correctly received
+			was message number 55.
+5	100		NCN - this is message number 100.
+6	0		this byte differentiates a Numbered Control
+			Message from a Data Message.  Zero indicates that
+			this is a Numbered Control Message.
+7	7		CNT - this byte indicates that there are 7 bytes
+			remaining in this message.
+8	5		this byte identifies that this is a CONFIGURATION
+			message.
+9	1		OBJ - the object type for the process is TTY.
+10	10		NDV - this bit map indicates that there are two
+			terminals on node 40.
+11	2		OBJ - the object type for the process is card
+			reader.
+12	1		NDV - there is one card reader on node 40.
+13	3		OBJ - the object type for the process is line
+			printer.
+14	1		NDV - there is one line printer on node 40.
+
+
+D.6  SAMPLE DATE REQUEST MESSAGE
+
+110,3,10,46,115,0,3,6,24,3
+
+BYTE	CONTENTS	MEANING
+
+1	110		NCT - bit 0 is zero which indicates that this
+			message is either a Data Message or Numbered
+			Control Message;  bit 3 is set indicating that
+			SNA and DNA bytes are present;  bit 6 being set
+			indicates that the sender is a non-sequential
+			node.
+2	3		DNA - the destination node number is 3.
+3	10		SNA - the source node number is 10.
+4	46		NCA - the last network message correctly received
+			was message number 46.
+5	115		NCN - this is message number 115.
+6	0		this byte differentiates a Numbered Control
+			Message from a Data Message.  Zero indicates that
+			this is a Numbered Control Message.
+7	3		CNT -this byte indicates that there are 3 bytes
+			remaining in this message.
+8	6		this byte identifies that this is a DATA REQUEST
+			message.
+9	24		DLA - the destination message link address is 24.
+10	3		DRQ - there are three more outstanding data
+			requests.
+.end literal
+.page
+.literal
+SAMPLE MESSAGES							Page D-5
+SAMPLE REQUEST MESSAGE
+
+
+D.7  SAMPLE STATION CONTROL MESSAGE
+
+110,3,10,76,114,0,5,7,1,1,110,130
+
+BYTE	CONTENTS	MEANING
+
+1	110		NCT - bit 0 is zero which indicates that this
+			message is either a Data Message or Numbered
+			Control Message;  bit 3 is set indicating that
+			SNA and DNA bytes are present; bit 6 being set
+			indicates that the sender is a non-sequential
+			node.
+2	3		DNA - the destination node number is 3.
+3	10		SNA - the source node number is 10.
+4	76		NCA - the last network message correctly received
+			was message number 76.
+5	114		NCN - this is message number 114.
+6	0		this byte differentiates a Numbered Control
+			Message from a Data Message.  Zero indicates that
+			this is a Numbered Control Message.
+7	5		CNT - this byte indicates that there are 5 bytes
+			remaining in this message.
+8	7		this byte identifies that this is a STATION
+			CONTROL message.
+9	1		LNM - this byte indicates that the node under
+			consideration is connected to line 0 of node
+			number 3.
+10	1		the STATION CONTROL message is EXAMINE.
+11	110		the first location to be examined is location 110.
+12	130		the last location to be examined is location 130.
+.end literal
+	

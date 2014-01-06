@@ -1,0 +1,1058 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    RIPOFF - Cusp-Level Disk Service Routine
+
+
+
+
+
+                                G. Michael Uhler
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                          University Computing Center
+                             University of Arizona
+                                Tucson, Arizona
+
+
+                                 March 25, 1978
+     RIPOFF - Cusp-Level Disk Service Routine                        Page 2
+
+
+
+
+
+
+
+     RIPOFF is intended to be a  centralized  repository  for  disk-related
+     maintenance utilities, and as an alternative to the DEC supplied CUSPs
+     such as DSKRAT, DSKLST, REDALL, DELFIL, etc.  As an  added  bonus,  it
+     appears  to  be 5 to 10 times faster than the equivalent DEC utilities
+     for most non-trivial  functions.   This  document  is  written  as  an
+     explanation  of  the  various  functions  that  RIPOFF provides and is
+     intended to be read by experienced system personnel who  are  familiar
+     with the concepts of the TOPS10 file system.
+
+     RIPOFF was originally written by Steve Bush at the University of Texas
+     Health  Sciences  Center at Dallas.  Since then, a massive rewrite has
+     been undertaken at the University of Arizona  Computing  Center.   The
+     original  goal  was  to  simply  add SFD support to the existing code.
+     However, it soon became apparent that numerous bugs must be fixed also
+     (see  the  revision  history  for  details).  We have been running the
+     current version of RIPOFF for several months with no reported problems
+     and  feel that it is fairly stable.  However, we urge every site to be
+     initially very cautious in the use of RIPOFF, since we cannot possibly
+     test  it  under  every  possible  monitor  and disk configuration.  We
+     suggest that each function be verified on a scratch  pack,  preferably
+     using  a  DEC standard CUSP, before using that function in production.
+     For example, use DSKRAT to verify the /V and /S functions,  DSKLST  to
+     verify the /P function, etc.
+     RIPOFF - Cusp-Level Disk Service Routine                        Page 3
+
+
+     RIPOFF may be run with the following command:
+
+             .RUN RIPOFF
+
+     Having found that  the  user  is  sufficiently  priviliged  ([1,2]  or
+     running  with  JACCT),  RIPOFF  initializes a number of parameters and
+     requests the startup  option  from  the  user.   The  answer  to  this
+     question  may  be  one  of  the following (minimal-segment-decoding is
+     used):
+
+             QUICK - Don't ask about off-line devices
+             LONG  - Full startup dialog
+             HELP  - Type help message
+
+     The "LONG" response must be used if dismounted structures  are  to  be
+     accessed.   When  using  this  option, any unit whose status indicates
+     that it does not have a  pack  logically  mounted  will  result  in  a
+     message of the form:
+
+             Unit RPA1 has no pack mounted
+             Type YES to ignore error, NO to consider pack down
+             Proceed?
+
+     If the user replies with a  "Y",  RIPOFF  will  ignore  the  indicated
+     status  and  assume  that  the  unit contains a spinning pack.  An "N"
+     response will result in the unit being assigned a "DOWN" status.
+
+     When the internal unit data blocks are built for each "UP" unit in the
+     system,  RIPOFF will type a "*" to indicate it's readiness to accept a
+     command.  The command string is intended to tell RIPOFF the  following
+     things:
+
+             Device
+             Filename(s)
+             Extension(s)
+             Path
+             Block numbers
+             Switches
+             Switch options
+
+     where the device may be a generic disk  name  (ALL,  D,  DS,  DSK),  a
+     structure name (DSKB), a specific logical unit in a structure (DSKB1),
+     a contoller type (RP), a specific controller (RPA),  a  specific  unit
+     within a controller (RPA1), or even a pack ID (PRIV01).
+
+     The basic command string format is one of the following:
+
+             DEV:FILE.EXT[PATH]/WABC/XDEF...   ; Comments
+
+                     or
+
+             DEV:BLOCK1<BLOCK2(BLOCK3)/YGHI... ; Comments
+
+                     or
+
+             DEV:FILE.EXT[PATH]=DEV:FILE.EXT[PATH]/ZJKL... ; Comments
+     RIPOFF - Cusp-Level Disk Service Routine                        Page 4
+
+
+     The default command string is ALL:*.*[*,*,*,*,*,*,*].  Any element  of
+     the  command  string  that  is  left  out  will also cause a "*" to be
+     assumed for that element.
+
+     Switches typed in the command string immediately following a  "/"  and
+     are  always exactly one character (A-Z).  This one character specifies
+     the general processor to call.  Any following characters  (A-Z,  0-9),
+     up  until  the  next  "/", ";", or line terminator, are switch options
+     whose interpretation is dependent on the switch in question.
+
+     In the first example above, the switches are "W" with  the  "A",  "B",
+     and  "C"  options,  and  "X"  with  the  "D",  "E",  and  "F" options.
+     Similarly, in the second example, the switch is "Y" with the "G", "H",
+     and "I" options.
+
+     For commands where block numbers are relevant, the  second  format  is
+     more  likely (although parts of both can be readily mixed).  The usual
+     interpretation of the second example is  from  BLOCK1  through  BLOCK2
+     inclusive, by increments of BLOCK3 (e.g., see /R).
+
+     The third command format is used to indicate that a  scratch  area  is
+     being used (e.g., see /I).
+
+     Several characters have special meaning in the command  string.   They
+     are as follows:
+
+        <tab>   Ignored
+        <space> Ignored
+        "       Followed by a  delimiter,  ASCII  characters,  and  another
+                delimiter, e.g., "/TEXT/
+        '       Followed by a delimiter,  SIXBIT  characters,  and  another
+                delimiter, e.g., '/TEXT/.  The single quote is also used to
+                indicate division within expressions.  See below.
+        #       A cluster number follows, i.e.   #1234  represents  cluster
+                1234
+        $       A filename or extension follows.  RIPOFF assumes  that  any
+                command  string  atom that begins with a digit is a number.
+                Therefore the $ must be  used  to  "protect"  filenames  or
+                extensions that start with a number, e.g., LSX012.$01E
+        (       Relative or incremental number follows.
+        )       Matched with an opening "(", ignored.
+        *       Used to indicate wildcards in the filename,  extension,  or
+                path.    Also   used   to  indicate  multiplication  within
+                expressions.  See below.
+        ,       Separates octal half-words.
+        ,,      Separates octal half-words.
+        .       Filename has preceded, extension (maybe null) follows.
+        /       Processor switch follows
+        :       Device name preceded
+        ;       Terminates command scan, comments follow
+        <       Initial block or cluster number preceded,  final  block  or
+                cluster number follow.
+        >       Same as <
+        ==      Word number preceded, new contents follow (see /EC)
+        =       Scratch area file spec preceded
+        !       Run preceding file
+        [       Path follows.
+     RIPOFF - Cusp-Level Disk Service Routine                        Page 5
+
+
+        ]       When matched with opening "[", ignored.
+        ^       New radix  (^D,  ^O,  or  ^B)  for  next  expression,  then
+                expression follow.
+
+     In addition to the above characters, four (actually two new ones) more
+     should  be  considered.   RIPOFF  will accept an expression anywhere a
+     number  is  valid.   Such  an   expression   is   evaluated   strictly
+     left-to-right  with no parenthesis allowed.  Valid binary operators in
+     an   expression   are   "+"   (addition),   "-"   (subtraction),   "*"
+     (multiplication), and "'" (division).
+
+     By default, RIPOFF writes it's output to device TTY:.  However,  if  a
+     logical device LST:, exists, RIPOFF will use that instead.  If it is a
+     directory device, the listing will go to the file RIP0.LST.   If  this
+     file already exists, RIPOFF will create RIP1.LST,...,RIP9.LST, until a
+     non-existent file is found.  This insures that  previous  outputs  (as
+     long as there aren't too many) are never lost.
+
+     Note that if the output device is not TTY:, the top of every  page  of
+     the  listing file contains the RIPOFF version number, the current time
+     and date, the page number, and the command string that it is currently
+     executing.   Thus,  all  listings  show  what command created them and
+     when.  If a ";" appears in the command string, the rest of the command
+     is considered comments.  These comments will also appear on the top of
+     each page, thereby further documenting the listing.
+
+     Each function is covered separately below.
+     RIPOFF - Cusp-Level Disk Service Routine                        Page 6
+
+
+     /A - Alphabetize directories
+
+
+
+     This switch causes the entries in  the  specified  directories  to  be
+     sorted  by filename, extension, or creation date/time.  The /A options
+     are as follows:
+
+          /A  - Same as /AF
+          /AF - Sort by filename, then extension
+          /AE - Sort by extension, then filename
+          /AT - Sort by creation date/time
+          /AM - Sort the MFD by PPN
+          /AX - (Xlist) When OR'ed with one of  the  above  options,  e.g.,
+                /AFX,  the  sorted  directories  are not listed on the TTY.
+                This is useful if a lot of  directories  are  to  be  done,
+                since printing the listing slows down the whole process.
+
+
+     Note that on all sorts except /AM, the MFD  is  avoided.   Conversely,
+     /AM only sorts the MFD.
+
+     This switch should be used with care.  Do not try to sort a  directory
+     when  the  structure  is  mounted and the user is logged in, since the
+     monitor may have part of  the  directory  in  core.   Preferably,  the
+     structure should be dismounted, (see /SL) but directories can probably
+     be sorted with the structure mounted if the user  is  not  logged  in.
+     RIPOFF  will  not  allow  the  /AM  switch  to  be  used  on a mounted
+     structure.
+
+
+
+     Examples
+
+
+     *DSKB:/A                ; Sort all directories on DSKB except the
+                             ; MFD
+
+     *DSKB:/AM               ; Sort the MFD of DSKB.  Note that this
+                             ; can never be done with the structure
+                             ; mounted.
+
+     *DSKB:[10,*]/AE         ; Sort all the 10 project UFD's by
+                             ; extension
+
+     *DSKB:[10,12,RIPOFF,NEW]/AT ; Sort the specified directory by creation
+                                 ; date/time
+     RIPOFF - Cusp-Level Disk Service Routine                        Page 7
+
+
+     /C - Convert disk parameters
+
+
+
+     This  switch  accepts   a   block   number,   cluster   number,   CFP,
+     cylinder-surface-sector, or a universal date/time and converts them to
+     equivalent values.  This is quite useful when one has  one  value  and
+     needs to know the equivalent values.  The /C options are as follows:
+
+          /CB - Convert from a structure block number
+          /CC - Convert from a structure cluster number.   Note  that  this
+                switch is the only place in RIPOFF where the cluster number
+                is specified without the "#" preface, i.e., 1234/CC instead
+                of #1234/CC.
+          /CD - Convert from a structure CFP
+          /CP - Convert from unit cylinder, surface, and sector
+          /CT - Convert from a universal date/time.  This isn't  exactly  a
+                disk parameter but it's a useful conversion anyway.
+          /CU - Convert from a block number on a unit.
+
+
+
+     Examples
+
+
+     *DSKB:1234/CB           ; Convert block 1234 on DSKB
+
+     *DSKB:102/CC            ; Convert from cluster 102 on DSKB.  Note
+                             ; that the cluster number has no "#"
+                             ; before it
+
+     *DSKB:102/CD            ; Convert from CFP 102 on DSKB
+
+     *DSKB:1<16(10)/CP       ; Convert from cylinder 1, surface 16,
+                             ; sector 10 on DSKB
+
+     *RPA1:1<16(10)/CP       ; Do the same for physical unit RPA1
+
+     *124720,,345632/CT      ; Convert from the specified universal
+                             ; date/time
+
+     *RPA1:1234/CU           ; Convert from block 1234 on unit RPA1
+     RIPOFF - Cusp-Level Disk Service Routine                        Page 8
+
+
+     /D - Delete files
+
+
+
+     This switch is used to delete files.  RIPOFF is capable of deleting  a
+     file through almost any error that may exist.  The user has the option
+     of specifying monitor RENAME  only,  DELFIL-type  delete  only,  or  a
+     combination  of  the  two  in which RIPOFF will try the monitor RENAME
+     first and then the RIPOFF internal subroutine to delete the  directory
+     entry if the RENAME fails.  Note that the internal subroutine will not
+     release the SAT bits and therefore create lost blocks.  The /D options
+     are as follows:
+
+          /D  - Delete  the  file(s).   (Try  monitor  RENAME  first   then
+                internal subroutine)
+          /DM - Delete with monitor RENAME only
+          /DR - Delete with internal  subroutine  only.   (Don't  even  try
+                monitor RENAME)
+          /DU - Delete all files in the specified UFD and then  delete  the
+                UFD.   Note that this option is available with entire UFD's
+                only, not with SFD's.
+          /DN - Delete null directories
+          /DB - Delete only those files that are bad (RIB  errors)  in  the
+                specified directories
+          /DT - Asks for a creation date/time and an access  date/time  and
+                only deletes those files created before the first date/time
+                and not accessed since the second.
+          /DA - Prints each file to be deleted and  asks  for  confirmation
+                before  attempting to delete.  May be OR'ed with all except
+                the /DU or /DN options.
+
+
+
+     Examples
+
+
+     *FILE.*[7,7]/D          ; Delete ALL:FILE.EXT[7,7]
+
+     *DSKB:*.*[7,7]/D        ; Deletes DSKB:*.*[7,7].  Note that if [7,7]
+                             ; contains any non-empty SFD's, the monitor
+                             ; RENAME will fail on the SFD and RIPOFF
+                             ; will zap the SFD with the internal
+                             ; subroutine.  To avoid this, use either
+                             ; /DA or /DM
+
+     *DSKB:[7,7]/DU          ; Delete all files in [7,7] and lower
+                             ; directories and then delete the UFD.  This
+                             ; option will not create unnecessary lost
+                             ; blocks as in the above example.  Note that
+                             ; in this case only, the path spec [7,7]
+                             ; really implies [7,7,*,*,*,*,*]
+
+     *DSKB:[7,7,FOO]/DB      ; Delete all bad files in DSKB:[7,7,FOO]
+
+     */DB                    ; Delete all bad files in the entire system
+
+     *DSKB:'/():-/.WRD[7,7,FOO]/D ; Delete weird file in [7,7,FOO]
+     RIPOFF - Cusp-Level Disk Service Routine                        Page 9
+
+
+     *DSKB:/DN               ; Delete all null directories on DSKB
+
+     *DSKB:[10,*,*,*,*,*,*]/DN ; Delete all null directories in project 10
+
+     *DSKB:*.TMP/DT          ; Delete all TMP files on DSKB that meet the
+                             ; date/time criteria
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 10
+
+
+     /E - Edit disk blocks
+
+
+
+     This switch allows any disk block to be modified.   This  provides  an
+     easy  way  to  change  parameters in a HOME block or fix a RIB that is
+     unacceptable to FILSER.  One block at a time may be  read  into  core,
+     examined,  changed,  and then written back out.  The new contents of a
+     word may be typed in in any format that is acceptable to  the  command
+     scanner, i.e., ASCII, SIXBIT, octal, decimal, or binary.  The type out
+     format is normally 12 octal digits, but may also be ASCII, SIXBIT,  or
+     universal date/time.  Note that it is possible to write the block onto
+     a completely different place from which it was read.  However,  it  is
+     assumed  that  it  will  always be written back to the same place.  If
+     this is not the case, a warning message is  issued  and  the  user  is
+     forced  to  confirm the choice.  A write is illegal without a previous
+     read.  The /E options are:
+
+          /ER  - Read the block into core
+          /EW  - Write the block back to disk
+          /ERS - Read the same block as the last read/write
+          /EWS - Write the same block as the last read/write
+          /EC  - Change the contents of a word in the block in core
+          /ET  - Type the contents of a word in octal
+          /ETA - Type the contents of a word in ASCII
+          /ET7 - Same as /ETA
+          /ET6 - Type the contents of a word in SIXBIT
+          /ETU - Type the contents of a word as though it were in universal
+                 date/time format
+          /ETS - Type the same word as that specified in the  last  /ET  or
+                 /EC command.
+          /ETL - Type the word previous to the one specified  in  the  last
+                 /ET or /EC command.
+          /ETN - Type the word following the one specified in the last  /ET
+                 or /EC command.
+
+     Note that the S, L, and N switches may  be  OR'ed  together  with  any
+     combination of the A, 7, 6, or U format.
+
+
+
+     Examples
+
+
+
+
+     *DSKB:4027/ER           ; Read block 4027 of DSKB
+
+     *2/ET                   ; Type word 2 of the block in octal
+
+     */ET6                   ; Type same word in SIXBIT.  Note that /ETx
+                             ; with no word number specified is the same
+                             ; as /ETSx
+
+     */ETL6                  ; Type word 1 in SIXBIT
+
+     *0<12/ET                ; Type words 0 through 12 in octal
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 11
+
+
+     *35/ETU                 ; Type word 35 as if it were in universal
+                             ; date/time format
+
+     *1=='/FOO//EC           ; Change word 1 to SIXBIT/FOO/.  Note that
+                             ; the // is intentional
+
+     *5==10/EC               ; Change word 5 to an octal 10
+
+     */EWS                   ; Write the block back to the place from
+                             ; which it came.  (In this example, 4027
+                             ; on DSKB)
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 12
+
+
+     /F - Find RIBs of files
+
+
+
+     This switch causes RIPOFF to find the RIB of  a  file  and  print  the
+     relative  block  within the unit and the logical block within the file
+     structure of that RIB.  RIPOFF first tries  to  LOOKUP  the  file  and
+     print  the  information  from  the  CFP.  If this fails, or if the /FD
+     option is selected, the structure is searched cluster-by-cluster until
+     all  RIBs matching the specifications have been found.  The /F options
+     are as follows:
+
+          /F   - Do directory search, then structure search
+          /FE  - Do only directory search.  The file exists.
+          /FD  - Do only structure search;  the file has been deleted.
+          /FD2 - Enable RIPOFF to find 2nd RIBs by forcing it to read every
+                 block instead of every cluster.
+
+
+
+     Examples
+
+
+     *DSKB:FOO.BAZ[10,10]/FE ; Find the RIB of the specified file by doing
+                             ; only a directory search
+
+     *DSKB:FOO.BAZ[10,12,RIPOFF]/FE ; Same as above only in an SFD
+
+     *DSKB:FOO.BAZ[10,10]/FD ; Find the RIB by doing a structure search.
+                             ; Note that specifying more of a path than
+                             ; just the PPN with the /FD switch is futile
+                             ; since the monitor does not keep enough
+                             ; information in each RIB to tell which level
+                             ; the file belongs in.
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 13
+
+
+     /H - Type RIPOFF help file
+
+
+
+     This switch causes the file RIPOFF.HLP to be typed  on  the  terminal.
+     The  file  is  looked for on HLP:, SYS:, and finally DSK:.  RIPOFF.HLP
+     contains a summary of all switches and options that are acceptable  to
+     RIPOFF.  The /H options are as follows:
+
+          /H - Type the RIPOFF help file
+
+
+
+     Examples
+
+
+     */H                     ; Find the help file and type it
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 14
+
+
+     /I - Initialize files from RIBs alone
+
+
+
+                               ** Special Note **
+
+     This is the only RIPOFF function with which I am not satisfied.  There
+     are  inherent  problems with recovering an entire structure containing
+     SFDs from the RIBs alone given the design of the TOPS10  file  system.
+     There  is  simply  not  enough  information  in  the  RIB of a file to
+     determine at what level of nesting it existed.  It is therefore  quite
+     difficult  to  totally  rebuild  a  structure  with  the SFD structure
+     intact.  I will be looking at this problem in the next few months  and
+     would appreciate any feedback from other users.
+
+
+     It is sometimes useful to rescue files  which  have  been  deleted  or
+     lost.   When  a file is deleted, although it's block space on the disk
+     is marked free for  use  and  directory  pointers  to  that  file  are
+     deleted,  the data itself remains physically on the disk until another
+     file is allocated over it, which may not be  immediately.   Therefore,
+     if  action  is taken quickly enough, it is possible to recover deleted
+     files.  RIPOFF will search the entire file structure for RIBs matching
+     the  filenames, extensions, and PPNs in the command string.  Note that
+     I say "PPNs" instead of "PATHs" since the RIB only contains the PPN in
+     which  the file existed, not the full path.  When the entire structure
+     is passed over once, RIPOFF will transfer all files found to a scratch
+     area  (disk  or magtape).  When all files have been transferred to the
+     scratch area, it may be rewound and the files restored to the original
+     structure (or any other structure for that matter).
+
+     The /I command string is of the third form in the  examples  given  at
+     the beginning of this document.  The scratch area device and file spec
+     are specified to the left side of the equal sign.   The  files  to  be
+     saved  or  restored are specified to the right side of the equal sign.
+     Note that if a number is typed in parenthesis within the scratch  area
+     device  and  file  spec,  this  will  be  interpreted as the number of
+     buffers to use for the device.  The default is 15 decimal.
+
+     The scratch area is used for RIPOFF's internal  needs.   If  it  is  a
+     magtape,  RIPOFF  will  correctly  handle  the  change  of  reels,  if
+     necessary, on both the save and restore.  If it is a disk file,  there
+     must  be  enough space available to total the combined allocated sizes
+     of all files to be saved.  RIPOFF will not  delete  the  scratch  area
+     disk file when it is through.
+
+     The /I options are as follows:
+
+          /I  - Same as /ISR
+          /IS - Save specified files on scratch area
+          /IR - Restore specified files from scratch area
+          /IP - Print directory listing of scratch area
+          /ID - When OR'ed with /IS, causes RIPOFF to save only those files
+                that are free in the SATs.
+          /IE - When OR'ed with /IS, causes RIPOFF to save only those files
+                that are marked in the SATs.
+          /IA - Same as /IDE, i.e., save or restore files regardless of the
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 15
+
+
+                SAT bits.
+          /IT - Asks for date/time limits  and  only  saves/restores  files
+                created  between these limits.  May be OR'ed with any other
+                option.
+          /I2 - Enable 2nd RIB recovery by forcing RIPOFF to  search  every
+                block  for  RIBs  instead  of just the first block of every
+                cluster.  May be OR'ed with with all but /IF saves.
+          /IO - Allow overwritting.  The possibility  exists  that  another
+                file  may  have overwritten the file that you wanted before
+                RIPOFF got to it.  However, if the  amount  of  overwritten
+                data  is  small compared to the size of the file, it may be
+                worth getting a few clusters worth of  garbage  to  save  a
+                large  file.  Normally, RIPOFF will stop restoring the file
+                if it finds overwritten data  since  this  is  obviously  a
+                security  violation.   However, if this option is selected,
+                RIPOFF will restore the file,  overwritten  data  and  all.
+                This  option should never be used until a normal restore is
+                tried and fails.
+          /IX - Don't   print   every   file   saved/restored,   only   the
+                directories.
+          /IF - Failsafe mode.  Don't use any RIB search logic, simply copy
+                all  files  from or to the scratch area.  This function may
+                go away  in  the  next  release  in  favor  of  a  strictly
+                pack-to-pack copy function.
+
+
+
+     Examples
+
+
+     *MTA1:=DSKB:/IS         ; Save all (see special note above)
+                             ; files from DSKB on MTA1
+
+     *DSKA:FOO.BAZ[1,2]=DSKB:FOO.MAC[10,7]/I
+                             ; Restore FOO.MAC to [10,7] using 
+                             ; DSKA:FOO.BAZ[1,2] as a scratch area
+
+     *MTA1:=DSKB:FOO.BAZ[10,7]/IR ; Restore FOO.BAZ to [10,7].  Note that
+                                  ; MTA1 may contain a save of the entire
+                                  ; structure.
+
+     *DSKA:FOO.BAZ[1,2]=/IP  ; Print directory listing of scratch area
+
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 16
+
+
+     /L - Lock RIPOFF in core
+
+
+
+     This switch locks the job in core with the LOCK UUO.  If the job
+     cannot be locked because of insufficient privileges, (shouldn't ever
+     happen in [1,2]) the user will be notified immediately.  Otherwise,
+     RIPOFF will attempt a LOCK every 2 seconds for 16 seconds.  At the end
+     of this period the error code will be given if the lock was
+     unsuccessful.  Note that a number of routines in RIPOFF expand core.
+     Since a CORE UUO is illegal when locked, the job is first unlocked,
+     the core area expanded, then the job is relocked.  If the relock
+     fails, a message will be typed and execution will continue unlocked.
+     The /L options are as follows:
+
+          /L  - Lock job in core
+          /LU - Unlock job
+
+
+
+     Examples
+
+
+     */L                     ; Lock job in core
+
+     */LU                    ; Unlock job
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 17
+
+
+     /P - Print information, blocks, and files
+
+
+
+     This switch allows the user to observe the disk system.  Specifically,
+     the  /P  switch  may  be  used to print disk statistics, SAT's, BAT's,
+     units, etc.  There are two distinct subsets of  the  /P  switch.   The
+     first  subset  is similar to the DSKLST program and allows the user to
+     print various information about the disk system.   The  second  subset
+     allows  the  user  to  print the contents of blocks or files in any of
+     several formats.  Multiple switch options may be mixed  within  either
+     subset,  but  options from both subsets may not be mixed.  The /P disk
+     list options are as follows:
+
+          /PB - Print the unit's BAT blocks in octal,  then  interpret  the
+                block in readable format
+          /PE - Print error summary.  This is similar to  the  /PF  option,
+                except  the  file  information is not listed.  However, any
+                file that is found to have read errors  or  a  bad  RIB  is
+                listed,  and  a  summary  is  given  of  all  disk  errors,
+                including those listed in the RIBSTS word of the RIB.
+          /PF - Print file  information.   Produces  a  complete  directory
+                listing  of the specified disk by user directory.  Specific
+                filenames, extension, or path specifications may  be  given
+                in  the  command  string  in which case only the files that
+                match the command string will be listed.
+          /PL - Print listing.  This is similar to the /PF option  in  that
+                it  prints  the  file  information.  However, it is used to
+                look for files and is  therefore  similar  to  the  monitor
+                DIRECT  command.  Unlike the /PF option, null UFD's are not
+                listed.  Thus the /PL option may be used to get  a  listing
+                of  all  occurances  of  a particular filename, extenstion,
+                etc.  The /PL option may have another function.  A  command
+                of  the  form DEV:FILE.EXT[path](len) will only print those
+                files whose allocated length is greater than "len".
+          /PP - Print performance summary.  This option histograms the file
+                length  in  blocks  and  the number of RIB pointers in each
+                file.  The second histogram will give a  breakdown  on  how
+                fragmented  the  structure  is,  and  therefore  how  badly
+                refreshing is needed.
+          /PQ - Print quick.  This is similar to the /PL option  except  no
+                information  beyond  the  filename,  extension  and path is
+                printed.  Therefore, it is similar to the DIRECT/F  monitor
+                command.
+          /PS - Print SAT blocks.  This option print the SAT blocks of  all
+                units  specified  in  octal  and  gives the total remaining
+                space in each block.
+          /PU - Print physical units for each pack in a structure.
+          /PV - Print vital statistics.  This option prints the HOME  block
+                of  every  specified unit in octal and then interprets each
+                interesting entry into readable format.
+
+
+     The block list subset consists of the following options:
+
+          /PA - Print in ASCII format.  This option  prints  the  specified
+                blocks/files  in  ASCII  and is very similar to the monitor
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 18
+
+
+                TYPE or PRINT commands.
+          /PD - Print  in  directory  format.   This  option   prints   the
+                specified  block as if it were a directory.  The first word
+                of each word pair is listed as a SIXBIT filename, the  left
+                half  of  the  second  word  as a SIXBIT extension, and the
+                right half is interpreted as a CFP.
+          /PO - Print  in  octal.   This  option   prints   the   specified
+                blocks/files  in  octal with a header for each block giving
+                the block number.
+          /PR - Print as a RIB.  This option prints the specified block  as
+                if  it  were a RIB.  In addition, if a filename is given in
+                the command string,  the  RIB  of  the  specified  file  is
+                printed.   This  option  prints all non-zero information in
+                the  RIB  preamble  in  a  readable   format   (much   like
+                DIRECT/DETAIL) and then interprets and prints the retrieval
+                pointers from the RIB.
+          /P6 - Print  in  SIXBIT.   This  option  prints   the   specified
+                blocks/files in SIXBIT with a header for each block.
+          /P7 - Print  in  ASCII.   This  option   prints   the   specified
+                blocks/files  in ASCII with a header for each block.  It is
+                very similar to the /PA option except for the inclusion  of
+                the header information.
+
+
+
+     Examples
+
+
+     *DSKB:FOO.BAZ[10,7,FOO]/PR ; Print the RIB of the specified file
+
+     *DSKB:1234/PR           ; Print the specified block as a RIB
+
+     *DSKB:1234<1234+5/PO    ; Print blocks 1234 through 1241 in octal
+
+     *DSKB:FOO.*/PL          ; Find and print all files named FOO.*
+                             ; on DSKB
+
+     *10,7.UFD/PD            ; Prints ALL:[10,7] in a readable format
+
+     *FOO.SFD[10,7]/PD       ; Prints ALL:[10,7,FOO] directories in a
+                             ; readable format
+
+     */PV                    ; Print vital statistics for all units
+                             ; on the system
+
+     *DSKB:/PB               ; Print the BAT blocks on DSKB
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 19
+
+
+     /R - Read disk blocks
+
+
+
+     This switch simply reads all blocks specified in  the  command  string
+     and  reports any errors.  This function is similar to the REDALL CUSP.
+     The /R options are as follows:
+
+          /R - Read specified blocks
+
+
+
+     Examples
+
+
+     *DSKB:1234<4567(10)     ; Read blocks 1234 through 4567 skipping 10
+                             ; blocks between each read
+
+     *DSKB:/R                ; Read all blocks on DSKB (0 through highest
+                             ; block on unit using 1 as an increment)
+
+     *DSKB:40000/R           ; Read blocks 40000 through the highest
+                             ; block on the unit using 1 as an increment
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 20
+
+
+     /S - Manipulate SAT's
+
+
+
+     This switch allows the user to observe and manipulate the  SAT  blocks
+     on  a  structure.   Since  the  monitor  keeps  SATs in core for every
+     mounted structure and rewrites these SATs often, RIPOFF will not allow
+     SATs to be written back to a mounted structure.  The /S options are as
+     follows:
+
+          /SL - Lock up a structure in preparation for  removing  it.   The
+                specified structure is first locked using the .FSLOK STRUUO
+                function and then removed with the .FSREM STRUUO  function.
+                The  user  may  specify  the  number of seconds between the
+                .FSLOK and the .FSREM by placing the desired number in  the
+                command string.  The default value is 60 seconds.
+          /SR - Read the SATs of the specified structure into core.  If you
+                plan to change the SATs, do a /SL first.
+          /SW - Write the in-core copy of the SATs  back  out.   Note  that
+                this may not be done unless the structure is dismounted.
+          /SP - Print the SAT blocks of the specified structure.   Produces
+                the same type of listing as /PS
+          /ST - Type the status of the SAT bits specified by the  block  or
+                cluster numbers given in the command string.
+          /SF - Free the SAT bits specified by the block or cluster numbers
+                given  in  the command string.  Note that this only changes
+                the in-core copy of the SATs.
+          /SM - Mark the SAT bits specified by the block or cluster numbers
+                given  in  the command string.  Note that this only changes
+                the in-core copy of the SATs.
+
+
+
+     Examples
+
+
+     *DSKB:/SL               ; Lock up DSKB and remove it 60 seconds
+                             ; later
+
+     *DSKB:5/SL              ; Lock up DSKB and remove it 5 seconds
+                             ; later
+
+     *DSKB:/SR               ; Read in the SATs
+
+     *DSKB:1234/ST           ; Type the status of the cluster containing
+                             ; block 1234
+
+     *DSKB:#100<#200/ST      ; Type the status of clusters 100 through 200
+
+     *DSKB:#1234/SM          ; Mark cluster 1234 in the SAT
+
+     *DSKB:#100/SF           ; Free cluster 100 in the SAT
+
+     *DSKB:/SW               ; Write the SATs back out to DSKB
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 21
+
+
+     /U - Create specified UFDs/SFDs
+
+
+
+     This switch performs a function similar to the CREDIR CUSP in that  it
+     creates  the directories specified in the command string.  Quotas will
+     all be set to infinity and if a directory already exists,  no  attempt
+     will be made to create over the top of it.  Note that this switch uses
+     monitor ENTERs to create the specified directories and  as  a  result,
+     requires  that the specified structure be mounted.  The /U options are
+     as follows:
+
+          /U - Create the specified directories
+
+
+
+     Examples
+
+
+     *DSKB:[10,12,RIPOFF,NEW]/U ; Create all non-existent directories
+                                ; in the command string
+
+     *DSKB:[10,7]/U          ; Create the [10,7] UFD if it doesn't exist
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 22
+
+
+     /V - Verify files
+
+
+
+     This switch verifies the integrety  of  the  files  specified  in  the
+     command  string.   The  RIBs  of  every file are checked, each file is
+     checksummed  and  compared  with  the  checksum  in   the   RIB,   the
+     corresponding SAT bits are checked to insure that they are marked, and
+     at least one block of every group is read  and  checked  for  hardware
+     readability.
+
+     If *.*[*,*,*,*,*,*,*] is specified in the command string, or left  out
+     and  assumed  by default, the disk SATs are read into core, and RIPOFF
+     builds it's own SATs as each file is read.  These two  SATs  are  then
+     compared (similar to DSKRAT) and any clusters which are multiply used,
+     free, or lost are reported.  In addition, any such errors may be fixed
+     by  rewriting  RIPOFF's  copy  of  the  SAT's  back to the disk.  This
+     function may only be done if the  structure  is  dismounted.   The  /V
+     options are as follows:
+
+          /V  - Verify the specified files
+          /VA - Read all blocks.  This option forces  RIPOFF  to  read  all
+                blocks  of  the  files  specified in the command string and
+                report any which are hardware  unreadable.   Also,  if  all
+                files  were specified, RIPOFF will read all other blocks on
+                the disk that were  not  contained  in  a  file.   This  is
+                similar to a DSKRAT followed by a REDALL.
+          /VQ - Quick option.  This option reads no more  blocks  than  are
+                absolutely  necessary  to do the job.  /V normally reads at
+                least the first block of every group;  /VA reads all blocks
+                of the file;  /VQ does neither.  
+          /VF - Fix the SATs.  If all files are specified, the RIPOFF  copy
+                of  the  SATs will be written back to the disk, thus fixing
+                all errors.  Note that the F option may  also  be  combined
+                with /VA and /VQ.  RIPOFF will not allows this option to be
+                selected if the structure is mounted.
+
+
+
+     Examples
+
+
+     *DSKB:FOO.BAZ[10,7,FOO]/V  ; Verify the integrity of the specified
+                                ; file
+
+     *DSKB:FOO.BAZ[10,7,FOO]/VA ; Verify and read all blocks of the file
+
+     *DSKB:/VF               ; Verify all files and fix the SATs. DSKB
+                             ; may not be mounted if the F option is used
+
+     *DSKB:/VQF              ; Faster than the above example but will
+                             ; not catch checksum errors
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 23
+
+
+     /W - Do word searches
+
+
+
+     This switch allows the user to search for a particular  pattern  in  a
+     range  of  disk blocks or files.  A mask word may be specified that is
+     used to mask each word that is a candidate before the comparison  with
+     the word being searched for.  The /W options are as follows:
+
+          /WM - Set search mask for the search
+          /WS - Start the search
+          /WT - Type current values of the search mask and search word
+          /WW - Set word to be searched for
+
+
+
+     Examples
+
+
+     *777777/WM              ; Set mask for the right-half of the
+                             ; word
+
+     *606060/WW              ; Set word to be searched for to 0,,606060
+
+     */WT                    ; Type current values of mask and word
+
+     *DSKB:100<500/WS        ; Search blocks 100 through 500 on DSKB for
+                             ; the specified pattern masked with the mask
+
+     *DSKB:FOO.BAZ[10,7]/WS  ; Search the specified file
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 24
+
+
+     /X - Exit and close listing files
+
+
+
+     This switch closes all listing files and releases all channels  before
+     exiting  to  the  monitor.  Note that if the user types a ^C to RIPOFF
+     when the listing is being written to a file, RIPOFF will  ask  if  the
+     user  wishes  to  close  the  listing  file  before  exiting.  This is
+     intended to avoid losing the listing if the user forgets to use /X  to
+     exit.  The /X options are as follows:
+
+          /X  - Exit to the monitor
+          /XQ - Exit and run QUEUE
+
+
+
+     Examples
+
+
+     */X                     ; Exit to the monitor
+
+     */XQ                    ; Exit and run QUEUE
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 25
+
+
+     RIPOFF error messages
+
+
+
+     A large number of warning or error messages can result from an invalid
+     or  non-applicable command string (/LU without a previous /L, /EW when
+     no data has been /ER'ed, etc.).  These messages are rather explicit in
+     meaning and need not be discussed at length.
+
+     As a protection against inadvertently wiping out file structures,  two
+     extra  precautions  are  taken.   If an OUTPUT UUO is attempted at any
+     time, a warning of the following form is typed:
+
+             Write enable?
+             Proceed?
+
+     If answered by a "N", RIPOFF will stop immediately and  exit.   A  "Y"
+     will  allow  the output to continue.  This question will only be asked
+     once for every command string, i.e., the write enable is good for  one
+     and only one command string.
+
+     In addition, if any attempt is made to alter the status of files  from
+     [1,1], [1,4], [1,2], [2,5], or [10,1], the following message occurs:
+
+             Access files from [path]?
+             Proceed?
+
+     This  insures  that  the  fumble-fingered  user  doesn't  accidentally
+     destroy  a  structure.  Additional PPNs may be added by adding them to
+     the table VIPS.
+
+     Hardware and software errors are reported to the listing  file.   Note
+     that  the entire listing file (if not TTY) is tabbed over one tab from
+     the left margin.  All error messages are not,  and  are  thus  readily
+     identified.   All  RIPOFF  disk  I/O falls through one major low-level
+     subroutine, BLKRED/BLKWRT.  At this level, a complete summary  of  all
+     hardware error conditions is given as in the following example:
+
+       FOO.BAZ[10,7,FOO] Read error on RPA0, block 1234
+       = Cylinder 1  surface 16  sector 10
+       Status = 400000,,140000 = IO.BKT+IO.DTE
+       Coni = 200014 (Exception)+(*Done*)+(PI channel=4)
+
+     The right half status bits are from the monitor GETSTS UUO.  The  left
+     half bits are internally defined and are as follows:
+
+             IO.FAC  Bit 0   File is active on RIPOFF software channel
+             IO.CKS  Bit 1   File has a software checksum error
+             IO.WRT  Bit 2   File is being written on this channel
+
+     The CONI word is obtained from the DEVSTS UUO.  All bits of the status
+     and  CONI words are interpreted into English.  Stars around phrases in
+     the CONI interpretation indicate that the bit causes an interrupt.
+
+     Software errors result in messages  similar  to  the  hardware  errors
+     except the CONI word is suppressed since the hardware status is not at
+     fault.  The only software-type errors that  currently  exist  are  RIB
+     RIPOFF - Cusp-Level Disk Service Routine                       Page 26
+
+
+     error and software checksum error.

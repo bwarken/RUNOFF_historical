@@ -1,0 +1,100 @@
+EXTEND.HLP -- Help file for EXTEND Version 7		February 1983
+
+        Routines for using large arrays from Fortran programs
+
+
+Fortran programs can manipulate arrays containing more than 256K words
+of data.  Such arrays (called "large" arrays) cannot be declared local
+to program units, or declared in COMMON blocks.  They must be  created
+by a system subroutine named EXTEND and passed as arguments to all  of
+the subprograms that must manipulate them.  To call a subroutine which
+requires large  arrays, you  must call  EXTEND with  an argument  list
+which includes the name of your subroutine that you want to be invoked
+with large arrays  as arguments.   EXTEND will create  the arrays  and
+then call the subroutine.   When that routine  returns to EXTEND,  the
+arrays are discarded and control returns to the caller of EXTEND.
+
+Before you can use large arrays, you have to initialize the subroutine
+package.  Do this by:
+
+	CALL EXTINI
+
+Also, if SORT is going  to be called after  the call to EXTINI,  there
+must be a CALL SORT(' ') before  the call to EXTINI.  This makes  SORT
+allocate a non-zero section for itself.
+
+If your subroutine requires arguments in addition to the large arrays,
+append them to the argument list for the call to EXTEND.  They will be
+passed to the subroutine.  This is what a call to EXTEND looks like:
+
+	CALL EXTEND(SUBRTN,N, SCALAR1,SIZE1,...,SCALARN,SIZEN, ARG1,...,ARGm)
+
+is a call to the EXTEND routine with m+2N+2 arguments, where:
+
+SUBRTN		Is the name of a Fortran subroutine to call using the N
+		large arrays, N array sizes and m extra values (ARG1...ARGm)
+		as arguments.  SUBRTN should be declared to be EXTERNAL.
+
+N		Is the number of large arrays to generate.
+
+SCALAR1, . . .	Are N scalar variables of the same type as the array elements
+SCALARN,	in large array arguments to SUBRTN.  Note that a CHARACTER
+		variable must be of the desired length for the elements of the
+		corresponding array.
+
+SIZE1, . . .	Are N scalars of type INTEGER which give the number of elements
+SIZEN		in the large arrays.  These arguments are passed on to SUBRTN
+		for use in adjustable array dimension declarations.
+
+ARG1, . . .	Are "m" arguments of any type which are passed on to SUBRTN
+ARGm		following the N large array arguments.
+
+The EXTEND subroutine performs a call to SUBRTN that looks like this:
+
+	CALL SUBRTN(ARRAY1,SIZE1,...,ARRAYN,SIZEN, ARG1,...,ARGm)
+
+
+Consider the following program for example:
+
+	PROGRAM BIG
+	REAL A,XVEC(10)
+	DOUBLE PRECISION B,EPS
+	CHARACTER C*132,CARD*80
+	EXTERNAL FOO
+	CALL EXTINI
+	CALL EXTEND(FOO,3, A,1000000,B,1000000,C,100000, XVEC,EPS,CARD)
+	END
+
+It will allocate an array of 1000000 real numbers (call it ARRAYA), an
+array of 1000000  double precision  numbers (ARRAYB) and  an array  of
+100000 132 character long  strings (ARRAYC).  It will  appear as if  a
+Fortran subroutine named EXTEND was called which looks like this:
+
+	SUBROUTINE EXTEND(XVEC,EPS,CARD)
+	REAL ARRAYA(1000000),XVEC
+	DOUBLE PRECISION ARRAYB(1000000),EPS
+	CHARACTER ARRAYC(100000)*132,CARD*80
+	CALL FOO(ARRAYA,1000000,ARRAYB,1000000,ARRAYC,100000,
+	1 XVEC,EPS,CARD)
+	END
+
+
+Note that if the program is not started in a non-zero section,  FOROTS
+may fail in an  unpredictable manner.  EXTEND  will abort the  program
+rather than let execution continue.  One way to make the program start
+in a non-zero section is to:
+
+@LOAD FOO.FOR,EXTEND.REL	; Get a core image with code in section 0
+@SAVE FOO.EXE			; Create .EXE file with code in section 0
+@GET FOO.EXE/USE-SECTION:1	; Get a core image with code in section 1
+@SAVE FOO.EXE			; Create .EXE file with code in section 1
+
+If EXTEND is on a system area (say, SYS:), then the first command is:
+
+@LOAD FOO.FOR,SYS:EXTEND.REL
+
+See your system administrator to find out where EXTEND.REL is.
+
+You must be running  a KL microcode later  than version 275 (which  is
+the current field  image version for  Tops-20 releases 5  and 5.1)  in
+order to use EXTEND.

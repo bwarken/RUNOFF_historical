@@ -1,0 +1,229 @@
+.center
+SELECT
+.center
+======
+.skip
+SELECT is a separately compiled SIMULA CLASS to enable searching
+of texts or files applying BOOLEAN search criteria like
+.skip
+"SWEDEN+DENMARK_&-COPENHAGEN"
+.skip
+meaning that you want to find all lines or records which
+contain either the word "SWEDEN" or the word
+"DENMARK" but not the word "COPENHAGEN".
+.skip
+SELECT contains procedures to
+.skip
+a) Convert a text containing such a BOOLEAN search
+formula into a formula tree suitable for fast searching.
+.skip
+b) Procedures for applying such a formula tree to a text or
+part or whole of a text array.
+.skip
+The allowed operators in the formula are +(=OR), _&(=AND),
+-(=NOT) and the left and right parenthesises, ( and ).
+If parenthesises do not indicate otherwise, + is assumed to have
+the lowest priority, followed by _&, - and the parenthesises.
+These operator characters can be changed by the user.
+.skip
+SELECT does not contain any input/output procedures.
+.skip
+Accessible attributes of the CLASS select:
+.left margin 10
+.p -10,2,5
+BOOLEAN PROCEDURE BUILD__CONDITION
+.skip
+Translates a text string like "SWEDEN+DENMARK_&-COPENHAGEN" into
+a formula tree
+.nofill
+                      (OR)
+                 SWEDEN   (AND)
+                    DENMARK   (NOT)
+                            COPENHAGEN
+
+.fill
+.skip
+This tree can later be used to scan a text through the procedures
+LINE__SCAN and ARRAY__SCAN. BUILD__CONDITION
+will return FALSE if the input formula had bad syntax,
+e.g_. with non-balancing parenthesises. In that case, an appropriate error
+message is returned in the text SELECT__ERRMESS.
+.skip
+Parameters to BUILD__CONDITION:
+.skip
+REF (OPERATOR) TREE__TOP returns the formula tree.
+.skip
+TEXT SELECTOR contains the input formula text.
+SELECTOR need not contain any operators, in which case it simply means
+a search for that whole text. If SELECTOR == NOTEXT, then TREE__TOP
+returns NONE, which means a formula matching all scanned texts.
+.skip
+BOOLEAN CASESHIFT: If TRUE, upper and lower case characters will be regarded
+as identical.
+.p -10,2,5
+BOOLEAN PROCEDURE LINE__SCAN
+.skip
+sapplies a scanning formula to a TEXT. Returns TRUE if the
+formula is satisfied by segments of the TEXT. The formula
+"SWEDEN+DENMARK_&-COPENHAGEN" is for example TRUE for the TEXT
+"DENMARK IS A EUROPEAN COUNTRY" but not TRUE for the TEXT
+"COPENHAGEN IS THE CAPITAL OF DENMARK".
+.skip
+Parameters to LINE__SCAN:
+.skip
+REF (OPERATOR) TREE__TOP is a formula-tree produced by BUILD__CONDITION.
+If this parameter is NONE, LINE__SCAN will always return TRUE.
+.skip
+TEXT INLINE is the text to which the formula is to be applied.
+If TREE__TOP =/= NONE AND INLINE == NOTEXT, then FALSE will
+be returned.
+.p
+BOOLEAN PROCEDURE ARRAY__SCAN
+.skip
+is similar to LINE__SCAN, but will apply the formula to several
+lines of TEXT comprising part or the whole of a TEXT array.
+.skip
+Parameters to ARRAY__SCAN:
+.skip
+REF (OPERATOR) TREE__TOP is the formula produced by BUILD__CONDITION.
+.skip
+TEXT ARRAY LINES is the array of text lines to which the formula is to
+be applied.
+.skip
+INTEGER I1, I2 are the lower and upper bound of the lines in the TEXT ARRAY
+to which the formula is to be applied. I1 may be larger than the
+absolute lower bound of the array, and I2 may be less than the absolute upper
+bound of the array, if you only want to apply the formula to part of the
+lines in the whole array. If TREE__TOP == NONE, TRUE will always
+be returned. If TREE__TOP =/= NONE AND I2 < I1,
+then FALSE will always be returned.
+.p
+PROCEDURE TREE__PRINT
+.skip
+will print a formula tree on SYSOUT in the format
+.break
+(SWEDEN+(DENMARK_&(-COPENHAGEN)))
+.break
+i.e_. fully parenthesized to show any default assumptions of operator
+priorities. Outimage should be called immediately after TREE__PRINT.
+.skip
+Parameters to TREE__PRINT:
+.skip
+REF (OPERATOR) TREE__TOP is the formula tree to be output.
+.p
+PROCEDURE SET__OPERATOR__CHARACTERS
+.skip
+will tell the package which characters are to be used as delimiters
+in formulas input to BUILD__CONDITION. A default assumption is made
+if SET__OPERATOR__CHARACTERS is not called from your program.
+.skip
+Parameters to SET__OPERATOR__CHARACTERS:
+.skip
+TEXT T: This TEXT should always be of length 5 and contain the
+following five characters:
+.skip
+.left margin 20;.nofill
+Default Character
+   +    OR
+   _&    AND
+   -    NOT
+   (    LEFT PARENTHESIS
+   )    RIGHT PARENTHESIS
+.left margin 10;.fill
+.p
+TEXT SELECT__ERRMESS
+.skip
+If BUILD_CONDITION finds a syntax error in the formula, this TEXT
+will return an appropriate error message. You can thus combine
+SELECT with SAFEIO and write e.g_.:
+.nofill
+.skip
+        request("Give selection criteria:",
+        NOTEXT,textinput(line1_selector,
+        build_condition(condition,selector,caseshift)),
+        select_errmess,myhelp("SELECT"));
+.fill
+.p
+CLASS OPERATOR
+.skip
+Is the qualification to be used when you declare formula
+tree variables in your program, e.g_.:
+.skip;.left margin 20
+REF (OPERATOR) selector1, selector2;
+.left margin 10
+.nofill;.left margin 10;.p -10,2,32
+OPTIONS(/l); COMMENT demonstration example for SELECT;
+COMMENT this program will list all lines in an input file
+which satisfy a selection formula;
+BEGIN
+  EXTERNAL TEXT PROCEDURE rest, upcase;
+  EXTERNAL TEXT PROCEDURE scanto, from, conc;
+  EXTERNAL CHARACTER PROCEDURE findtrigger;
+  EXTERNAL BOOLEAN PROCEDURE frontcompare, puttext;
+  EXTERNAL INTEGER PROCEDURE scanint, search;
+  EXTERNAL CLASS select;
+  select BEGIN
+    REF (operator) formula;
+    LINECOPY__BUFFER:- blanks(150);
+    ask__for__formula:
+    outtext("Input selection formula:"); breakoutimage;
+    inimage;
+    IF NOT build__condition(formula,
+    sysin.image.strip,TRUE) THEN
+    BEGIN outtext(select__errmess); GOTO ask__for__formula;
+    END;
+    tree__print(formula); outimage;
+    INSPECT NEW infile("Infile *") DO
+    BEGIN
+      open(blanks(150)); sysout.image:- image;
+      WHILE NOT endfile DO
+      BEGIN
+        inimage;
+        IF line__scan(formula,image.strip) THEN outimage;
+      END;
+      close;
+    END;
+  END;
+END;
+.fill;.left margin 10
+.p
+EFFICIENCY CONSIDERATIONS:
+.skip
+You need not consider this section to make the select package work,
+only if you want to make your programs more efficient.
+.skip
+Scanning of non-significant texts takes time, especially for
+complex formulas requiring many scans of the text. In such
+a case you can often save time by only applying LINE__SCAN
+or ARRAY__SCAN to those parts of your text which contain information,
+e.g_. by supressing non-significant blanks. The simplest case
+of this is to strip your texts before scanning them.
+.skip
+LINE__SCAN on a long text is more efficient than ARRAY__SCAN
+on several shorter texts, especially if CASESHIFT is TRUE.
+Sometimes, you can let your array elements be subtexts of a
+common main text, and apply LINE__SCAN on part or whole of this main
+text instead of ARRAY__SCAN on the array.
+However, ARRAY__SCAN is faster than LINE__SCAN if the total
+length of the scanned texts becomes smaller, e.g_. if use of
+ARRAY__SCAN allows you to avoid scanning of blanks at the end of
+lines in the text.
+.skip
+.p -5,2,5
+TEXT LINECOPY__BUFFER
+.skip
+LINECOPY__BUFFER is a text attribute to select used to keep
+copies of the texts to be scanned when caseshift = TRUE and when
+the number of array elements to be scanned by ARRAY__SCAN
+is larger than 10.
+.skip
+Sometimes you can improve efficiency by assigning values yourself
+to this buffer. Do not make assignments to it too often.
+.p
+TEXT LINE
+.skip
+If you want to write your own procedures similar to LINE__SCAN and
+ARRAY__SCAN you need access to this attribute of SELECT, which
+internally refers to the lines to be scanned.
+.skip;.fill;.center
+[END OF SELECT.HLP]

@@ -1,0 +1,143 @@
+
+
+
+                                                              CALL                                                              ____
+
+
+FUNCTION:     Allows IQL to call a separately written user own-code
+              program,  to pass parameters to the user program, and
+              to process  parameters  passed  back  from  the  user
+              program.
+
+FORMAT:
+
+              CALL nn [=]item1, [=]item2,...
+
+DISCUSSION:
+
+              1)  The  CALL  capability   lets   you   extend   the
+              capabilities  of IQL by incorporating your own logic.
+              This is a sophisticated use  of  the  system.   While
+              laymen  may  use  the  CALL  command  to  drive  user
+              programs  that  have  been  linked  with  IQL,   only
+              professional  programmers  should  attempt  to  add a
+              capability to  IQL  by  writing  their  own-code  and
+              linking it into IQL.
+
+              2) Up to eleven (11) items - which may be data items,
+              variables,  constants  or literals - may be passed to
+              the user program.  These items may be any mix of type
+              alphanumeric, numeric or binary.
+
+              3) If you prefix a passed  parameter  with  an  equal
+              sign  (=),  it  means that the user program will pass
+              back a new value for that item.  Upon returning  from
+              the  user  program, IQL will put the new value in the
+              named item.  You may not use =  before  constants  or
+              literals in the CALL statement.
+
+              4) The integer, nn, in the CALL statement  is  called
+              the  'call  number' and is passed to the user program
+              which uses it to determine which entry has been  made
+              (if  there are multiple type entries).  For instance,
+              a query might do CALL 10 =X to calculate a sine,  and
+              CALL  20 =X to calculate a tangent - the user program
+              would determine what to do depending  on  whether  it
+              saw a 10 or 20 as the call number.
+
+              5) The user program may pass back a status  value  in
+              the   special   item   ERROR-STATUS.   You  may  test
+              ERROR-STATUS in your query just by  refering  to  it.
+              See the example.
+
+              6) You may use as many CALL statements, which may use
+              the  same or different call numbers, as you need in a
+              query.
+                                                             Page 2
+
+
+                                                            CALL                                                            ____
+                                                         continued
+
+
+              7) The user program must have the entry point IQCALL.
+              Becauser  a dynamic loader is not available, the user
+              program must have been linked with the IQL  execution
+              module, IQE and saved before you can run a query that
+              calls it.  Generally you will have done this in  your
+              directory  or  PPN so that you have a special version
+              of the  execution  module.   IQL  always  executes  a
+              module  in your directory or PPN rather than a module
+              elsewhere (ie in SYS:).  Please see the  instructions
+              on the IQL installation tape for how to link and save
+              the IQE module.
+
+              8) IQL is delivered with a dummy IQCALL module linked
+              in;   if  you  use CALL on the delivered IQL version,
+              the arguments you pass will be listed out and control
+              will be returned to IQL.
+
+              9) The formats of the arguments passed by CALL to the
+              user program are:
+
+              01  PASSED-PARAMETERS USAGE IS DISPLAY-6.
+                  02  CALL-NUMBER             PIC 999.
+                  02  ERROR-STATUS             PIC XXX.
+                  02  PARAMETER              OCCURS 11 TIMES.
+                      04  ALPHA-PARAM         PIC X(30).
+                      04  REDEF1             REDEFINES ALPHA-PARAM.
+                          06  FILLER          PIC X(12).
+                          06  NUMERIC-PARAM   PIC S9(18).
+                      04  REDEF2             REDEFINES ALPHA-PARAM.
+                          06  FILLER          PIC X(18).
+                          06  BINARY-PARAM    PIC S9(18) COMP.
+
+
+              Note that the argument parameters are redefined three
+              ways  -  one to hold alphabetic passed values, one to
+              hold numeric passed values, and one  to  hold  binary
+              passed  values.  The user program should refer to the
+              parameter type that matches the item IQL was told  to
+              send.    Item   types   may  be  mixed  in  IQL  CALL
+              statements.
+                                                             Page 3
+
+
+                                                            CALL                                                            ____
+                                                         continued
+
+
+EXAMPLES:
+              In the first example, we go  to  a  user  routine  to
+              calculate  each  employee's  witholding  pay based on
+              dependents, salary (ie tax bracket) and  year-to-date
+              pay.
+
+
+                HEADING 'CALCULATION OF WITHOLDING AMOUNT'.
+                OPEN PAYROLL.
+                CALL 10 SALARY DEPENDENTS YTD-PAY XWITHOLDING.
+                IF ERROR-STATUS NOT = 'AOK' PRINT '**ERROR**'.
+                PRINT EMPNO,NAME, SALARY, XWITHOLDING.
+
+
+              In the second example, we go out to  a  user  routine
+              twice  to  get some trigonometric functions so we can
+              calculate, from the height of  the  building  and  an
+              angle  from  the  ground, the distance to the base of
+              the building (XLEVEL) and how long a rope (XSLANT) it
+              would take to reach the top of the building.  In each
+              case, the answer is returned in  a  numeric  variable
+              which we then use in a calculation.
+
+
+                HEADING 'DERIVED DISTANCES'.
+                TITLE XLEVEL = 'LEVEL//DISTANCE'.
+                TITLE XSLANT = 'SLANT//RANGE'.
+                OPEN BUILDING FILE.
+                CALL 3 ANGLE =XTANGENT.
+                COMPUTE XLEVEL = HEIGHT / XTANGENT.
+                CALL 1 ANGLE =XSINE.
+                COMPUTE XSLANT = HEIGHT / XSINE.
+                PRINT ANGLE, HEIGHT, XLEVEL, XSLANT.
+                                                       

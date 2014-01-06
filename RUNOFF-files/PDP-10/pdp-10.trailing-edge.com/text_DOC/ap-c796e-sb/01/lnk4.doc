@@ -1,0 +1,1017 @@
+
+
+
+LINK.DOC -- Changes from V3A(560) to V4(765)
+March 1978
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1976,1978 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+LNK4.DOC                                                        Page 2
+
+
+LINK.DOC -- Changes from V3A(560) to V4(765)
+March 1978
+
+
+
+1.0  SUMMARY
+
+LINK is the linking  loader  for  the  DECsystem-10.   OVRLAY  is  the
+overlay handler for the DECsystem-10.
+
+LINK and OVRLAY both run under TOPS-10 Release 6.03.
+
+LINK and OVRLAY are documented in the DECsystem-10 User's Guide and in
+the DECsystem-10 LINK User's Guide.
+
+
+
+2.0  EXTERNAL CHANGES
+
+     1.  LINK generates an .EXE file with /SAVE and /SSAVE switches.
+
+         FORMAT     Filespec/SAVE or filespec/SSAVE.
+
+         FUNCTION   Directs LINK to create an .EXE file with the given
+                    filespec.   /SAVE  produces  a  non-sharable  high
+                    segment  and  /SSAVE  produces  a  sharable   high
+                    segment for a two segment program.
+
+         EXAMPLES   *MYPROG
+                    *DSKZ:GOODIE/SAVE/GO
+
+                    Directs LINK to save the linked version of  MYPROG
+                    as GOODIE.EXE on DSKZ:.
+
+     2.  Supports PSECT.
+
+         a.  /SET
+
+         FORMAT     /SET:name:address.
+
+                    Name = .HIGH., .LOW., or a PSECT name.
+
+                    Address = an octal address, or a defined symbol.
+
+         FUNCTION   Sets the loading position of a PSECT, or sets  the
+                    .HIGH.  or .LOW.  relocation counter.
+
+                    For setting the loading position of a PSECT,  name
+                    is the name of the PSECT, and address is a virtual
+                    memory address.  The PSECT will begin at the given
+                    address.
+
+                    For setting  relocation  counters,  name  gives  a
+                    relocation counter (.HIGH.  or .LOW.), and address
+                    gives the virtual memory address for the counter.
+LNK4.DOC                                                        Page 3
+
+
+         EXAMPLES   */SET:A:200000
+                    *
+
+                    Specifies that the PSECT named A is to  be  loaded
+                    with its origin at address 200000.
+
+                    */SET:.HIGH.:400000
+                    *
+
+                    Sets the high segment  relocation  counter  .HIGH.
+                    to the address 400000.
+
+         b.  /SYMSEG
+
+         FORMAT     /SYMSEG:PSECT:name
+
+         FUNCTION   Places the symbol table at the end of named  PSECT
+                    so   that   it  will  not  be  overwritten  during
+                    execution or debugging.
+
+         EXAMPLES   */SYMSEG:PSECT:A
+                    *
+
+                    Places the symbol table at the end of PSECT A.
+
+         c.  /COUNTER
+
+         FORMAT     /COUNTER
+
+         FUNCTION   Outputs to the  terminal  all  of  the  relocation
+                    counter (PSECTs) values.
+
+         d.  The LINK  MAP  files  will  contain  beginnning  and  end
+             addresses for all the PSECTs for each module.
+
+         e.  Three new PSECT .Rel blocks are added.  The  descriptions
+             of  these  block  types supersede the descriptions in the
+             LINK manual.
+
+             Block type 24 -- PSECT header block
+
+                    ---------------------------
+                    !    24    !           3  !
+                    ---------------------------
+                    !           0             !
+                    ---------------------------
+                    !     PSECT   NAME        !
+                    ---------------------------
+                    ! ATTRIBUTE ! PSECT INDEX !
+                    ---------------------------
+                    !     PSECT   ORIGIN      !
+                    ---------------------------
+
+             Block type 23 -- PSECT end block
+LNK4.DOC                                                        Page 4
+
+
+                    ---------------------------
+                    !    23     !           2 !
+                    ---------------------------
+                    !     Relocation word     !
+                    ---------------------------
+                    !       PSECT  NAME       !
+                    ---------------------------
+                    !       PSECT  BREAK      !
+                    ---------------------------
+
+             Block type 22 -- Change PSECT block
+
+                    ---------------------------
+                    !         22 !          2 !
+                    ---------------------------
+                    !            0            !
+                    ---------------------------
+                    !     PSECT     INDEX     !
+                    ---------------------------
+
+             or
+
+                    ---------------------------
+                    !        22  !          2 !
+                    ---------------------------
+                    !            0            !
+                    ---------------------------
+                    !     PSECT     NAME      !
+                    ---------------------------
+                    !     PSECT    ORIGIN     !
+                    ---------------------------
+
+     3.  New Error Messages:
+
+         ?LNKIPX    Invalid PSECT index.
+
+         ?LNKISS    Insufficient space for symbol  table  after  PSECT
+                    XXXXXX.
+
+         ?LNKNPS    Non-existent PSECT specified.
+
+         %LNKPOV    PSECT overlap occurred:  n to m  PSECTS:   XXXXXX,
+                    YYYYYY.
+
+         ?LNKRPN    Relocatable PSECT not  implimented -- /SET  Switch
+                    required for PSECT:  XXXXXX.
+LNK4.DOC                                                        Page 5
+
+
+     4.  Performance Improvements
+
+         a.  Prevent unnecessary clearing of vast amount of core after
+             core shuffling.
+
+         b.  Prevent PA1050 from coming back into core after LINK gets
+             rid of it.
+
+         c.  Better  paging  and  core  management  scheme  for  large
+             PSECTed programs.
+
+         d.  Prevent unnecessary disk overflow of programs with  large
+             ( >128k ) core allocation.
+
+         e.  LINK uses PAGE.  UUO whenever possible in  shuffling  and
+             zeroing spaces for performance improvement.
+
+     5.  Overflow files now have standard protection.
+
+     6.  One edit (37) was added to OVRLAY.MAC.   This  edit  prevents
+         output of a error message when the .OVL and .EXE file version
+         inconsistancy check finds one to have a 0 version number.
+
+     7.  LINK will no longer automatically load local symbols into  an
+         overlaid program.  Locals will be loaded if /DEBUG, /TEST, or
+         /SYMSEG are seen.
+
+     8.  When loading FORTRAN or COBOL programs which are larger  than
+         256  pages, LINK will now automatically load the OTS into the
+         low segment.  Previous  versions  of  LINK  failed  with  the
+         LNKHSL     message    unless    users    explicitely    typed
+         /OTS:LOW/SEGMENT:LOW.
+
+     9.  Better long error messages in LNKERR (same ones as in the new
+         LINK manual).
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+PSECTed programs with gaps (non-existent pages) in their  core  images
+must generate an EXE file.  The RUN or GET of the EXE file will set up
+the correct core image.
+LNK4.DOC                                                        Page 6
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+The LINK source files as distributed assemble and  load  into  several
+sharable  segments,  which  run  without change on KA10, KI10, or KL10
+processors.  The overlay facility is a  separate,  unbundled  product.
+It  is  distributed  only  to those installations who have completed a
+license agreement for it.
+
+Only .EXE forms of  LINK  are  being  distributed  for  this  release.
+Installations  without  .EXE  file support must reassemble LNKXIT with
+FTEXE==0 and reload LINK.
+
+To install LINK version 4 on your system, copy the files LINK.EXE  and
+LNK???.EXE from the distribution tape to SYS:.  Note that all segments
+must be on the same disk structure, because LINK  uses  physical  only
+GETSEGs.   If  your  installation  is  licensed  to  use overlays, the
+additional file OVRLAY.REL must be placed on SYS:  in order to use the
+overlay facility.
+
+The batch control file LINK.CTL contains all necessary instructions to
+assemble  and load LINK, and to produce listings and storage maps.  It
+will normally have to  be  modified  slightly  to  correspond  to  the
+installation configuration.
+
+The file  DLINK.REL  makes  a  single  segment  version  suitable  for
+debugging.   This  version  has  not received extensive testing and is
+therefore not supported.
+
+
+
+5.0  INTERNAL CHANGES
+
+
+5.1  Changes To LINK
+
+All changes made to LINK version  3A(560)  to  generate  LINK  version
+4(765) are summarized below.
+
+
+;START OF VERSION 4
+;561      DCE     19-Jul-76      SPR 20359
+;         Fix up returns from F10 subroutines when MIXFOR set
+;         Routine: LNKLOD
+
+;562      JNG     20-Jul-76      QAR CSM
+;         Prevent ?ILL MEM REF when searching an indexed library if an
+;         entry point is encountered that is already partially defined.
+;         Routines: LNKOLD
+
+;563      JNG     20-Jul-76      QAR U. Chicago
+;         Prevent erroneous ?LNKIMM message when a module is indeed
+;         loaded, but not as a result of a /INCLUDE switch (user loaded
+;         it directly, or it contained entry point(s) which satisfied
+;         some undefined globals in /SEARCH mode).
+;         Routines: LNKOLD
+LNK4.DOC                                                        Page 7
+
+
+
+;564      JNG     20-Jul-76
+;         Make LINK assemble properly with MACRO 52.
+;         Routines: LNKERR, LNKLOG
+
+;565      DCE     21-Jul-76      SPR 20150
+;         Prevent LINK from doing bad things when loading
+;         block type 10 with the /ONLY:LOW switch set.
+;         ROUTINE: LNKOLD
+
+;566      JNG     21-Jul-76      QAR EVS
+;         Prevent incorrect symbol tables in user's core image and maps
+;         that indicate that modules end at zero when paging.
+;         Routines: LNKCOR
+
+;567      JNG     21-Jul-76      QAR SRM
+;         Prevent ?LNKISP message when a deferred global
+;         definition is seen for a symbol that is already defined.
+;         Routines: LNKOLD,LNKLOW
+
+;570      JNG     22-Jul-76      QAR EVS
+;         Prevent loss of local symbols in DDT symbol table when
+;         some undefined symbols are present and the LS area is paging.
+;         Routines: LNKXIT
+
+;571      JNG     19-Sep-76      QAR U. Ill.
+;         Prevent ?ILL MEM REF when one require file requires another.
+;         Routines: LNKOLD
+
+;572      JNG     20-Sep-76      QAR EVS
+;         Make sure LS addr in core before doing POLISH symbol fixup.
+;         Routines: LNKLOD,LNKOLD
+
+;573      JNG     21-Sep-76      QAR EG&G
+;         Prevent random USETO when ROOT of a relocatable overlay
+;         structure has no external symbols.
+;         Routines: LNKOV2
+
+;574      JNG     30-Sep-76      SPR 20115
+;         Load OTS into low seg if no high seg exists yet and low
+;         seg is larger than 128K (256P).
+;         Routines: LNKLOD
+
+;575      JNG     6-Oct-76       SPR 19781
+;         On /SAVE/EXECUTE, always specify extension of .LOW to
+;         the RUN UUO if a two-segment program so the monitor will
+;         ignore any .EXE file of the same name.
+;         Routines: LNKXIT
+
+;576      JNG     2-Dec-76
+;         Correct usage of PT.SGN & PT.OTH in INTTAB hash table.
+;         Routines: LNKOV2
+
+;577      JNG     6-Dec-76       SPR 21566
+;         Generate a fixup instead of HALTing when local block names
+LNK4.DOC                                                        Page 8
+
+
+;         are encountered and the LS area is paging to disk.
+;         Routines: LNKPAR,LNKOLD,LNKCOR
+
+;600      JNG     17-Dec-76
+;         Change LNKHST &LNKLOW to load with each segment rather than
+;         assembling with each file.  This saves much re-assembling when
+;         LNKHST is changed.  Also change to use REL:SCAN.REL.
+;         Routines: LNKHST,LNKPAR,LNKLOW,LNKEXO,LNKSCN,LNKINI,*.CCL
+
+;601      JNG     19-Dec-76      SPR 10-21427
+;         Print the correct version in the map if a /VERSION switch
+;         has been seen.
+;         Routines: LNKMAP
+
+;602      JNG     19-Dec-76      SPR 10-21535
+;         Ignore ASCII text in non-loaded library modules.
+;         Routines: LNKNEW
+
+;603      JNG     19-Dec-76
+;         Delete redundant assembly parameter PPDL, use LN.PPD
+;         everywhere.
+;         Routines: LNKPAR,LNKOLD
+
+;604      JNG     20-Dec-76      QAR LSS
+;         Handle device NUL: correctly in all cases.
+;         Routines: LNKCOR,LNKFIO,LNKINI,LNKMAP
+
+;605      JNG     21-Dec-76      QAR EJW
+;         Use OUTSTR's instead of OUTCHR's to TTY whenever possible.
+;         Routines: LNKLOD,LNKLOG,LNKOV1,LNKWLD
+
+;606      JNG     21-Dec-76
+;         Get the protection of .HGH and .XPN files right.
+;         Routines: LNKXIT
+
+;607      JNG     7-Jan-77       QAR PMH
+;         Make /HELP work on TOPS-20.
+;         Routines: LNKINI
+
+;610      JNG     15-Jan-77      SPR 10-21730
+;         Modify file spec defaulting routines to handle ersatz devices
+;         correctly (e.g. [1,2,3]/DEFAULT:INPUT, then REL:HELPER
+;         as an explicit file spec).
+;         Routines: LNKFIO,LNKWLD
+
+;611      DMN     21-Jan-77
+;         Add support for COBOL-74.
+;         Routines: LNKPAR,LNKMAP,LNKLOD,LNKERR
+
+;612      JNG     22-Jan-77      QAR JBS
+;         Fix various polish bugs when a symbol is defined via a
+;         polish string, esp. if it is then referenced in another.
+;         Routines: LNKOLD,LNKLOD
+
+;613      JNG     23-Jan-77      SPR 10-21868
+LNK4.DOC                                                        Page 9
+
+
+;         Load all user-defined default libraries before considering
+;         system default libraries so FOROTS will always go into the
+;         right segment.
+;         Routines: LNKLOD
+
+;614      JNG     23-Jan-77
+;         Re-search FORLIB if more FORTRAN code is seen in ALGLIB.
+;         Routines: LNKLOD.
+
+;615      JNG     23-Jan-77
+;         Never load blank file specs (broken by edit 610).
+;         Routines: LNKWLD
+
+;616      JNG     23-Jan-77      SPR 10-21881
+;         Give a better error message than HALT if RENAMEs fail
+;         in LNKXIT.
+;         Routines: LNKXIT
+
+;617      JNG     5-Feb-77
+;         Fix .REQUEST/.REQUIRE and /OVERLAY (broken by 610 and 615).
+;         Routines: LNKWLD
+
+;620      JNG     6-Feb-77
+;         When merging a corrected file spec, don't overwrite the old
+;         device unless a new device was specified.
+;         Routines: LNKWLD
+
+
+;621      MCHC    1-NOV-76
+;         /SAVE and /SSAVE switches generate an EXE file.
+;         /SAVE and /SSAVE no longer takes any argument.
+;         The code for generating .SHR/.HGH/.LOW is
+;         under conditional assembly FTEXE==0.
+
+;622      MCHC    21-JAN-77
+;         Don't do HJBSET if there is no high seg.
+;         LNKXIT
+
+;623      JNG     7-Feb-77       SPR 10-21908
+;         Don't blow up on two /PLOT switches
+;         Routines: LNKOV1
+
+;624      JNG     23-Feb-77      SPR 10-21900
+;         Add a long message for ?LNKKIA.
+;         Routines: LNKERR
+
+;625      JNG     24-Feb-77      SPR 10-21899
+;         Print an extra blank line in the log file after the ELN message.
+;         Routines: LNKPAR,LNKLOG,LNKOV1
+
+;626      JNG     25-Feb-77      SPR 10-21898
+;         Don't search bound globals when a partial definition is seen
+;         Routines: LNKOLD
+
+;627      JNG     27-Feb-77      SPR 10-21896
+LNK4.DOC                                                       Page 10
+
+
+;         Always type entire list of defining link numbers on %LNKARL
+;         message, even if list takes more than 5 character to type.
+;         Routines: LNKOV2
+
+;630      JNG     27-Feb-77      SPR 10-21895
+;         Don't forget INCLUDEd or EXCLUDEd files after asking
+;         the user to correct an incorrect file specification.
+;         Routines: LNKLOD
+
+;631      JNG     27-Feb-77      SPR 10-21894
+;         Print the correct file spec in the LNKEOV message.
+;         Routines: LNKOV1
+
+;632      JNG     28-Feb-77
+;         Fix $LOCATION to always work, and add $FIXUP.
+;         Routines: LNKCOR,LNKLOD,LNKOLD,LNKOV1
+
+;633      JNG     14-Mar-77
+;         Don't point any fixups at a Polish string until we're sure
+;         we want the Polish (might be /ONLY, non-loaded local, etc.)
+;         Routines: LNKOLD
+
+;634      JNG     7-Apr-77       SPR 10-22464
+;         Never delete the user's input file on a fatal error, even
+;         if its extension is .TMP.
+;         Routines: LNKLOG
+
+;635      JNG     10-Apr-77      SPR 10-22351
+;         Handle too many %LNKARL messages gracefully.  This edit
+;         adds the /ARSIZE switch and the %LNKTMA and ?LNKABT
+;         messages.
+;         Routines: LNKPAR,LNKLOW,LNKINI,LNKOV1,LNKOV2,LNKSUB,LNKERR
+
+;636      JNG     17-Apr-77
+;         Make TTYIT preserve T1, avoid ^H's to the TTY.
+;         Routines: LNKINI
+
+;637      JNG     17-Apr-77
+;         Always give batch jobs the continuation error text on fatal
+;         errors, since there is no user to type "continue".
+;         Routines: LNKLOG
+
+;640      JNG     17-Apr-77
+;         Avoid further disk overflow in LNKMAP if possible.
+;         Routines: LNKMAP,LNKCOR
+
+;641      MCHC    10-FEB-77
+;         Always do HC.OUT of what's in core to ensure updated vestigial 
+;         JOBDAT before generating an EXE file.
+;         LNKXIT
+
+;642      MCHC    11-FEB-77
+;         Uses EXE file extension for the disk file generated as result of
+;         not having enough core (in JBNC).
+;         LNKXIT
+LNK4.DOC                                                       Page 11
+
+
+
+;643      MCHC    15-FEB-77
+;         Fix bug with switch settings of P4, used to indicated an
+;         EXE directory entry whould be output in XCMPRL routine.
+
+;644      MCHC    15-FEB-77
+;         Don't do JSYS 147(RESET) if EXIT rather than START is requested.
+;         This prevent PA1050 to come back into core.
+;         LNKXIT (TOPS20==1)
+
+;645      MCHC    10-MAR-77
+;         While expanding LC to accomodate the symbol table at end
+;         and there is no more core (error return from LNKCOR) and no paging yet
+;         in LSREQ, page out to disk for the first time.
+;         LNKXIT.
+
+;646      MCHC    10-MAR-77
+;         Dont touch a high seg page after the high seg is removed in %LOW
+;         LNKXIT
+
+;647      MCHC    26-Apr-77
+;         Don't clear unneeded memory in LNKXIT (better VM performance)
+;         Routines: LNKXIT
+
+;650      JNG     28-Apr-77
+;         Use VM on TOPS-10 if available under FTVM.
+;         Routines: LNKPAR,LNKLOW,LNKINI,LNKCOR,LNKOLD,LNKLOG,LNKMAP,
+;                   LNKERR,LNKOV1,LNKOV2,LNKXIT,LNKWLD
+
+;651      JNG     2-May-77       SPR 10-22609
+;         Put the overlay file where the user specifies.
+;         Routines: LNKOV1
+
+;652      JNG     13-Jun-77      SPR 10-22456
+;         Avoid bad .SAV file when paging to disk.  Much of user's
+;         program will be overwritten with some word from the program.
+;         Routines: LNKXIT
+
+;653      JNG     13-Jun-77      SPR 10-22957
+;         Fix /SYSLIB with an argument.  Broken by edit 457.
+;         Routines: LNKWLD
+
+;654      JNG     15-Jun-77      SPR 10-22528
+;         Don't lose common block names from local symbol table.
+;         Routines: LNKLOD,LNKOLD
+
+;655      JNG/JLd 24-Jun-77      SPR 10-23152
+;         Don't print an erroneous module name in the map when the start
+;         address is specified with a switch.
+;         Routines: LNKWLD
+
+;656      JNG     11-Jul-77      QAR JMF
+;         Don't try to supercede an old output file if we find it
+;         on the user's library.
+;         Routines: LNKFIO
+LNK4.DOC                                                       Page 12
+
+
+
+;657      JNG     12-Jul-77      QAR JMF
+;         Don't blow up while trying to delete temp files on a fatal
+;         error if IO.EMG area doesn't exist.
+;         Routines: LNKLOG
+
+;660      JNG     12-Jul-77      QAR DMN
+;         Clear all .LINK storage at the end of each overlay.
+;         Routines: LNKOV1
+
+;661      JNG     13-Jul-77      QAR BLISS-36
+;         Make the %LNKMDS message only a warning level (L%W).
+;         Routines: LNKLOD,LNKERR
+
+;662      JNG     14-Jul-77      QAR DZN
+;         Update NAMPTR in T.776 so block-structured symbol
+;         files will work.
+;         Routines: LNKOLD
+
+;663      JNG     30-Sep-77      SPR 10-24037
+;         Save GS.FR over LNKCOR call in LNK999.
+;         Routines: LNK999
+
+;664      JNG     6-Oct-77       QAR Gene Spadi
+;         Don't destroy last word of bound globals on /NODE:0.
+;         Routines: LNKOV1
+
+;665      JNG     7-Oct-77
+;         Fix core management bug with overlays. Broken by edit 650.
+;         Routines: LNKOV1
+
+;666      JNG     24-Oct-77
+;         Fix edits 650 and 665, this time for sure.
+;         Routines: LNKOV1
+
+;667      JNG     25-Oct-77
+;         Call correct paging routine to move window way up.
+;         Routines: LNKLOD
+
+;670      JNG     25-Oct-77
+;         Don't overwrite DY.LNK in core shuffler.
+;         Routines: LNKCOR
+
+;671      JNG     25-Oct-77      SPR 10-24076
+;         Don't leave a bad relocation table pointer lying around
+;         if an overlay has no relocation table or "other" relocation
+;         table, but the previous overlay did.
+;         Routines: LNKOV1
+
+;672      JNG     25-Oct-77      QAR JLd
+;         Handle PPN's in request/require blocks correctly.
+;         Routines: LNKLOD
+
+;673      JNG     25-Feb-78
+;         Update all of LINK's error messages to reflect the latest
+LNK4.DOC                                                       Page 13
+
+
+;         LINK manual.  The FON, ILI, and LIT messages have been
+;         replaced by the MSR, IRB, and RBS messages.  All of the
+;         long messages in LNKERR have been replaced by the
+;         explanation of the error from appendix B of the LINK manual.
+;         Routines: LNKERR,LNKOLD,LNKLOD
+
+;674      JNG     26-Feb-78
+;         GETTAB the full path that LINK was run from so we can
+;         GETSEG our other high segments, even if we were run
+;         from an SFD.  Requires TOPS-10 6.04 or later.
+;         Routines: LNKPAR,LNKLOW,LNKINI
+
+;675      (Withdrawn)
+
+;676      JNG     26-Feb-78
+;         Move the POPLP routine from LNKLOW to LNKINI.
+;         Routines: LNKLOW, LNKINI, LNKCOR
+
+;677      JNG     27-Feb-78
+;         On TOPS-20, don't load symbols by default if loading
+;         overlays, since they cause much overhead at runtime.
+;         They will still be loaded on /SYMSEG or /DEBUG or /TEST.
+;         Routines: LNKINI,LNKLOD,LNKOV1,LNKOV2,LNKWLD
+
+;700      MCHC    6-MAY-77
+;         Put in PSECT index check in polish block handling.
+;         LNKOLD
+
+;701      MCHC    26-May-77
+;         Check for library search processing in block type 100.
+;         LNKOLD
+
+;702      MCHC    26-May-77
+;         Save AC R on stack before a PUSHJ @ in Type 776 processing.
+;         LNKOLD
+
+;703      MCHC    26-May-77
+;         Add CBL79, BLISS36, and BASIC-2 to list of compiler types.
+
+;704      MCHC    5-JUL-77
+;         Don't write out EXE-dir for non-existant pages.
+;         LNKLOD, LNKXIT
+
+;705      MCHC    6-JUL-77
+;         Wait for the file to be loaded before doing /SYMSEG.
+;         LNKWLD
+
+;706      MCHC    26-JUL-77
+;         Add RC.NTB which contains a pointer to relocation tables that
+;         are ordered by the order seen by LINK.  This is the permanent
+;         order that will be kept throughout the entire load.
+;         Any delayed fixups containing PSECT index must be converted
+;         to the permanent index number by this table.
+;         LNKLOW, LNKINI, LNKWLD, LNKOLD
+
+LNK4.DOC                                                       Page 14
+
+
+;707      MCHC    2-AUG-77
+;         Keep global fixup chains separate if the first chain doesn't
+;         come before the new chain.
+;         LNKOLD
+
+;710      MCHC    2-AUG-77
+;         Move hiseg to begin at 540000.
+;         LNKPAR
+
+;711      MCHC    8-AUG-77
+;         Fix bug in MAP when only 1 PSECT in a module.
+;         LNKOLD, LNKMAP
+
+;712      MCHC    8-AUG-77
+;         Add a check for PSECT index when a global is defined and
+;         stored fixups are being checked.
+;         LNKLOD
+
+;713      MCHC    12-AUG-77
+;         Fix bug with a sparse EXE-directory.
+;         LNKXIT
+
+;714      MCHC    16-AUG-77
+;         Add PSECT-name as a global symbol having
+;         origin as its value.
+;         LNKWLD
+
+;715      MCHC    1-SEP-77
+;         Modify SYMSEG to to take PSECT name.
+;         LNKPAR, LNKLOW, LNKWLD, LNKXIT
+
+;716      MCHC    9-SEP-77
+;         Performance improvements for loading large PSECTed programs:
+;         1.      When moving the window down, write out what we have
+;                 and read in only as much as LN.WD.
+;         2.      When moving the window up, and the addr is already
+;                 out on disk, don't bother to expand, just write
+;                 out what we have and read in as much as LN.WD.
+;         LNKLOD
+
+;717      MCHC    19-SEP-77
+;         Setup correct LINK addr to give back when reading from disk
+;         is less than current core size.
+;         LNKLOD
+
+;720      MCHC    19-SEP-77
+;         Allow moving up of a block larger than 400000 by separating
+;         it into two steps.
+;         Also do the reverse BLT(POP loop) in memory rather than in the
+;         ACs on -20.
+;         LNKLOW, LNKCOR
+
+;721      MCHC    19-SEP-77
+;         Change /SYMSEG to /SYMSEG:PSECT:psectname for taking
+;         PSECTNAME.
+LNK4.DOC                                                       Page 15
+
+
+;         LNKPAR, LNKWLD
+
+;722      MCHC    20-SEP-77
+;         Implement PSECT attributes.
+;         LNKPAR, LNKOLD, LNKXIT
+
+;723      MCHC    20-SEP-77
+;         Add /UPTO:octalnumber to allow user specification of
+;         symbol table upper limit.
+;         If not specified limit default to next PSECT origin.
+;         If limit > next-PSECT-origin, overlaying will occur.
+;         LNKPAR, LNKWLD, LNKXIT
+
+;724      MCHC    23-SEP-77
+;         Check for symbol table range in INGAP routine.
+;         LNKXIT
+
+;725      MCHC    26-SEP-77
+;         Fix bug with incrementing process page when writing out
+;         overlay symbol table into EXE file.
+;         LNKXIT
+
+;726      MCHC    20-OCT-77
+;         Fix bug in INGAP routine in LNKXIT.
+
+;727      MCHC    3-NOV-77
+;         Give "Insufficient space" error message when symbol table
+;         has to be truncated to avoid overlay into high segment.
+;         LNKINI, LNKWLD,LNKXIT
+
+;730      MCHC    10-NOV-77
+;         Allow proper loading of /DEBUG:XXX with /LINK.
+;         LNKLOW, LNKWLD, LNKOV1
+
+
+;731      MCHC    17-NOV-77      QAR 10-02191(Stevens)
+;         Replace SEARCH C with SEARCH MACTEN, UUOSYM.
+;         Use symbols .SVXXX from UUOSYM.
+;         LNKPAR, LNKXIT
+
+
+;732      MCHC    29-NOV-77
+;         Fix bugs related to loading code into the last page 777.
+;         LNKPAR, LNKLOW, LNKINI, LNKOLD, LNKXIT
+
+
+;733      MCHC    30-NOV-77
+;         Fix bug with allocated high seg pages generating bad EXE format.
+;         LNKXIT
+
+;734      MCHC    12-DEC-77      Stevens(QAR 10-02197)
+;         Add KL in CPUs.  Do mix code check for KL & KA, and KL & KI.
+;         LNKPAR, LNKLOD
+
+;735      MCHC    12-DEC-77      Stevens(QAR 10-02198)
+LNK4.DOC                                                       Page 16
+
+
+;         Remove REPEAT 0 around polish operators:
+;                 MAX(20), MIM(21), EQ(22), LNK(23), DEF(24)
+;         and polish store operators:  MOVEM(-7)
+;         LNKOLD
+
+;736      MCHC    12-DEC-77      Stevens(QAR 10-02203)
+;         Change overflow file protection to standard protection.
+;         LNKCOR
+
+
+;737      MCHC    15-DEC-77
+;         Clear link list pointer after it's given back
+;         LNKLOD
+
+
+;740      PAH     17-DEC-77      Worcester Tech(QAR 10-02183)
+;         Remove /VERSION switch handling.  Add handling of
+;         F.VER SCAN block field to DVOUT. and DVINP.
+;         LNKPAR, LNKSCN, LNKWLD, LNKFIO
+
+;741      MCHC    29-DEC-77      
+;         After a new segment is read in core from disk, and fixup chain
+;         is traversed for possible fixups in to the new segment,
+;         compare the fixup address with the window range.
+;         LNKLOD
+
+;742      MCHC    30-DEC-77
+;         Don't force dump of one page unless first code is over 128k.
+;         LNKOLD, LNKXIT
+
+;743      MCHC    10-JAN-78      EG&G(QAR 10-02217)
+;         When calculating offset relative to a block, use symbol .DBM
+;         LNKOV2
+
+;744      MCHC    10-JAN-78      Worcester Tech(QAR 10-02244)
+;         Fix bug with EXE-file size calculation for LINK to
+;         pre-allocate enough blocks.
+;         LNKXIT
+
+
+;745      MCHC    11-JAN-78
+;         Set default symbol table limit to 777777. If .HIGH. encountered,
+;         the defualt symbol table limit is adjusted to .FRESP+1 words
+;         before high segment origin.
+;         LNKPAR, LNKOLD
+
+;746      MCHC    11-JAN-78
+;         Add a CHKBND routine to check for PSECT overlap right before
+;         going to LNKXIT.
+;         LNKLOD
+
+
+;747      MCHC    18-JAN-78
+;         After relocation table is sorted, make sure LOWLOC is updated,
+;         especially if there was no code in .LOW. but space allocated,
+LNK4.DOC                                                       Page 17
+
+
+;         before going to LNKXIT.
+;         LNKLOD
+
+;750      MCHC    24-JAN-78
+;         Reserve 2 page windows to allow code to come in that spans
+;         the page boundary.
+;         LNKPAR, LNKINI, LNKCOR
+
+;751      MCHC    25-JAN-78
+;         Fix bug with calculation of space to give back in PG.SD.
+;         LNKLOD
+
+;752      MCHC    26-JAN-78
+;         Add code in CPUTST routine to convert a CPU-code from Block 6
+;         into correct dispatch table offset for inconsistency check
+;         routines.  Also, remove part of edit 734, and make KL check
+;         same as KI.
+;         LNKLOD
+
+;753      MCHC    20-FEB-78
+;         Fix bug in routine SETRCY--save current RC slot, and move to new
+;         place.
+;         LNKOLD
+
+;754      MCHC    20-FEB-78
+;         When LC(or HC) needs to be paged for the first time for adding
+;         symbol table at end, prevent overflow of LS area.
+;         LNKXIT
+
+;755      MCHC    22-FEB-78
+;         Add a table TAB.ZE and some code to allow zeroing of free space
+;         (the space between TAB.AB and TAB.UB) for only the areas needed,
+;         meaning either the AB or the UB value was changed.  This prevents
+;         unnecessary BLTs and improves loading performance for medium
+;         to large programs.
+;         LNKLOW, LNKCOR
+
+;756      MCHC    22-FEB-78
+;         Fix bug in PSECT attribute bit definitions.
+;         LNKPAR
+
+;757      MCHC    22-FEB-78
+;         Type out value of RC.HL(highest location) rather than RC.CV
+;         (current value) for overlayable PSECT when doing /COUNTER.
+;         Dont'clear RC.HL for overlayable PSECTs in Block 5 processing.
+;         LNKWLD, LNKOLD
+
+;760      MCHC    22-FEB-78
+;         Expand PSECT overlap checks to check each PSECT with all others.
+;         LNKXIT
+
+;761      MCHC    22-FEB-78
+;         Define a relocatable PSECT bit in PSECT attribute.  Give error
+;         if code is generated into PSECT of unknown origin(relocatable
+;         PSECT not implemented in this version).
+LNK4.DOC                                                       Page 18
+
+
+;         LNKPAR, LNKLOW, LNKWLD, LNKOLD
+
+;762      MCHC    25-FEB-78
+;         When paging occurs with high LOWLOC value(lowest code addr.),
+;         read in the right pages at the start of EXE file generation.
+;         LNKXIT
+
+;763      MCHC    28-FEB-78
+;         Add block 24 so that:
+;
+;         Block 22               SET PSECT block                      
+;                 Contains PSECT index(or PSECT name if block 24 not used).
+;                 Used to set the current relocation counters.
+;                 Interspersed in block 1s and block 2s.
+;         Block 23               PSECT end block
+;                 Contains PSECT name and break.
+;                 A set of block 23s appears at end of a load module.
+;                 Maybe used to order PSECTs, if block 24s are not used.
+;         Block 24               PSECT header block
+;                 Contains PSECT name, attributes, PSECT index  and origin.
+;                 A set of block 24s appears at the start of a load module.
+;                 Creates a relocation counter if needed for this PSECT.
+;                 Orders the PSECTs of a module.
+;         If block 24s are not used: Block 22 must supply the PSECT name, and
+;         block 23s are used for ordering.   A zero origin in block 22 is
+;         assumed to be a relocatable PSECT.  Thus, /SET switch is required
+;         to set origin.
+;         LNKWLD, LNKOLD
+
+;764      MCHC    28-FEB-78
+;         Update LOWLOC (the lowest location) in GETSST(get start of symbol
+;         table) routine in case symbol table is lower than code.
+;         LNKXIT
+
+;765      MCHC    28-FEB-78
+;         Release on both TOPS-10 and TOPS-20 as LINK version 4(765)
+;         Routines: All.
+
+
+
+6.0  SUGGESTIONS
+
+The following is  a  list  of  suggestions  accumulated  from  various
+sources.   The  appearance of a suggested change in this list does not
+imply any commitment or intent on the part of  DEC  to  implement  any
+such change.
+
+     1.  Change .JBHGH to be relocatable.
+
+     2.  LINK to search REL:  for library files if it  fails  to  find
+         them in SYS:.
+
+
+
+[End of LNK4.DOC]
+

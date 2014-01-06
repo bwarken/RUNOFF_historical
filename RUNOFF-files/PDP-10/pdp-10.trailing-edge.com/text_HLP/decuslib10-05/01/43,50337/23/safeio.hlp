@@ -1,0 +1,230 @@
+			SAFEIO
+			------
+
+SAFEIO is a SIMULA external class which can be used when
+writing the conversational parts of SIMULA programs.
+
+The SAFEIO system offers the following facilities in
+a single procedure call :
+
+1.	Issue a prompting question to the user.
+
+2.	Store the input in a simple variable.
+
+3.	Optionally accept default answers (equal to CR).
+
+4.	Check the syntax of the input.
+
+5.	Issue an appropriate message if the input is invalid.
+
+6.	Issue a informative message if the user responds with
+	anything starting with a questionmark '?'.
+
+7.	Allow the user to substitute tty input for disk file input.
+	This may be requested at any question.
+
+8.	Allow the user to save all accepted program input on a disk file.
+	This file may be used as an input file in a subsequent run.
+	Correspondence between saved and current question will
+	be checked (option by default).
+
+It is assumed that the user types in only one item into each
+input line.
+
+The format of a question to the user is:
+
+REQUEST("prompting question",default,***input(variable,validity),
+" error message if not valid",helpproc_expression);
+
+The parameter default is a text variable or text constant
+(or may be a call of a text procedure). There is a SAFEIO attribute
+NODEFAULT which can be used if default answers should be
+prohibited.
+
+The *** may be INT,REAL,LONGREAL,BOOL or TEXT.
+For the BOOLINPUT procedure there is only one argument though, the
+receiving variable.
+
+The validity is usually a boolean expression involving the
+variable but may also be a call of a boolean procedure
+if more complicated validity checking is necessary.
+If the SAFFEIO attribute CHECKVALIDITY is set to FALSE, no
+validity checking (i.e. no evaluation of the 2nd parameter to
+the ***input procedure) will occur, thus speeding up
+SAFEIO execution. Note, however that this will endanger the
+security of your program.
+
+
+The error message is printed if the validity becomes FALSE.
+The prompting question will then be repeated.
+
+The helpproc_expression which will be evaluated each time the
+user types in an answer beginning with a questionmark '?'.
+
+The SAFEIO boolean procedure HELP (with one text parameter =
+the help text) may be used for displaying a text on the user's TTY.
+
+If no special information should be issued the SAFEIO procedure
+NOHELP may be used. (The message - "There is no help in this case."
+will be issued.)
+
+Some examples:
+
+BEGIN
+    EXTERNAL REF (Infile) PROCEDURE findinfile;
+    EXTERNAL REF (Outfile) PROCEDURE findoutfile;
+    EXTERNAL TEXT PROCEDURE conc,upcase,frontstrip,rest,checkextension;
+    EXTERNAL CHARACTER PROCEDURE fetchar,findtrigger;
+    EXTERNAL LONG REAL PROCEDURE scanreal;
+    EXTERNAL INTEGER PROCEDURE checkreal,checkint,scanint,ilog;
+    EXTERNAL BOOLEAN PROCEDURE menu;
+    EXTERNAL CLASS safeio;
+
+    safeio(..<name of recording file saving the input or "">,
+	<"English" or "Swedish">..)
+	! Use "English" if english texts are wanted.
+	  Use "Swedish" if swedish texts are wanted. ;
+
+    BEGIN
+	INTEGER i;   REAL x;   LONG REAL y;   TEXT t;   BOOLEAN b;
+	TEXT ARRAY table[1:4];
+
+	request("Enter integer:","14",intinput(i,irange(i,1,20)),
+	   outofirange(1,20),help("...info issued at '?'.."));
+
+	! The default value is 14. Only positive numbers are allowed.;
+	! Note the use of the procedures IRANGE(i,low,high) and
+	! OUTOFIRANGE(i,low,high). See also Summary Chapter 5
+	! in SAFEIO.MAN.;
+
+	request("Enter real item:",nodefault,realinput(x,TRUE),"",nohelp);
+
+	! Default answer not allowed. Any legal real item is accepted
+	  since validity is TRUE. No help information available.;
+
+	request("Enter long real value:","E1",longrealinput(y,y NE 0),
+	   "? Must not be zero.",nohelp);
+
+	! Default value is 10 = E1;
+
+	request("Enter yes or no:",nodefault,boolinput(b),"",nohelp);
+
+	! Note that procedure boolinput has just one parameter.;
+
+	table[1]:- Copy("START");
+	table[2]:- Copy("END");
+	table[3]:- Copy("GO");
+	table[4]:- Copy("GOTO");
+
+	request("Enter command:",nodefault,textinput(t,menu(t,i,table,4)),
+	   commandmessage(i),commandhelp(table,4));
+
+	! Note that the table must contain no lower case letters.
+	  The user may use an abbreviated form when no ambiguity exists.
+	  (Exact matches are always considered correct.)
+	  The variable i will return the table index.
+	  The length of the table (4) must also be supplied.
+	  Note that the table must contain upper case letters only.
+	  The procedure MENU resides in LIBSIM and checks
+	  for correspondence between the T and the table.
+	  The text procedure commandmessage will tell the user
+	  if his (illegal) command was either Unknown or Ambigious.;
+
+	! A simple text request: ;
+
+	request("Enter A or B:","A",
+	   textinput(t,t = "A" OR t = "B" OR t = "a" OR t = "b"),
+	   "? Answer A or B.",nohelp);
+
+	! The user may define his own boolean procedure for input
+	  validation if more complicated tests are necessary.;
+
+	GO TO start;	! Will restart from SAFEIO prefix beginning;
+			! START is a SAFEIO label located just
+			! in front of INNER.;
+
+	! If label EOF exists, End-of-file on SYSIN (=^Z)
+	! will jump to this label. If not existing in the
+	! user program, the safeio block will terminate
+	! through an internal safeio jump.
+	! NOTE! Once Sysin.Endfile is TRUE, there can be no
+	! more input on Sysin!. This mechanism will only work
+	! for safeio prefixed blocks (i.e. NOT using NEW SAFEI(O)).;
+
+    END of safeio block;
+
+END of program;
+
+
+
+At any question the user may input one of the SAFEIO commands:
+
+
+?         gives help information.
+
+!         FOLLOWED by:
+
+*         changes the switch: Display-prompting-question.
+/         changes the switch: Display-default-value.
+=         changes the switch: Display-input (+ the *- and /-switches).
+[         changes the switch: Trace (file messages).
++         closes and reopens current recording file in append mode.
+;         treats line as a comment.
+%         calls special procedure.
+&         followed by input overrides validity test.
+<FIL.EXT  opens new input file in waiting mode. Default extension =.saf
+_         continues input in nowait mode.
+<         closes current input file.
+^         closes all active input files.
+_FIL.EXT  opens new input file in nowait mode. Default extension =.saf
+>FIL.EXT  opens new recording file. Default extension =.saf
+>         closes current recording file.
+?         prints this text.
+
+Anything else following ! is just displaying current question.
+
+The != command will always change the values of the switches
+Display-prompting-question and Display-default-value to the same value
+as the switch Display-input.
+
+Note that the !& facility may be switched off by calling
+the procedure NOOVERRIDE.
+
+The !% facility gives the programmer the possibility to declare his
+own procedure SPECIAL (with exactly that name and without parameters)
+which will be called when the user responds with !%. It is
+possible to interpret the information following the !% in the
+procedure, thereby expanding the power of the SAFEIO - ! commands.
+See SAFEIO.MAN for further information on SAFEIO attributes.
+
+If you are using SAFEIO by INSPECT it is no use specifying any
+initial recording file, since it will be immediately closed. This
+is because the INNER in SAFEIO will be passed. In order to
+close all possible open SAFEIO files, end the connection block with
+a call of the SAFEIO procedure closefiles. I.e. :
+
+BEGIN   EXTERNAL declarations.....;
+
+    ....
+    INSPECT NEW SAFEIO("","") DO	! Default language is english ;
+
+    BEGIN .... using safeio ......
+	closefiles;
+    END;
+
+END program
+
+By substituting the class SAFEIO by CLASS SAFEI (with the language
+parameter only) the facilities numbered 1 to 6 will still be present
+while the file handling facilities will absent. The class SAFEI
+will require about 2/5 of the memory of SAFEIO.
+
+By substituting to SAFMIN still more SAFEIO facilities
+are excluded. See SAFMIN.HLP. Size of SAFMIN is about 1/2 of SAFEI.
+
+The three classes SIMMIN, SIMEI and SIMEIO are identical with SAFMIN,
+SAFEI and SAFEIO respectively in all respects but prefixed with
+SIMULATION.
+
+
+	[End of SAFEIO.HLP]

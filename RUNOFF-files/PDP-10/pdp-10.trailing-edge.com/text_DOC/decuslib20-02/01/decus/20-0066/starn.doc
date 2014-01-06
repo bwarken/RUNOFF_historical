@@ -1,0 +1,1794 @@
+TITLE:		The Home Handyman's Guide to *1
+
+AUTHOR(S):	Richard A. Stone
+
+DEPARTMENT:	18PR02314
+LOCATION:	Western Electric, ERC, Princeton, N.J.
+LOCAL REPORT NUBMER:	CC 5409
+DATE:		May 3, 1973
+VERSION:	6.0
+
+ABSTRACT:	This   manual   is   designed   to  be  a  guide  to  a
+	do-it-yourself *1 compiler for a given computer. It is  assumed
+	that the reader is familiar with *1 and SNOBOL 4.
+
+
+
+
+REFERENCES:	CC4868, CC5269
+
+INDEXING TERMS:	Computers, List Processing, Compilers, *1, SNOBOL
+		    THE HOME HANDYMAN'S GUIDE TO *1
+		    === ==== ========== ===== == ==
+
+
+This manual is intended to allow any competent SNOBOL IV programmer to
+build his own *1 for any given computer.
+
+The manual is divided into the following sections:
+
+	0-METHODOLOGY: How to use this manual
+
+	I-USER FUNCTIONS: Functions you must define
+
+	II-USER OP FUNCTIONS: Functions you will have to define to
+			handle operations
+
+	III-USER CONVENIENCE FUNCTIONS: Functions that have been found
+			convenient on various machines
+
+	IV-VARIABLES: Variables you will have to use
+
+	V-SYSTEM FUNCTION: Functions which you have to use
+
+	VI-OPTIMIZATION: The optional efforts to turn out better code.
+
+	VII-REENTERABILITY: The optional turning out of reenterable
+			code.
+
+	-APPENDIXES
+                       TABLE OF CONTENTS
+                       -----------------
+
+
+PAGE	ROUTINE		SECTION
+----	-------		-------
+1			METHODOLOGY
+3	 INIT
+4	 BEGIN
+5	 FINISH
+6	 COMMENT
+7	 RADIX
+8	 STATSRT
+9	 CALLSRT
+10	 GENCALL
+11	 GENLOG
+12	 ASS
+13	 GENLOAD
+14	 GETREG
+15	 TABSTM
+16	 CKREGD
+17			USER OP FUNCTIONS
+17	O.movei
+21			USER CONVENIENCE FUNCTIONS
+22	 GENONE
+23	 GENTWO
+24	 LOAD.
+25	 DO.OP
+26	 STORE.
+27	 GETROFF
+28	 ASSCK
+29	 SIDECK
+30	 POINT
+31			VARIABLES AND REGISTERS USED
+33			HANDY FUNCTIONS YOU CAN USE
+34	 PUT
+35	 GENLAB
+36	 FILLTAB
+37	 ERROR
+38	 SETTYPE
+39	 GETTYPE
+40	 CKTYPE
+41	 DEC2OCT
+42	 FLIP
+43	 GETLAB
+44	 DS
+45			OPTIMIZATION
+46	 PUTREG
+47	 OFFREG
+48	 CLRREG
+49	 OFFLOC
+
+			      *  *  *     1   
+			       * * *     11   
+			        ***     1 1   
+			      *******     1   
+			        ***       1   
+			       * * *      1   
+			      *  *  *   11111 
+
+
+
+			       SECTION 0
+			       ---------
+
+			      METHODOLOGY
+			      -----------
+
+STEP1:	Read the section on VARIABLES.
+
+STEP2:	Read through the SYSTEM FUNCTIONS to see what functions you can
+	use.
+
+STEP3:	Go through the section on USER FUNCTIONS, one function at a
+	time. For each function, copy the example for the computer that
+	is most similar to yours, substituting where appropriate.
+	Don't worry about optimization or reenterable code yet.
+
+STEP4:	Do the same for USER OP FUNCTIONS.
+
+STEP5:	Now do the same for user convenience functions. Don't forget to
+	define them in INIT.
+
+STEP6:	You should now have a complete version -- debug it!
+
+STEP7:	Now read the section of optimization, and try adding optimization.
+
+STEP8:	If you still have the energy, try reenterable code.
+
+
+
+NOTE: The Handyman always defines functions, so each section is left via
+	a return.
+
+			      *  *  *     1   
+			       * * *     11   
+			        ***     1 1   
+			      *******     1   
+			        ***       1   
+			       * * *      1   
+			      *  *  *   11111 
+
+
+
+			       SECTION I
+			       ---------
+
+			     USER FUNCTIONS
+			     ---- ---------
+
+The functions in this section must be defined by the Handyman.
+
+NAME: INIT
+
+USEAGE: Called at the start of a program to set system variables.
+
+DESCRIPTION:
+
+    -Set the following variables:
+
+	BSIZE		bits/byte
+	HSIZE		bits/half word
+	WSIZE		bits/word
+	ADDR.WORD	Difference in addresses between consecutive words
+	JUMPLOC		table, <symbolic op>=name of op
+	LOGOP		table, <symbolic logical op>=name of logical op
+ 	SC		special character used in variable names
+	VER		catenated version #, upped each change
+	R0		register to load the first operand
+	R1		Register to load the second operand
+	BASE.REG	Register used to optimize a base variable
+	REENT.REG	register used for reentrant
+
+    -Define any variables needed
+
+    -Define any functions needed
+
+    -Set or clear any switches for which you don't like the default.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+INIT	BSIZE = 8
+	HSIZE = 18
+	WSIZE = 36
+	HALF = 2 ** 18
+	ADDR.WORD = 1
+	JUMPLOC = FILLTAB( TABLE(14,5) ,
+.		'GOTO,GOTO"<-[,MOVEI"<-,MOVE"+,ADD"-,SUB"!,IOR"'
+.		'/&/,AND"&,AND"X!,XOR"'
+.		'/,IDIV"*,IMUL"MOD,MOD"<-<-,LSH"->->,LSHR"'
+.		'\,LCR"'
+.		)
+	LOGOP = FILLTAB( TABLE(11) ,
+.		'<=,LE"\>,LE">=,GE"\<,GE"<,L"\>=,L"'
+.		'>,G"\<=,G"=,E"\=,N"<>,A"'
+.		)
+	SC = '$'
+	VER = VER '5  STAR10'
+	MOVE = 'MOVE'
+	SW.REG =
+	SW.DEBUG = '+'
+	BASE.REG = '5'
+	R0 = '6' ; R1 = '7'
+	REENT.REG = '13'
+	DEFINE('DO.OP()')
+	DEFINE('GENONE(OP)')
+	DEFINE('GENONER(OP,R.ADDR)','GENONE')
+	DEFINE('GENTWO(OP)')
+	DEFINE('GENTWOI(OP)')
+	DEFINE('GETROFF(LAB)')
+	DEFINE('LOAD.R()')
+	DEFINE('LOAD.R2(R.ADDR,R.F,R1)','LOAD.R')
+	DEFINE('POINT(ENTRY,ADDR)')
+	DEFINE('SIDECK(ENTRY)')
+	DEFINE('STORE.L()')
+	DEFINE('STORE.L2(R0)','STORE.L')
+					:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+INIT	BSIZE = 8
+	WSIZE = 16
+	HSIZE = 9999
+	MAXSIZE = 2 ** 16 - 1
+	ADDR.WORD = 2
+	JUMPLOC = FILLTAB( TABLE(14,5) ,
+.		'GOTO,GOTO"<-[,MOVA"<-,MOV"+,ADD"-,SUB"!,BIS"'
+.		'/&/,BIC"&,BIC"X!,XOR"'
+.		'/,DIV"*,MUL"MOD,MOD"<-<-,ASL"->->,ASR"'
+.		'\,COM"'
+.		)
+	LOGOP = FILLTAB( TABLE(11) ,
+.		'<=,LE"\>,LE">=,GE"\<,GE"<,LT"\>=,LT"'
+.		'>,GT"\<=,GT"=,EQ"\=,NE"<>,R"'
+.		)
+	SC = '$'
+	VER = VER '5  STAR11'
+	MOV = 'MOV'
+	SW.PIC = '+'
+	BASE.REG = '%4'
+	REENT.REG = '%5'
+	MOVA.PARSE = POS(1) BREAK('(') . OFF
+.		'(' BREAK(')') . LREG
+	DEFINE('ASSCK(OP,L.ADDR)')
+	DEFINE('GETROFF(LAB)')
+	DEFINE('GENONE(OP)')
+	DEFINE('GENTWO(OP)')
+					:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+INIT	BSIZE = 8
+	HSIZE = 16
+	WSIZE = 32
+	ADDR.WORD = 4
+	JUMPLOC = FILLTAB( TABLE(14,5) ,
+.		'GOTO,GOTO"<-[,LA"<-,L"+,A"-,S"!,O"'
+.		'/&/,N"&,N"X!,X"'
+.		'/,D"*,M"MOD,MOD"<-<-,SLL"->->,SRL"'
+.		'\,LCR"'
+.		)
+	LOGOP = FILLTAB( TABLE(11) ,
+.		'<=,NH"\>,NH">=,NL"\<,NL"<,L"\>=,L"'
+.		'>,H"\<=,H"=,E"\=,NE"<>,"'
+.		)
+	SC = '$'
+	VER = VER '5  STAR360'
+	SW.REG =
+	SW.DEBUG = '+'
+	BASE.REG = '5'
+	R0 = '6' ; R1 = '7'
+	REENT.REG = '13'
+	DEFINE('DO.OP()')
+	DEFINE('GENONE(OP)')
+	DEFINE('GENONER(OP,R.ADDR)','GENONE')
+	DEFINE('GENTWO(OP)')
+	DEFINE('GETROFF(LAB)')
+	DEFINE('LOAD.L()')
+	DEFINE('LOAD.R2(L.ADDR,L.F,R0)','LOAD.L')
+	DEFINE('STORE.L()')
+	DEFINE('STORE.L2(R0)','STORE.L')
+					:(RETURN)
+
+
+NAME: BEGIN
+
+USEAGE: Called at BEGIN statement.
+
+DESCRIPTION:
+
+    -Generate any statements needed at start of a routine.
+
+    -It is recommended that BEGIN generate its own label
+
+    -Best to ignore the reenterability issue
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+BEGIN	STARTLAB = LABEL
+	ASSNL('TITLE',STARTLAB)
+	ASSNL('SUBTTL','	' VER)
+	ASSNL('ENTRY',STARTLAB)
+	ASSNL('RADIX','10')
+	ASS(STARTLAB,'0')
+	ASSNL(MOVE,'1,[SIXBIT/' STARTLAB '/]')
+	IDENT(OPERAND)			:S(RETURN)
+	ASSNL('MOVEM','^O16,' OPERAND)	:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+BEGIN	STARTLAB =  LABEL
+	ASSNL('.TITLE',LABEL)
+	ASSNL('.GLOBL',LABEL)
+	GENLAB(LABEL)
+	( \( IDENT(SW.DEBUG) IDENT(SW.REENT) ) ASSNL(MOV,'%5,-(%6)') )
+	DIFFER(SW.REENT)
+.		ASSNL('SUB','$$REENT,%6')
+.		ASSNL(MOV,'%6,' REENT.REG)
+	IDENT(OPERAND)			:S(RETURN)
+	OPERAND = DIFFER(SW.REENT)
+.		GETROFF(OPERAND)
+	ASSNL(MOV,'%5,' OPERAND)
+	ASSNL('ADD','#2,' OPERAND)
+					:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+BEGIN	STARTLAB = LABEL
+	T1 = SIZE(STARTLAB)
+	ASS(STARTLAB,'CSECT')
+	ASSNL('USING','*,15')
+	L1 = GETLAB()
+	ASSNL('B',L1)
+	ASSNL('DC','AL1(' T1 ')')
+	ASSNL('DC','CL' T1 "'" STARTLAB "'")
+	DIFFER(SW.REENT)		:F(BENR)
+	DS('$SAVE',72)
+	ASS(L1,'STM','14,12,12(13)')
+	ASSNL('LA','2,' STARTLAB '+4095')
+	ASSNL('USING',STARTLAB '+4095,2')
+	( DIFFER(OPERAND) ASSNL('BAL','14,$$STORE') )
+	ASSNL('L','0,$$REENT')
+	ASSNL('GETMAIN','R,LV=(0)')
+	STARTOP = DIFFER(OPERAND) OPERAND
+	ASSNL('ST','13,4(1)')
+	ASSNL('ST','1,8(13)')
+	ASSNL('LR','13,1')
+	ASSNL('LR','1,15')
+	ASSNL('USING',STARTLAB ',1')
+	ASSNL('DROP','15')
+					:(BEBOTH)
+BENR	ASS('$SAVE','DS','18F')
+	ASS(L1,'STM','14,12,12(13)')
+	( DIFFER(OPERAND) ASSNL('ST','1,' OPERAND) )
+	ASSNL('ST','13,$SAVE+4')
+	ASSNL('LR','14,13')
+	ASSNL('LA','13,$SAVE')
+	ASSNL('USING','$SAVE,13')
+	ASSNL('ST','13,8(14)')
+	STARTLAB = '$SAVE'
+	ASSNL('LA','2,' STARTLAB '+4095')
+	ASSNL('USING',STARTLAB '+4095,2')
+BEBOTH	( DIFFER(SW.DEBUG) ASSNL('CALL','FERRCK') )
+					:(RETURN)
+
+
+NAME: FINISH
+
+USEAGE: Called at FINISH statement.
+
+DESCRIPTION:
+
+    -Generate any assembly statements to return from routine.
+
+    -Again, best to ignore reenterability.
+
+    -SAVEDS contains name,size"name,size"... which must be allocated.
+
+    -SAVEDC contains name,contents"name,contents"... which must be
+    defined as a character string.
+
+    -Generate any assembly statements for the end of a program.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+FINISH	( ASSNL('JRA','^O16,0(^O16)') )
+DSLOOP	SAVEDS BREAK.TAB = ASS(T1,'BLOCK',T2)	:S(DSLOOP)
+DCLOOP	SAVEDC BREAK.TAB = ASS(T1,'ASCIZ','"' T2 '"')	:S(DCLOOP)
+FIBOTH	( ASSNL('LIT') ASSNL('END') )	:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+FINISH	( DIFFER(SW.REENT) ASSNL('ADD','$$REENT,%6') )
+	( \( IDENT(SW.DEBUG) IDENT(SW.REENT) ) ASSNL(MOV,'(%6)+,%5') )
+	ASSNL('RTS','%5')
+	( DIFFER(SW.REENT) ASS('$$REENT','.WORD',RADIX(TOTSTORE)) )
+DSLOOP	SAVEDS BREAK.TAB =
+.	   GENLAB(T1) PUT('.=.+' RADIX(T2))	:S(DSLOOP)
+DCLOOP	SAVEDC BREAK.TAB = ASS(T1,'.ASCIZ','"' T2 '"')	:S(DCLOOP)
+	ASSNL('.END',STARTLAB)		:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+FINISH	DIFFER(SW.REENT)		:F(FINNR)
+	ASSNL('LR','1,13')
+.		ASSNL('L','13,4(13)') ASSNL('L','0,$$REENT')
+.		ASSNL('FREEMAIN','R,LV=(0),A=(1)')
+.		ASSNL('LM','14,12,12(13)')
+	( DIFFER(STARTOP) ASSNL('BR','14')
+.		ASS('$$STORE','ST','1,' GETROFF(STARTOP)) )
+	ASSNL('BR','14')
+	ASSNL('DS','0D')
+	ASS('$$REENT','DC','A(' TOTSTORE ')')
+					:(FIBOTH)
+FINNR	ASSNL('L','13,$SAVE+4')
+	ASSNL('LM','14,12,12(13)')
+	ASSNL('BR','14')
+	ASSNL('DS','0D')
+DSLOOP	SAVEDS BREAK.TAB =
+.		ASS(T1,'DS',(T2 / 4) 'F')	:S(DSLOOP)
+DCLOOP	SAVEDC BREAK.TAB = ASS(T1,"DC","C'" T2 "'"
+.		"," 4 - REMDR(SIZE(T2),4) "X'00'")	:S(DCLOOP)
+FIBOTH	( ASSNL('LTORG') ASSNL('END') )	:(RETURN)
+
+
+NAME: COMMENT
+
+USEAGE: Called to put out a comment in STATE.
+
+DESCRIPTION:
+
+    -Break off characters  off the variable STATE, 70 at a time
+    and PUT them out as comment.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+COMMENT STATE LEN(69) . T1 = PUT(';' T1) :S(COMMENT)
+	PUT(';' STATE)			:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+COMMENT STATE LEN(69) . T1 = PUT(';' T1) :S(COMMENT)
+	PUT(';' STATE)			:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+COMMENT STATE LEN(69) . T1 = PUT('*' T1) :S(COMMENT)
+	PUT('*' STATE)			:(RETURN)
+
+
+NAME: RADIX
+
+USEAGE: Called to change the variable RADIX into the assembler radix.
+
+DESCRIPTION:
+
+-Convert RADIX to the appropriate radix, or simply return if
+    decimal is alright.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+RADIX					:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+RADIX	RADIX = DEC2OCT(RADIX)		:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+RADIX					:(RETURN)
+
+
+NAME: STATSRT
+
+USEAGE: Called at the start of each statement.
+
+DESCRIPTION:
+
+    -If this is an executable statement, put the statement number
+    into a register when the DEBUG switch is on.
+
+    -Generate a label for other than begin
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+STATSRT	DIFFER(SW.DEBUG) \(
+.		DIFFER(OPCODE,'DO') DIFFER(OPCODE,'IF')
+.		DIFFER(OPCODE,'IFANY') DIFFER(OPCODE,'CALLS')
+.		) ASS(LABEL,'MOVEI','0,' STATENO)
+.					:S(RETURN)
+	( DIFFER(OPCODE,'BEGIN') GENLAB(LABEL) )	:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+STATSRT	DIFFER(SW.DEBUG) \(
+.		DIFFER(OPCODE,'DO') DIFFER(OPCODE,'IF')
+.		DIFFER(OPCODE,'IFANY') DIFFER(OPCODE,'CALLS')
+.		) ASS(LABEL,MOV,'#' RADIX(STATENO) ',' REENT.REG)
+.					:S(RETURN)
+	( DIFFER(OPCODE,'BEGIN') GENLAB(LABEL) )	:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+STATSRT	DIFFER(SW.DEBUG) \(
+.		DIFFER(OPCODE,'DO') DIFFER(OPCODE,'IF')
+.		DIFFER(OPCODE,'IFANY') DIFFER(OPCODE,'CALLS')
+.		) ASS(LABEL,'LA','0,' STATENO)
+.					:S(RETURN)
+	( DIFFER(OPCODE,'BEGIN') GENLAB(LABEL) )	:(RETURN)
+
+
+NAME: CALLSRT
+
+USEAGE: Called at begin of CALL for reentrancy or machine dependancy
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+CALLSRT 				:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+CALLSRT DIFFER(SW.REENT)		:F(RETURN)
+	BLOCK = GETLAB()
+	DS(BLOCK,2)		:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+CALLSRT 				:(RETURN)
+
+
+NAME: GENCALL
+
+USEAGE: Called at the end of a CALLS statement.
+
+DESCRIPTION:
+
+    -Generate external linkages
+
+    -Generate subroutine jump
+
+    -Define enough storage for addresses of parameters
+
+    -Reentrant stuff is tricky - - forget it
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+GENCALL CALLLAB = DIFFER(SW.REENT) GETROFF(CALLLAB)
+	ASSNL('EXTERN',LOC)
+	ASSNL('JSA','^O16,' LOC)
+	( NE(NARG,0) ASS(CALLLAB,'BLOCK',NARG) )	:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+GENCALL ASSNL('.GLOBL ',LOC)
+	( NE(NARG) DIFFER(SW.REENT) )	:S(RENCALL)
+	ASSNL('JSR','%5,' LOC)
+	EQ(NARG,0)			:S(RETURN)
+	NARG = NARG * 2
+	ARGLAB = GETLAB()
+	ASSNL('BR',ARGLAB)
+	GENLAB(CALLLAB)
+	PUT('.=.+' RADIX(NARG))
+	GENLAB(ARGLAB)			:(RETURN)
+RENCALL L1 = GETLAB() ; L2 = GETLAB()
+	BLOCK = GETROFF(CALLLAB)
+	BLOCK POS(0) BREAK('(') . OFF
+	DS(CALLLAB,NARG * ADDR.WORD)
+	ASSNL(MOV,'#' NARG ',' BLOCK)
+	ASSNL('INCB','1+' BLOCK)
+	( ASSNL(MOV,'#207,2+' (2 * NARG) '+' BLOCK) )
+	ASSNL('JSR','%7,' L2)
+	ASSNL('BR',L1)
+	( ASS(L2,MOV,'%5,-(%6)') )
+	ASSNL(MOV,'%3,%5')
+	ASSNL('ADD','#' OFF ',%5')
+	ASSNL('JMP',LOC)
+	GENLAB(L1)			:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+GENCALL CALLLAB = DIFFER(SW.REENT) GETROFF(CALLLAB)
+	( NE(NARG,0) ASSNL('LA','1,' CALLLAB) DS(CALLLAB,NARG * 4) )
+	ASSNL('CALL',LOC)		:(RETURN)
+
+
+NAME: GENLOG
+
+USEAGE: Called to handle logical operations.
+
+DESCRIPTION:
+
+    -Check for type (W, Y, 1, etc) and code a special section for each
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+GENLOG	IDENT(OP,'A')			:S(GENLB)
+	IDENT(L.F,'1')			:S(GENL1)
+	LOAD.R2(L.ADDR,L.F,R0)
+	( IDENT(R.ADDR,'#0')  ASSNL('JUMP' OP,R0 ',' LOC) )  :S(RETURN)
+	OP = COMPOP()
+	R.ADDR POS(0) '#' =		:F(GENL2)
+	ASSNL('CAI' OP, R0 ',' R.ADDR)	:(GENLB)
+GENL2	( IDENT(R.F,'W') ASSNL('CAM' OP,R0 ',' R.ADDR) )     :S(GENLB)
+	( LOAD.R() ASSNL('CAM' OP,R0 ',' R1) )	:(GENLB)
+GENLB	ASSNL('JRST',LOC)		:(RETURN)
+GENL1	ASSNL(MOVE,R0 ',' L.ADDR)
+	T1 = TAB.MASK(L.ENTRY)
+	SIDE = 'TLN'
+	SIDE = GT(T1,17) 'TRN'
+	T1 = GT(T1,17) T1 - 18
+	R.A = R.ADDR ; R.ADDR = '^B1' DUPL('0',17 - T1)
+	IDENT(R.A,'#1') 		:S(GENLBT)
+	DIFFER(R.A,'#0')		:S(LOGERR)
+	OP = IDENT(OP,'E') 'N' 		:S(GENLBT)
+	OP = IDENT(OP,'N') 'E' 		:S(GENLBT)
+LOGERR	( ERROR('BIT TESTS SUPPORT ONLY (EQ,NE) FOR (0,1)') ) :S(RETURN)
+GENLBT	ASSNL(SIDE OP,R0 ',' R.ADDR)	:(GENLB)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+GENLOG	IDENT(OP,'R')			:S(GENLB)
+	IDENT(L.F,'1')			:S(GENL1)
+	( IDENT(R.ADDR,'#0') GENONE('TST') )	:S(GENLB)
+	( FLIP() GENTWO('CMP') )
+GENLB	ASSNL('B' OP,LOC)		:(RETURN)
+GENL1	R.A = R.ADDR ; R.ADDR = '#' TAB.MASK(R.ENTRY)
+	GENTWO('BIT')
+	IDENT(R.A,'#0') 		:S(GENLB)
+	OP = IDENT(R.A,'#1') IDENT(OP,'EQ') 'NE' :S(GENLB)
+	OP = IDENT(R.A,'#1') IDENT(OP,'NE') 'EQ' :S(GENLB)
+	( ERROR('BIT TESTS SUPPORT ONLY (EQ,NE) FOR (0,1)') ) :(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+GENLOG	IDENT(OP,'')			:S(GENLB)
+	IDENT(L.F,'1')			:S(GENL1)
+	( DIFFER(R.ADDR,'#0') GENTWO('C') )	:S(GENLB)
+	DIFFER(R.F,'Y')			:S(GENLTR)
+	( DIFFER(OP,'E') DIFFER(OP,'NE') )	:F(GENL1)
+GENLTR	R.A = R.ADDR ; R.ADDR = 128
+	OP = IDENT(OP,'NL') 'E'		:S(GENL1A)
+	OP = IDENT(OP,'L') 'NE'		:S(GENL1A)
+	GENONER('LTR', '#' R0)
+GENLB	ASSNL('B' OP,LOC)		:(RETURN)
+GENL1	R.A = R.ADDR ; R.ADDR = TAB.MASK(R.ENTRY)
+GENL1A	ASSNL('TM',L.ADDR ',' R.ADDR)
+	IDENT(R.A,'#0') 		:S(GENLB)
+	OP = IDENT(R.A,'#1') IDENT(OP,'E') 'NE' :S(GENLB)
+	OP = IDENT(R.A,'#1') IDENT(OP,'NE') 'E' :S(GENLB)
+	ERROR('BIT TESTS SUPPORT ONLY (EQ,NE) FOR (0,1)') :(RETURN)
+
+
+NAME: ASS
+
+USEAGE: Used to put out assembly statements
+
+DESCRIPTION:
+
+    -Label is in T1; op code in T2; operand in T3; comment in T4.
+
+    -Do whatever is necessary to PUT out a string of assembly code.
+
+    -Might have to do something special when there is a label, but
+    nothing else in the output.
+
+    -SAVECOM sometimes contains a leftover comment, that should be
+    tacked on to the comment field and then nulled out
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+ASS	T1 = IDENT(T2) DIFFER(T1) T1 ':'	:S(ASS1)
+	T1 = DIFFER(T1) T1 ':'
+ASS1	T4 = T4 SAVECOM
+	SAVECOM =
+	T2 = GE(SIZE(T2),6) T2 ' '
+*	T3 ',(' = ',0('
+	T3 = DIFFER(T4) RPAD(T3,24) ';' T4
+	( PUT( RPAD(T1,8) RPAD(T2,8) T3 ) )	:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+ASS	T1 = IDENT(T2) DIFFER(T1) T1 '=.'	:S(ASS1)
+	T1 = DIFFER(T1) T1 ':'
+ASS1	T4 = T4 SAVECOM
+	SAVECOM =
+	T2 = GE(SIZE(T2),5) T2 ' '
+	T3 = DIFFER(T4) RPAD(T3,20) ';' T4
+	( PUT( RPAD(T1,10) RPAD(T2,5) T3) )	:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+ASS	T1 = IDENT(T2) DIFFER(T1) T1 ' EQU *'	:S(ASS1)
+ASS1	T4 = T4 SAVECOM
+	SAVECOM =
+	T2 = GE(SIZE(T2),6) T2 ' '
+	T3 ',(' = ',0('
+	T3 POS(0) '(' = '0('
+	T3 = DIFFER(T4) RPAD(T3,20) ' ;' T4
+	PUT( RPAD(T1,9) RPAD(T2,6) T3 )	 	:(RETURN)
+
+
+NAME: GENLOAD
+
+USEAGE: Called to load ADDR into register R.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+GENLOAD	ASSNL(MOVE,R ',' ADDR)		:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+GENLOAD	ASSNL(MOV,ADDR ',' R)		:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+GENLOAD	ASSNL('L',R ',' ADDR)		:(RETURN)
+
+
+NAME: GETREG
+
+USEAGE: Called to return a register for handling a sequence.
+
+DESCRIPTION:
+
+    -Returns register number based on:
+
+	    -WHEN=1 for the right of an op
+
+	    -WHEN=2 for the left of an op
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+GETREG	GETREG = WHEN + 2		:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+GETREG	GETREG = '%' (WHEN + 1)		:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+GETREG	GETREG = WHEN + 2		:(RETURN)
+
+
+NAME: TABSTM
+
+USEAGE: Called during *1 definitions to do anything machine
+	dependent.
+
+DESCRIPTION:
+
+    -If there is something funny about the addressing, humor it.
+
+    -A mask might have to be set up for bit fields.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+TABSTM	MASK = CKTYPE(LF,'1') LOW
+	IDENT(BASE,'REG') DIFFER(SW.REG) PUT('REG=' BASE.REG)
+					:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+TABSTM	MASK = CKTYPE(LF,'1')  RADIX( 2 ** (WSIZE - LOW - 1) )
+	IDENT(BASE,'REG') DIFFER(SW.REG) PUT('REG=' BASE.REG)
+	CKTYPE(LF,'Y')			:F(RETURN)
+	OFF = OFF + 1 - (LOW / BSIZE)	:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+TABSTM	MASK = CKTYPE(LF,'1')
+.		2 ** (BSIZE - REMDR(LOW,BSIZE) - 1)
+	MASK = CKTYPE(LF,'Y') 255
+	OFF = OFF + (LOW / BSIZE)	:(RETURN)
+
+
+NAME: CKREGD
+
+USEAGE: Check for machine dependent optimizaton.
+
+DESCRIPTION:
+
+    -RETURN if no optimization is possible.
+
+    -FRETURN if optimization is possible, for example, on machines with
+    indirect addressing:
+
+	-If we are not already indirect addressing, and the offset is
+	zero, reset the BASELOC to the indirect of ADDR.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+CKREGD	DIFFER(SW.OPT2) 		:F(RETURN)
+	ADDR POS(0) '@' 		:S(RETURN)
+	BASELOC = EQ(OFF,0) '@' ADDR	:F(RETURN)
+	LREG =				:(FRETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+CKREGD	DIFFER(SW.OPT2) 		:F(RETURN)
+	ADDR POS(0) '@' 		:S(RETURN)
+	BASELOC = EQ(OFF,0) '@' ADDR	:F(RETURN)
+	LREG =				:(FRETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+CKREGD	DIFFER(SW.OPT2) 		:(RETURN)
+
+
+			      *  *  *     1   
+			       * * *     11   
+			        ***     1 1   
+			      *******     1   
+			        ***       1   
+			       * * *      1   
+			      *  *  *   11111 
+
+
+
+			       SECTION II
+			       ----------
+
+			   USER OP FUNCTIONS
+			   -----------------
+
+This section contains one function for each *1 operation.
+
+
+
+
+
+
+NAME: O.movei  (for op: <-)
+   O.move   (for op: <-)
+   O.add    (for op: +)
+     etc.
+
+USEAGE: Called for each op
+
+DESCRIPTION:
+
+    -Generates assembly for each op, using
+    appropriate variables.
+
+    -Usually uses GENONE or GENTWO
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+O.MOVEI	OP = MOVE
+	CKTYPET(TF,'B',R.TYPE)		:F(O.MOVE)
+	( DIFFER(L.F,'W') ERROR('ADDRESS CONSTANTS FOR WORDS ONLY') )
+	ASSNL('MOVEI',R1 ',' R.ADDR)	:(DOMOV)
+**
+O.MOVE	IDENT(L.F,'1')			:S(MOV1)
+	OP = IDENT(L.F,'W') IDENT(R.ADDR,'#0') 'SETZM'	:S(O.ONE)
+	LOAD.R()
+DOMOV	( IDENT(L.F,'W') DO.OP() )	:S(RETURN)
+	STORE.L2(R1)			:(RETURN)
+MOV1	R.A = R.ADDR
+	R.ADDR = '#[^B1' DUPL('0',35 - TAB.MASK(L.ENTRY)) ']'
+	R.F = 'W' ; L.F = 'W'
+	OP = IDENT(R.A,'#0') 'ANDCA'	:S(O.TWO)
+	OP = IDENT(R.A,'#1') 'IOR'	:S(O.TWO)
+	ERROR('BIT MOVES NOT IMPLEMENTED')	:(RETURN)
+**
+O.GOTO	ASSNL('JRST',LEFT)		:(RETURN)
+**
+O.LCR	R.ADDR = IDENT(L.F,'W') ASSNL('SETO',R0 ',')	:S(LCR1)
+	( ASSNL('LDB',R0 ',' POINT(L.ENTRY,'[-1]')) )
+LCR1	ASSNL('XORM',R0 ',' L.ADDR)	:(RETURN)
+**
+O.LSHR	OP = 'LSH'
+	R.ADDR '#' = '#-'		:S(O.LSH)
+O.LSH
+O.TWOI	GENTWOI(OP)			:(RETURN)
+**
+O.ONE	GENONE(OP)			:(RETURN)
+**
+O.MOD	OP = 'IDIV'
+	( LOAD.R() DO.OP() STORE.L2(R1) )	:(RETURN)
+**
+O.ADD	OP = IDENT(L.F,'W') IDENT(R.ADDR,'#1') 'AOS'  :S(O.ONE)F(O.TWO)
+**
+O.SUB	OP = IDENT(L.F,'W') IDENT(R.ADDR,'#1') 'SOS'  :S(O.ONE)F(O.TWO)
+**
+O.IOR ;O.AND ;O.XOR ;O.IMUL ;O.IDIV
+O.TWO	GENTWO(OP)			:(RETURN)
+**
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+O.MOVA	OP = MOV
+	CKTYPET(TF,'B',R.TYPE)		:F(O.TWO)
+	R.ADDR = '#' R.ADDR
+	R.ADDR POS(0) '#@' =		:S(O.TWO)
+	R.ADDR MOVA.PARSE		:S(REGOFF)
+	DIFFER(SW.PIC)			:F(O.TWO)
+	R.ADDR POS(0) '#' REM . OFF	:F(O.TWO)
+	OFF = OFF '-.'
+	LREG = '%7'
+REGOFF	LREG = '%0'
+.		DIFFER(SW.REENT SW.PIC)
+.		ASSNL(MOV,LREG ',%0')
+	R.ADDR = LREG
+	( DIFFER(OFF) OFFREG(R.ADDR)
+.		ASSNL('ADD','#' OFF ',' R.ADDR) ) :(O.TWO)
+**
+O.ADD	OP = IDENT(R.ADDR,'#1') 'INC'	:S(O.ONE)F(O.TWOCK)
+**
+O.SUB	OP = IDENT(R.ADDR,'#1') 'DEC'	:S(O.ONE)F(O.TWOCK)
+**
+O.TWOCK	IDENT(R.F,'Y')			:S(O.40)F(O.TWO)
+**
+O.BIS					:(O.TWO)
+**
+O.MOV	IDENT(L.F,'1')			:S(MOV1)
+	OP = IDENT(R.ADDR,'#0') 'CLR'	:S(O.ONE)F(O.TWO)
+MOV1	R.A = R.ADDR ; R.ADDR = '#' TAB.MASK(L.ENTRY)
+	OP = IDENT(R.A,'#0') 'BIC'	:S(O.TWO)
+	OP = IDENT(R.A,'#1') 'BIS'	:S(O.TWO)
+	GENTWO('BIC')
+	( ASSNL('BIT','#' TAB.MASK(R.ENTRY) ',' R.A) )
+	LAB = GETLAB()
+	ASSNL('BEQ',LAB)
+	( GENTWO('BIS') GENLAB(LAB) )	:(RETURN)
+**
+O.MUL	DIFFER(SW.M40)			:S(O.40)
+	ASSNL(MOV,'#177304,%0')
+	( ASSCK(MOV,L.ADDR ',(%0)+') )
+	( ASSCK(MOV,R.ADDR ',(%0)') )
+	R.ADDR = '-(%0)' ; OP = MOV	:(O.TWO)
+**
+O.MOD
+O.DIV	DIFFER(SW.M40)			:S(O.40)
+	ASSNL(MOV,'#177304,%0')
+	( ASSCK(MOV,L.ADDR ',(%0)') )
+	ASSCK(MOV,R.ADDR ',@#177300')
+	R.ADDR = '(%0)'
+	R.ADDR = IDENT(OP,'MOD') '-' R.ADDR
+	OP = MOV			:(O.TWO)
+**
+O.ASR	IDENT(R.ADDR,'#1')		:S(O.ONE)
+	R.ADDR '#' = '#-'		:S(O.ASH)
+O.ASL	IDENT(R.ADDR,'#1')		:S(O.ONE)
+O.ASH	OP = 'ASH'
+	( IDENT(SW.M40) ERROR('SHIFTING OTHER THAN 1 NOT SUPPORTED')
+.		)			:S(RETURN)F(O.40)
+**
+O.BIC	ASSCK(MOV,R.ADDR ',%0')
+	ASSNL('COM','%0')
+	R.ADDR = '%0'			:(O.TWO)
+**
+O.COM	IDENT(L.F,'1')			:F(O.ONE)
+	OP = 'XOR'
+	R.ADDR = '#' TAB.MASK(L.ENTRY)
+	L.F = 'W' ; R.F = 'W'
+O.XOR	DIFFER(SW.M40)			:S(O.X40)
+	ASSCK(MOV,R.ADDR ',%0')
+	ASSCK('BIC',L.ADDR ',%0')
+	ASSCK('BIC',R.ADDR ',' L.ADDR)
+	R.ADDR = '%0' ; OP = 'BIS'	:(O.TWO)
+O.X40	ASSCK(MOV,R.ADDR ',%0')
+	ASSCK(OP,'%0,' L.ADDR)		:(RETURN)
+**
+O.40	ASSCK(MOV,L.ADDR ',%0')
+	R.ADDR = IDENT(R.F,'Y')  ASSNL('MOVB',R.ADDR ',%1')  '%1'
+	( IDENT(OP,'MOD') ASSNL('DIV', R.ADDR ',%0')
+.		ASSCK(MOV,'%1,' L.ADDR) )	:S(RETURN)
+	ASSNL(OP,R.ADDR ',%0')
+	ASSCK(MOV,'%0,' L.ADDR)		:(RETURN)
+**
+O.GOTO	ASSNL('JMP',LEFT)		:(RETURN)
+**
+O.ONE	GENONE(OP)			:(RETURN)
+**
+O.TWO	GENTWO(OP)				:(RETURN)
+**
+
+
+****************************
+** Example for the S/360 ***
+****************************
+O.LA	CKTYPET(TF,'B',R.TYPE)		:F(O.L)
+	ASSNL('LA',R0 ',' R.ADDR)
+	STORE.L()			:(RETURN)
+**
+O.L	IDENT(L.F,'1')			:S(MOV1)
+	( LOAD.R2(R.ADDR,R.F,R0) STORE.L() )     :(RETURN)
+MOV1	R.A = R.ADDR ; R.ADDR =  TAB.MASK(L.ENTRY)
+	CR = L.ADDR ',255-' R.ADDR
+	R.ADDR = L.ADDR ',' R.ADDR
+	( IDENT(R.A,'#0') ASSNL('NI',CR) )	:S(RETURN)
+	( IDENT(R.A,'#1') ASSNL('OI',R.ADDR) )  :S(RETURN)
+	ASSNL('NI',CR)
+	ASSNL('TM',R.A ',' TAB.MASK(R.ENTRY))
+	LAB = GETLAB()
+	ASSNL('BE',LAB)
+	( ASSNL('OI',R.ADDR) GENLAB(LAB) )	:(RETURN)
+**
+O.S	( IDENT(R.ADDR,'#1') GENONER('BCTR','#0') ) :S(RETURN)F(O.TWO)
+**
+O.GOTO	ASSNL('B',LEFT)				:(RETURN)
+**
+O.LCR	R.ADDR = '#0'
+O.SLL
+O.SRL
+O.ONE	GENONE(OP)			:(RETURN)
+**
+O.MOD	OP = 'D'
+	DIFFER(L.F,'W')			:S(O.TWO)
+	( LOAD.L() ASSNL('SRDA',R0 ',32') DO.OP() STORE.L() ) :(RETURN)
+**
+O.D	DIFFER(L.F,'W')			:S(O.TWO)
+	( LOAD.L() ASSNL('SRDA',R0 ',32') DO.OP() STORE.L2(R1) )
+.					:(RETURN)
+**
+O.M	DIFFER(L.F,'W')			:S(O.TWO)
+	( LOAD.R2(L.ADDR,L.F,R1) DO.OP() STORE.L2(R1) )	:(RETURN)
+**
+O.A ;O.O ;O.N ;O.X
+O.TWO	GENTWO(OP)			:(RETURN)
+**
+
+
+			      *  *  *     1   
+			       * * *     11   
+			        ***     1 1   
+			      *******     1   
+			        ***       1   
+			       * * *      1   
+			      *  *  *   11111 
+
+
+
+			      SECTION III
+			      -----------
+
+		       USER CONVENIENCE FUNCTIONS
+		       --------------------------
+
+
+These functions are in no way manditory -- but they represent
+functions that have proved convenient for various
+implementations.
+
+All functions must be defined in INIT (see INIT for examples).
+
+NAME: GENONE
+
+USAGE: Usually used to handle one operand operations.
+
+DESCRIPTION: (Typically)
+
+	-Get the operand into a register, on some machines
+		(Try to use LOAD.x)
+
+	-Do the operation
+		(Try to use DO.OP)
+
+	-Store it away, on some machines
+		(Try to use STORE.x)
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+GENONE	( IDENT(L.F,'W') ASSNL(OP,L.ADDR) )	:S(RETURN)
+	LOAD.R2(L.ADDR,L.F,R0)
+	ASSNL(OP,R0)
+	STORE.L()
+						:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+GENONE	OP = IDENT(R.F,'Y') OP 'B'
+	OFFLOC(L.ADDR)
+	ASSNL(OP,L.ADDR)		:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+GENONE	R.ADDR POS(0) '#' =		:S(GOTLIT1)
+	LOAD.R2(R.ADDR,R.F,R1)
+	R.ADDR = '0(' R1 ')'
+GOTLIT1 LOAD.L()
+	( IDENT(R.F,'Y') ASSNL('SLA',R0 ',24') ASSNL('SRA',R0 ',24') )
+	ASSNL(OP,R0 ',' R.ADDR)
+	( DIFFER(OP,'LTR') STORE.L() )	:(RETURN)
+
+
+NAME: GENTWO
+
+USAGE: Usually used to handle two operand operations.
+
+DESCRIPTION: (Typically)
+
+	-Similar to GENONE, except for two operands
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+GENTWOI	R.ADDR POS(0) '#' =		:S(GOTLIT1)
+	R.ADDR '@'			:S(GOTIND)
+	R.ADDR = '@' R.ADDR		:(GOTLIT1)
+GOTIND	LOAD.R()
+	R.ADDR = '0(' R1 ')'
+GOTLIT1 LOAD.R2(L.ADDR,L.F,R0)
+	ASSNL(OP,R0 ',' R.ADDR)
+	( IDENT(L.F,'W') ASSNL('MOVEM',R0 ',' L.ADDR) )	:S(RETURN)
+	STORE.L()			:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+GENTWO	( DIFFER(OP,'CMP') OFFLOC(L.ADDR) )
+	OP = IDENT(LR,'YY') OP 'B'
+	ASSNL(OP,R.ADDR ',' L.ADDR)	:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+GENTWO	LOAD.L()
+	DO.OP()
+	( DIFFER(OP,'C') STORE.L() )	:(RETURN)
+
+
+NAME: LOAD.
+
+USAGE: Usually used to handle to first of two operands.
+
+DESCRIPTION: (Typically)
+
+	-If your machine needs it, get the operand into a register.
+
+	-Many machines have immediate loads which can be used:
+
+		-When the operand is a constant (starts with "#")
+
+		-Will convert to integer
+
+		-And is in some range
+
+	-Do the appropriate loads for words, half-words, or bytes
+
+	-NOTE: This function might be LOAD.L or LOAD.R or something
+        flexible that allows registers or addresses to be parameters.
+        There might also be a need for other functions with even more
+        flexibility (LOAD.L2, etc.) defined to start at the same
+        location.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+LOAD.R	R.ADDR POS(0) '#' =		:F(NOTLIT)
+	R.ADDR = CONVERT(R.ADDR,'INTEGER')	:F(NOTINT)
+	( LT(R.ADDR,HALF) GT(R.ADDR,-HALF) ASSNL('HRREI',R1 ',' R.ADDR)
+. )					:S(RETURN)
+	R.A = R.ADDR / HALF
+	R.ADDR = REMDR(R.ADDR,HALF)
+	( LT(R.ADDR,HALF) GT(R.ADDR,-HALF) ASSNL('MOVSI',R1 ',' R.ADDR)
+. )					:S(RETURN)
+NOTINT	( IDENT(OP,MOVE) ASSNL(MOVE,R1 ',[' R.ADDR ']') )   :S(RETURN)
+NOTLIT	( IDENT(R.F,'W') ASSNL(MOVE,R1 ',' R.ADDR) ) :S(RETURN)
+	( IDENT(R.F,'Y') ASSNL('LDB',R1 ',' POINT(R.ENTRY,R.ADDR)) )
+.						:S(RETURN)
+	( IDENT(R.F,'H') ASSNL(SIDECK(R.ENTRY),R1 ',' R.ADDR) )
+.					:S(RETURN)
+					:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+	This function is not used for the PDP 11
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+LOAD.L	R.ADDR POS(0) '#' =			:F(NOTLIT)
+	R.ADDR = CONVERT(R.ADDR,'INTEGER')	:F(NOTINT)
+	R.ADDR = L.ADDR
+.		LE(R.ADDR,4095) GE(R.ADDR,0)
+.		DIFFER(OP,'C') DIFFER(OP,'S') DIFFER(OP,'D')
+.		ASSNL('LA',R0 ',' R.ADDR)	:S(RETURN)
+	R.ADDR = '=A(' R.ADDR ')'
+	R.F = 'W'
+NOTINT	( IDENT(OP,'L') ASSNL('L',R0 ',' R.ADDR) )	:S(RETURN)
+NOTLIT	( IDENT(L.F,'W') ASSNL('L',R0 ',' L.ADDR) )	:S(RETURN)
+	( IDENT(L.F,'Y') ASSNL('IC',R0 ',' L.ADDR) )	:S(RETURN)
+	( IDENT(L.F,'H') ASSNL('LH',R0 ',' L.ADDR) )	:(RETURN)
+
+
+NAME: DO.OP
+
+USEAGE: Does the operation with the second of two operands.
+
+DESCRIPTION: (Typically)
+
+	-If possible, do the operation from the operand to the register.
+
+	-You might have to go into a second register and then do the
+		operation from the second to the first.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+DO.OP	OFFLOC(L.ADDR)
+	IDENT(L.F,'W')				:F(DO.OPY)
+	( \(DIFFER(OP,'SUB') DIFFER(OP,'IDIV'))
+.		ASSNL('EXCH',R1 ',' L.ADDR) )
+	ASSNL(OP 'M',R1 ',' L.ADDR)		:(RETURN)
+DO.OPY	( IDENT(L.F,'Y') ASSNL('LDB',R0 ',' POINT(L.ENTRY,L.ADDR))
+.		ASSNL(OP,R0 ',' R1) ) 		:S(RETURN)
+	( IDENT(L.F,'H') ASSNL(SIDECK(L.ENTRY),R0 ',' L.ADDR)
+.		ASSNL(OP,R0 ',' R1) ) 		:S(RETURN)
+	ERROR('UNSUPPORTED MODE')		:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+	This function is not used for the PDP 11
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+DO.OP	( IDENT(R.F,'W') ASSNL(OP,R0 ',' R.ADDR) )	:S(RETURN)
+	( \(DIFFER(OP,'M') DIFFER(OP,'D') )
+.		ERROR('NON-WORD MULTIPLY OR DIVIDE NONFUNCTIONAL') )
+	IDENT(R.F,'Y')			:F(DO.OP1)
+	ASSNL('IC',R1 ',' R.ADDR)
+	( DIFFER(OP,'L') ASSNL('SLDL',R0 ',24')
+.		ASSNL('SRA',R0 ',24') ASSNL('SRA',R1 ',24') )
+	ASSNL(OP 'R',R0 ',' R1)			:(RETURN)
+DO.OP1	( IDENT(R.F,'H') ASSNL(OP 'H',R0 ',' R.ADDR) )	:S(RETURN)
+	ERROR('UNSUPPORTED MODE')		:(RETURN)
+
+
+NAME: STORE.
+
+USEAGE: Store the result away in the first operand.
+
+DESCRIPTION:
+
+	-Get the result back out of the register and into storage.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+STORE.L OFFLOC(L.ADDR)
+	IDENT(L.F,'W')				:S(RETURN)
+	( IDENT(L.F,'Y') ASSNL('DPB',R0 ',' POINT(L.ENTRY,L.ADDR))
+. )						:S(RETURN)
+	( IDENT(L.F,'H') ASSNL(SIDECK(R.ENTRY) 'M',R0 ',' L.ADDR)
+. )						:S(RETURN)
+	ERROR('UNSUPPORTED MODE')		:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+	This function is not used for the PDP 11
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+STORE.L OFFLOC(L.ADDR)
+	( IDENT(L.F,'W') ASSNL('ST',R0 ',' L.ADDR) )	:S(RETURN)
+	( IDENT(L.F,'Y') ASSNL('STC',R0 ',' L.ADDR) )	:S(RETURN)
+	( IDENT(L.F,'H') ASSNL('STH',R0 ',' L.ADDR) )	:S(RETURN)
+	ERROR('UNSUPPORTED MODE')			:(RETURN)
+
+
+NAME: GETROFF
+
+USEAGE: Change an address to register and offset for
+	reenterability
+
+DESCRIPTION:
+
+	-LAB contains the core location name. REENT.REG is the base
+	address of the reentrant area. REENT.OFF is a table mapping core
+	locations into offsets within the reentrant area.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+GETROFF GETROFF = REENT.OFF<LAB> '(' REENT.REG ')'	:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+GETROFF GETROFF = REENT.OFF<LAB> '(' REENT.REG ')'	:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+GETROFF GETROFF = REENT.OFF<LAB> '(' REENT.REG ')'	:(RETURN)
+
+
+NAME: ASSCK
+
+USEAGE: Used on the PDP11 to call OFFLOC for optimization
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+	This function is not used for the PDP 10
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+ASSCK	L.ADDR POS(0) BREAK(',') . T1
+	OFFLOC(T1)
+GENONE	OP = IDENT(R.F,'Y') OP 'B'
+	OFFLOC(L.ADDR)
+	ASSNL(OP,L.ADDR)		:(RETURN)
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+	This function is not used for the S/360
+
+
+NAME: SIDECK
+
+USEAGE: Used on the PDP10 to determine appropriate halfword used.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+SIDECK	SIDECK = 'HRR'
+	SIDECK = IDENT( TAB.RANGE(ENTRY ) , '0,17' ) 'HLR'     :(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+	This function is not used for the PDP 11
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+	This function is not used for the S/360
+
+
+NAME: POINT
+
+USEAGE: Used on the PDP10 to build a pointer for byte operations.
+
+
+
+****************************
+** Example for the PDP 10 **
+****************************
+POINT	LOW = TAB.RANGE(ENTRY)
+	LOW ',' REM . HIGH =
+	POINT = '[  POINT  ' (HIGH - LOW + 1) ',' ADDR
+.		',' HIGH ']'		:(RETURN)
+
+
+
+****************************
+** Example for the PDP 11 **
+****************************
+	This function is not used for the PDP 11
+
+
+
+****************************
+** Example for the S/360 ***
+****************************
+	This function is not used for the S/360
+
+
+			      *  *  *     1   
+			       * * *     11   
+			        ***     1 1   
+			      *******     1   
+			        ***       1   
+			       * * *      1   
+			      *  *  *   11111 
+
+
+
+			       SECTION IV
+			       ----------
+
+		      VARIABLES AND REGISTERS USED
+		      ----------------------------
+
+
+This section contains a listing a values that are placed in variables
+for your use, and the registers that are used on the destination
+machine.
+
+VARIABLE	CONTAINS
+========	=========
+
+R.ADDR		The address of the end of the right sequence
+L.ADDR		Same for left
+
+R.F		Type of right hand sequence
+			Y		bYte
+			W		Word
+			1		1 bit
+			L		Less than a word (unused)
+			G		Greater than a word (unused)
+L.F		Same for left
+
+
+R.ENTRY		User defined data type for right with:
+			TAB.LEN()	Length in addresses
+			TAB.OFF()	Offset in addresses
+			TAB.TYPE()	Type
+				
+			TAB.BASE()	Name of physical address
+			TAB.MASK()	Bit position
+			TAB.RANGE()	Number of bits
+L.ENTRY		Same for left
+
+
+
+
+
+REGISTER NAME	USE
+=============	===
+
+none		first register to chain thru a sequence (from GETREG)
+none		second register to chain thru a sequence (from GETREG)
+R0		used to load first operand
+R1		used to load the second operand
+REENT.REG	optional register used for reenterable coding
+BASE.REG	optional register used to optimize based variables
+none		subroutine call register
+
+			      *  *  *     1   
+			       * * *     11   
+			        ***     1 1   
+			      *******     1   
+			        ***       1   
+			       * * *      1   
+			      *  *  *   11111 
+
+
+
+			       SECTION V
+			       ---------
+
+		      HANDY FUNCTIONS YOU CAN USE
+		      ---------------------------
+
+
+These functions are supplied to you for writing your functions. If there
+is a function that does what you want, it is highly recommended that you
+use it.
+
+NAME: PUT
+
+DEF:		DEFINE('PUT(STRING)')
+
+USEAGE: Puts STRING into the punch file
+
+NAME: GENLAB
+
+DEF:		DEFINE('GENLAB(LABEL)')
+
+USEAGE: Puts LABEL out as a label.
+
+NAME: FILLTAB
+
+DEF:		DEFINE('FILLTAB(FILLTAB,TEMP)')
+
+USEAGE: Fills a table
+
+DESCRIPTION:
+
+    -TEMP is a string of the form name,contents"name,contents"... which
+    is broken up and put in the table FILLTAB.
+
+NAME: ERROR
+
+DEF:		DEFINE('ERROR(MESS,ETYPE)')
+
+USEAGE: Puts out an error message
+
+DESCRIPTION: MESS contains the error message
+
+NAME: SETTYPE
+
+DEF:		DEFINE('SETTYPE(POS,CHAR)')
+
+USEAGE: Set a particular positon of a type field.
+
+DESCRIPTION:
+
+    -The variable TYPE is set
+
+    -POS contains the position
+
+NAME: GETTYPE
+
+DEF:		DEFINE('GETTYPE(POS)')
+
+USEAGE: Get a type field.
+
+DESCRIPTION:
+
+    -Gotten from variable TYPE
+
+    -POS contains the position
+
+NAME: CKTYPE
+
+DEF:		DEFINE('CKTYPE(POS,CHAR)')
+
+USEAGE: Checks for a type field
+
+DESCRIPTION:
+
+    -Check in variable TYPE
+
+    -POS contains the position
+
+    -CHAR contains the type to be checked for
+
+    -RETURN or FRETURN, as appropriate
+
+NAME: DEC2OCT
+
+DEF:		DEFINE('DEC2OCT(N)')
+
+USEAGE: Decimal to octal converter
+
+DESCRIPTION:
+
+    -N is decimal, and is converted to octal and returned.
+
+NAME: FLIP
+
+DEF:		DEFINE('FLIP()')
+
+USEAGE: Interchanges the right and left sides
+
+DESCRIPTION:
+
+    -Can be called from the code generators to flip the appropriate
+    variables.
+
+NAME: GETLAB
+
+DEF:		DEFINE('GETLAB()')
+
+USEAGE: Returns a unique label
+
+NAME: DS
+
+DEF:		DEFINE('DS(BASE,LEN)')
+
+USEAGE: Called when storage is needed.
+
+DESCRIPTION:
+
+    -BASE is the name and LEN is the length.
+
+    -Done by tacking onto SAVEDS
+
+			      *  *  *     1   
+			       * * *     11   
+			        ***     1 1   
+			      *******     1   
+			        ***       1   
+			       * * *      1   
+			      *  *  *   11111 
+
+
+			       SECTION VI
+			       ----------
+
+			      OPTIMIZATION
+			      ------------
+
+
+This section describes the automatic register optimization facilities
+available in the *1 system. In general, the machine independent section
+maintains knowledge of what is in registers. This is done by the machine
+dependent parts calling functions that maintain the information.
+
+NAME: PUTREG
+
+DEF:		DEFINE('PUTREG(R,ADDR)')
+
+USEAGE: Called to inform system that register R now contains ADDR.
+
+NAME: OFFREG
+
+DEF:		DEFINE('OFFREG(R)')
+
+USEAGE: Called to inform system that register R is now unreliable.
+
+NAME: CLRREG
+
+DEF:		DEFINE('CLRREG()')
+
+USEAGE: Called to inform system that all registers are now unreliable.
+
+NAME: OFFLOC
+
+DEF:		DEFINE('OFFLOC(LOC)')
+
+USEAGE: Called to inform system that location ADDR has been changed.
+ 

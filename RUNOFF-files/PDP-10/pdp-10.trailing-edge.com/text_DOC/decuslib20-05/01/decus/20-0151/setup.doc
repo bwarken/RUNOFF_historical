@@ -1,0 +1,3588 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                              SETUP Documentation
+
+                                 Alan Guenther
+                       (revised by Joe Payne  4-Jul-75)
+             (revised by Ralph Swick 18-Oct-78 through 12-Oct-79)
+
+
+
+
+
+
+                                Third Revision
+
+                  This manual describes version 5(56) of  the
+                  SETUP  program  released  in  March,  1980.
+                  This manual supersedes the previous manuals
+                  of 20-Jun-79 and 12-Oct-79.  All changes to
+                  this manual since the previous edition  are
+                  noted with a vertical bar in the margin.
+
+
+             Updated 23-Jan-80: pages 4,8,9,13-16,26.1,54,56
+             Updated 16-May-80: pages 2,4,5,6,12,18,19,23,29-33,35-39,45,46,
+                                      49-54,58,59,62,77-79
+
+
+
+   The SETUP program was originally developed at the University  of  Montana
+   and   is   distributed   by   Carnegie-Mellon   University,   Pittsburgh,
+   Pennsylvania under the agreement that any modifications  be  communicated
+   back  to  C-MU and that no such modified versions be distributed to other
+   installations except by C-MU.
+   SETUP %5(56) 20-May-80                                             Page 2
+   ***** Introduction
+
+
+                               Table of Contents
+
+              I.  Introduction                               3
+
+             II.  SETUP Editing Commands                     4
+
+                  Notation used in this manual               5
+
+                  ;Type                                      7
+                  ;Ask                                       8
+                  ;Select option                             9
+                  ;Option                                   11
+                  ;No-option                                13
+                  ;Define variable                          14
+                  ;Select variable                          16
+                  ;Define constant                          18
+                  ;Define option                            20
+                  ;Include                                  22
+                  ;File                                     24
+                  ;Abort                                    25
+                  ;Get                                      26
+                  ;If                                       27
+                  ;Error                                    29
+                  ;Perform for lists                        31
+                  ;Perform for files                        33
+|                 ;Begin                                    36
+|                 ;End                                      38
+|                 ;Leave                                    39
+                  Conditional commands                      40
+
+            III.  SETUP Features                            42
+                  Job Identifier                            42
+                  Restarting jobs                           43
+|                 Control-C                                 45
+                  Pre-defined options and variables         46
+                  Line continuation                         48
+|                 Blocks                                    49
+|                 Tracing and Logging                       52
+
+             IV.  Running SETUP from command level          55
+                  Alternate uses of SETUP                   57
+
+              V.  MCF Example                               59
+
+             VI.  Example Dialog                            61
+
+            VII.  Resulting CTL File                        62
+
+           VIII.  Error Messages                            65
+   SETUP %5(56) 20-May-80                                             Page 3
+   ***** Introduction
+
+
+   ******Comments will be appreciated.
+
+
+   I.       Introduction
+
+        SETUP is a program designed to facilitate the creation of frequently
+   modified   data  processing  batch  job  control  files.   SETUP  uses  a
+   previously created master  control  file  (MCF)  and  user  responses  to
+   produce the batch control file (CTL).  The MCF may contain yes/no options
+   which the user may select, variables for which he  may  define  arbitrary
+   replacement values, and questions which she may answer by supplying whole
+   lines of text.
+
+        The principal benefit of such a program is that files  prepared  for
+   use  with  it  may  be modified quickly, easily, and with less chance for
+   error at job submission.  Also, it does not require  a  skilled  user  to
+   operate it effectively once the MCFs are created.
+
+        SETUP is normally run  interactively  and,  using  special  commands
+   previously  placed  into  the  Master  Control File, prompts the user for
+   various yes/no options and for  variable  parameters  to  substitute  for
+   dummy  parameters  in the MCF.  SETUP then creates the batch control file
+   based upon these responses from the user.  When SETUP  is  complete,  the
+   user  must give a SUBMIT command to enter the batch control file into the
+   batch processing queue.
+
+        In addition  to  constructing  batch  job  streams,  SETUP  provides
+   facilities for controlling inter-job dependencies, handling job restarts,
+   and consolidating common sequences of job steps into a  minimum  of  disk
+   files.    SETUP   also   provides   convenient   methods   for  isolating
+   occasionally-changed parameters  such  as  year-end  dates  and  semester
+   names.
+
+        SETUP allows the user to specify two types  of  fields  for  storing
+   information.   "Options"  are fields that may have only one of the values
+   "yes" or "no" (or "true" and "false").  "Variables" and  "constants"  are
+   fields that may hold arbitrary text strings (character strings containing
+   zero or more characters).  Values for both options and variables  may  be
+   set  via  user  input  or  via  other SETUP functions, however, values of
+   constants are set without user interaction.
+   SETUP %5(56) 20-May-80                                             Page 4
+   ***** SETUP commands
+
+
+   II.      SETUP editing commands
+
+        SETUP ignores all lines in the MCF which do not start with  a  SETUP
+   command  after substituting the values of replacement strings.  All lines
+   in the MCF are copied to the CTL file, although  those  containing  SETUP
+   commands  may  be  altered,  thus  the batch LOG file will show the SETUP
+   commands and their result as well as the batch statements, providing  for
+   easier maintenance of the MCF and for better audit tracking.
+
+   All the SETUP commands are of the form:
+
+           ;Word ...
+
+   where "word" is the command.  All commands must be  the  first  non-blank
+   characters  on  a  line  and the command name must immediately follow the
+   semicolon.  With this syntax, all SETUP commands appear  as  comments  to
+   the batch system and are copied intact to the batch LOG file.
+
+        The commands are:
+
+           ;Abort [<text>]
+           ;Ask [/verify] <text>
+|          ;Begin [<name> [<text>]]
+           ;Define Constant <constant-name> <text>
+           ;Define Option <option-name> <text>
+           ;Define [/allow][/default:"<text>"][/save][/verify] Variable
+                            <variable-name> <text>
+|          ;End [<name> [<text>]]
+           ;Error <text> [//<text>]...
+|          ;Error block [<name> [<text>]]
+           ;File <file-spec> Found/<text>
+           ;File <file-spec> Not-found/<text>
+           ;Get [/define][/noecho] Option <option-name>
+           ;Get [/define][/noecho] Variable <variable-name>
+           ;If "<string1>" [not] = "<string2>"/<text>
+           ;If "<string1>" [not] < "<string2>"/<text>
+           ;If "<string1>" [not] > "<string2>"/<text>
+           ;If "<string1>" [not] numeric/<text>
+           ;Include [/begin] <filespec>
+|          ;Leave [<name> [<text>]]
+           ;Option <option-name>/<text>
+           ;No-option <option-name>/<text>
+|          ;Perform <file-spec> | block [<name>]
+|             <variable-name>=("<text>"[,"<text>"]...) ...
+|          ;Perform [/verify] <filespec> | block [<name>] <variable-name>
+|             [,<variable-name>[,<variable-name>]]=<filespec>[,<filespec>]...
+           ;Select [/allow][/default:"<text>"][/save][/verify] Option
+                            <option-name> <text>
+           ;Select [/allow][/default:"<text>"][/save][/verify] Variable
+                            <variable-name> ("<text>",...,"<text>") <text>
+           ;Type [<text>]
+
+   where <text>  refers  to  any  string  of  characters  including  special
+   characters  <option-name> is any string of letters, digits and/or hyphens
+   SETUP %5(56) 20-May-80                                             Page 5
+   ***** SETUP commands
+
+
+   optionally enclosed in parentheses("(" and ")"), square brackets ("[" and
+   "]")   or   angled   brackets   ("<"   and   ">");   <constant-name>  and
+   <variable-name>  are  any  string  of  letters,  digits  and/or   hyphens
+   beginning with "<" and ending with ">".  <file-spec> is any valid Tops-20
+   filespec including structure, directory, filename and filetype and <name>
+   is  a block name consisting of any combination of letters, digits and the
+|  hyphen character.  <name> is a block name containing  1  to  36  letters,
+|  digits or hyphens in any combination.
+
+        All items in square brackets ("[" and "]")  are  optional  and  will
+   modify  the  effect of the command if specified.  If specified, they must
+   be typed exactly as given without the square brackets, but may usually be
+   abbreviated.
+
+        All abbreviations of one or more characters are valid;  for example,
+   ;define  variable  may be abbreviated as ;def var or as just ;d v, though
+   it is recommended that the full spelling be used in  production  MCFs  to
+   reduce effects of future enhancements to SETUP.
+
+        It is also suggested that the exclamation point character be used to
+   identify  true  comments  in  the  MCF  rather  than  semicolon, to avoid
+   confusion between comments and SETUP commands.
+
+        The SETUP commands are described in detail on the following pages.
+
+
+
+                                   Notation
+
+   All characters used in this manual must be typed exactly as shown.
+   The following meta-symbols are used:
+
+            []              An item enclosed in square brackets is optional
+                            but must be typed exactly as shown if used.  If
+                            the item is another SETUP reserved word (i.e.
+                            not enclosed in other meta-symbols), then it may
+                            be abbreviated.
+
+            <>              An item enclosed in brackets is a generic term
+                            for a specific value that may be chosen by the
+                            user.  For example; "<filespec>" means the user
+                            should place in this position a valid TOPS-20
+                            file specification.  Generally, the actual value
+                            is not enclosed in angle brackets, however, in
+                            the special case of variable names the angle
+                            brackets are also required as part of the name.
+                            (That is, the notation <<variable-name>> might
+                            be more consistent, but has been shortened to
+                            simply <variable-name> for convenience).
+
+            ...             Ellipses indicate that the preceding element
+                            may be repeated one or more times. If a special
+                            delimiter (e.g. a comma) appears before the
+                            item, then it should be used to separate every
+   SETUP %5(56) 20-May-80                                             Page 6
+   ***** SETUP commands
+
+
+                            occurrence of the repeated item.
+
+            (space)         Wherever a single space character is shown,
+                            one or more occurrences of space and/or tab
+                            characters may be used (in any combination).
+                            Generally, spaces and/or tabs may precede
+                            any occurrence of a slash ("/") and are not
+                            always indicated in this manual.
+   SETUP %5(56) 20-May-80                                             Page 7
+   ***** SETUP commands
+
+
+                                ;Type [<text>]
+
+                             - - - - - - - - - - -
+
+        The ";Type" command is used to type arbitrary text to the user.  The
+   text is usually informative in nature to assist the user in selecting the
+   options, defining the variables, and answering the questions given  later
+   in  the MCF.  The lines are typed in the same order as they appear in the
+   master control file and any previously  defined  variables  or  constants
+   appearing  in  the  command  will  be  substituted  before the command is
+   executed, thus showing the  user  their  value.   The  following  example
+   illustrates the use of the ;Type command.
+
+            MCF contents
+              ;Type The options are: Alpha-sort, Account-sort, Dept-sort
+
+            Terminal typescript
+              The options are: Alpha-sort, Account-sort, Dept-sort
+
+        Although  a  ;Type  command  normally  specifies  some  text  to  be
+   displayed,  the  command  may  be  specified without any text in order to
+   cause  vertical  paper  motion.   On  a  video  terminal   (e.g.    VT52,
+   Perkin-Elmer  1100,  etc) a ;Type command without any text will clear the
+   terminal screen.  If a blank line is desired in all situations,  a  slash
+   may be included after the command;  for example,
+
+            ;Type/
+
+        If line continuation (see page 40) is used in a ;Type  command,  the
+   displayed  text  will be divided into separate lines as it appears in the
+   MCF.
+   SETUP %5(56) 20-May-80                                             Page 8
+   ***** SETUP commands
+
+
+                             ;Ask [/verify] <text>
+
+                             - - - - - - - - - - -
+
+        The ";Ask" command is used to ask the user the question contained in
+   the  <text>  and accept a one-line answer.  The answer obtained is placed
+   by itself on the next line following the question.
+
+        The optional switch "/VERIFY" causes SETUP to  repeat  the  question
+   and display the user's response back on the terminal and request a yes/no
+   verification that the response is correct.  If the  user  responds  "no",
+   then  the  question  is  repeated  and the user may correct his response.
+   This cycle will repeat until the user responds "yes" to the  verification
+   request.   If the /VERIFY switch is specified, it must immediately follow
+   the command ;Ask (intervening spaces or tabs are permitted), and  may  be
+   abbreviated to just /V.
+
+        The <text> prompt may contain a double slash ("//") anywhere  within
+   it  and  SETUP  will display the text following the double slash on a new
+   line.  This may be used to display a  columnar  guide  to  the  user  for
+   assistance  in  completing  the  response.  The CTL file will contain the
+   ;Ask command exactly as it appears in the MCF.  For example:
+
+            MCF contents
+              ;Ask Please enter the option card//*|-start-||--end--||-date-|
+
+            Terminal typescript
+              Please enter the option card
+              *|-start-||--end--||-date-|
+
+            CTL contents
+              ;Ask Please enter the option card//*|-start-||--end--||-date-|
+
+   Line continuation (see page 40) may also be used  to  display  multi-line
+   prompts.
+
+        It is strongly suggested that the response to ;Ask begin with one of
+   the  characters "@" or "*" as appropriate for the context, although SETUP
+   will not enforce this standard.
+
+        The response to ;Ask must contain at least one  character.   If  the
+   user  wishes  to  enter a blank line, one or more spaces must be typed in
+   the response.
+   SETUP %5(56) 20-May-80                                             Page 9
+   ***** SETUP commands
+
+
+           ;Select [/allow] [/default:"<text>"] [/save] [/verify]
+                                 option <option-name> <text>
+
+                             - - - - - - - - - - -
+
+        The ";Select option" command is used to ask the  user  which  yes/no
+   options  she wishes to use.  The <text> describing the option is typed to
+   the user, then "<option-name> (y or n)? ".  The user  then  must  respond
+   "y"  (or  "yes")  if  he wishes the option to be used or "n" (or "no") if
+   not.  Once the option is selected, its value is then tested with  ;Option
+   and ;No-option commands (see below).
+
+   The following example illustrates the use of the ;Select command.
+
+         MCF contents
+            ;Select option Print-report Should the report file be printed?
+
+         Terminal typescript
+            Should the report file be printed?
+            Print-report (y or n)?
+
+        The  optional  switch  "/ALLOW"  in  the  command   specifies   that
+   defaulting may be employed in responding to this command.  That is;  if a
+   default value has been previously defined (see the discussion of Defining
+   defaults in section IV), the user will be shown the default value and may
+   take the default by typing only RETURN to the prompting message.  In  the
+   following  example,  the  default  (yes) is shown in square brackets just
+   before the question mark.
+
+         MCF contents
+            ;Sel/all opt Asort Do you want the report sorted alphabetically?
+
+         Terminal typescript
+            Do you want the report sorted alphabetically?
+            Asort (y or n) [Y]?
+
+        The optional switch "/DEFAULT:" specifies the "normal value" of  the
+   option.  Its effect is identical to the /ALLOW switch with the difference
+   that the default value is specified "in-line" in  each  MCF  rather  than
+   externally in a special file of defaults.  The default value is specified
+   in quotes after the switch and must begin with one of the letters "y"  or
+   "n".   The  /DEFAULT:  switch is preferred over /ALLOW when the option is
+   "local" to a specific MCF rather than "global" to several MCFs;  that is,
+   if  the  same  option  is  used in many MCFs and has the same meaning and
+   normal response in all of these MCFs then the /ALLOW switch  permits  the
+   default  to  be  specified  externally  to the MCFs and provides a simple
+   mechanism for making a single change to modify the default  response  for
+   all  the  MCFs.   When the option has no such over-all significance, then
+   the /DEFAULT:  switch is the  preferred  choice  as  it  provides  better
+   "in-line"  documentation  for  the MCF.  The /DEFAULT:  switch may not be
+   used with either /ALLOW or /SAVE.
+   SETUP %5(56) 20-May-80                                            Page 10
+   ***** SETUP commands
+
+
+        The optional switch "/SAVE" in the  command  causes  SETUP  to  save
+   whatever  response  the  user  gives for the purpose of displaying it the
+   next time a ;Select/save command is executed with the same  option  name.
+   Thus,  the  switch  will also cause the previously entered response to be
+   displayed.  Note that a response  (either  yes  or  no)  must  always  be
+   entered;   that  is,  the  response  may  only be defaulted if the /ALLOW
+   switch is also specified.  The following example illustrates the  use  of
+   this switch.
+
+         MCF contents
+            ;Sel/save opt Full-report Do you want the full report this time?
+
+         Terminal typescript
+            Do you want the full report this time?
+            Full-report (y or n) [N]?
+
+        The optional switch "/VERIFY" after  the  word  ;Select  will  cause
+   SETUP  to  repeat  the  user's  response and ask her to verify that it is
+   correct by again typing "yes" or "no" (yes it is correct,  or  no  it  is
+   not).  If the user responds "no" (the previous response was not correct),
+   SETUP will again display the prompting text and  ask  the  user  for  the
+   value  of  the  option.   This option-value/verify cycle will be repeated
+   until the user responds "yes" to the verification request.
+
+        Any switches specified must  immediately  follow  the  word  ;Select
+   (preceding  spaces  or tabs are allowed).  Any combination of switches is
+   permitted and all switches may be abbreviated to  uniqueness;   that  is,
+   /A, /S and /V.
+
+
+                                     NOTE
+
+                  Any option that is not defined in a ;Select
+                  option  or ;Define option statement will be
+                  treated as false ("no") if it is tested  in
+                  an ;Option or ;No-option command.
+
+
+
+   The option Restart is pre-defined by SETUP to be Yes if a  /TAG:   switch
+   was  given (see SETUP Features below) or No otherwise and thus should not
+   be used in a ;Select option command.
+
+   If the /ALLOW switch is specified, but no default value has been  defined
+   for  the  option  (see "Defining defaults" in Section IV) then SETUP will
+   not allow only a carriage return, but will require a yes or no answer.
+   SETUP %5(56) 20-May-80                                            Page 11
+   ***** SETUP commands
+
+
+                         ;Option <option-name>/<text>
+
+                             - - - - - - - - - - -
+
+        The ";Option" command is used to specify that the  following  <text>
+   is  to  be  left  justified  at  the  beginning of the line if the option
+   specified by <option-name> has the value  "yes".   For  example,  if  the
+   control file contains:
+
+           ;Option this-one/@Do this
+
+   and option "this-one" was chosen in a ;Select option  or  ;Define  option
+   command then the resulting control file will contain:
+
+           ;Option this-one/
+           @Do this
+
+   If option "this-one" had the value "no",  then  the  resulting  CTL  file
+   would contain:
+
+           ;Option this-one/@Do this
+
+   (no change from the MCF)
+
+   Note that the "left justification" is done by making the <text>  start  a
+   new  line,  following  the  philosophy  that everything in the MCF should
+   appear in the CTL file.  Note also that if the option was  selected,  the
+   remaining text is scanned again for a SETUP command as in
+
+           ;Option this-one/;Define variable <number> How many of this one?
+
+   If option this-one were selected, then the user would be prompted  for  a
+   value for the variable "<number>".  If option this-one were not selected,
+   variable <number> would  not  be  defined.   Please  see  the  additional
+   comments below under "Conditional Commands".
+
+        The <text> may contain several "logical" lines by inserting a double
+   slash  ("//") at the line boundaries.  If the command is true (the option
+   is yes), then SETUP will break the  text  into  multiple  physical  lines
+   wherever the double slashes are specified and then will remove the double
+   slashes.  For example:
+
+            ;Option No-report/@Delete report.tmp//@Goto Next
+
+
+        SETUP commands may not be specified following a double slash;   that
+   is, in order to execute two ;Type commands if the option Sort is yes, the
+   MCF must specify
+
+            ;Option Sort/;Type The report will be sorted on department
+            ;Option Sort/;Type rather than on identification number
+   SETUP %5(56) 20-May-80                                            Page 12
+   ***** SETUP commands
+
+
+
+
+                                   CAUTION:
+
+                  Double slashes also should not be  used  if
+                  the    command   line   contains   multiple
+                  conditional commands in sequence.  In  this
+                  case,  the double slashes are replaced when
+                  the first True condition is  found  without
+                  regard  to  a following test which might be
+                  False.   The  following   example   is   an
+                  incorrect usage of double slashes.
+
+                    ;No r1/;No r2/@Del report.tmp//@Goto Rep3
+
+                  In this  example,  the  "@Goto  Rep3"  will
+                  appear  on  a  new  line if option r1 is no
+                  regardless of the value of option  r2.   In
+                  certain  situations  it might be convenient
+                  to do the following:
+
+                    ;No r1/;No r2/;Def opt no-r-12 yes
+                    ;Op no-r-12/@Del report.tmp//@Goto Rep3
+
+|                 In this case, the ;Begin command can  serve
+|                 the  same  purpose  and leads to a "cleaner
+|                 looking" MCF.
+
+
+   SETUP %5(56) 20-May-80                                            Page 13
+   ***** SETUP commands
+
+
+                        ;No-option <option-name>/<text>
+
+                             - - - - - - - - - - -
+
+        The ";No-option" command is the converse  of  the  ;Option  command.
+   The  text  following  the "/" is placed at the beginning of the next line
+   when the <option-name> is not chosen as one of the options  to  be  used.
+   For example, if the control file contains:
+
+           ;No-option this-one/@Do this
+
+   and option "this-one" had the value "no", the control file will contain:
+
+           ;No-option this-one/
+           @Do this
+
+   If option "this-one" had the value "yes" the resulting control file would
+   contain:
+
+           ;No-option this-one/@Do this
+
+   (no change from the MCF).
+
+   Just as in ;Option, the <text> may  be  another  SETUP  command  and  may
+   include double slashes to define multiple physical lines (see the caution
+   on  the  preceding  page  regarding  multiple  conditional  commands   in
+   sequence).  Please refer to the Conditional Command section below.
+   SETUP %5(56) 20-May-80                                            Page 14
+   ***** SETUP commands
+
+
+           ;Define [/allow] [/default:"<text>"] [/save] [/verify]
+                                 variable <variable-name> <text>
+
+                             - - - - - - - - - - -
+
+        The ";Define variable" command prompts  the  user  for  a  value  to
+   replace  the string "<variable-name>" wherever that string appears in the
+   MCF following the ;Define command.  The <text> is  typed  on  the  user's
+   terminal  followed  by "<variable-name>=".  The user then types the value
+   of the variable.  The string "<variable-name>" may appear anywhere in the
+   master control file following the ;Define command, and all occurrences of
+   the variable are replaced  with  the  new  value.   Note  that  only  the
+   variable  is replaced, nothing else on the line is touched.  For example,
+   one place a variable would be useful is in a PRINT command:
+
+            ;Def var <copies> How many copies of the eom report?
+             .
+             .
+             .
+            @Print eom.rpt/copies:<copies>/forms:eom/delete
+
+   If the user answered 5 to the  "How  many  copies"  question,  the  batch
+   control file would contain:
+
+            @Print eom.rpt/copies:5/forms:eom/delete
+
+        The optional switches /ALLOW, /DEFAULT:, /SAVE and /VERIFY  function
+   in  a  manner very similar to their function in the ;Select command.  The
+   /ALLOW switch causes a default value to be displayed  and  the  user  may
+   define  the  variable  to  be  the  default  by  typing  only RETURN when
+   prompted.  For example:
+
+         MCF contents
+            ;Define/allow var <Report-heading> What is the report heading?
+
+         Terminal typescript
+            What is the report heading?
+            <Report-heading> [Student Bill Summary]=
+
+        Note that if no default value is defined (see page 43),  then  SETUP
+   will always require the user to enter a value.
+
+        The /DEFAULT:  switch specifies a "normal value"  for  the  variable
+   that  will  be  displayed just as for /ALLOW and may be entered by simply
+   typing carriage-return in response to the prompt.  The default  value  is
+   specified  in  quotation  marks  following  the  switch.   /DEFAULT:   is
+   preferred over /ALLOW when the variable is  "local"  to  a  specific  MCF
+   rather  than  "global" to several MCFs;  that is, if the same variable is
+   used in many MCFs and has the same meaning and normal response in all  of
+   these  MCFs  then  the  /ALLOW switch permits the default to be specified
+   externally to the MCFs and provides  a  simple  mechanism  for  making  a
+   single  change to modify the default response for all the MCFs.  When the
+   variable has no such over-all significance, then the /DEFAULT:  switch is
+   the  preferred  choice  as it provides better "in-line" documentation for
+   SETUP %5(56) 20-May-80                                            Page 15
+   ***** SETUP commands
+
+
+   the MCF.  The /DEFAULT:  switch may not be used in the same command  with
+   /ALLOW and /SAVE.
+
+        The /SAVE switch causes SETUP to display the previous response to  a
+   ;Define/save  variable  command  for  the  same  variable and to save the
+   current response to be displayed the next time a ;Define/save command  is
+   executed  for this variable.  Note that the user must always type a value
+   unless the /ALLOW switch is also specified.  If both /ALLOW and /SAVE are
+   specified,  then  the  previous  value given for the variable may be used
+   again by simply typing RETURN to the prompt.  The /SAVE switch  would  be
+   useful  in  an  environment  where  the  value  of  a  variable  must  be
+   incremented by 1 each time a job is submitted;  SETUP will show the  user
+   the previous value, but will still require him to enter a value.
+
+        The "/VERIFY" switch causes SETUP to repeat the user's  response  on
+   her  terminal and asks him to verify its correctness by typing either yes
+   or no.  If the user responds "no" (the previous response was not correct)
+   then  SETUP  will  display  the  prompting  text  again and give the user
+   another opportunity to give the variable a value.  This cycle will repeat
+   until the user responds "yes" to the verification request.
+
+        If switches are specified they  must  immediately  follow  the  word
+   ";Define" (intervening spaces or tabs are permitted).  Any combination of
+   switches is permitted and all switches may be abbreviated to  uniqueness;
+   e.g.  /A, /S and /V.
+
+
+                                     NOTE
+
+                  Unless the /ALLOW switch is  specified  the
+                  answer  to  a ;Define variable or a ;Select
+                  option may not be  null.   That  is,  there
+                  must  be  at  least  one  character  in the
+                  answer.  If the user wants a blank for  the
+                  answer  to  a  ;Define variable command, he
+                  must type one.
+
+
+   SETUP %5(56) 20-May-80                                            Page 16
+   ***** SETUP commands
+
+
+           ;Select [/allow] [/default:"<text>"] [/save] [/verify] variable
+                  <variable-name> ("value1","value2",...,"valueN") <text>
+
+                             - - - - - - - - - - -
+
+        The ";Select variable" command provides a means to prompt  the  user
+   for  one of several possible choices for a variable.  Whereas the ;Define
+   variable  command  allows  the  user  to  provide  a  completely  general
+   replacement  string  for the variable, the ;Select variable command shows
+   the user a list of values and asks her to choose one of them.
+
+        The list of  possible  choices  for  the  variable  is  enclosed  in
+   parentheses  after  the  variable  name  and  each  individual  choice is
+   enclosed in quotation marks separated by a comma.  SETUP will construct a
+   tabular  prompt from this list assigning a letter to each possible choice
+   and ask the user to enter the letter corresponding to the value he wishes
+   to choose.  Up to 26 possible values may be given for each variable.
+
+   The following example illustrates the use of the ;Select variable
+   command.
+
+         MCF contents
+            ;Select variable <label-type> ("1-UP-STICKY","3-UP-STICKY",
+   "3-UP-HEATSEAL","1-UP-LARGE") What type of mailing labels do you want?
+            ;Type You chose <label-type>
+
+         Terminal typescript
+            What type of mailing labels do you want?
+            A. 1-UP-STICKY
+            B. 3-UP-STICKY
+            C. 3-UP-HEATSEAL
+            D. 1-UP-LARGE
+            <label-type>=c
+            You chose 3-UP-HEATSEAL
+
+         CTL contents
+            ;Select variable <label-type> ("1-UP-STICKY","3-UP-STICKY",
+   "3-UP-HEATSEAL","1-UP-LARGE") \3-UP-HEATSEAL\ What type of mailing
+   labels do you want?
+            ;Type You chose 3-UP-HEATSEAL
+
+        Notice that as for ;Select option  and  ;Define  variable  commands,
+   SETUP inserts the selected value into the command line in the CTL file as
+   well as substituting it for the variable name in following lines.
+
+        The optional "/ALLOW" switch specifies  that  the  user  may  use  a
+   previously  defined  default  value  by  simply typing carriage-return in
+   response to the prompt.  SETUP will show the user the full default  value
+   (not  the  corresponding  letter)  in  brackets  just  as for the ;Define
+   variable command.  Notice that it is possible for the default to  not  be
+   included in the list of choices.
+   SETUP %5(56) 20-May-80                                            Page 17
+   ***** SETUP commands
+
+
+        The optional switch "/DEFAULT:" performs a function almost identical
+   to /ALLOW.  It specifies the "normal response" to the ;Select command and
+   the user may choose this response by typing only a  carriage-return  when
+   the prompt is issued.  The "normal value" is specified in quotation marks
+   immediately after the /DEFAULT:  switch.  /DEFAULT:   is  preferred  over
+   /ALLOW  when  the  variable  is  "local"  to  a  specific MCF rather than
+   "global" to several MCFs;  that is, if the same variable is used in  many
+   MCFs  and  has  the same meaning and normal response in all of these MCFs
+   then the /ALLOW switch permits the default to be specified externally  to
+   the  MCFs  and  provides a simple mechanism for making a single change to
+   modify the default response for all the MCFs.  When the variable  has  no
+   such  over-all  significance, then the /DEFAULT:  switch is the preferred
+   choice as it provides better "in-line" documentation for  the  MCF.   The
+   /DEFAULT:  switch may not be used in the same ;Select command with /ALLOW
+   and /SAVE.
+
+        The optional "/SAVE" switch causes SETUP to save  the  actual  value
+   chosen  by  the  user  (not the corresponding letter).  In addition, if a
+   value was previously /SAVEd,  SETUP  will  show  the  previous  value  in
+   brackets.
+
+        The optional switch  "/VERIFY"  causes  the  variable  value  to  be
+   displayed  and the user is prompted for a yes/no answer as to whether the
+   value is correct.  If the response is "no", then  SETUP  will  re-display
+   the list and ask for another choice.
+   SETUP %5(56) 20-May-80                                            Page 18
+   ***** SETUP commands
+
+
+                    ;Define constant <constant-name> <text>
+
+                             - - - - - - - - - - -
+
+        The ";Define constant" command fulfills a function very  similar  to
+   the  ;Define  variable  command.   In  the  ;Define constant statement no
+   prompt is typed to the user, but the string "<constant-name>" is replaced
+   by "<text>" wherever it appears in the MCF.
+
+        The ;Define constant command would be useful in situations where the
+   author  of  a  MCF  wanted to allow a simple method for changing a common
+   parameter, but not require the SETUP user to type in a value  every  time
+   the  MCF  is  read.  For example, a directory-name might be a constant so
+   that it could be easily changed in the MCF at a later  time.   (A  unique
+   "trick"  of  constants follows from the fact that constant/variable names
+   look  like  Tops-20  directory  names:    if   the   MCF   contains   the
+   directory-name  <Smith>  in  several  places, it can be changed by simply
+   defining the constant <Smith> to be a different directory!)
+
+   For example:
+
+         MCF contents
+            ;Define constant <semester> FALL
+             .
+             .
+             .
+            @Run Update
+            *<semester>
+             .
+             .
+             .
+            @Print <semester>.rpt
+
+         CTL contents
+            ;Define constant <semester> FALL
+             .
+             .
+             .
+            @Run Update
+            *FALL
+             .
+             .
+             .
+            @Print FALL.rpt
+
+        This  example  assumes  that   the   constant   <semester>   changes
+   periodically  but  remains  fixed  for long periods before being modified
+   again.  Using the ;Define constant command  in  this  manner  allows  the
+   periodic changes to be made quickly and with less chance for error.
+
+   **** Note ****
+   The special  constants  <current-day>,  <current-month>,  <current-year>,
+|  <current-user-name>,    <current-hour>,   <julian-date>,   <job-id>   and
+   <job-name> should not be used in a ;Define variable or a ;Define constant
+   SETUP %5(56) 20-May-80                                            Page 19
+   ***** SETUP commands
+
+
+   command.   <job-id>  is  automatically defined by the /JOB-ID:  switch at
+   exec command level.  See  section  III  SETUP  features  for  a  complete
+   explanation  of  the  /JOB-ID:   switch  and  the <job-id> constant.  The
+   constant <job-name> is pre-defined by SETUP to be the  file-name  of  the
+   MCF,   not   including   the  file-type;   thus,  if  the  MCF  is  named
+   REPORT-GENERATION.MCF <job-name> will have the value REPORT-GENERATION.
+
+   <Current-day>,  <current-month>,  <current-year>  and  <julian-date>  are
+   defined to have the corresponding numeric values of day, month, year, and
+|  day-of-year respectively.  <Current-hour> contains the  2-digit  hour  of
+|  the  day  and  <current-user-name> contains the logged-in username of the
+|  current job.  See Section III for more details.
+   SETUP %5(56) 20-May-80                                            Page 20
+   ***** SETUP commands
+
+
+                      ;Define Option <option-name> <text>
+
+                             - - - - - - - - - - -
+
+        The ";Define Option" command is very  similar  in  function  to  the
+   ;Define  Constant  command;  that is, no prompt is issued, but the option
+   given in <option-name> will be given the value "Y" or "N" depending  upon
+   the first character of the <text>.  For example,
+
+           ;Define option <this-is-yes> yes
+
+   would have the same end result as the command
+
+           ;Select option <this-is-yes> Please type "YES" here
+
+   except that the second command would request the user to type  something,
+   and  the  first  would not.  This command might be useful to "recode" the
+   user's previous responses rather than stringing out several  ;Option  and
+   ;No-option commands (see the ;Option and ;No-option commands below).  For
+   example, if the sequence of tests
+
+           ;Option opta/;Option optb/;Option optc/...
+
+   were to be used several times, the MCF (and CTL file) could be made  more
+   concise by doing the following:
+
+            ;Option opta/;Option optb/;Option optc/;Define option optabc yes
+            ;Option optabc/...
+
+        In this example, if any of the options "opta", "optb" or "optc"  had
+   the  value  "no", then option "optabc" would not be defined and therefore
+   treated as having the value "no".
+
+        ;Define option might also be used to reduce the  number  of  prompts
+   issued to the user;  for example,
+
+            ;Select option All-reports Do you want all the reports?
+            ;Option all-reports/;Define option account-report yes
+            ;Option all-reports/;Define option dept-report yes
+            ;Option all-reports/;Define option ssn-report yes
+            ;No-option all-reports/;Sel opt Account-report Do you want the
+   account sequence report?
+            ;No-option all-reports/;Sel opt Dept-report Do you want the
+   department sequence report?
+            ;No-option all-reports/;Sel opt SSN-report Do you want the
+   social-security number sequence report?
+
+
+                                     NOTE
+
+                  The  options  Restart,   Monday,   Tuesday,
+                  Wednesday,  Thursday,  Friday, Saturday and
+                  Sunday should not  be  used  in  a  ;Select
+                  option  or  ;Define  option command.  SETUP
+   SETUP %5(56) 20-May-80                                            Page 21
+   ***** SETUP commands
+
+
+                  provides  values  for  these   options   as
+                  defined in Section III.  SETUP Features.
+
+
+
+        ;Define option may also be used to set values for options that  were
+   not  requested  from the user due to a restart (/TAG:  switch).  See page
+   36, restarting jobs, for more details.
+   SETUP %5(56) 20-May-80                                            Page 22
+   ***** SETUP commands
+
+
+                         ;Include [/begin] <filespec>
+
+                             - - - - - - - - - - -
+
+        The ";Include" command causes SETUP to process the  entire  text  of
+   another  file  as  if  it were present in the original MCF just after the
+   ;Include command.   All  SETUP  commands,  program  data,  etc.   in  the
+   included  file  will  be placed into the CTL file just as for commands in
+   the original MCF.  The ;Include command could be used,  for  example,  if
+   several  MCF  procedures  were to execute a common sort procedure and the
+   system designer wanted to be able to modify  that  sort  procedure  in  a
+   single  disk  file  rather than modifying all the MCF procedures that use
+   that sort.  The sort procedure could be written in a  separate  file  and
+   ;Include'd in each MCF that needed it.
+
+        When SETUP executes an ;Include command it  suspends  processing  of
+   the  original  MCF, processes the entire ;Include'd file and then resumes
+   processing the original MCF with the line following the ;Include  command
+   (which  may  be  the  end-of-file).  If no device field is specified, the
+   logical device MCF:  will be used.  If no file type  is  specified  SETUP
+   will  first look for a file with the extension ".SCF" (Sub Control File).
+   If this file does not exist SETUP will look for a file with the extension
+   ".MCF".   If  neither  file is found an error message will be printed and
+   SETUP will abort the CTL file.
+
+        ;Include commands may be nested to as many levels as desired;   that
+   is,  an ;Include'd file may ;Include another file and so on.  There is no
+   limit to the number of files that may be ;Include'd in a single MCF.
+
+   For example,
+         MAIN.MCF
+            ;Include courier-definition
+             .
+             .
+             .
+            @Print report.fil/courier:<courier>
+
+         COURIER-DEFINITION.SCF
+            ;Define constant <courier> 9900
+
+         MAIN.CTL
+            ;Include courier-definition \PS:<DC00>COURIER-DEFINITION.SCF.1\
+            ;Define constant <courier> 9900
+            ; end of PS:<DC00>COURIER-DEFINITION.SCF.1
+             .
+             .
+             .
+            @Print report.fil/courier:9900
+
+        Note that SETUP inserts the full filespec of the included file  into
+   the  CTL  file  and  indicates  the last line of the included file with a
+   comment.
+   SETUP %5(56) 20-May-80                                            Page 23
+   ***** SETUP commands
+
+
+        Included files may reference  variables,  constants  and/or  options
+   that  have  been  previously  defined  in  the  original  MCF or in other
+   ;Included files just as for statements in the original MCF.
+
+        The optional switch /BEGIN will cause SETUP  to  execute  this  same
+   ;Include  command  if  the  job  is  restarted  at  a  tag  following the
+   ;Include/begin command via the /TAG:  SETUP switch.  This  feature  would
+   be  used  in  constructing a job that was to execute a series of commands
+   once and only once each time it was submitted by the user, regardless  of
+   any  batch  CHKPNT  commands  in the job stream.  In addition, these same
+   commands should be executed in the job stream if the user submits the job
+   at an alternate entry point (tag).
+
+        SETUP will execute the ;Include/begin  command  normally,  but  will
+   "remember"  the  filespec given.  If the /TAG:  switch was also given the
+   same file will be included immediately following the specified tag in the
+   CTL  file.  If another ;Include/begin command is executed before reaching
+   the tag, then the  old  filespec  is  "forgotten"  and  replaced  by  the
+   filespec in the current ;Include/begin command.
+
+        The ;Include/begin command must be in the MCF prior to the tag it is
+   intended  to  affect.   The  following example illustrates a situation in
+   which the /BEGIN switch might be used.
+
+            ;Include/begin Job-startup-procedure
+             .
+             .
+             .
+            ! Restartable here if machine now crashes
+            Step2::
+            @Chkpnt Step2
+             .
+             .
+             .
+
+   If the job restarts automatically at tag STEP2, it should not execute the
+   contents  of  JOB-STARTUP-PROCEDURE.SCF;   on  the  other hand, if a user
+   submits the job manually to restart at tag STEP2, then  the  contents  of
+   JOB-STARTUP-PROCEDURE.SCF should be executed.
+
+|       Occasionally it is desirable to terminate an ;Included file prior to
+|  the  physical  end-of-file.   In this case, the ;Leave command (without a
+|  block name) may be used to  simulate  an  end-of-file.   Of  course,  the
+|  ;Leave  may  be  preceded  by condition-testing commands to conditionally
+|  terminate the ;Included file.
+   SETUP %5(56) 20-May-80                                            Page 24
+   ***** SETUP commands
+
+
+                   ;File <filespec> found | not-found/<text>
+
+                             - - - - - - - - - - -
+
+        The ";File" command causes SETUP to look for the specified file  and
+   left-justify  the  text after the slash if the file is or is not present,
+   depending on the option "found" or "not-found".  The text may be  another
+   SETUP  command,  such as a ;Type command to give a warning message to the
+   user that a necessary  file  is  missing.   If  the  command  ";File  ...
+   not-found" is used and the file is present, then SETUP leaves the command
+   untouched in the CTL file.  Thus, the following  commands  would  display
+   the message "Warning:  this file is not present" if the filename given by
+   the user in response to the first prompt was not found.
+
+           ;Define variable <file-name> What file is to be processed?
+           ;File <file-name> not-f/;Type Warning: this file is not present
+
+        In the previous example,  the  variable  <file-name>  in  the  ;File
+   command  will  be  replaced  by  the  value specified by the user for the
+   ;Define variable command before SETUP executes the ;File command.
+
+        Conversely, if the command ";File ...  found" is used and  the  file
+   specified  exists,  then  the <text> will be placed at the beginning of a
+   new line.  If the file does not exist, the entire line will be placed  in
+   the CTL just as it appears in the MCF.
+
+        If the file specified in a ";File ...  not-found" command is present
+   and  the  <text>  is  a  ;Select  option  command, the option will not be
+   defined (the command will not be executed) and thus the  option  will  be
+   treated  as  having  the  value "no" when tested later in the MCF.  Thus,
+   assuming the file test.dat was present, the commands
+
+            ;File test.dat not-f/;Sel opt <abort> Should I abort this job?
+            ;Option <abort>/;Abort TEST.DAT is missing
+
+   would not abort SETUP.  Conversely, the same result occurs  if  the  file
+   specified  in  a ;File ..  found command is not present;  the option will
+   be treated as false.
+
+        The file specification may be any valid TOPS20  filespec  optionally
+   including device and directory.  Wildcard characters ("*" and "%") may be
+   included if desired.
+
+        The <text> may include double slashes  to  indicate  more  than  one
+   logical line.  When the <text> is left-justified, it will be divided into
+   physical lines at the  double  slash  and  the  double  slashes  will  be
+   deleted.  Please read the caution regarding multiple conditional commands
+   in sequence at the end of the ;Option command  description  on  page  11.
+   SETUP  commands  may  not  follow  a double slash.  The default device is
+   DSK:, the default directory is the user's connected directory.  There are
+   no  defaults  for file name and file type.  If the file is in a different
+   directory from the user's connected directory, then the ;File ...   found
+   command will fail (the file will be "not found") unless the user has read
+   access to it.
+   SETUP %5(56) 20-May-80                                            Page 25
+   ***** SETUP commands
+
+
+                                ;Abort [<text>]
+
+                             - - - - - - - - - - -
+
+        The ";Abort" command may be used to cause SETUP to not write  a  CTL
+   file if certain circumstances are encountered.  Such a situation might be
+   a missing file from a ;File command or an inconsistent set  of  responses
+   to several ;Select option commands.  When this command is executed, SETUP
+   will display the message "?SETUP aborted" and immediately terminate.   If
+   the  optional  <text>  is present, it will be displayed after the "?SETUP
+   aborted" message.
+
+        If the SETUP command is being executed from a .CMD file via the TAKE
+   exec  command,  and the .CMD file contains a SUBMIT command following the
+   SETUP command, the SUBMIT command will still be executed, but  will  fail
+   with  the  message  "?File  not  found".   SETUP accomplishes an abort by
+   deleting all generations of the CTL file before it begins reading the MCF
+   file.   This  also means that there can never be more that one generation
+   of the CTL file at any time.
+
+        The name of the CTL file being created is a function of the name  of
+   the  MCF  and  the  value  of the /JOB-ID:  switch (see Section III SETUP
+   features) and ;Abort ignores any  other  CTL  files  generated  from  the
+   current MCF but with different job-identifiers.
+
+        If the job is being restarted (via a /TAG:  switch) and  the  ;Abort
+   command is after the first batch tag in the MCF, but prior to the restart
+   point then the ;Abort  command  will  not  be  executed  and  SETUP  will
+   continue with the next line of the MCF.
+   SETUP %5(56) 20-May-80                                            Page 26
+   ***** SETUP commands
+
+
+           ;Get [/define][/noecho] option | variable <name> [<name>]
+
+                             - - - - - - - - - - -
+
+        The ;Get command may be used to retrieve the default or /SAVEd value
+   of an option or variable without user interaction.  This provides another
+   means of defining constant values of frequently used  parameters  similar
+   to the use of the ;Include command to include a ;Define option or ;Define
+   constant command.  When SETUP  retrieves  the  value  of  the  option  or
+   variable,  it  displays  a  message  of  the form "<name>=<value>" on the
+   terminal as a confirmation to the  user.   If  the  specified  option  or
+   variable  does  not have a default value, SETUP will issue an appropriate
+   message and ignore the ;Get command.
+
+        For example, if the variable <fiscal-year> had been  defined  to  be
+   "7980" with a Setup/variable command, the following MCF could be used:
+
+         MCF contents
+            ;Get variable <fiscal-year>
+            @Copy GL<fiscal-year>.SEQ GLTEMP.SEQ
+
+         Terminal Typescript
+            <fiscal-year>=7980
+
+         CTL contents
+            ;Get variable <fiscal-year> \7980\
+            @Copy GL7980.SEQ GLTEMP.SEQ
+
+        Note that SETUP includes the retrieved value  in  the  CTL  file  in
+   addition to displaying it on the user's terminal.
+
+        The optional switch /DEFINE causes SETUP to retrieve the saved value
+   of the first variable or option listed, but rather than defining the same
+   name to have the retrieved  value,  the  second  variable  or  option  is
+   defined  to  have  the  value and the first name is left undefined.  This
+   might be used, for example, to compare the current value of a variable or
+   option with its previous (default) value.
+
+        The  optional  switch  /NOECHO  suppresses  the  displaying  of  the
+   retrieved  value  on  the  user's  terminal.  It is recommended that this
+   switch be used only when a later ;Type command will  show  the  retrieved
+   value to the user.
+   SETUP %5(56) 20-May-80                                            Page 27
+   ***** SETUP commands
+
+
+        ;If "<string1>" [not] = | [not] < | [not] > "<string2>" /<text>
+
+                             - - - - - - - - - - -
+
+        The ;If command  provides  a  general  way  to  test  the  value  of
+   constants  and  variables  against  other  predefined values.  ;If does a
+   left-to-right  string  comparison  of  the  two  text  strings  given  in
+   quotation  marks  and places the <text> at the beginning of a new line if
+   the specified condition is true.  The defined conditions are <string1> is
+   equal  to  <string2>  ("="),  <string1>  is  less than <string2> ("<") or
+   <string1> is greater than <string2> (">").  The sense  of  any  of  these
+   conditions  may  be  reversed  by  including  the  word  "not" before the
+   condition.  The comparison is made using the  ASCII  collating  sequence,
+   with  lowercase  letters  equivalent to uppercase letters and padding the
+   shorter string on the right with  spaces  if  necessary.   The  following
+   example illustrates the use of this command.
+
+         MCF contents
+            ;Define var <variable> Enter the test value
+            ;If "<variable>" not = "testval" /;Type You entered a bad value
+
+         Terminal typescript
+            Enter the test value
+            <variable>=foo
+
+            You entered a bad value
+
+        Note that when the ;If command in this example is actually executed,
+   the  command  will  appear as ';If "foo" not = "testvalue" /;Type...' and
+   will appear in the  CTL  file  this  way  after  the  variable  value  is
+   substituted.   As in other conditional commands, if the test is false and
+   the <text> contains a ;Select option command, the specified  option  will
+   be treated as false ("no").
+
+        If specified, the modifier "not" may not be abbreviated, but may  be
+   preceded and/or followed by any number of spaces or tabs.
+
+        The <text> may include double slashes  to  indicate  more  than  one
+   logical  line.   When the ;If command is true, the <text> will be divided
+   into physical lines where the double slashes are specified and the double
+   slashes  will  be  removed.   Please  read the caution on page 11.  SETUP
+   commands may not be specified following a double slash.   Double  slashes
+   also  should  not  be used when multiple conditional commands are used in
+   sequence.
+   SETUP %5(56) 20-May-80                                            Page 28
+   ***** SETUP commands
+
+
+                     ;If "<string>" [not] numeric /<text>
+
+                             - - - - - - - - - - -
+
+        This form of the ;If command allows a variable value  to  be  tested
+   for  non-numeric  characters.   The  only  characters  that will pass the
+   numeric test are the digits 0 through 9.  If  the  string  contains  only
+   these  digits  then  the  <text> will be placed at the beginning of a new
+   line;  otherwise the line will remain unchanged.  If the optional keyword
+   "not"  is  included,  then the <text> will be placed on a new line if any
+   non-digit appears in the string.  For example:
+
+         MCF contents
+            ;Define variable <date> What is the report date (YYMMDD)?
+            ;If "<date>" not numeric/;Abort Invalid date entered
+
+         Terminal typescript
+            What is the report date (YYMMDD)?
+            <date>=foo
+
+            ?SETUP aborted: Invalid date entered
+
+         CTL contents (if ;Abort were not used)
+            ;Define variable <date> \foo\ What is the report date (YYMMDD)?
+            ;If "foo" not numeric/
+            ;Abort Invalid date entered
+
+        Note that only the digits are considered to be  numeric  characters;
+   leading  or  trailing spaces, minus signs, etc.  will cause the string to
+   be considered "not numeric".
+   SETUP %5(56) 20-May-80                                            Page 29
+   ***** SETUP commands
+
+
+                           ;Error <text> [//<text>]...
+
+|                          ;Error block [<name> [<comment>]] 
+|                                    .
+|                                    .
+|                                    .
+|                                  ;End [<name>]
+
+                             - - - - - - - - - - -
+
+        The ;Error command causes SETUP to construct  an  "error  block"  of
+   commands  that  will  be executed when the job runs in the event that the
+   preceding job command causes an error in the batch job.  In  the  current
+   implementation,  ;Error is very similar to the batch @If (ERROR) command.
+   The batch command, however, allows only a single command to  be  executed
+   if  an  error  occurs, and frequently it is desirable to execute multiple
+   commands.  SETUP provides a concise syntax for performing this  function,
+   making the MCF more readable.
+
+        The <text> following the command name are  batch  statements  to  be
+   placed on separate lines within the error block.  Two consecutive slashes
+   in the ;Error command indicate where the command is  to  be  broken  into
+   separate statements.
+
+   The following example illustrates the use of this command.
+
+         MCF contents
+             .
+             .
+             .
+            @Copy daily.fil trans.fil
+            ;Error @Journal "Daily.fil does not exist"//@Goto Abort
+             .
+             .
+             .
+
+         CTL contents
+             .
+             .
+             .
+            @Copy daily.fil trans.fil
+            ;Error
+            @If (noerror) @Goto XX0001
+            @Journal "Daily.fil does not exist"
+            @Goto Abort
+            XX0001::
+             .
+             .
+             .
+
+        Note that in the current implementation,  SETUP  inserts  the  batch
+   converse  command  "@If  (noerror)"  to  skip over the block.  SETUP will
+   construct a unique batch tag name for each ;Error command, thus  removing
+   the possibility of error in matching tag names and inadvertently skipping
+   SETUP %5(56) 20-May-80                                            Page 30
+   ***** SETUP commands
+
+
+   to the wrong part of the  CTL  file.   It  is  strongly  urged  that  the
+   statements begin with one of the characters "@" or "*" as appropriate for
+   the context, although SETUP will not enforce this standard.
+
+        In order to make the MCF more readable, it is  suggested  that  line
+   continuation be used to indicate the logical line breaks.  For example:
+
+            ;Error -
+            ;+      @Journal "FILE-MAINTENANCE.DAT is missing"//-
+            ;+      @Delete work.fil//-
+            ;+      @Goto Abort
+
+        Note that even when line continuation is used  it  is  necessary  to
+   include the double slashes to indicate line breaks.
+
+|       The  "block"  keyword  allows  a  block  structure  to  be  used  in
+|  formatting the commands to be executed upon an error rather than the line
+|  continuation syntax.  The previous  example  written  as  a  block  would
+|  appear as follows:
+|  
+|           ;Error block No-maint
+|                   @Journal "FILE-MAINTENANCE.DAT is missing"
+|                   @Delete work.fil
+|                   @Goto Abort
+|                   ;End No-maint
+|  
+|       The keyword "block" and the ;End command define the commands  to  be
+|  included  in the error handling procedure.  The optional block name after
+|  the word "block" and after the ;End command serves  as  documentation  to
+|  match  the  start  and  end of the block.  SETUP compares block names for
+|  validation purposes as described under the ;End command.
+|  
+|       The block  structure  allows  additional  SETUP  commands  (such  as
+|  ;Option  and  ;No-option)  to be used within the block.  Refer to Section
+|  III for a complete description of blocks.
+   SETUP %5(56) 20-May-80                                            Page 31
+   ***** SETUP commands
+
+
+       ;Perform <filespec> <variable>=("<text>",...) [<variable>=...]...
+
+|    ;Perform block [<name>] <variable>=("<text>",...) [<variable>=...]...
+
+                             - - - - - - - - - - -
+
+        The ;Perform  command  provides  a  function  very  similar  to  the
+   ;Include  command.   Whereas  the  ;Include  command  only  "inserts" the
+   contents of another file into the text of  the  CTL  file,  the  ;Perform
+   command  in  addition  allows  substitution  of  the  values of a list of
+   variables used in that inserted file.  The ;Perform  command  provides  a
+   means of inserting the same skeleton file into the CTL several times with
+   differing values of several variables.
+
+        The full syntax  of  the  ;Perform  command  is:   (1)  the  command
+   ";Perform",  (2) a TOPS-20 filespec (device and file type default to MCF:
+   and .SCF or .MCF respectively), (3) one or more of  (3a)  variable  name,
+   (3b) equals sign, (3e) list of values to replace the variable, each value
+   in quotes and the entire list in parentheses.
+
+   For example:
+
+         MAIN.MCF contents:
+            ;Perform sub <name> = ("file1","file2") <type>=("type1","type2")
+
+         SUB.SCF contents:
+            @Directory <name>.<type>
+
+         Will produce:
+            ;Perform sub \PS:<DC00>SUB.SCF.1\ <name> = ("file1","file2"
+   ) <type>=("type1","type2")
+            @Directory file1.type1
+            ; end of PS:<DC00>SUB.SCF.1
+            @Directory file2.type2
+            ; end of PS:<DC00>SUB.SCF.1
+
+        Note that the full filespec of the inserted  file  is  displayed  by
+   SETUP  on  the  command  line  in  the CTL file, and that SETUP inserts a
+   comment line indicating the end of the inserted file.  If no file type is
+   specified,  SETUP  will look for a file with the type ".SCF".  If no such
+   file exists, SETUP will look for a file with the type ".MCF".  If neither
+   file exists SETUP will display an error message and abort the CTL file.
+
+        Currently, SETUP allows up to five  variables  to  be  listed  in  a
+   ;Perform  command.   As  for ;Include, ;Perform commands may be nested to
+   any depth;  that is, a ;Performed SCF may ;Perform another SCF.  ;Perform
+   and ;Include commands may both be used in the same MCF.
+
+        After the ;Perform command is complete, the variables listed in  the
+   command will be left undefined and therefore may be used again in another
+   ;Perform command.
+   SETUP %5(56) 20-May-80                                            Page 32
+   ***** SETUP commands
+
+
+|       The keyword "block" when used  in  place  of  a  file  specification
+|  allows  the text of the performed file to be written "in-line" in the MCF
+|  rather than in an external file.   The  optional  block  name  after  the
+|  keyword  will  be  matched with a following ;End command to determine the
+|  start and end of the block.  The block structure would be used  in  cases
+|  where the sequence of commands is executed only by this MCF and therefore
+|  does not warrant being written as a separate disk file.
+|  
+|  The previous example written as a block would appear as follows:
+|  
+|        MAIN.MCF contents:
+|           ;Perform block dir <name> = ("file1","file2") <type>=
+|  ("type1","type2")
+|                   @Directory <name>.<type>
+|                   ;End Dir
+|  
+|        Will produce:
+|           ;Perform block dir <name> = ("file1","file2") <type>=
+|  ("type1","type2")
+|           @Directory file1.type1
+|           ;End Dir
+|           @Directory file2.type2
+|           ;End Dir
+|  
+|       The optional block name is used to document the start and end  of  a
+|  particular  block  and  is  verified by SETUP as described under the ;End
+|  command.
+|  
+|       Performed blocks may be  nested  just  as  performed  files  may  be
+|  nested.   Refer  to  the  description of blocks in Section III for a more
+|  detailed explanation.
+   SETUP %5(56) 20-May-80                                            Page 33
+   ***** SETUP commands
+
+
+           ;Perform [/verify] <filespec> <variable>[,<variable>
+                                    [,<variable>]]=filespec[,filespec]
+
+|          ;Perform [/verify] block [<name>] <variable>[,<variable>
+|                                   [,<variable>]]=filespec[,filespec]
+
+                             - - - - - - - - - - -
+
+        This form of the ;Perform command includes  another  SCF  for  every
+   occurrence  of a disk file matching one of the file specifications listed
+   following the equals sign.  For example, to run a pre-edit program on all
+   files whose names end in .DAT, the command might be
+
+            ;Perform Pre-edit <input-file>=*.dat
+
+   In this example the contents of PRE-EDIT.SCF will be included in the  CTL
+   file  once  for  every occurence of a file whose name ends in .DAT.  Each
+   time the contents of PRE-EDIT.SCF are  read,  the  variable  <input-file>
+   will  be defined to have a new value, the value being one of the matching
+   filenames.
+
+        The first variable specified in the command will be defined to  have
+   the  full  file  name,  minus generation number, of the file matching the
+   specification.  This value will always include the filename and  filetype
+   and  will  include the structure and directory if they are not the user's
+   connected structure or directory.
+
+        A second variable may be given that will  be  defined  to  have  the
+   characters of the filename that match the wildcard characters (if any) in
+   the file specification.  For example, if the file AD001.DAT  exists  then
+   the command
+
+            ;Perform pre-edit <input-file>,<file-id>=AD*.dat
+
+   would  cause  PRE-EDIT.SCF  to  be  included  once  with   the   variable
+   <input-file>  having  the  value  "AD001.DAT"  and the variable <file-id>
+   having the value "001".
+
+        SETUP determines the value of the second variable by  comparing  the
+   specific  file  name  with the matching filespec in the ;Perform command.
+   The comparison is  done  left  to  right  until  the  first  mismatch  is
+   detected;   next the names are compared right to left until a mismatch is
+   found again.  The value of the variable is all the characters between the
+   first  and  second  positions  defined  by  these comparisons.  Thus, the
+   filespec may contain multiple wildcard characters and a unique  value  of
+   the  second  variable will still be defined.  (Note that if the wildcards
+   are on opposite sides of the "." in the file name then the variable value
+   will include the period also.
+
+        If a structure and/or directory was specified in the  command,  then
+   the  determination of the second variable value will include these fields
+   in the comparison;  thus the specification "<*>MAINT.DAT"  will  retrieve
+   all the directory names of the matching files as the values of the second
+   variable.
+   SETUP %5(56) 20-May-80                                            Page 34
+   ***** SETUP commands
+
+
+        The third variable, if specified, will be defined  to  be  a  unique
+   three-digit  sequence  number  for  every  iteration of the included SCF.
+   This sequence number starts at zero for each invocation of SETUP  and  is
+   incremented every time a file is found matching the file specification in
+   the command.  This number is never reset, thus  a  second  ;Perform  will
+   again  increment this sequence number.  The third variable may be used to
+   construct unique tags for checkpointing purposes.
+
+        If the optional switch /VERIFY is specified, SETUP will display  the
+   file  name  and  request  a  yes  or  no  response from the user prior to
+   including the SCF for that file.  If the user responds  with  "no",  then
+   SETUP  will ignore the file and skip to the next matching file name.  For
+   the following example, assume the files AD054.DAT and DL068.DAT exist.
+
+         PRE-EDIT.SCF
+            EDT<sequence-number>::
+            @Chkpnt EDT<sequence-number>
+            @Vdirectory <input-file>
+            @Copy <input-file> editin.seq
+            @Run Predit
+            !PREDIT reads file id for report title
+            *<file-id>
+            @Vdirectory predit.rpt
+            @Append predit.rpt pre-edit.report
+            @Delete predit.rpt,editin.seq
+
+         MAINT.MCF
+             .
+             .
+             .
+            ;Perform pre-edit <input-file>,<file-id>,<sequence-number>
+   =AD*.DAT,DL*.DAT
+             .
+             .
+             .
+
+         CTL file
+             .
+             .
+             .
+            ;Perform pre-edit \PS:<DC00>PRE-EDIT.SCF.5\ <input-file>,
+   <file-id>,<sequence-number>=AD*.DAT,DL*.DAT
+            EDT001::
+            @Chkpnt EDT001
+            @Vdirectory AD054.DAT
+            @Copy AD054.DAT editin.seq
+            @Run Predit
+            !PREDIT reads file id for report title
+            *054
+            @Vdirectory predit.rpt
+            @Append predit.rpt pre-edit.report
+            @Delete predit.rpt,editin.seq
+            ; End of PS:<DC00>PRE-EDIT.SCF.5
+            EDT002::
+   SETUP %5(56) 20-May-80                                            Page 35
+   ***** SETUP commands
+
+
+            @Chkpnt EDT002
+            @Vdirectory DL068.DAT
+            @Copy DL068.DAT editin.seq
+            @Run Predit
+            !PREDIT reads file id for report title
+            *068
+            @Vdirectory predit.rpt
+            @Append predit.rpt pre-edit.report
+            @Delete predit.rpt,editin.seq
+            ; End of PS:<DC00>PRE-EDIT.SCF.5
+             .
+             .
+             .
+
+        If there are no existing files to match  the  specification  in  the
+   ;Perform  command,  SETUP  will  print an error message and abort the CTL
+   file.  This error may be trapped by including a ;File  command  prior  to
+   the ;Perform command.
+
+        When all matching filespecs have been found, the variables  used  in
+   the  ;Perform  command  are  left  undefined  and may be used in a second
+   ;Perform command.
+
+|       The keyword "block" when used  in  place  of  a  file  specification
+|  allows  the text of the performed file to be written "in-line" in the MCF
+|  rather than in an external file.   The  optional  block  name  after  the
+|  keyword  will  be  matched with a following ;End command to determine the
+|  start and end of the block.  The block structure would be used  in  cases
+|  where the sequence of commands is executed only by this MCF and therefore
+|  does not warrant being written as a separate disk file.
+|  
+|       The optional block name is used to document the start and end  of  a
+|  particular  block  and  is  verified by SETUP as described under the ;End
+|  command.
+|  
+|       Performed blocks may be  nested  just  as  performed  files  may  be
+|  nested.   Refer  to  the  description of blocks in Section III for a more
+|  detailed explanation.
+
+        As for ;Include  and  the  variable-list  format  of  ;Perform,  the
+   default  device for the performed file is MCF:  and the default file type
+   is ".SCF".  If the file type is defaulted and no file with the  extension
+   ".SCF"  exists,  SETUP  looks  for  a file with the extension ".MCF".  If
+   neither file exists SETUP displays an error message and  aborts  the  CTL
+   file.
+   SETUP %5(56) 20-May-80                                            Page 36
+   ***** SETUP commands
+
+
+|                         ;Begin [<name> [<comment>]]
+|  
+|                            - - - - - - - - - - -
+|  
+|       The ;Begin command defines the start of a block of lines in the  MCF
+|  written  to  execute  a particular function.  A line contained within the
+|  block is treated just as every other line in the MCF;  that is, the  line
+|  may  be  either  a  SETUP  command  to be executed or a line to be copied
+|  verbatim  to  the  control  file.   Variables,  constants   and   options
+|  referenced  within  a block will be treated exactly the same as outside a
+|  block.
+|  
+|       The block structure is used after a  conditional  command  (;Option,
+|  ;No-option, ;If and/or ;File) to define an entire sequence of lines to be
+|  analyzed if  and  only  if  the  condition  is  true.   This  concept  is
+|  particularly useful when other SETUP commands are included in the block.
+|  
+|  The following example illustrates two forms of the same  MCF,  the  first
+|  without blocks and the second using the block structure.
+|  
+|        Example 1: without blocks
+|           ;Select option <sorted-report> Do you want a sorted report?
+|           ;Option <sorted-report>/;Select option <name-dept> -
+|           ;+  Do you want the name sort (yes) or the department sort (no)?
+|           ;Option <sorted-report>/;Option <name-dept>/ -
+|           ;+      ;Define constant <order> NAME
+|           ;Option <sorted-report>/;No-option <name-dept>/ -
+|           ;+      ;Define constant <order> DEPARTMENT
+|           ;No-option <sorted-report>/@Goto Nosort
+|           @Run SRTRPT
+|           *<order>
+|           @Print SRTRPT.PRT
+|           Nosort::
+|  
+|        Example 2: using blocks
+|           ;Select option <sorted-report> Do you want a sorted report?
+|           ;Option sorted-report/;Begin Sorted-report
+|                   ;Select option <name-dept> Do you want the name sort
+|  (yes) or the department sort (no)?
+|                   ;Option <name-dept>/;Define constant <order> NAME
+|                   ;No-option <name-dept>/;Define const <order> DEPARTMENT
+|                   @Run SRTRPT
+|                   *<order>
+|                   @Print SRTRPT.RPT
+|                   ;End Sorted-report
+|  
+|       In the second example, the lines following the ;Begin command up  to
+|  the  ;End command will not be executed (in particular, the ;Select option
+|  <name-dept> will not be executed) if the response to the first select  is
+|  "no".
+|  
+|       When a block is not executed, the  control  file  will  contain  the
+|  ;Begin  and  ;End  commands but none of the lines between these two.  All
+|  SETUP commands  will  be  ignored  with  the  exception  of  other  block
+   SETUP %5(56) 20-May-80                                            Page 37
+   ***** SETUP commands
+
+
+|  definition  commands  (i.e.   ;Begin, ;Error block, ;Perform block) where
+|  SETUP will further validate the inner block boundaries.  Indentation  may
+|  be  used  as  in the previous example to offset the contents of the block
+|  and SETUP will remove the indentation (any  number  of  spaces  or  tabs)
+|  before writing the line(s) to the CTL file.
+|  
+|       An optional block name may be specified after the command to briefly
+|  document  the  function  of the block and to allow SETUP to compare block
+|  names when the ;End command is reached.  That is,  if  the  corresponding
+|  ;End  command  specifies  a  different  block name than the current block
+|  name, SETUP will print an error message.  The block name also  makes  the
+|  MCF  easier  to  follow,  as  ;Begin and ;End commands can be more easily
+|  matched.
+|  
+|       Following the block name, the MCF may contain a comment  to  further
+|  document  the  function of the block.  SETUP will copy the comment to the
+|  CTL file, but otherwise ignore it.
+|  
+|  Refer to Section III for a more complete description of blocks.
+   SETUP %5(56) 20-May-80                                            Page 38
+   ***** SETUP commands
+
+
+|                          ;End [<name> [<comment>]]
+|  
+|                            - - - - - - - - - - -
+|  
+|       The ;End command serves to document the end  of  a  block  that  was
+|  started  with  a  ;Begin,  ;Error  block or ;Perform block command.  If a
+|  block name is specified, SETUP will  compare  the  given  name  with  the
+|  current  block  name and print an error message if the names do not match
+|  (un-named blocks are assumed to have an "empty" name  and  thus  no  name
+|  will be permitted on the corresponding ;End command).
+|  
+|       Following the block name the MCF may contain a comment.  SETUP  will
+|  copy the comment to the CTL file but otherwise ignore it.
+|  
+|       If no block name is specified,  then  the  current  block  is  ended
+|  regardless of its name;  that is, not specifying a block name effectively
+|  defeats the block boundary validation performed by SETUP.
+|  
+|       Normally the ;End command is copied to the control file  exactly  as
+|  it appears in the MCF, however, if the block being ended is nested within
+|  another block that is not being executed (such as an  ;Option  .../;Begin
+|  sequence)  then the ;End command will not appear in the CTL file although
+|  it will still be executed in order to validate the block boundaries.
+|  
+|  Refer to Section III for a complete description of blocks.
+   SETUP %5(56) 20-May-80                                            Page 39
+   ***** SETUP commands
+
+
+|                         ;Leave [<name> [<comment>]]
+|  
+|                            - - - - - - - - - - -
+|  
+|       The ;Leave command causes SETUP to ignore the following  line(s)  of
+|  the  MCF  until  the  end of the current block is reached.  ;Leave may be
+|  specified following a conditional command in order to suppress  execution
+|  of the remainder of a block in a specified circumstance.
+|  
+|       If a block name is  specified  on  the  ;Leave  command  SETUP  will
+|  compare  the  given  name  to  the name of the current block and print an
+|  error message if the names do not match.  Following the name, the MCF may
+|  contain  a comment describing the reason for suppressing the remainder of
+|  the block.  SETUP will copy the entire line to the CTL file, ignoring the
+|  comment.   If  the current block is un-named, then no name or comment may
+|  be specified on the ;Leave command.
+|  
+|       The ;Leave command may also be used within ;Included  or  ;Performed
+|  files  to  terminate  processing of the file prior to the physical end of
+|  the file.  In this case, no block name or comment should be specified.
+|  
+|  Refer to Section III for a more complete description of blocks.
+   SETUP %5(56) 20-May-80                                            Page 40
+   ***** Conditional Commands
+
+
+        The
+           ;Option <option-name>/<text>
+   and
+           ;No-option <option-name>/<text>
+
+   commands may be used to reduce the amount of  user  dialog  necessary  to
+   create  the  control  file  by  selectively  prompting  for  options  and
+   variables and/or effectively assigning default values to options.
+
+   For example, in an older version of SETUP the following MCF:
+
+            ;Select option rpt Do you want to produce the report?
+            ;Select option sort Does the report file need sorting?
+            ;Define variable <date> What date goes on the report?
+
+   would produce this dialog:
+
+            Do you want to produce the report?
+            rpt (y or n)? n
+
+            Does the report file need sorting?
+            sort (y or n)? n
+
+            What date goes on the report?
+            <date>=none
+
+   If option rpt did not need to be selected on this run then the  next  two
+   lines  of  the  MCF  should not even be considered.  To avoid these extra
+   inquiries the MCF could be re-written to look like this:
+
+            ;Select option rpt Do you want to produce the report?
+            ;Option rpt/;Sel opt sort Does the report file need sorting?
+            ;Option rpt/;Def var <date> What date goes on the report?
+
+   the user dialog would be:
+
+            Do you want to produce the report?
+            rpt (y or n)? n
+
+        Since option rpt was not selected above,  the  questions  concerning
+   sort  and <date> were not asked but the ;Option command caused the option
+   sort to default automatically to a "no" answer and the variable <date> to
+   not being replaced when encountered in the MCF.  However, if rpt had been
+   selected then the dialog would have been exactly the same as if there had
+   been no ;Option commands present.
+
+        Since ;Option and ;No-option commands can be  nested  to  any  level
+   (limited  only  by  the  maximum  length  of a MCF line) the selection of
+   options and definition of variables can be made to  depend  on  which  of
+   several  other  options  have  already  been  defined.   A logical AND is
+   performed on all the <option-name>s following each ;Option and ;No-option
+   command  until  one  of  the  <option-name>s  is false.  In the following
+   example:
+   SETUP %5(56) 20-May-80                                            Page 41
+   ***** Conditional Commands
+
+
+           ;Opt a/;No-opt b/;Opt c/;Def var <form> What kind of forms?
+
+   The variable <form> would only be  defined  if  option  a  was  selected,
+   option  b  was  not  selected,  and  option c was selected.  If any other
+   condition were to exist for options a, b, or c then <form> would  not  be
+   defined.
+
+        If the option-name in an ;Option command is  not  selected,  or  the
+   option-name   in   an  ;No-option  command  is  selected,  then  options,
+   variables, and constants will be handled as follows on commands given  on
+   the same line following the ;Option or ;No-option command:
+
+       ;S o - The <option-name> following the ;Select will be treated in all
+              succeeding  occurrences as if it were not selected.  That is a
+              ;No-option <option-name>/ would be successful but  an  ;Option
+              <option-name>/ would be ignored.
+
+       ;S v - The  <variable-name>  will  not  be  defined  and  the  string
+              "<variable-name>"  will  not be replaced if it is found in the
+              MCF.
+
+       ;D c - The ;Define constant command will be effectively ignored,  and
+              the  string  "<constant-name>"  will  not be replaced if it is
+              found in the MCF.
+
+       ;D v - The ;Define variable command will be ignored just  as  ;Define
+              constant  and  no  attempt to replace "<variable-name>" in the
+              MCF will be made.
+
+       ;D o - The ;Define option command will also be ignored and the  named
+              option will default to the value "no".
+
+        Normally each <option-name> in the ;Option or ;No-option command has
+   been  previously  selected  in  a ;Select statement, defined in a ;Define
+   option statement,  or  been  retrieved  with  a  ;Get  option  statement,
+   however,  an  option  may  be  tested in an ;Option or ;No-option command
+   without having been defined and the command will be executed  as  if  the
+   option were defined to be "no".
+   SETUP %5(56) 20-May-80                                            Page 42
+   ***** Features
+
+
+   III.  SETUP features
+
+        SETUP inserts the value of a selected option or a  defined  variable
+   into  the  control  file immediately following the option or variable.  A
+   backslash ("\") is used to delimit this value.  For example if  option  a
+   was  selected  and  the  variable <date> was defined as 10-22-52 then the
+   control file might look like this:
+
+            ;Select option a \Y\ Want to run opt a?
+            ;No-option a/;Select option b Want to run opt b?
+            ;Define variable <date> \10-22-52\ Insert your birth date?
+            ;No-option a/;Define variable <copies> How many copies?
+
+   This is very useful when trying to debug a MCF  because  the  option  and
+   variable values appear just as they were selected and defined.
+
+                             - - - - - - - - - - -
+
+        SETUP looks for the MCF file on logical device  MCF:   if  no  other
+   device is specified.  If this device is not defined, the message
+
+           % MCF file not found
+
+   will be printed and SETUP will abort.  The file  specification  to  SETUP
+   may  also  include  the directory in which the MCF file resides.  The CTL
+   file will always be written into the device DSK:  (normally the connected
+   directory).
+
+                             - - - - - - - - - - -
+
+        SETUP processes the MCF in a single pass on a line  by  line  basis.
+   Therefore  any options selected or constants and variables defined may be
+   used immediately on following lines.
+
+                             - - - - - - - - - - -
+
+        In many cases it is desirable to be able to submit several  versions
+   of  the  same  job  at once.  For example, a reporting program may be run
+   several times with different report options.  SETUP  always  chooses  the
+   name of the CTL file it creates based upon the name of the MCF file it is
+   reading.  In addition, in order  to  make  the  ;Abort  command  function
+   properly  (see  the  description  of  this  command in section II.) SETUP
+   always deletes any previous generations of the CTL file before it  begins
+   writing the new file.  Therefore, a facility exists to allow the same MCF
+   file to be used to produce several different CTL files at the same  time.
+   This  facility  is  the  "/JOB-ID:" switch which may be given at the exec
+   command level when SETUP is called (see section IV.  Running SETUP).   If
+   /JOB-ID:  is specified it may be followed by a 1-to-6 character word (any
+   combination of letters, numbers and hyphens).  This word will be appended
+   to  the  name of the MCF file, separated by a hyphen, to produce the name
+   of the CTL file.  Thus, different /JOB-ID:'s may be used  with  the  same
+   MCF  file  to  produce different CTL files.  In addition to producing the
+   name of the CTL file, the /JOB-ID:  switch  causes  SETUP  to  internally
+   execute  a  ;Define  constant  <job-id>  command  where  the value of the
+   SETUP %5(56) 20-May-80                                            Page 43
+   ***** Features
+
+
+   constant is the 1-word job-id specified.  This allows the text of the MCF
+   file  to  use the job identifier in any manner desired (as for example, a
+   DELETE FOO-<JOB-ID>.CTL command at the end of the file).
+
+        If no /JOB-ID:  switch is specified at command level, then  the  CTL
+   file  name  will  be  exactly the same as the MCF file name with the file
+   type of .CTL, and the constant <job-id> will  have  a  null  value.   The
+   following example assumes the file REPORT.MCF exists.
+
+            @SETUP REPORT
+                    .
+                    .
+                    .
+               (SETUP runs)
+                    .
+                    .
+                    .
+            [REPORT.CTL.1 created]
+            @
+
+            ----------------------------------------------
+
+            @SETUP REPORT/JOB-ID:ALPHA
+                    .
+                    .
+                    .
+               (SETUP runs)
+                    .
+                    .
+                    .
+            [REPORT-ALPHA.CTL.1 created]
+            @
+
+        Corresponding to the <job-id>  constant  defined  by  SETUP  is  the
+   <job-name>  constant.   The value of <job-name> is defined to be the name
+   of the MCF;  in the preceding example, <job-name> would be "REPORT".
+
+                             - - - - - - - - - - -
+
+        It is frequently necessary (unfortunately) to restart long jobs from
+   a  checkpoint.   In  these cases, the normal user prompts issued from the
+   MCF may not be entirely applicable (the job may  have  already  completed
+   the  transaction  edit  step, for example so there is no point asking the
+   user the name of the transaction file).   To  handle  this  situation,  a
+   /TAG:   switch  may  be specified after the MCF name in the SETUP command
+   line and SETUP will suppress all terminal activity  occurring  after  the
+   first  occurrence  of  a batch label but before the specified tag.  Thus,
+   ;Ask, ;Define variable, ;Select option, ;Select variable ;Type and ;Abort
+   commands will all be ignored.
+
+        These commands will truly be ignored;  that is, variables  will  not
+   be  defined and therefore not substituted and options will not be defined
+   (and will therefore default to "no").  All  commands  not  involving  the
+   terminal (e.g.  ;Define constant, etc.) will be executed as normal.
+   SETUP %5(56) 20-May-80                                            Page 44
+   ***** Features
+
+
+        SETUP will also define the option RESTART to  be  "yes"  if  a  /TAG
+   switch  was  entered, and "no" otherwise.  The option Restart may be used
+   to control execution of  other  commands  such  as  ;file  that  are  not
+   automatically  suppressed  by  SETUP.   Note  that  the option Restart is
+   defined by SETUP when a /TAG:  switch is specified to SETUP, not  when  a
+   job is restarted automatically by the batch system.  If SETUP reaches the
+   end of the MCF without finding the specified tag, an error  message  will
+   be  issued  and  SETUP  will  abort  the CTL file.  The following example
+   illustrates the use of the /TAG:  switch.
+
+         TEST.MCF
+
+            ;Type This is an example of the use of the /TAG: switch
+            ;Option restart /;Type Terminal i/o will now stop
+
+            Begin::
+            ;Type This line will not be seen if /TAG: was specified
+            ;Define variable <test> This variable will not be defined
+
+            Step2::
+            ;Option restart /;Type Terminal i/o will now resume
+            ;Type The value of variable "test" is <test>
+
+
+
+         Terminal typescript
+
+            @SETUP TEST
+            SETUP version 5(56)
+
+            This is an example of the use of the /TAG: switch
+            This line will not be seen if /TAG: was specified
+
+            This variable will not be defined
+            <test>=no tag
+
+            The value of variable "test" is no tag
+
+            [TEST.CTL.1 complete]
+
+            - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+            @SETUP TEST/TAG:STEP2
+            SETUP version 5(56)
+
+            This is an example of the use of the /TAG: switch
+            Terminal i/o will now stop
+            Terminal i/o will now resume
+            The value of variable "test" is <test>
+
+            [TEST.CTL.2 complete]
+   SETUP %5(56) 20-May-80                                            Page 45
+   ***** Features
+
+
+        In  addition  to  the  option  Restart,  SETUP  defines  the  option
+   RESTART-<tagname>  to  be yes where <tagname> is the tag specified in the
+   /TAG:  switch.  This may be used as in the following MCF.
+
+             .
+             .
+             .
+            Step2::
+             .
+             .
+             .
+            ;Select option Detail-report Do you want the posting detail?
+            ;Option restart-dtlrpt/;Define option detail-report yes
+            ;Option detail-report/;Include Detail-report
+             .
+             .
+             .
+
+        In this example, if the  user  specifies  SETUP.../TAG:DTLRPT,  then
+   SETUP  will  not execute the ;Select command.  Therefore the value of the
+   option Detail-report would be "no".  If the first  ;Option  command  were
+   not  present  then  DETAIL-REPORT.SCF  would  not be included and the tag
+   DTLRPT (which is inside DETAIL-REPORT.SCF) would not be found.  The first
+   ;Option  command  solves this problem by including DETAIL-REPORT.SCF when
+   the user requests a restart a a tag within DETAIL-REPORT.SCF.
+
+|                            - - - - - - - - - - -
+|  
+|       If the user types control-C  while  SETUP  is  running,  SETUP  will
+|  display  the  message "Yes?" and wait for the user to respond with either
+|  "ABORT" or "CONTINUE".  If the user types  CONTINUE,  SETUP  will  resume
+|  processing  at  the  point from which it was interrupted;  that is, if it
+|  was waiting for the response to a ;Define variable or  a  ;Select  option
+|  command,  it  will  continue to wait for that response (without re-typing
+|  the prompt).  If the  user  types  ABORT,  then  SETUP  will  immediately
+|  execute  an  ;Abort  command, thus discarding the CTL file that was being
+|  built.
+|  
+|       When the "Yes?" prompt is displayed, the user may type "?" to get  a
+|  list of the possible responses.
+   SETUP %5(56) 20-May-80                                            Page 46
+   ***** Features
+
+
+                             - - - - - - - - - - -
+
+   Pre-defined options and variables
+
+        SETUP provides several options and variables that may be  referenced
+   without  executing  a  command  that  assigns a value (e.g.  a ;Select or
+   ;Define command).  The pre-defined options are:
+
+            Restart         Restart has the value "yes" if a /TAG: switch
+                            was given on the SETUP command line and "no"
+                            otherwise.
+
+            Restart-<tagname> "yes" for the tagname specified in the /TAG:
+                            switch; "no" for any other <tagname>.
+
+            Monday          has the value "yes" if the current weekday
+                            is a Monday; "no" otherwise.
+
+            Tuesday         "yes" if the current weekday is a Tuesday.
+
+            Wednesday       "yes" if the current weekday is a Wednesday.
+
+            Thursday        "yes" if the current weekday is a Thursday.
+
+            Friday          "yes" if the current weekday is a Friday.
+
+            Saturday        "yes" if the current weekday is a Saturday.
+
+            Sunday          "yes" if the current weekday is a Sunday.
+
+
+   The pre-defined variables are:
+
+            <Current-day>   The current two-digit numeric day of the month.
+
+|           <Current-hour>  The 2-character hour of the day on a
+|                           24-hour time clock.
+|  
+|           <Current-month-name>  The 3-character abbreviation for the
+|                           name of the current month.  (The first three
+|                           characters of the month.)
+
+            <Current-month> The current numeric month of the year
+                            (January = 01).
+
+|           <Current-user-name>  The logged-in username of the job
+|                                currently running SETUP.
+
+            <Current-year>  The two-digit year of the century.
+
+            <Job-id>        The value of the /JOB-ID: switch.
+
+            <Job-name>      The filename of the MCF specified in the SETUP
+                            command line.
+   SETUP %5(56) 20-May-80                                            Page 47
+   ***** Features
+
+
+            <Julian-date>   The three-digit julian day of the year
+                            (February 1st = 032).
+   SETUP %5(56) 20-May-80                                            Page 48
+   ***** Features
+
+
+                             - - - - - - - - - - -
+
+   Line continuation
+
+        All logical lines in the  MCF  are  limited  to  a  maximum  of  500
+   characters,  regardless  of  whether or not they are SETUP command lines,
+   however, it is often desirable to divide a single logical line  into  two
+   or more physical lines in the MCF.
+
+        Line continuation may be used to break long  MCF  lines  at  logical
+   points in order to make the MCF more readable.  Standard TOPS-20 commands
+   may be divided into multiple MCF lines by simply typing a hyphen  at  the
+   end  of  each  line  to be continued.  Each continuation line should also
+   begin with an "@" to indicate that it is to be read by the  job  at  EXEC
+   command level.
+
+        SETUP command lines are continued in a similar fashion.   Each  line
+   to  be continued should end with a hyphen.  The continuation lines should
+   begin with a semi-colon and a plus sign.  For example:
+
+            ;Define variable <posting-date> -
+            ;+      Enter the transaction posting date (MMDDYY)
+
+        Line continuation may be used in a SETUP  command  anywhere  between
+   words;   that  is,  anywhere  a space or tab is legal in a SETUP command.
+   The character string '(tabs or spaces),  hyphen,  new  line,  semi-colon,
+   plus,  (tab  or  space)'  is treated by SETUP as a single occurrence of a
+   space.  Note that any number of tabs or  spaces  immediately  before  the
+   hyphen  and  a  single occurrence of a tab or a space after the plus-sign
+   are included in the "line continuation syntax".
+
+        When determining the total number of characters in a  logical  SETUP
+   command, the continuation characters must be included;  that is, you must
+   add 5 to the actual count of characters for each continuation line.
+
+        In most cases, the continuation characters will be removed from  the
+   logical  SETUP  command  prior  to  executing  the  command  and thus are
+   transparent to the command itself.  In certain cases, particularly  where
+   the  continuation  is  in  the middle of a prompt text string, the prompt
+   will be divided into  multiple  lines  on  the  user's  terminal  at  the
+   continuation  break  points.  (Note that it is important here to remember
+   that one space or tab character after the plus-sign will be "eaten up" by
+   the  continuation).   Therefore, a multi-line prompt may be issued from a
+   ;Define command as in the following example:
+
+            ;Define variable <report-header> -
+            ;+      Enter the report heading; may be one of the following -
+            ;+              Standard Account Report -
+            ;+              Department Head Report -
+            ;+              (or your own heading)
+   SETUP %5(56) 20-May-80                                            Page 49
+   ***** Features
+
+
+|                            - - - - - - - - - - -
+|  
+|  Blocks
+|  
+|       The block concept in SETUP is used to define  a  sequence  of  lines
+|  that  perform  a  specific  function.  The block structure may be used to
+|  cause that sequence to be executed more than once, and/or to be  bypassed
+|  entirely if certain conditions are satisfied.
+|  
+|       Blocks are defined by including one  of  the  block  start  commands
+|  ";Begin",  ";Error  block" and ";Perform block..." followed by any number
+|  of lines and ending with an ";End"  command.   Blocks  may  be  named  or
+|  un-named.   When  a  named  block  is  defined,  SETUP  provides  a block
+|  validation test.  This test compares  the  name  specified  on  the  ;End
+|  command with the name of the current block and prints an error message if
+|  the names do not match.
+|  
+|       The most common use of  blocks  is  to  bypass  sequences  of  SETUP
+|  commands  and  control  file data under certain pre-specified conditions.
+|  For example,
+|  
+|           ;Select option <detail-report> Do you want the detail report?
+|           ;Option <detail-report/;Begin Detail-report-block
+|                   ;Select variable <order> ("NAME","SSN","DEPT") -
+|                   ;+      Enter the sort order desired:
+|                   ;Define variable <copies> How many printed copies?
+|                   ;Select variable <form> ("NORMAL","XEROX") -
+|                   ;+      Enter the output form desired:
+|  
+|                   @Vdirectory input.fil
+|                   @Run DTLRPT
+|                   *<order>
+|                   @Vdirectory dtlrpt.prt
+|                   @Print dtlrpt.prt/copies:<copies>/form:<form>
+|                   ;End Detail-report-block
+|  
+|       In this example the user is first asked whether or not s/he wants  a
+|  detail  report produced this time.  If the response is affirmative, SETUP
+|  will then request  the  necessary  information  to  produce  the  desired
+|  report.   If  the  reponse  is  negative, SETUP will ignore all the lines
+|  following the command  ";Begin  Detail-report-block"  until  the  command
+|  ";End  Detail-report-block"  is  reached.   Note  that SETUP commands and
+|  control file data are ignored equally;  it  is  not  necessary  to  place
+|  ;Option  <detail-report>  commands  in front of the SETUP commands inside
+|  this block.
+|  
+|  The second form of block usage is to repeat one or more commands  several
+|  times.  For example,
+|  
+|           ;Perform block Append-transactions <trans-file>=trans-in.*
+|                   @Vdirectory <trans-file>
+|                   @Empty-check <trans-file>
+|                   ;Error @Journal "<job-name>-<job-id>: <trans-file> is
+|  empty"
+   SETUP %5(56) 20-May-80                                            Page 50
+   ***** Features
+
+
+|                   @Append <trans-file> transin.fil
+|                   @Delete <trans-file>
+|                   ;End Append-transactions
+|  
+|       In this case, the block of lines will be  repeated  once  for  every
+|  file   that   matches   the   wildcard  "trans-in.*"  with  the  variable
+|  <trans-file> being replaced with the name of  a  particular  file.   Note
+|  that this same function could be executed with a ;Performed external file
+|  but that the block structure provides better  in-line  documentation  for
+|  this MCF.  The ;Performed file would be appropriate to use when the block
+|  is to be executed in more than one MCF.
+|  
+|       The two examples shown give the text of the block  indented  with  a
+|  tab character.  When the lines are copied to the control file, SETUP will
+|  remove all tabs and spaces at the beginning of the line so that the  line
+|  is  left-justified.   The  indentation in the MCF is not required, but is
+|  suggested in order to make the MCF more readable.
+|  
+|       Whenever  indentation  is  used,  SETUP  immediately   removes   the
+|  indentation  before  any  other  operation;   thus  both  SETUP  and EXEC
+|  continuation lines may be indented at any level (that is, the ";+" may be
+|  preceded with any number of spaces and/or tabs.)
+|  
+|       Blocks may be nested;  that is, a ;Begin command may be followed  by
+|  a  second ;Begin command (or any other block definition command) prior to
+|  the ;End command for the first block.  In this case, SETUP  simply  saves
+|  the  name of the first block, executes the inner block normally (that is,
+|  all the rules of matching block names are applied), and then restores the
+|  first  block  name  as  the  "current block name" when the inner block is
+|  ;Ended.  Nesting may be applied to any level;  for example:
+|  
+|           ;Perform block Edit-trans <trans-file>,<dummy>,<sequence>=*.trn
+|                   @Vdirectory <trans-file>
+|                   @Empty-check <trans-file>
+|                   ;Error block Empty-trans
+|                           @Journal "<job-name>-<job-id>: <trans-file>
+|  empty"
+|                           @Delete <trans-file>
+|                           @Goto Nextrn
+|                           ;End Empty-trans
+|                   @Run edttrn
+|                   @Vdirectory edttrn.prt
+|                   @Print edttrn.rpt/delete
+|  
+|                   ;Select option <post-<sequence>> -
+|                   ;+      Is <trans-file> to be posted after editing?
+|                   ;Option <post-<sequence>>/;Begin Post-trans
+|                           @Run psttrn
+|                           @Vdirectory psttrn.rpt
+|                           @Print psttrn.rpt/delete
+|                           ;End Post-trans
+|                   Nextrn::
+|                   ;End Edit-trans
+   SETUP %5(56) 20-May-80                                            Page 51
+   ***** Features
+
+
+|       In this example, two blocks ("Empty-trans"  and  "Post-trans")  were
+|  nested  within  block "Edit-trans".  Notice the use of the third variable
+|  in the ;Perform  command  to  construct  a  unique  option-name  on  each
+|  iteration  of the block.  (This technique will work only for options - it
+|  will not work for variables or constants).
+|  
+|       Once a block is defined, it  is  sometimes  desireable  to  suppress
+|  processing  of  the remainder of the block if certain conditions are met.
+|  The ;Leave command provides this capability.  For example,  the  previous
+|  example could also have been written as:
+|  
+|           ;Perform block Edit-trans <trans-file>,<dummy>,<sequence>=*.trn
+|                   @Vdirectory <trans-file>
+|                   @Empty-check <trans-file>
+|                   ;Error block Empty-trans
+|                           @Journal "<job-name>-<job-id>: <trans-file>
+|  empty"
+|                           @Delete <trans-file>
+|                           @Goto Nextrn
+|                           ;End Empty-trans
+|                   @Run edttrn
+|                   @Vdirectory edttrn.prt
+|                   @Print edttrn.rpt/delete
+|  
+|                   ;Select option <post-<sequence>> -
+|                   ;+      Is <trans-file> to be posted after editing?
+|                   ;No-option <post-<sequence>>/;Leave Edit-trans
+|  
+|                   @Run psttrn
+|                   @Vdirectory psttrn.rpt
+|                   @Print psttrn.rpt/delete
+|                   Nextrn::
+|                   ;End Edit-trans
+|  
+|       Here the inner "Post-trans" block has  been  incorporated  into  the
+|  "Edit-trans"  block  and  is  bypassed via the ;Leave command if the user
+|  responds "no" to the ;Select command.  Notice  that  the  ;Leave  command
+|  suppresses only the remainder of the current iteration of the block;  the
+|  ;Perform command will continue to search for more files and  will  repeat
+|  the block if another file matches the wildcards.
+|  
+|       ;Included and ;Performed files are very similar in  concept  to  the
+|  block  structure.   The primary difference is that the end of a file that
+|  is ;Included or ;Performed is defined by the physical end-of-file;   that
+|  is,  these  files may not contain an ;End command to terminate processing
+|  of the file.  They may, however,  use  the  ;Leave  command  to  suppress
+|  processing of the remainder of the file.
+|  
+|       If the ;Leave command is used to terminate an ;Include  or  ;Perform
+|  file,  it  should  not specify a block name.  In fact, SETUP constructs a
+|  block name for such files from the  full  file  specification  (including
+|  generation  number)  of  the file.  In the event of an ;End within such a
+|  file that was not matched by a block start command, SETUP prints an error
+|  message  that  contains the file specification as the name of the current
+   SETUP %5(56) 20-May-80                                            Page 52
+   ***** Features
+
+
+|  block.
+|  
+|       The ;Begin, ;Leave and ;End commands may also contain a  descriptive
+|  comment  after  the  block  name  if  (and  only  if)  the  block name is
+|  specified.  This allows the programmer to further document  the  function
+|  of the block.
+|  
+|  
+|                            - - - - - - - - - - -
+|  
+|  Trace and Log facility
+|  
+|       When initially debugging an MCF it is often difficult  to  determine
+|  exactly  what  sequence  of  events  occured  while  SETUP  was  running.
+|  Mis-spelled variables, constants and options will  cause  much  different
+|  results than what was intended.
+|  
+|       For these reasons, the programmer can take advantage  of  the  trace
+|  facility in SETUP.  When SETUP is run, it will test to see if the logical
+|  name MCFTRACE:  is defined.  If this logical name  is  not  defined,  the
+|  trace  facility  is  disabled  and  MCF  processing occurs normally.  If,
+|  however, MCFTRACE:  is defined then SETUP will append to  it  lines  that
+|  indicate "events of special interest" while processing the MCF.
+|  
+|       The definition of logical name MCFTRACE:  may  include  any  of  the
+|  fields of a TOPS-20 file specification;  that is, device, directory, file
+|  name and file type.  If  only  the  device  is  specified  (e.g.   DEFINE
+|  MCFTRACE:   DSK:)  the  filename  will default to SETUP.TRACE.  The lines
+|  appended to this file are of the form
+|  
+|           Line n [tag + o]: message :: text
+|  
+|  where 'n' is a physical line number that is  incremented  by  1  whenever
+|  SETUP  reads a line from the MCF, from an ;Included or ;Performed file or
+|  repeats a line via a ;Perform block command;  'tag'  is  the  last  batch
+|  label found in the MCF and will not be printed if no tag has been reached
+|  yet;  'o' is the offset in  physical  lines  after  the  indicated  batch
+|  label;   'message'  is  a  SETUP message describing the interesting event
+|  (listed below) and 'text'  is  the  contents  of  the  current  MCF  line
+|  (possibly with some variable and constant substitutions already made).
+|  
+|  The messages that SETUP currently issues are:
+|  
+|           Undefined reference to <name>
+|           Variable <variable-name> defined as <value>
+|           Option <option-name> defined as <value>
+|           Reading file <filespec>
+|           Return from <filespec>
+|  
+|       The first message indicates an  unrecognized  variable  or  constant
+|  name in context (that is, a string that looks like a variable or constant
+|  but has no substitution value) or an undefined option  in  a  ;Option  or
+|  ;No-option  command.   The second and third messages indicate definitions
+|  of variables, constants and options.  The last two messages  indicate  an
+   SETUP %5(56) 20-May-80                                            Page 53
+   ***** Features
+
+
+|  ;Include  or  ;Perform  of  another MCF.  The final line will always be a
+|  return from the original MCF.
+|  
+|  For example, the MCF
+|  
+|           ;Type Test MCF
+|           ;Select option Testing This is an option
+|           ;Define variable <Testing> This is a variable
+|  
+|  might generate the trace
+|  
+|           SETUP version 5(56) input from PS:<DC00>TESTING.MCF.1 on
+|  19-May-80 12:01:06
+|  
+|           Line 2 [ + 2]: Undefined reference to Testing :: ;Select
+|  option Testing This is an option
+|           Line 2 [ + 2]: Option Testing defined as Yes
+|           Line 3 [ + 3]: Undefined reference to <Testing> :: ;Define
+|  variable <Testing> This is a variable
+|           Line 3 [ + 3]: Variable <Testing> defined as "value"
+|           Line 3 [ + 3]: Return from PS:<DC00>TESTING.MCF.1
+|  
+|       The first trace message appears when SETUP checks to be certain that
+|  option Testing does not already have a value.  The undefined reference to
+|  variable <Testing> occurs when SETUP attempts to substitute a  value  for
+|  what  appears to be a variable immediately after reading the MCF line but
+|  prior to executing the ;Define command.
+|  
+|       Other messages may be added to the trace facility  as  the  occasion
+|  warrants.
+|  
+|  
+|  
+|  
+|  
+|       The SETUP logging facility allows the user to keep a disk log of the
+|  values entered to SETUP for all variables, constants and options for each
+|  invocation of SETUP.  If the logical name MCFLOG:  is defined then, after
+|  writing the CTL file, SETUP will append to the specified file a formatted
+|  report listing all variables,  constants  and  options  that  were  given
+|  values during this run.
+|  
+|       The  SETUP  log  report  will  include  all  the  SETUP  pre-defined
+|  constants  and options in addition to those explicitly defined in the MCF
+|  (in fact, this is a good, fast way to find out the pre-defined  constants
+|  if you forget them!).
+|  
+|       Just as for MCFTRACE:, the definition of MCFLOG:   may  include  any
+|  fields  of  a  valid  TOPS-20  file specification.  If only the device is
+|  specified, the file name will default to SETUP.LOG.   Also,  as  for  the
+|  trace  facility,  if  the  specified  file  already  exists  then the new
+|  information will simply be appended to the existing data.
+|  
+|  for example, the MCF
+   SETUP %5(56) 20-May-80                                            Page 54
+   ***** Features
+
+
+|           ;Type Test MCF
+|           ;Select option Testing This is an option
+|           ;Define variable <Testing> This is a variable
+|  
+|  might generate the log
+|  
+|           SETUP version 5(56) input from PS:<DC00>TESTING.MCF.1 on
+|  19-May-80 12:10:14
+|  
+|           Defined Variables: 
+|                   <Current-Day>                           "19"
+|                   <Current-Hour>                          "12"
+|                   <Current-Month-Name>                    "May"
+|                   <Current-Month>                         "05"
+|                   <Current-User-Name>                     "RS3M"
+|                   <Current-Year>                          "80"
+|                   <Job-Id>                                ""
+|                   <Job-Name>                              "FOO"
+|                   <Julian-Date>                           "140"
+|                   <Testing>                               "value"
+|           Defined Options:
+|                   Monday                                  Yes
+|                   Testing                                 Yes
+|  
+|       The first line appended to the trace and/or log files indicates  the
+|  SETUP  version  number, the full specification of the MCF file being read
+|  and the current date and time.
+   SETUP %5(56) 20-May-80                                            Page 55
+   ***** Running SETUP
+
+
+   IV.  Running SETUP from command level
+
+        There are two very similar methods for running SETUP to produce  the
+   CTL  file.   The beginning user will probably want to use the "prompting"
+   mode in which the full command  recognition  facilities  of  the  TOPS-20
+   operating  system  are  available.  To run SETUP in this manner, the user
+   simply types the command SETUP to the EXEC prompt ("@").  SETUP will then
+   respond  with  it's name and version number and give the "SETUP>" prompt.
+   The user may now type "?" at each field of the  command  line  and  SETUP
+   will  give  a  help  message briefly describing what should be entered at
+   that point.  The ESCape key may  also  be  used  to  complete  a  partial
+   response  if  the response is unique among all the possible responses for
+   that field (as in MCF file names, for instance).  For example,  a  simple
+   terminal session might look like the following:
+
+            @setup
+            SETUP Version 5(56)
+            SETUP>? one of the following:
+             SETUP
+            SETUP>sETUP ? input filespec
+              or one of the following
+             /DELETE        /LIST           /OPTION         /VARIABLE
+            SETUP>sETUP fILE-MAINT.MCF.5 ? confirm with carriage return
+              or one of the following:
+             /JOB-ID:       /TAG:
+            SETUP>sETUP fILE-MAINT.MCF.5 /jOB-ID:? 1-word identifier for
+   this job
+            SETUP>sETUP fILE-MAINT.MCF.5 /jOB-ID:test ? confirm with
+   carriage return
+              or one of the following:
+             /JOB-ID:       /TAG:
+            SETUP>sETUP fILE-MAINT.MCF.5 /jOB-ID:test
+
+        In the preceding example, all lowercase commands were typed  by  the
+   user,  and  all  uppercase  was  typed  by SETUP either as a prompt or in
+   response to the ESCape key.  All text after the question mark  was  typed
+   by SETUP in response to the question mark.
+
+        SETUP will proceed to read the MCF file when the user finally  types
+   a   carriage-return.    If   the   user   makes   a  mistake  before  the
+   carriage-return is typed, then the standard correction techniques  apply;
+   DELete  (RUBout)  to delete the last character typed, control-W to delete
+   the last word, etc.  If the user types carriage-return before he realizes
+   the  mistake,  SETUP  will likely give some erroneous error message, will
+   repeat the command line as it read it, and  then  exit  to  exec  command
+   level (the "@" prompt).
+
+        In most applications, the SETUP command line and the SUBMIT  command
+   will  be executed from a command file such as with the TAKE exec command.
+   In this case, the alternate form of running SETUP may be  used  to  allow
+   the  MCF  file  name  to  be  given from the command file and thereby not
+   requiring the user to remember it.  This form has exactly the same syntax
+   as  the preceding example, but the entire line in its final form is typed
+   at exec command level just as if the SETUP> prompt had been given.  Thus,
+   SETUP %5(56) 20-May-80                                            Page 56
+   ***** Running SETUP
+
+
+   the preceding example could have been typed as just
+
+           @setup file-maint/job-id:test
+
+        In this mode no recognition is available and the full file  name  of
+   the  MCF  file  must  be  specified (although the ".MCF" extension may be
+   defaulted).   The  /JOB-ID:   and  /TAG:   switches  may,   however,   be
+   abbreviated  to just "/J:" and "/T:" respectively.  Again, if there is an
+   error in the command it may be corrected with DELete and control-W before
+   carriage-return is typed and SETUP will give an error message and exit if
+   any errors are detected.
+   SETUP %5(56) 20-May-80                                            Page 57
+   ***** Running SETUP
+
+
+   Alternate uses of SETUP
+
+        In addition to running SETUP to generate a  CTL  file  from  a  MCF,
+   SETUP may be used to define default values for options and variables that
+   are  to  be  used  in  ;Select/allow,  ;Define/allow  commands  and  ;Get
+   commands,  to  list  the  default  and  /SAVE'd values of all options and
+   variables and to remove unneeded defaults.
+
+
+
+   ---- Defining default values for options and variables
+
+               Setup/option <option-name> YES | NO
+               Setup/variable <variable-name> <value>
+
+        The preceding two formats of the  SETUP  command  line  will  define
+   default  values for, respectively, options and variables.  Options may be
+   given only the values YES or NO.  Variable names must follow the standard
+   format;  that is, they must be enclosed in "<" and ">".
+
+
+
+   ---- Listing default values of options and variables
+
+               Setup/list [all | empty | options | variables]
+
+        The /LIST switch of the SETUP command will list the contents of  the
+   default   list  for  options  and/or  variables.   If  /LIST  OPTIONS  is
+   specified, all option defaults will be displayed in the form "<name>=Yes"
+   or  "<name>=No".   If /LIST VARIABLES is specified, all variable defaults
+   will be displayed in the form  "<name>=<value>".   /LIST  EMPTY  gives  a
+   single line indicating the amount of free space in the default list file.
+   If /LIST ALL or simply /LIST is specified, all the options, variables and
+   free space will be listed.
+   SETUP %5(56) 20-May-80                                            Page 58
+   ***** Running SETUP
+
+
+   ---- Deleting defaults for options and variables
+
+               Setup/delete option | variable <name>
+
+        The /DELETE switch of the SETUP command may be used to  recover  the
+   file  space  taken by default values of options and variables that are no
+   longer needed.  This free space is not  actually  returned  to  the  file
+   system,  but  is  retained  for  use  by SETUP the next time an option or
+   variable is to be stored.
+
+
+
+   ---- Making the default list file accessible after aborting SETUP
+
+               Setup/reset
+
+        This command is an "emergency-only" command.  If  SETUP  is  aborted
+   via control-C in certain critical sections, the default list file will be
+   locked against modification.  If the file is locked, SETUP  will  display
+   the message
+
+           ? SETUP.BIN file is in use by another job
+
+   and will abort.  If the user  receives  this  message  several  times  in
+   succession,  he  should verify that there are no other jobs on the system
+   connected  to  the  same  directory  and  running  SETUP,  then  use  the
+   SETUP/RESET  command  to  clear the lock on the file.  If this command is
+   used while another job is running SETUP in  the  same  directory,  it  is
+   likely that the default list file will be destroyed.
+
+|       In newer versions of SETUP, typing control-C  will  cause  SETUP  to
+|  issue  the  prompt  "Yes?"  to  which  the  user may type either ABORT or
+|  CONTINUE.  In this case, SETUP will only  allow  the  user  to  abort  in
+|  non-critical  areas,  thus  control-C is no longer a dangerous feature to
+|  use while running SETUP.
+   SETUP %5(56) 20-May-80                                            Page 59
+   ***** MCF example
+
+
+   V.       An example of a master control file- SAMPLE.MCF
+
+
+   ;Type                    S A M P L E . M C F
+   ;Type    This is a sample master control file. Its purpose is to
+   ;Type demonstrate how the SETUP commands work and how they might be
+   ;Type used in a MCF.
+   ;Type 
+   ;Select/verify option maint Do you want to run the maintenance option?
+|  ;Option maint/;Begin Maint1
+|           ;Type 
+|           ;Type The maintenance option requires that there be two
+|           ;Type files present:
+|           ;Type   MASTER.NEW
+|           ;Type     TRAN.IN
+|           ;File tran.in not-found/;Abort TRAN.IN is missing
+|           ;End Maint1
+    
+   ;No-option maint/;Select/allow option rpt Do you want to run the report
+   phase?
+   ;No-option maint/;No-option rpt/;Abort Neither maintenance nor reporting
+   was selected
+|  ;Option rpt/;Begin Rpt1
+|           ;Type 
+|           ;Type   The report phase requires only that there be one
+|           ;Type file present; MASTER.NEW and that it be in social security
+|           ;Type number sequence.
+|   
+|           ;Select option sort Does the master file need sorting?
+|           ;Define variable <copies> How many copies of the report?
+|           ;Define/allow variable <forms> What kind of forms for the
+|  report?
+|           ;Define/verify variable <date> What date goes on the report
+|  (mo-da-yr)?
+|           ;End Rpt1
+
+   @Journal "<job-name> is now running"
+   ;No-option maint/@Goto Sort
+   @Error %
+   @Directory MASTER.NEW,TRAN.IN
+|  ;Error block NoFiles
+|           @Journal "SAMPLE: All the files for maint. are not present"
+|           @Please hold all jobs for this userid^[
+|           @Goto Eojx
+|           ;End NoFiles
+   @Error
+   @Delete master.old
+   @Rename master.new master.old
+   @Run update
+   ;Error   @Journal "SAMPLE: Error while running maintenance phase"// -
+   ;+       @Goto Eojx
+
+   Sort::
+   ;Option sort/;Include sort-proc
+   SETUP %5(56) 20-May-80                                            Page 60
+   ***** MCF example
+
+
+   ;No-option rpt/@Goto Eojx
+
+   Runrpt::
+   @Run Makrpt
+   <date>
+   ;Option rpt/;Ask  Insert amount report should balance to; format 999.99
+   <copies>
+   ;Option rpt/;Ask  Which report phase a or b?
+   ;Error @Journal "<job-name>: Error while producing report"//@Goto Eojx
+   @Print output.rpt/copies:<copies>/forms:<forms>/delete
+
+   Eojx::
+   @Set file protection master.*,tran.* 775252
+   @Logoff
+   SETUP %5(56) 20-May-80                                            Page 61
+   ***** Operator dialog
+
+
+   VI.      The editing dialog to produce the CTL file from SAMPLE.MCF
+
+
+   @SETUP
+   SETUP version 5(56)
+   SETUP>s sample
+    
+    
+                            S A M P L E . M C F
+            This is a sample master control file. Its purpose is to
+   demonstrate how the SETUP commands work and how they might be
+   used in a MCF.
+    
+    
+   Do you want to run the maintenance option?
+   maint (y or n)? n
+   maint n
+   OK?y
+    
+   Do you want to run the report phase?
+   rpt (y or n) [Y]?
+    
+            The report phase requires only that there be one
+   file present; MASTER.NEW and that it be in social security
+   number sequence.
+    
+   Does the master file need sorting?
+   sort (y or n)? y
+    
+   How many copies of the report?
+   <copies>=5
+    
+   What kind of forms for the report?
+   <forms> [NORMAL]=
+    
+   What date goes on the report (mo-da-yr)?
+   <date>=6-30-74
+   <date>=6-30-74
+   OK? n
+   What date goes on the report (mo-da-yr)?
+   <date>=6-30-79
+   <date>=6-30-79
+   OK? y
+    
+   Insert amount report should balance to; format 999.99
+   567.89
+    
+   Which report phase a or b?
+   b
+
+   [PS:<DC00>SAMPLE.CTL.1 complete]
+   SETUP %5(56) 20-May-80                                            Page 62
+   ***** Resulting control file
+
+
+   VII.     The resulting batch control file SAMPLE.CTL.1
+
+
+   ; SETUP version 5(56) input from PS:<DC00>SAMPLE.MCF.1
+   ;Type                    S A M P L E . M C F
+   ;Type    This is a sample master control file. Its purpose is to
+   ;Type demonstrate how the SETUP commands work and how they might be
+   ;Type used in a MCF.
+   ;Type 
+   ;Select/verify option maint \N\ Do you want to run the maintenance
+   option?
+|  ;Option maint/;Begin Maint1
+|  ;End Maint1
+    
+   ;No-option maint/
+   ;Select/allow option rpt \Y\ Do you want to run the report phase?
+   ;No-option maint/
+   ;No-option rpt/;Abort Neither maintenance nor reporting was selected
+   ;Option rpt/
+|  ;Begin Rpt1
+|  ;Type 
+|  ;Type    The report phase requires only that there be one
+|  ;Type file present; MASTER.NEW and that it be in social security
+|  ;Type number sequence.
+|   
+|  ;Select option sort \Y\ Does the master file need sorting?
+|  ;Define variable <copies> \5\ How many copies of the report?
+|  ;Define/allow variable <forms> \NORMAL\ What kind of forms for the
+|  report?
+|  ;Define/verify variable <date> \6-30-79\ What date goes on the report
+|  (mo-da-yr)?
+|  ;End Rpt1
+
+   @Journal "SAMPLE is now running"
+   ;No-option maint/
+   @Goto Sort
+   @Error %
+   @Directory MASTER.NEW,TRAN.IN
+|  ;Error block NoFiles
+|  @If (noerror) @Goto XX0001
+|  @Journal "SAMPLE: All the files for maint. are not present"
+|  @Please hold all jobs for this userid^[
+|  @Goto eojx
+|  ;End NoFiles
+   XX0001::
+   @Error
+   @Delete master.old
+   @Rename master.new master.old
+   @Run update
+   ;Error
+   @If (noerror) @Goto XX0002
+   @Journal "SAMPLE: Error while running maintenance phase"
+   @Goto Eojx
+   XX0002::
+   SETUP %5(56) 20-May-80                                            Page 63
+   ***** Resulting control file
+
+
+   Sort::
+   ;Option sort/
+   ;Include sort-proc \PS:<DC00>SORT-PROC.SCF.1\
+   @Sort
+   *Sort/rec:100/key:1,9 master.new master.new
+   ;Error
+   @If (noerror) @Goto XX0003
+   @Journal "SAMPLE: Error during Sort"
+   @Goto Eojx
+   XX0003::
+   ; end of PS:<DC00>SORT-PROC.SCF.1
+   ;No-option rpt/@Goto Eojx 
+
+   Runrpt::
+   @Run makrpt
+   6-30-79
+   ;Option rpt/
+   ;Ask  Insert amount report should balance to; format 999.99
+   567.89
+   5
+   ;Option rpt/
+   ;Ask  Which report phase a or b?
+   b
+   ;Error
+   @If (noerror) @Goto XX0004
+   @Journal "SAMPLE: Error while producing report"
+   @Goto eojx
+   XX0004::
+   @Print output.rpt/copies:5/forms:NORMAL/delete
+
+   Eojx::
+   @Set file protection master.*,tran.* 775252
+   @Logoff
+   SETUP %5(56) 20-May-80                                            Page 64
+   ***** Resulting control file
+
+
+   Things to note:
+
+
+        The first line of the CTL file giving the version of SETUP  and  the
+   complete  MCF  filespec  was  added  by  SETUP for ease in correcting any
+   errors found.
+
+        The full filespec of the ;Include'd file is given after the ;Include
+   command,  and  a  note  is  inserted after the last line of the ;Included
+   file.  If MCF:SORT-PROC.SCF did not exist, SETUP would  have  looked  for
+   the file MCF:SORT-PROC.MCF.
+
+        The "Journal" command in the ;Included sort file uses  the  constant
+   "<job-name>" which was replaced by "SAMPLE" in the journal message.
+
+        Note the effect of the /verify switch  on  the  ;Select  option  and
+   ;Define variable commands.
+   SETUP %5(56) 20-May-80                                            Page 65
+   ***** SETUP error messages
+
+
+   VIII.    Error Messages
+
+        The following is a  list  of  all  error  messages  that  SETUP  can
+   generate.  They are grouped by the SETUP command to which they refer.  In
+   each grouping the errors are divided into warnings and fatals.   Warnings
+   (% <error>)  usually  indicate  some sort of syntactical error and in all
+   cases SETUP will continue processing the MCF after listing  and  ignoring
+   the  line  in  error.   Fatals  (? <error>)  usually  indicate  that  the
+   finiteness of SETUP has been violated and that parameters in the  program
+   or the command in the MCF will have to be changed.
+
+
+   Command string errors
+
+
+   % MCF file not found
+        The specified MCF file does not exist on the given device/directory;
+        possibly device MCF:  is not defined or is defined to be a directory
+        to which the user does not have access.
+
+   % Directory full
+        Your connected directory has too many files in it;   there  was  not
+        enough room to create the CTL file.
+
+   % Quota exceeded or disk full
+        The quota of disk space allowed for  your  connected  directory  has
+        been  reached  while  creating  the  CTL  file.   You may DELETE and
+        EXPUNGE  other  files  and  CONTINUE  without  starting   from   the
+        beginning.
+
+   % Read access required
+        The protection code of the MCF file does not allow you to  read  it;
+        either  the  protection  code  must  be  changed or you must use the
+        ACCESS system command.
+
+   ? File not opened for reading
+        The protection code of the MCF file does not allow you to  read  it,
+        or you have forgotten to ACCESS a private structure.
+
+   ? Error initializing command line parse
+        This  is  a  SETUP  internal  error.   If  it  appears,  notify  the
+        Administrative Systems Department.
+
+   ? Unrecognized parameters at end of command
+        A SETUP command has been given that has extraneous characters before
+        the  carriage-return  that  SETUP  does not recognize as part of the
+        immediately preceding field.  Possibly due to a  mis-spelled  switch
+        as in "SETUP FOO/JOBID:BAR" (should be .../JOB-ID:BAR).
+
+   ? Invalid or missing option or variable name
+        A SETUP/OPTION, SETUP/VARIABLE, or  SETUP/DELETE  command  has  been
+        given without an option or variable name.
+   SETUP %5(56) 20-May-80                                            Page 66
+   ***** SETUP error messages
+
+
+   ? Option value is not YES or NO
+        A SETUP/OPTION command has been given, but the  word  following  the
+        option name is not "yes" or "no".
+
+   ? Invalid or missing variable name
+        A SETUP/VARIABLE command has been entered without a  variable  name,
+        or the specified variable name is not enclosed in "<" and ">".
+
+   ? Invalid LIST option
+        A SETUP/LIST command has been entered but the word  following  /LIST
+        is not ALL, EMPTY, OPTIONS, or VARIABLES.
+
+   ? No default value for this option/variable
+        The option or variable name given in a SETUP/DELETE command was  not
+        found in the default list file.  Possibly, a name was mis-spelled or
+        the brackets ("<" and ">") around a variable name were not given.
+
+   ? Invalid option after /DELETE switch
+        The word following /DELETE in a SETUP/DELETE command was not  OPTION
+        or VARIABLE.
+   SETUP %5(56) 20-May-80                                            Page 67
+   ***** SETUP error messages
+
+
+   ;Select command errors
+
+
+   % Incomplete SELECT command
+        One or more of the required fields at the end of the ;Select command
+        is missing.  The word "option" or "variable", the option or variable
+        name, and the prompting text must all be entered.
+
+   % Unknown SELECT command
+        The word "option" or "variable" is missing or misspelled  after  the
+        word ;Select.
+
+   % No text to describe SELECT option name
+        The prompting text after the option name is missing.  This  text  is
+        required.
+
+   % Option name too long in SELECT command
+        Option names must be 36 characters or less.
+
+   ? Exceeded option storage space
+        The total length of the  names  of  all  the  options  has  exceeded
+        SETUP's internal storage.  The names must be shortened or SETUP must
+        be modified.
+
+   % Invalid switch modifying SETUP command
+        The only switches supported after a ;Select command are the  /allow,
+        /save and /verify switches.
+
+   % Option name missing in SELECT command
+        The option name in a ;Select command  must  immediately  follow  the
+        word "option".
+
+   % Option has already been selected
+        The specified option has already been used in a previous ;Select  or
+        ;Get  command.   Options  may  not  be  "re-defined"  in the current
+        version of SETUP.
+
+   % No value list for variable
+        The list of possible variable values in a ;Select  variable  command
+        must follow the variable name on the same line of the MCF.
+
+   % Left paren missing in value list
+        The list of possible variable values in a ;Select  variable  command
+        must be enclosed in parentheses.
+
+   % Invalid variable value in list
+        Each of the values in the value list for a ;Select variable  command
+        must  be  enclosed  in  quotation marks and may not contain embedded
+        carriage-return/line-feed characters.  The values must be  separated
+        from  each  other  with  a  single comma (surrounded by zero or more
+        spaces or tabs).
+   SETUP %5(56) 20-May-80                                            Page 68
+   ***** SETUP error messages
+
+
+   % Too many values in list: cannot be more than 26
+        SETUP only allows up to 26 possible values  in  a  ;Select  variable
+        command.
+
+   % Response must be a single character in the range A to Q
+        The user has entered a response of more than one character,  or  has
+        entered  a letter not given in the value list for a ;Select variable
+        command.  The letter "Q" will be the  letter  corresponding  to  the
+        last entry in the list.
+
+   ? Default value file has grown too large
+        The new value of the option or variable cannot be /SAVEd because the
+        default  file  has reached its maximum size.  If the number of empty
+        words (indicated by SETUP/LIST EMPTY) is very large, then  the  file
+        should  be  rebuilt  by  listing the contents (SETUP/LIST), deleting
+        SETUP.BIN and  redefining  all  the  values  with  SETUP/OPTION  and
+        SETUP/VARIABLE.
+
+   % Switch missing after SETUP command
+        SETUP has found a slash after a command indicating a switch, but  no
+        switch  name.   No spaces or tabs may be typed between the slash and
+        the switch name.
+
+   % /DEFAULT: switch not allowed in combination with /ALLOW and /SAVE
+        Neither the /ALLOW nor  the  /SAVE  switches  may  be  used  if  the
+        /DEFAULT:  switch is specified.
+
+   % Default value must be Y or N
+        The quoted text after  a  /DEFAULT:   switch  in  a  ;Select  option
+        command must begin with either "y" or "n".
+
+   % Value is required after this switch
+        A quoted string must be specified after the colon on  the  /DEFAULT:
+        switch.
+
+   % Missing quote to delimit switch value
+        The string following the colon on  the  /DEFAULT:   switch  must  be
+        enclosed in quotation marks.
+   SETUP %5(56) 20-May-80                                            Page 69
+   ***** SETUP error messages
+
+
+   ;Define command errors
+
+
+   % No name specified in DEFINE command
+        The constant or variable name is missing after the  word  "constant"
+        or "variable"
+
+   % Illegal first character in constant or variable
+        Constant names and variable names must begin with "<".
+
+   % Name is too long
+        Constant, variable and option names must be less than 36  characters
+        long.
+
+   % No text describing name
+        The prompting text is missing after the constant or variable name in
+        a ;Define command.  This text is required.
+
+   % Incomplete DEFINE command
+        The ;Define command was given without  any  other  parameters.   All
+        parameters must be given on the same line as the word ;Define.
+
+   % Unknown DEFINE command
+        The word "constant", "option" or "variable" is missing or misspelled
+        after the word ";Define".
+
+   % Invalid variable or constant name:  does not end with ">"
+        A variable or constant name must begin with "<" and end with ">" and
+        contain only letters, digits, and hyphens.
+
+   ? Internal error:  probably due to a variable value looking like  another
+        variable
+        This message really means that SETUP has tried to  define  the  same
+        variable twice, however, this is situation not normally possible and
+        can happen only when the value of a variable begins with  "<",  ends
+        with ">" and matches another variable-name.
+
+   ? Exceeded variable and constant storage space
+        The total length of  the  constant  and  variable  names  and  their
+        replacement  strings  has  exceeded  SETUP's internal storage space.
+        The names of the constants and  variables  should  be  shortened  or
+        SETUP should be modified.
+
+   % The value may not be longer than 150 characters;  please re-enter
+        A variable value must be 150 characters or less.
+
+   % A value must be entered for this variable
+        The /ALLOW switch has not been given for this variable, so the  user
+        must  type  more than just carriage-return in response to the prompt
+        for this variable.  This message can also  appear  when  the  /ALLOW
+        switch  has been specified, but no default value was defined for the
+        variable.
+   SETUP %5(56) 20-May-80                                            Page 70
+   ***** SETUP error messages
+
+
+   % No option name found after ;Define option command
+        An option name must  immediately  follow  the  word  "option"  in  a
+        ;Define option command and must be entered on the same line.
+
+   % No option value found in ;Define option command
+        The option name must be followed by text beginning with either a "y"
+        or  "n"  in a ;Define option command and must be entered on the same
+        line.
+
+   % Option value is not "y" or "n"
+        The text following the option-name in a ;Define option command  must
+        begin with either the letter "y" or the letter "n".
+
+   % Switch in ;Define command is only valid for ;Define Variable
+        The programmer has entered a switch in  a  ;Define  constant...   or
+        ;Define option..., command, neither of which is permitted by SETUP.
+
+   % Invalid switch modifying SETUP command
+        The only supported switches after a ;Define variable command are the
+        /allow, /save and /verify switches.
+
+   ? Default value file has grown too large
+        The new value of the option or variable cannot be /SAVEd because the
+        default  file  has reached its maximum size.  If the number of empty
+        words (indicated by SETUP/LIST EMPTY) is very large, then  the  file
+        should  be  rebuilt  by  listing the contents (SETUP/LIST), deleting
+        SETUP.BIN and  redefining  all  the  values  with  SETUP/OPTION  and
+        SETUP/VARIABLE.
+
+   % Switch missing after SETUP command
+        SETUP has found a slash after a command indicating a switch, but  no
+        switch  name.   No spaces or tabs may be typed between the slash and
+        the switch name.
+
+   % /DEFAULT: switch not allowed in combination with /ALLOW and /SAVE
+        Neither the /ALLOW nor  the  /SAVE  switches  may  be  used  if  the
+        /DEFAULT:  switch is specified.
+
+   % Value is required after this switch
+        A quoted string must be specified after the colon on  the  /DEFAULT:
+        switch.
+
+   % Missing quote to delimit switch value
+        The string following the colon on  the  /DEFAULT:   switch  must  be
+        enclosed in quotation marks.
+   SETUP %5(56) 20-May-80                                            Page 71
+   ***** SETUP error messages
+
+
+   ;Get command errors
+
+
+   % Incomplete ;GET command
+        A ;Get command  has  been  entered  without  the  word  "option"  or
+        "variable" and the option/variable name.  These must follow the word
+        ";get" on the same line of the MCF.
+
+   % Type is not OPTION or VARIABLE in ;GET command
+        The word ;GET must be followed by one of "option" or "variable" in a
+        ;Get command.
+
+   % Name is missing in ;GET command
+        The word "option" or "variable" in a ;Get command must  be  followed
+        by the option or variable name on the same line of the MCF.
+
+   % Variable name must be enclosed in "<" and ">"
+        All variable names must begin with "<" and end with ">" and  contain
+        only letters, digits, and hyphens.
+
+   % Variable does not have a default value
+        The variable specified in a ;Get variable command has not been given
+        a  value  with  a  SETUP/VARIABLE command or a ;DEFINE/SAVE VARIABLE
+        command in an MCF.
+
+   % Option does not have a default value
+        The option specified in a ;Get option command has not been  given  a
+        value  with  a SETUP/OPTION command or a ;SELECT/SAVE OPTION command
+        in an MCF.
+
+   % Invalid switch modifying SETUP command
+        The only supported switches after the ;Get command are  /DEFINE  and
+        /NOECHO.
+
+   % Too many fields in ;Get command (missing "/DEFINE"?)
+        SETUP has found a second option or variable name in a  ;Get  command
+        where  it was not expecting one.  Only a single name may be given in
+        the command unless the /DEFINE switch was specified  to  define  the
+        value of a second option or variable.
+
+   % Switch missing after SETUP command
+        SETUP has found a slash after a command indicating a switch, but  no
+        switch  name.   No spaces or tabs may be typed between the slash and
+        the switch name.
+
+   % No second option or variable name in ;Get/define command
+        A second option or variable name is required when the /DEFINE switch
+        is  specified  to  receive  the default value of the first option or
+        variable name.
+   SETUP %5(56) 20-May-80                                            Page 72
+   ***** SETUP error messages
+
+
+   ;Include command errors
+
+
+   % Invalid ;Include command
+        The name of the file to be included was not specified  on  the  same
+        line following an ;Include command.
+
+   % ;Include file not accessible:
+        No file matching the specification given in an ;Include command  was
+        found.   This  error  might  be  caused  due  to  device MCF:  being
+        undefined.
+
+   % Cannot open ;Include file
+        The user does not have read access to the file given in an  ;Include
+        command.  Possibly, the user forgot to ACCESS a private structure.
+
+   % Invalid switch modifying SETUP command
+        The only supported switch after the ;Include command is /BEGIN.
+
+   % Switch missing after SETUP command
+        SETUP has found a slash after a command indicating a switch, but  no
+        switch  name.   No spaces or tabs may be typed between the slash and
+        the switch name.
+
+
+
+
+
+   ;Option and ;No-option errors
+
+
+   % Option name not specified
+        The option name is missing after the word "option"  or  "no-option".
+        The  option name and prompting text must be entered on the same line
+        as the command.
+
+   % Option name too long
+        Option names must be less than 36 characters long.
+
+   % No slash '/' following option name
+        The user has  forgotten  to  put  the  delimiting  slash  after  the
+        <option-name>.  The slash indicates where the <option-name> ends and
+        the text to be left justified begins.
+   SETUP %5(56) 20-May-80                                            Page 73
+   ***** SETUP error messages
+
+
+   ;File <filespec> found | not-found errors
+
+
+   % File name missing in ;File command
+        The programmer has forgotten to enter  a  file  specification.   The
+        file  specification  must immediately follow the command on the same
+        line.
+
+   % Option missing in ;File command
+        The file name must be followed by one  of  the  options  "found"  or
+        "not-found" on the same line of the MCF.
+
+   % Invalid option in ;File command
+        Only the word "found" or  "not-found"  may  follow  the  file  name.
+        Possibly the option is mis-spelled.
+
+   % No "/" following option in ;File command
+        A slash must be entered after the "found" or "not-found"  option  in
+        order to delimit the text to be left-justified.
+
+
+
+
+
+   ;Ask <text> errors
+
+
+   % Answer may not be longer than 150 characters;  please re-enter
+        The answer the user has  typed  in  response  to  the  question  has
+        exceeded  the  maximum  number  of  characters allowed.  The current
+        version of SETUP allows 150 characters for the response.
+
+   % No text found following ;Ask command
+        Some prompting text must be given in an  ;Ask  command.   This  text
+        must be entered on the same line of the MCF as the command name.
+
+   % No answer given;  please give a response
+        SETUP will not allow simply a carriage-return in response to an ;Ask
+        command.   If  the  desired  response  is a blank line, at least one
+        space or tab must be typed.
+
+   % Invalid switch modifying SETUP command
+        The only supported switch after the ;Ask command is /VERIFY.
+
+   % Switch missing after SETUP command
+        SETUP has found a slash after a command indicating a switch, but  no
+        switch  name.   No spaces or tabs may be typed between the slash and
+        the switch name.
+   SETUP %5(56) 20-May-80                                            Page 74
+   ***** SETUP error messages
+
+
+   ;Error <text> errors
+
+
+   % No text in ;Error command
+        SETUP found an ;Error command with  nothing  following  the  command
+        name.  The ;Error command requires at least one batch statement that
+        will be placed in the error block constructed by SETUP.
+
+
+
+
+
+   ;If command errors
+
+
+   % String missing in ;If command
+        The ;If command must be followed by two quoted strings on  the  same
+        line of the MCF.
+
+   % Closing quotation missing on string in ;If command
+        SETUP found the end of the MCF line  before  the  closing  quotation
+        mark  in  one  of  the  strings.   Embedded carriage-returns are not
+        permitted.
+
+   % Incomplete ;If command
+        The condition (=,<,>,NOT) must follow the first quoted string on the
+        same MCF line.
+
+   % Invalid condition type in ;If command
+        The only supported conditions are "=", "<" and ">" possibly preceded
+        by "not".
+
+   % Slash missing to delimit text in ;If command
+        A slash must be entered between the second string and the  following
+        text to delimit that text on the same line of the MCF.
+   SETUP %5(56) 20-May-80                                            Page 75
+   ***** SETUP error messages
+
+
+   ;Perform command errors
+
+
+   % Filespec was not given
+        The ;Perform command was not followed by the name  of  the  file  to
+        ;Perform.   The ;Perform command must be entered on a single line of
+        the MCF.
+
+   % Invalid filespec
+        A filespec was found in the ;Perform command,  but  it  is  invalid,
+        probably due to being longer than 39 characters.
+
+   % ;Perform file not accessible
+        The filespec given in the ;Perform command does not match  any  file
+        on the system.  Possibly the device MCF:  is not defined.
+
+   % Read access required to ;Perform file
+        The file specified in the ;Perform  command  exists,  but  the  user
+        running SETUP does not have read access to it.
+
+   % No variable name(s) given for ;Perform command
+        The ;Perform command requires one or more variables to  be  replaced
+        in  the  inserted  file.   The  ;Include  command  may be used if no
+        variables are to be substituted.
+
+   % Invalid variable name specified in ;Perform command
+        All variable names must begin with "<", end  with  ">"  and  contain
+        less than 36 letters, digits and/or hyphens.
+
+   % No variable value list specified in ;Perform command
+        The equals sign and the corresponding  list  of  replacement  values
+        must be entered on the same line of the MCF as the ;Perform command.
+
+   % Equals sign missing in ;Perform command
+        The variable name  and  the  list  of  replacement  values  must  be
+        separated  by  an  equals  sign,  optionally surrounded by spaces or
+        tabs.
+
+   % Left parenthesis missing before value list
+        The replacement value list in a ;Perform command must be enclosed in
+        parentheses.
+
+   % Invalid variable value;  beginning or ending quote missing
+        Each replacement value in the ;Perform command must be  enclosed  in
+        quotation  marks  and  may  not  contain embedded carriage-return or
+        line-feed characters.
+
+   % Comma to delimit values is missing
+        The values in the replacement list for a ;Perform  command  must  be
+        separated  by  commas  and the entire list must be terminated with a
+        right parenthesis.
+   SETUP %5(56) 20-May-80                                            Page 76
+   ***** SETUP error messages
+
+
+   % Right parenthesis missing at end of value list
+        The list of  replacement  values  in  a  ;Perform  command  must  be
+        enclosed in parentheses.
+
+   % Variable value lists are not the same length
+        If two or more variables are specified for replacement in a ;Perform
+        command,  the number of replacement values for each variable must be
+        identical.
+
+   % Too many variables specified for replacement
+        Currently, SETUP allows only 5 variable names to  be  specified  for
+        replacement in a ;Perform command.
+
+   ? Internal error:  probably due to a variable value looking like  another
+        variable
+        SETUP has  attempted  to  define  the  same  variable  twice.   This
+        situation  can  occur  only  when  the value of one variable exactly
+        matches the name of another variable or constant.
+
+   % No files match filespec in ;Perform command
+        The file specification after the equals  sign  does  not  match  any
+        existing  files on the disk.  This error may be trapped with a ;File
+        ...  command if the circumstance is non-fatal.
+
+   % Invalid file list in ;Perform command
+        More than three variable names were given prior to the equals  sign,
+        or  the  file  specification  after  the  equal  sign is not a valid
+        TOPS-20 file specification.  Also check for commas between all  file
+        specifications in the list if more than one filespec was given.
+
+   % Invalid switch modifying SETUP command
+        The only supported switch after the  ;Perform  command  is  /VERIFY.
+        This  switch  may  only  be  specified  for  a file-list form of the
+        ;Perform command, not the value-list form.
+
+   % No switches permitted in this form of ;Perform
+        The value-list form of  the  ;Perform  command  does  not  have  any
+        switches.  Only the file-spec form allows the /VERIFY switch.
+
+   % Switch missing after SETUP command
+        SETUP has found a slash after a command indicating a switch, but  no
+        switch  name.   No spaces or tabs may be typed between the slash and
+        the switch name.
+   SETUP %5(56) 20-May-80                                            Page 77
+   ***** SETUP error messages
+
+
+|  ;Leave command errors
+|  
+|  
+|  ? Cannot ;Leave top level of MCF
+|       The master control file named on  the  SETUP  command  line  as  the
+|       original  input  file to SETUP must be processed to the end-of-file;
+|       that is, a ;Leave  command  may  not  be  used  to  prematurely  end
+|       processing  of  this file.  This error might also appear if a ;Leave
+|       command without a block name  is  reached  after  the  ;End  command
+|       defining the end of a block was processed.
+|  
+|  ? Cannot end or leave this block from block "<name>"
+|       A ;Leave command with a specific block name  given  was  encountered
+|       within  a  block  of  a different name.  "<name>" is the name of the
+|       block currently being processed.
+|  
+|  ? Invalid block name
+|       Block names must be 1 to 35 characters long containing only letters,
+|       hyphens and digits.
+|  
+|  
+|  
+|  
+|  
+|  ;Begin command errors
+|  
+|  
+|  ? Invalid block name
+|       Block names must be 1 to 35 characters long containing only letters,
+|       hyphens and digits.
+|  
+|  ? Push-down list overflow:  Too many levels of nesting
+|       This is a general error  probably  indicating  too  many  levels  of
+|       nested blocks, ;Include or ;Perform commands.
+|  
+|  
+|  
+|  
+|  
+|  ;End command errors
+|  
+|  
+|  ? Invalid block name
+|       Block names must be 1 to 35 characters long containing only letters,
+|       hyphens and digits.
+|  
+|  ? No block to ;End
+|       An ;End command was found that did not match a corresponding ;Begin,
+|       ;Error block or ;Perform block command.
+|  
+|  ? ;End command may not follow a conditional command
+|       The ;End command may not be a  part  of  the  text  of  an  ;Option,
+|       ;No-option,  ;File  or  ;If command;  that is, the ;End command must
+|       "stand-alone" on an MCF line.
+   SETUP %5(56) 20-May-80                                            Page 78
+   ***** SETUP error messages
+
+
+|  ? May not ;End an ;Include or ;Perform of a file
+|       An ;Included or ;Performed  file  may  only  be  terminated  by  the
+|       physical  end-of-file  or  by a ;Leave command.  The ;End command is
+|       reserved for blocks.
+
+
+
+
+
+   Input-output errors
+
+
+   ? MCF line too long
+        The length of  a  line  from  the  MCF  has  exceeded  the  internal
+        processing  storage  area.  SETUP allows a maximum of 500 characters
+        on a line.
+
+   % Undefined SETUP command
+        A line beginning with a semi-colon was read from the  MCF,  but  the
+        word following the semi-colon was not a valid SETUP command.
+
+   % Ambiguous SETUP command
+        A line beginning with a semi-colon was read from  the  MCF  and  the
+        word following the semi-colon is not an unambiguous abbreviation for
+        a SETUP command.  It is strongly suggested that abbreviations not be
+        used  in  production  MCFs,  as  all  system software is dynamic and
+        abbreviations are not guaranteed to remain unique over time.
+
+   ? Error reading input file
+        This is another one of those errors that should  never  occur.   Try
+        reading   the  file  again;   if  the  error  persists  contact  the
+        Administrative Systems Department.
+
+   ? Error writing output file
+        Another error that should never happen.  If it persists contact  the
+        Administrative Systems Department.
+
+   ? Specified tag not found in file
+        The label given in a /TAG:   switch  does  not  exist  in  the  MCF.
+        Possibly the tag has been mis-spelled.
+
+   ? Unable to create SETUP.BIN
+        An  unusual  error  occurring  the  first   time   a   SETUP/OPTION,
+        SETUP/VARIABLE,  ;DEFINE/SAVE,  or ;SELECT/SAVE command is executed.
+        Possibly due to the connected directory having too many files.
+
+   ? SETUP.BIN file is in use by another job
+        An interlock for option and variable defaults has been set  and  not
+        cleared  by  another  job.   Possibly  due  to  another  user  using
+        control-C while SETUP was trying to access  an  option  or  variable
+        default.   SETUP  will  try to access this file for 2 seconds before
+        giving this message.
+   SETUP %5(56) 20-May-80                                            Page 79
+   ***** SETUP error messages
+
+
+   ? Cannot open SETUP.BIN
+        An unusual error  indicating  a  problem  with  the  option/variable
+        default  file.   Possible  due  to  this  file having been protected
+        read-only to the current user.
+
+|  ? Push-down list overflow:  Too many levels of nesting
+|       This is a general error probably indicating too many  nested  levels
+|       of ;Include, ;Begin, ;Error block and/or ;Perform commands.
+
+   % No continuation chars on continuation line (";+")
+        SETUP has read an MCF line beginning with semi-colon and terminating
+        with  a  hyphen,  but  the  following  line  does  not  begin with a
+        semi-colon and a plus-sign to complete the continuation syntax.
+
+|  ? Block "<name>" does not end
+|       SETUP has reached the physical end of an MCF or  SCF  (;Included  or
+|       ;Performed file) without finding the end of a block that was started
+|       in that file.  All ;Begin, ;Perform block and ;Error block  commands
+|       must be matched by an ;End command in the same MCF or SCF.

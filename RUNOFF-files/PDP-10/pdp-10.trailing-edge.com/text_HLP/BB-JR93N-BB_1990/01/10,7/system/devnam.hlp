@@ -1,0 +1,256 @@
+
+Device Names
+
+TOPS-10 supports a number of peripheral input/output devices to handle
+data acquisition, storage, retrieval, and display.  These devices are:
+
+     Card Punch            Card Reader          DECtape
+     Disk                  Display Terminal     Graphics Display
+     Hard-copy Terminal    Line Printer         Magnetic Tape
+     Paper Tape Punch      Paper Tape Reader    Plotter
+
+The monitor allocates a device to your job when you request access  to
+the  device.  (See the ASSIGN and MOUNT commands.) Until you request a
+device, it resides in the system pool of available resources.
+
+To reference a device, you must specify a device name.  The  types  of
+device   names   are:    generic,   physical,   logical,  ersatz,  and
+system-defined logical.
+
+
+Generic Device Names
+
+The most general type of device name is the generic device name.  When
+you  specify  a  generic  name, the monitor selects a free unit of the
+device  type  specified.   When  your  computer  is   in   a   network
+environment, the monitor chooses the device from those devices at your
+location, or, if none are available, the monitor  chooses  the  device
+from the host (central) site.
+
+A generic name can be two or three letters long and is followed  by  a
+colon  (:).   Two-character  generic  names  are  less  specific  than
+three-character generic names.  For example, MT:  means  any  magnetic
+tape  unit,  but  MTA:  means  any magnetic tape unit on controller A.
+When you specify the generic name DSK: or DS:, the monitor  uses  your
+job  search list to determine which disk device should be selected for
+you.  For help on search lists, see the help file SERLST.
+
+Generic Device Names
+
+                                       3-Letter          2-Letter
+  Device                             Device Name       Device Name
+
+  Card punch                             CDP:              CP:
+  Card reader                            CDR:              CR:
+  Console terminal                       CTY:              ---
+  DECtape                                DTx:              DT:
+  Disk                                   DSK:              DS:
+     Packs                               DPx:              DP:
+                                         RPx:              RP:
+     Fixed head                          FHx:              FH:
+                                         FSx:              FS:
+  Display                                DIS:              ---
+  Line printer                           LPT:              LP:
+     lowercase/uppercase                 ---               LL:
+     uppercase                           ---               LU:
+  Magnetic tape                          MTx:              ---
+     7-track                             ---               M7:
+     9-track                             ---               M9:
+  Operator terminal                      OPR:              ---
+  Paper-tape punch                       PTP:              PP:
+  Paper-tape reader                      PTR:              PR:
+  Plotter                                PLT:              ---
+  Pseudo-terminal                        PTY:              ---
+  System library                         SYS:              SY:
+  Terminal                               TTY:              TT:
+
+
+When  you  specify  a  generic   name,   the   monitor   selects   the
+lowest-numbered  available  unit  of the device type specified.  There
+are two defaults when you specify a generic name:
+
+     1.  When your program specifies DSK or DS, the system  uses  your
+         job search list.
+
+     2.  When you specify TTY: or TT:, the monitor always selects your
+         terminal (assuming that these are not logical names).
+
+
+Physical Device Names
+
+Every I/O device has a physical  name.   This  name  consists  of  the
+generic  name,  a  letter  indicating  the controller, and one numeric
+character indicating the unit number.  For example, the  generic  name
+MTA: indicates any magnetic tape unit on controller A.  However, MTA1:
+indicates magnetic tape unit 1 on controller A.
+
+File Structures
+
+The  TOPS-10  operating  system  organizes  disk  devices  into   file
+structures.   File  structures  are  logical  arrangements of 128-word
+blocks on one or more disk units.  A file structure can exist  on  one
+disk unit, or it can be distributed over several disk units designated
+by a single name.  However, two file structures cannot  exist  on  the
+same unit.
+
+The operator or system administrator assigns  a  name  to  every  file
+structure  when  he or she defines the system's file structures.  This
+name is one to four characters long, and cannot duplicate  a  physical
+device  name,  a  unit  name, or an existing file structure name.  The
+recommended   names   for   public   file   structures   are    DSKA:,
+DSKB:,...,DSKO: in order of decreasing speed.
+
+File structures are illustrated and explained in detail in the TOPS-10
+Monitor Calls Manual, Vol.  1.
+
+Logical Device Names
+
+You can assign a logical name to a physical device.  The monitor  will
+recognize  the  name  that  you assign, and associate the logical name
+with the physical device.  You can assign a logical name to  a  device
+using the ASSIGN command.
+
+The logical name that  you  assign  may  be  up  to  six  alphanumeric
+characters  and  may  optionally be ended by a colon (:).  Thereafter,
+the monitor will use the device that you associated with  the  logical
+name,  when  you  or your programs specify that logical name.  Logical
+names are cleared by the DEASSIGN command.  That is, use the  DEASSIGN
+command to disassociate logical names from devices.  Logical names are
+also cleared when you log off the system, and when you specify another
+logical name for the same device.
+
+Logical names are useful when you are writing a program that  needs  a
+device,  but you will not know until program execution what device you
+will need.  Use a logical name in the program to represent the device.
+Before  you  run  the  program use the ASSIGN command to associate the
+logical name with a physical device.
+
+Logical names take precedence over physical names.  Therefore, if  you
+assign the logical name DSK: to the device MTA3: (magnetic tape unit 3
+on controller A), all output to generic DSK will go  to  the  magnetic
+tape.
+
+Some names are recognized by the  monitor  as  special  system-defined
+logical  names that the monitor translates into physical device names.
+One example is the generic device name OPR:.  The generic name OPR: is
+the system-default logical name for the operator's terminal.
+
+Therefore, the terminal specified as OPR:  can  change  during  system
+operation;  but  if  you  send  a message to OPR:, the message will be
+routed to the last physical  device  declared  to  be  the  operator's
+terminal at your node.
+
+All devices except terminals can be  designated  as  being  restricted
+devices.   You  request  a  restricted  device from the system pool of
+available resources  by  issuing  the  MOUNT  command.   This  command
+requires operator intervention before the specified device is assigned
+to your job.  The system deassigns a restricted device from  your  job
+when you log off the system or issue the DISMOUNT, DEASSIGN, or FINISH
+command.
+
+Unrestricted devices  are  assigned  to  your  job  on  a  first-come,
+first-served  basis  when  you issue the MOUNT or ASSIGN command.  The
+device assignment remains in effect until you release  the  device  by
+issuing  a  DEASSIGN  command  or a FINISH command, or you log off the
+system.
+
+The following example illustrates the use of both physical and logical
+device names.
+
+Example
+
+     You request a DECtape drive with the logical name ABC:
+
+     .ASSIGN DTA: ABC:
+
+     The monitor gives you unrestricted device DTA0: (DECtape number 0
+     on controller A).  You then mount a DECtape on drive DTA0:
+
+     DTA0 ASSIGNED
+
+     You request any paper-tape punch and  request  that  the  logical
+     name ABC: be assigned to it.
+
+     .ASSIGN PTP: ABC:
+
+     The monitor prints  a  warning  message,  telling  you  that  the
+     logical  name  was  previously  assigned  to another device.  The
+     monitor changes the logical-name assignment, so that the  logical
+     name ABC: now refers to the paper-tape punch.
+
+     %LOGICAL NAME WAS IN USE, PTP0 ASSIGNED
+
+     You run the system program PIP.
+
+     .R PIP
+
+     You issue a command string to PIP asking that file  FILEA.EXT  be
+     transferred  from  device  DTA0: to logical device ABC: (physical
+     device PTP0:).
+
+     *ABC:=DTA0:FILEA.EXT
+
+     You type a CTRL/C, returning your job to monitor mode.
+
+     *^C
+
+     You request another DECtape drive and request that  logical  name
+     DEF: be assigned to it.
+
+     .ASSIGN DTA: DEF:
+
+     The monitor prints a message telling you that all DECtape  drives
+     are  in use by the specified jobs.  The monitor does not assign a
+     DECtape drive or a logical name to your job.
+
+     ?ALREADY ASSIGNED TO JOB 13
+
+     You request that DECtape unit 0 (which you already have  assigned
+     to you) be assigned the logical name DEF:.
+
+     .ASSIGN DTA0: DEF:
+
+     DECtape unit 0 takes on the logical name DEF:.
+
+     DTA0 ASSIGNED
+
+     You deassign the paper-tape  punch,  clearing  the  logical  name
+     ABC:.
+
+     .DEASSIGN PTP:
+
+     You run the system program PIP.
+
+     .R PIP
+
+     You request that the file FILEB is to be transferred from  device
+     DEF: to device ABC:
+
+     *ABC:=DEF:FILEB
+
+     TOPS-10 prints an  error  message  indicating  that  the  logical
+     device name ABC: is no longer assigned.
+
+     ?DEVICE ABC DOES NOT EXIST
+
+     You type a CTRL/C, returning your job to monitor mode.
+
+     *^C
+
+     You request drive DTA0: (DECtape drive 0) again and request  that
+     the logical DEF: be changed to XYZ:
+
+     .ASSIGN DTA0: XYZ:
+
+     The system  disassociates  the  logical  name  DEF:  from  DTA0:.
+     DECtape unit 0 takes on the logical name XYZ:.
+
+     DTA0 ASSIGNED
+
+Ersatz Device Names
+
+An ersatz device is a disk-simulated library.  Although you specify an
+ersatz  device  like  a  file structure, an ersatz device represents a
+particular project-programmer number  on  a  disk  structure.   Ersatz
+device  names are three characters long.  See the help file ERSNAM for
+a complete list of the ersatz device names used by TOPS-10.

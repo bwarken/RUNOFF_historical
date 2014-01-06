@@ -1,0 +1,102 @@
+DTELDR is a program to dump and bootstrap front ends connected to the KL10 via a
+DTE.   The program runs in user mode under normal timesharing;  its user must be
+logged in as [1,2], and have TRPSET and LOCK privileges.   To  use  DTELDR,  the
+monitor must be assembled with MSGSER.  Command format is:
+
+     *dev:file.ext[p,pn,sfd,sfd,...]/switch/switch
+
+     or
+
+     */switch/switch
+
+dev:file.ext[p,pn,sfd,sfd,...] is the file specification for the  file  to  load
+into  the -11.  Default is DSK:DTEL<X><Y>.BIN, where <X> is the CPU number (0 to
+(n-1), where n is the number of CPUs in your system) and <Y> is the  DTE  number
+(0,1,2  or  3).  This file specification is only meaningful if the -11 is loaded
+over the DTE.  (See /SWITCH)
+
+Dumps are written out to DSK:DTED<X><Y>.BIN, .B00, .B01,...,.B99, using the path
+of the job that runs DTELDR.
+
+Action switches:  X=<CPU#> Y=<DTE#> prottype={NOBODY,ANF10,IBM,DECNET,RSX20F}
+
+/APROTOCOL:XY:prottype - Use prottype when doing  an  automatic  reload  of  the
+given front end
+/ASWITCH:XY:value - Use octal value when doing automatic reload of  given  front
+end
+/AUTOMATIC - Automatically reload front ends that crash (if ST%NDL is off)
+/DETACH - Detach DTELDR when in automatic mode
+/DUMP:XY - Dump specified front end on XPN:DTEDxy.BIN (or later generations)
+/EXIT - Exit to the monitor
+/HELP - Type this text
+/IGNORE:XY:XY:...:XY - Do nothing to specified front ends when in automatic mode
+/INITIALIZE:XY - Start primary protocol on specified front end
+/NOLISTEN:XY:XY:...:XY - Do not listen to specified front
+/PROTOCOL:prottype - Start the front end with the specified protocol type
+/RELOAD:XY - Reload specified front end and start primary protocol
+/TALK:XY:XY:...:XY - Talk to specified front end's CTY
+/TERMINATE:XY - Shut down specified front end end's CTY except when reloading
+
+Modification switches:
+
+/A11 - Binary file in .A11 format
+/IMAGE - .BIN file is in image format
+/NODUMP - Do not do dump of -11 core
+/NOLOG - Suppress error logging
+/SELECT:<10,11> - Select place to reload -11 from
+/SWITCH:<VALUE> - Use octal <VALUE> instead of old -11 switch value
+
+A DUMP file specification may be given  for  /AUTOMATIC.   The  switches  /TALK,
+/NOLOG, /NODUMP, and /SWITCH may also be specified with /AUTOMATIC.
+
+/SELECT:10  -  Reloads  the  front  end  over  the  DTE  from  the  reload  file
+specification.
+/SELECT:11 - Reloads the front end from the -11 device specified in /SWITCH,  or
+from the original -11 load device if /SWITCH is not specified.
+If /SELECT is not given, default  is  "11"  if  the  -11  is  the  master,  "10"
+otherwise.
+
+/TERMINATE must not appear with any other switches.
+
+/INITIALIZE must appear only with /PROTOCOL or with no other switches.
+
+/SWITCH is used when the reload source is the -10 to  tell  the  ROM  which  -11
+device  to  obtain the reload file from.  RSX20F also uses the switch setting to
+determine whether to enter KLINIT or not.
+
+The following octal values are valid:
+
+OCTAL
+VALUE                         MEANING
+_____                         _______
+
+000 001        Do a complete reload as specified by  other  values  below.   The
+               last digit must be 1 to run CHK11.
+
+000 005        Load RSX20F without communicating  with  the  central  processor.
+               KL10  is  assumed  up.  This reloads and starts the -11, does not
+               use KLINIT.
+
+000 007        Load RSX20F, load and start KLINIT dialog to control loading.
+
+000 001 to     Normally digits 4 and 5 (from the left) are zero.
+000 151        However, you can use digits 4 and 5 to set the line speed  for  a
+               hardware  line  specified  in  digits  2  and 3.  (See the DTELDR
+               specification.)
+
+000 001        With digit 4 set to zero, use floppy (for 1091) or DECtape.
+
+000 201 to     Use specified disk unit (0 to 7).
+003 601        (See the DTELDR specification.)
+
+000 001 to     Digits 2 and 3 are normally 0.  However, you can use
+0XX XX1        digits 2 and 3 to specify a hardware line number when you give  a
+               DH11  unit number in digits 3 and 4, and a line speed with digits
+               4 and 5.  (See the DTELDR specification.)
+
+000 001 or     Retry 10 times on I/O error.
+100 001        Retry indefinitely on I/O error.
+
+For example, to boot front end #2 on CPU0 from disk unit 1 use:  
+
+     filename/RELOAD:02/SELECT:11/SWITCH:000601

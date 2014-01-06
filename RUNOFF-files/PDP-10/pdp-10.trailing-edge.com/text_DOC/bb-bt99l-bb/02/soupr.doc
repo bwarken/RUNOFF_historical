@@ -1,0 +1,347 @@
+
+
+
+SOUPR Functional Description
+
+     SOUPR (SOftware Update Package Revisited) is a  package
+     which   was  written  to  ease  the  task  of  software
+     maintenance.   The   design   of   SOUPR   allows   the
+     distribution   of  small  correction  files  to  update
+     field-image software  sources.   Also  present  is  the
+     ability  to automatically merge user modifications with
+     DEC-supplied updates/fixes.  SOUPR correction files may
+     be edited directly and the output of SOUPR is ready for
+     immediate assembly/compilation.
+
+     SOUPR is  a  collection  of  three  programs:   COMPAR,
+     UPDATE,   and   MERGE.    The   following  is  a  brief
+     description of each program.
+
+1.  COMPAR
+
+     The input to COMPAR consists of two ASCII  files  known
+     as  the  base  file  and  the  user  file.  COMPAR will
+     compare the two files and  create  a  correction  file.
+     The  correction  file details how the user file differs
+     from the base file.  The command format is:
+
+     *cor-file=base-file,user-file/switches
+
+2.  UPDATE
+
+     UPDATE will reconstruct the user file.   The  input  to
+     UPDATE  consists  of a base file and a correction file.
+     The command format is:
+
+     *user-file=base-file,cor-file/switches
+
+3.  MERGE
+
+     MERGE will merge several correction files into a single
+     correction  file  and  flag any conflicts.  The command
+     format is:
+
+     *cor-file=cor-file/switches,cor-file/switches...
+                                                      Page 2
+
+
+SOUPR Source File Format
+
+
+     SOUPR may be used with any ASCII file.  The file is not
+     parsed in any way.  Binary files (such as REL files and
+     SAVE files) may not be used.  Any text  editor  may  be
+     used to alter the input file for COMPAR.
+
+     Each line in the source file is  identified  internally
+     by the notation "n/m".  Where n is the line number, and
+     m is the page number.
+
+     A line is an arbitrary  sequence  of  ASCII  characters
+     terminated  by  a break character.  The break character
+     itself is considered to be part of the  line.   In  the
+     case of consecutive break characters, each character is
+     considered to be a separate line.   The  following  are
+     defined to be break characters:
+
+          12   LF   Line Feed
+          13   VT   Vertical Tab
+          14   FF   Form Feed
+          32   ^Z   control Z
+          33   ESC  ESCape
+
+
+     A page is an arbitrary sequence of lines terminated  by
+     a  form feed.  The form feed itself is considered to be
+     the last character of the last  line  of  the  previous
+     page.    Since  form  feeds  are  usually  preceded  by
+     <CR><LF>, the form feed is usually the  only  character
+     in its line.
+
+     SOUPR will ignore the line sequence  numbers  generated
+     by SOS.
+                                                      Page 3
+
+
+SOUPR Correction File Format
+
+     Each line in the  correction  file  is  prefixed  by  a
+     special  character.  This character determines which of
+     three categories the line falls into:
+
+1.   Commands  to  SOUPR  (see  below).   All  commands  are
+     prefixed by a space (ASCII 40).
+
+2.   Text to be acted upon by the commands.   Each  line  of
+     text  is  prefixed by a tab (ASCII 11).  Except for its
+     use as a delimiter, the tab is ignored.
+
+3.   In the event that a line fails to be prefixed by either
+     a  space  or  a tab, the line is regarded as text.  The
+     first character, whatever it may be, is  considered  to
+     be part of the text.
+                                                      Page 4
+
+
+SOUPR Commands
+
+1.    DELETE n/m ;comment
+             text
+
+     Delete text starting at line n of page m.  The text  to
+     be   deleted   follows  immediately  after  the  DELETE
+     command, and continues until a space is encountered  in
+     column  one  (i.e.   another  command).  If the text at
+     line n of page m in the base file is different from the
+     text  in  the  correction  file,  UPDATE  will flag the
+     condition as an error.
+
+2.    INSERT n/m ;comment
+             text
+
+     Insert text just before line n of page m.  The text  to
+     be   inserted  follows  immediately  after  the  INSERT
+     command, and continues until a space is encountered  in
+     column one.
+
+3.    REPLACE n/m ;comment
+             text1
+      WITH
+             text2
+
+     At line n of page m replace text1  with  text2.   Text1
+     follows  immediately  after  the  REPLACE  command, and
+     continues until a space is encountered in  column  one.
+     This  line  will  be the WITH auxiliary command.  Text2
+     follows  immediately  after  the  WITH   command,   and
+     continues  until  a space is encountered in column one.
+     If the text at line n of page m in  the  base  file  is
+     different  from  text1  in  the correction file, UPDATE
+     will flag the condition as an error.
+
+4.    SUM n ;comment
+
+     Where n is a rotate add one checksum of the base  file.
+     While  processing  the base file, UPDATE will recompute
+     this checksum.  If the value does not match that stored
+     in  the correction file, UPDATE will flag the condition
+     as  an  error.   Hence  a  user   is   prevented   from
+     accidentally   using   the   correction  file  with  an
+     incorrect version of the base file.  MERGE will type an
+     error  message  if  a user attempts to merge correction
+     files with different checksums.  The SUM command  marks
+     end of file.
+
+5.    ;comment
+
+     Ignored.
+                                                      Page 5
+
+
+                              NOTE
+
+         All keywords (e.g.   DELETE,  INSERT,  REPLACE,
+         WITH,  and  SUM)  may  be  abbreviated  to  the
+         smallest  unambiguous   form   (currently   one
+         letter).
+
+
+
+     MERGE goes to a great deal of trouble to make conflicts
+     easy  to  resolve.   The  begining  and  ending of each
+     conflict is clearly labeled and numbered.  For example,
+     a section of the correction file might appear as:
+
+      ;***BEGINING OF CONFLICT 3***
+      DEL 66/5
+                 JRST    FOO
+      REP 66/5
+                 JRST    FOO
+      WIT
+         ;FALL TO ROUTINE FOO
+      ;***END OF CONFLICT 3***
+
+
+     The  programmer  can  quickly  see  that  both  patches
+     attempted.  to do the same thing, they merely did it in
+     different ways.  The object was to remove the  JRST  at
+     line   66  of  page  5.   The  first  patch  tried  the
+     straightforward approach, it merely deleted  the  line.
+     The  second  patch attempted to replace the line with a
+     comment.  But MERGE doesn't realize  that  the  patches
+     are equivalent.  MERGE will type a warning message that
+     conflicts exist.  The  programmer  must  type  out  the
+     correction file and study the conflicts.  In this case,
+     he merely decides which patch  he  wishes  to  use  and
+     removes  the  other.   This  sort of "conflict", by the
+     way, is quite common.  It's nice to know that even when
+     conflicts do occur, they are usually easy to resolve.
+                                                      Page 6
+
+
+SOUPR Switches
+
+
+     One of the most  powerful  features  of  SOUPR  is  the
+     conditionals  facility.   To  use  this  facility  each
+     command in the correction file is labeled with a sixbit
+     name.   The  correction  file  is  then  regarded  as a
+     library of patches.  Each patch is refered to by  name.
+     The user may specify which patches from the library are
+     to be used.
+
+     Labels are placed at the end of a  statement,  and  are
+     preceded by a semicolon.  E.G.:
+
+      INS 3/4 ;XYZBUG SPR#3141
+
+     Those of you who are familiar with MACRO will recognize
+     the  label  as  a  cross between a comment and a TITLE.
+     The label resembles a comment in that  it  may  contain
+     any  information  that the user feels would be helpful.
+     The label resembles a TITLE in that the first  word  is
+     taken  as  the name of the module.  Thus in the example
+     above,  the  name  of  the  patch  is  "XYZBUG".    The
+     following  is  a  list  of  data that one might wish to
+     include in a comment:
+
+     1.  Patch name
+     2.  SPR number
+     3.  MCO/PCO number
+     4.  Edit number
+     5.  Brief description
+
+     Labels are added to patches by using the  /NAME  switch
+     in COMPAR.  The switch has two forms:
+
+     /NAME:"string"
+     /NAME:foo
+
+     The former is used to specify an  entire  string.   The
+     later is used to specify just a sixbit name.
+
+     The following is a list  of  switches  used  to  select
+     which  patches  from  the library are to be used.  Both
+     UPDATE and MERGE have each of the switches:
+
+     /NCLUDE:x           Processing  includes   only   those
+                         patches  labeled with x.  Wildcards
+                         are legal.  The default is *  (i.e.
+                         include all patches).
+
+     /NCLUDE:(x,y,...)   Specifies a list of patches  to  be
+                         included
+
+     /UNCLUD             Unlabeled   patches   are    always
+                         included (default)
+                                                      Page 7
+
+
+     /UXCLUD             Unlabeled   patches   are    always
+                         excluded
+
+     /XCLUDE:x           Processing excludes  those  patches
+                         labeled with x
+
+     /XCLUDE:(x,y,...)   Specifies a list of patches  to  be
+                         excluded
+
+
+     Another feature allows the COMPAR program to  associate
+     an   internally   created   label   with  every  change
+     encountered during a single compare function.  This  is
+     not  the  same  as  each  patch  being identifiable.  A
+     single patch  may  create  multiple  code  changes  and
+     multiple  concurrent  patches would result in logically
+     one code change.
+
+     This feature is called by adding a /NUM or /LET  switch
+     to a COMPAR command which has a /NAME:  switch.
+                                                      Page 8
+
+
+SOUPR Examples
+
+1.   To create a labeled patch:
+
+     .R COMPAR
+     *cor-file=base-file,user-file/NAME:foo
+
+2.   To apply a single patch:
+
+     .R UPDATE
+     *user-file=base-file,cor-file/NCLUDE:foo
+
+3.   To apply all but a single patch:
+
+     .R UPDATE
+     *user-file=base-file,cor-file/XCLUDE:foo
+
+4.   To add a new patch to the library:
+
+     .R MERGE
+     *new-library=old-library,new-patch
+
+5.   To remove a patch from the library:
+
+     .R MERGE
+     *new-library=old-library/XCLUDE:foo
+
+6.   To extract a patch from the library:
+
+     .R MERGE
+     *cor-file=library/NCLUDE:foo
+                                                      Page 9
+
+
+SOUPR - Applying Local Source Edits
+
+
+     SOUPR, as described above, has  the  ability  to  merge
+     edits.   The  UPDATE module requires a known base file.
+     DEC  provides  updates  which  can  be  used  by  SOUPR
+     directly only on the last DEC release.  The SOUPR tool,
+     however, can be used to  merge  local  edits  prior  to
+     using UPDATE.
+
+     The process of  applying  local  edits  calls  for  the
+     availability of the completely updated source module as
+     last released and updated by DEC.   When  an  Autopatch
+     tape  is  received  and  you want to apply the supplied
+     corrections to your locally edited source file you  can
+     use the following procedure:
+
+     1.   Obtain the last DEC release of the source module.
+
+     2.   Create a correction file  by  using  COMPAR.   The
+          above  module is the base-file and the module with
+          local edits is the user-file.
+
+     3.   Use MERGE to combine this correction file with the
+          one  supplied by DEC.  The MERGE program will flag
+          any conflicts.  These must be resolved by  editing
+          the  correction  file  before going on to the next
+          step.
+
+     4.   Use UPDATE to apply this combined correction  file
+          to the base-file.

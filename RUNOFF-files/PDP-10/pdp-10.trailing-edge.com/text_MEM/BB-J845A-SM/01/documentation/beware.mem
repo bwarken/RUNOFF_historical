@@ -1,0 +1,294 @@
+
+
+
+                              Beware File for
+                      TOPS-20 IBM 2780/3780/HASP E/T
+                          for the DECSYSTEM-2020
+
+                                Revision 3
+                          Date:  19 January 1981
+                      Copyright (c) 1981, 1980, 1979
+               Digital Equipment Corporation, Maynard, Mass.
+
+          This software is furnished under a license and may  be  used  and
+          copied only in accordance with the terms of such license and with
+          the inclusion of the above copyright notice.   This  software  or
+          any  other  copies  thereof may not be provided or otherwise made
+          available to any other person.  No title to and ownership of  the
+          software is hereby transferred.
+
+          The information in this software is  subject  to  change  without
+          notice  and  should  not  be construed as a commitment by DIGITAL
+          EQUIPMENT CORPORATION.
+
+          DIGITAL assumes no responsiblility for the use  or  reliabilility
+          of its software on equipment which is not supplied by DIGITAL.
+                                                                     Page 2
+
+
+                             TABLE OF CONTENTS
+
+          1.  PURPOSE OF THIS RELEASE
+
+          2.  DEPENDENCIES
+
+          3.  INSTALLATION INSTRUCTIONS
+
+          4.  KNOWN PROBLEMS AND DEFICIENCIES
+
+          5.  SUPPORT CATEGORY
+
+                                                                     Page 3
+
+
+          1.0  PURPOSE OF THIS RELEASE
+
+          This is the first release of the TOPS-20 IBM  2780/3780/HASP  E/T
+          for  the  DECSYSTEM-2020.  This release provides software support
+          for the DN22.  Hereafter, this software will be  referred  to  as
+          the DN22 software.
+
+          The DN22 provides functionality that is similar to  that  of  the
+          TOPS-20  IBM  2780/3780/HASP  E/T  for  the larger members of the
+          DECSYSTEM-20 family.  The only functional differences are in  the
+          maximum  number  of lines that are supported and the maximum line
+          speeds.
+
+          The DN22 front-end is connected  to  the  DECSYSTEM-2020  with  a
+          synchronous (clocking) null modem.  This modem is not supplied by
+          Digital, and must be obtained from another vendor.   For  maximum
+          performance, this modem should be used at a line speed of 19.2KB.
+
+          The software package provided includes a  spooler  to  allow  the
+          DECSYSTEM-2020  to  emulate  an  IBM  type RJE station, front-end
+          software,  and  software  to  allow  booting   the   front   end.
+          Termination  is  handled by the standard GALAXY spoolers:  CDRIVE
+          and LPTSPL.
+
+
+
+          2.0  DEPENDENCIES
+
+          This software depends on TOPS-20 version 4.0, and GALAXY  version
+          4.0.   It will not function with earlier versions of TOPS-20, nor
+          with earlier versions of GALAXY.
+
+
+
+          3.0  INSTALLATION INSTRUCTIONS
+
+          Installation for  this  product  is  somewhat  complicated.   You
+          should   read  this  installation  instructions  in  the  Manual:
+          TOPS-20 IBM Emulation and Termination (DEC Order AA-5095B-TM).
+
+
+
+          4.0  KNOWN PROBLEMS AND DEFICIENCIES
+
+          This product is based  on  the  TOPS-20  IBM  2780/3780/HASP  E/T
+          product.   The  code  is  the  same  except  for  the  code  that
+          communicates between the TOPS-20 system and the front-end.  Based
+          on  our  extensive internal and field testing, there are no known
+          problems with this product that are specific to the DN22.
+
+          There are, however, a number of problems that this product shares
+          with  the  TOPS-20  IBM  2780/3780/HASP  E/T.  These problems are
+          documented below for your reference.  We are actively working  on
+          a  maintenance  release  of this product.
+                                                                     Page 4
+
+
+          4.1  SEND TO BATCH Command
+
+          This command allows the DECSYSTEM-2020 operator to send  text  to
+          the IBM system in emulation mode.  This action simulates the HASP
+          station  console.   This  command  currently  has  the  following
+          problems:
+
+          1.  It will currently only take one line  of  input  at  a  time.
+              Workaround:  Send data one line at a time.
+
+
+
+
+          4.2  IBMSPL Operational Problems
+
+
+          1.  IBMSPL sometimes hangs in transmitting or  receiving  a  job.
+              If  you  experience  this  problem,  you  should  install the
+              following patch:
+
+              At the label GETINO, change
+
+              $DSCHD    TW.IOD,Q        ;wait a little to
+
+              $DSCHD    TW.IOD,3        ;wait one second
+
+              And at PUTIB2, change
+
+              PUTIB2:   $DSCHD  TW.IOD,Q        ;wait a little
+
+              to
+
+              PUTIB2:   $DSCHD  TW.IOD,^D5*3    ;wait for five seconds
+
+          2.  IBMSPL doesn't schedule  correctly  in  2780  or  3780  mode.
+              Cure:  Install the following patch:
+
+              In the macro definition for $DSCHD (it's on page 9), change
+
+              SETZM     CURATE          ;;  Clear Active Task List pointer
+
+              to
+
+              SETZB     TF,CURATE       ;;  Clear Active Task List pointer
+
+          3.  IBMSPL sometimes gives the spurious error message, "Specified
+              Request not yours" when processing a job.  Cure:  Install the
+              following patch:
+
+              At FNDOB3+1, insert
+
+              MOVE      LB,LB+T%ACS     ;load address of line block
+
+              just before
+                                                                     Page 5
+
+
+              MOVE      J,J+T%ACS       ;and load address of job page
+
+          4.  The /UNIQUE  switch  applies  to  all  batch  jobs  that  are
+              submitted by any one user.  The includes both IBMSPL jobs and
+              BATCON jobs.   This  means  that  if  a  user  has  specified
+              /UNIQUE:YES  (default)  and  has  a batch job running, IBMSPL
+              will not transmit the job until BATCON finishes the job it is
+              processing for the user.
+
+          5.  The directory <DN60>  fills  up  with  deleted  LPT-IBM-?????
+              files.  Workaround:  Clean up the area periodically.
+
+          6.  The time stamp on returning print  jobs  is  not  necessarily
+              unique.   This means that two files can come back as the same
+              name, deleting the first file returned.  It only  happens  if
+              the files are short enough to be completely tranmitted in one
+              minute.
+
+          7.  /LSTR does not work.  This means that files shipped  back  by
+              IBMSPL are always written to PS:.
+
+          8.  The hold file that IBMSPL writes  when  receiving  output  is
+              named randomly.
+
+          9.  REQUEUE, PAUSE and STOP are not implemented.  These  commands
+              should not be used with IBMSPL.
+
+         10.  If a  job  submitted  to  IBMSPL  is  deleted  before  it  is
+              processed,   IBMSPL  will  hang  trying  to  find  the  file.
+              Workaround:  Don't DELETE control files  if  they  have  been
+              send to IBMSPL.
+
+         11.  IBMSPL sometimes loses a portion  of  the  print  job  it  is
+              receiving  if  a  SHUTDOWN  is  issued  while  it is reading.
+              Workaround:  Wait for IBMSPL to become quiet before  doing  a
+              shutdown.
+
+         12.  The pattern recognizer does not work exactly  as  advertised.
+              The  way  that  the  parser  works is sufficient to recognize
+              console output from  most  IBM  systems.   If  IBMSPL  cannot
+              recognize console output coming back for your IBM system, you
+              should contact your software specialist who can  aid  you  in
+              devising a patch for this.
+
+         13.  If IBMSPL is unable to rename a file  that  it  is  receiving
+              from  an  IBM  system,  IBMSPL  will  hang  until the node is
+              SHUTDOWN and re-STARTed.
+
+         14.  The /LDISP:PRINT option doesn't  work  for  returning  output
+              files.   Workaround:   Don't  use  any  /LDISP  switch if the
+              output is to be printed, because the default is to print.
+
+         15.  IBMSPL will not run correctly unless it is CONNECTed to a PS:
+              directory.  If it CONNECTed to another structure, it will not
+              be able to queue line printer output.
+                                                                     Page 6
+
+
+         16.  The code to send the sign-off file  doesn't  work  correctly.
+              You  can  get  IBMSPL to send the sign-off file by submitting
+              this file with  a  SUBMIT  command.   If  you  don't  send  a
+              sign-off  file,  you  may  have trouble using that line again
+              later.
+
+
+
+
+          4.3  Problems With TERMINATION
+
+
+          1.  If a termination station drops off line while a file is being
+              printed,  LPTSPL  doesn't  notice  and  the  job  will  never
+              complete.  The job should be aborted and the  printer  should
+              be shutdown before attempting to restart the station.
+
+          2.  When an RJE session is  completed  by  the  operator  with  a
+              SHUTDOWN NODE command, the operator should hang up the phone.
+              Otherwise, the line will stay connected and incur  additional
+              phone charges.
+
+
+
+
+          4.4  Problems With SIGNON
+
+          4.4.1  SIGNON Timeout -
+
+          After issuing a START NODE command to OPR, the  operator  at  the
+          remote  station  must SIGNON within five minutes.  Otherwise, the
+          DN22 will drop carrier and the operator will have to START up the
+          node again.
+
+          If this timeout causes problems at your site, you may change them
+          as follows:
+
+          For TERMINATION, the fix must be made in CDRIVE.  The timeout  is
+          specified at:
+
+          OPN.6B-1/     MOVEI T1,^D60
+
+          To set a different value, change ^D60.  The value is  the  number
+          of five second intervals to wait before timing out.
+
+          For EMULATION, the fix is in IBMSPL.  The time is defined as
+
+          XP    SGNINT,^D60*^D3*^D5     ;5 Minutes for SIGNON
+
+          The last number, "^D5", is the timeout in minutes.
+                                                                     Page 7
+
+
+          4.4.2  SIGNON Verification -
+
+          SIGNON cards are not currently verified.  There is no checking to
+          ensure that the correct station has signed on.  This can be fixed
+          by rebuilding CDRIVE with the version of D60JSY that is  included
+          on this tape.
+
+
+
+          4.5  Node Definition
+
+          It is possible to create two nodes (DEFINE NODE command  to  OPR)
+          that  have the same port and line identification.  Unfortunately,
+          it is also possible to issue START NODE commands to  both.   This
+          will  create  at least one node that will do very strange things.
+          Normally one of the two nodes will generate enough  fatal  errors
+          that  it  will  shut  down.  We suggest that node definitions and
+          port/line assignments be checked carefully before starting nodes.
+
+
+
+          5.0  SUPPORT CATEGORY
+
+          The DN22 software is fully supported by Digital.  Problem reports
+          should be submitted on SPR forms.  Fixes will be published in the
+          Software Dispatch and distributed to Software Specialists.

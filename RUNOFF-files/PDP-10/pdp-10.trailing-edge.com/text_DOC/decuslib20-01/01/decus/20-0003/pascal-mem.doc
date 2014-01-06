@@ -1,0 +1,2288 @@
+
+
+
+This  document  is  an  introduction  to DECSYSTEM-20 and DECsystem-10
+Pascal. This Pascal system is the result of cooperation among a number
+of different people.  It was originally written at the  University  of
+Hamburg  by  a  group  of  people  under  the supervision of Prof. H.-
+H. Nagel.  This version was developed from Prof.  Nagel's  by  Charles
+Hedrick,  and  is  maintained by him.  Lee Cooprider and others at the
+University of Southern California have been  particularly  helpful  in
+supplying improvements, largely to the debugger.  A number of compiler
+bug   fixes   were   supplied  by  Andrew  Hisgen  at  Carnegie-Mellon
+University.
+
+This system is intended to be a complete implementation of the  Pascal
+language,  as  defined  in the Revised Report (Jensen and Wirth).  The
+following are the only serious limitations.  A complete list  will  be
+found in an appendix.
+
+   - A  procedure  can  be  passed  as  a  parameter  to  another
+     procedure.  When you call a procedure that has  been  passed
+     in this way, you can supply no more than 5 parameters.
+
+   - Sets  of  character  are  not  fully  implemented.   This is
+     because sets can have only 72 elements, and  there  are  128
+     ASCII  characters.   As a compromise, lower case letters are
+     treated as equivalent to the corresponding upper case letter
+     when in a set.    All  control  characters  except  tab  are
+     treated as equivalent in a set.
+
+This  implementation includes a number of extra facilities, giving you
+access to the full power of the  operating  system.    Only  the  most
+important  of these additions will be described in this manual.  There
+is a complete reference manual, which you should consult if  you  need
+information not given here.
+
+
+
+             1. How to compile and execute your program.
+
+
+
+1.1 How to use the normal compiler
+
+
+This  section  describes how to use Pascal on the DECsystem-10, and on
+those DECSYSTEM-20 systems where the EXEC has been  modified  to  know
+about Pascal.  If you are using a DECSYSTEM-20 whose EXEC has not been
+modified,  there  is  a  special  version  of  PASCAL that you can use
+instead of the EXECUTE command.
+
+Suppose you have a  Pascal  program  called  TEST  that  you  want  to
+execute.    You must first put the program into the computer as a text
+file.  You will do this using a text editor, several of  which  exist.
+Generally  you  should  choose a file name ending with .PAS, since the
+extension PAS tells the system that it is a PASCAL program.    Let  us
+assume that your source program is stored in a file TEST.PAS
+
+To  execute  a program, use the EXECUTE command. You give this command
+the name of the file in which the  source  program  is  stored.    For
+example,  to  compile  and execute a Pascal program stored in the file
+TEST.PAS, you would issue the command
+
+
+            EXECUTE TEST.PAS
+
+
+You can use the usual COMPIL switches,  such  as  /NOBIN,  /LIST,  and
+/CREF.    See  the Command Reference Manual for a description of these
+switches, as well as of the COMPIL, DEBUG, and LOAD commands.
+
+Here is what happens when you issue an EXECUTE  command.    The  first
+step is for the Pascal compiler to compile your program.  The compiler
+reads  your  source  file  and  produces  a relocatable binary file as
+output.  For example, if your source  file  is  called  TEST.PAS,  the
+compiler  would  produce  a binary file called TEST.REL.  The compiler
+always uses the name of your source file, with the extension  .REL  in
+place  of the original extension .PAS.  You do not need to worry about
+what is in this binary file.  It contains a form of your program  that
+the system can execute more easily.
+
+The  second  step in the EXECUTE command is loading your program.  The
+linking loader (LINK) reads the binary form of your program (the  .REL
+file), and loads it into memory.
+
+The  final step in the EXECUTE command is the actual execution of your
+program.  Before it begins the main body of your program,  the  Pascal
+runtime  system  will  ask you what files you want to use as input and
+output. It will ask you about each each Pascal file variable listed in
+your PROGRAM statement.  For example, if your PROGRAM statement  looks
+like this
+
+
+
+
+            PROGRAM TEST(INPUT,OUTPUT)
+
+
+here is the resulting dialog.  In the following, the computer's output
+is in upper case, and your input is in lower case.
+
+
+            INPUT   : data.in
+            OUTPUT  : data.out
+
+
+
+This  example  assumes  that  you  want input to be from a file called
+DATA.IN, and output to be to a file called DATA.OUT.   Of  course  you
+can type any file name.
+
+In  the  most  common case, you want to use the terminal for input and
+output.  You could specify  this  by  typing  TTY:  as  a  file  name.
+Because  it  is  so common to use the terminal for the files INPUT and
+OUTPUT, TTY: is the default for these files. That is,  if  you  simply
+type  a  carriage return in place of a file name for INPUT and OUTPUT,
+the terminal will be used.
+
+
+            INPUT   :
+            OUTPUT  :
+            [INPUT, end with ^Z: ]
+
+
+The message "[INPUT, end with ^Z]" is printed by the Pascal I/O system
+to tell you that the program is ready for its first line of input.   A
+more detailed discussion of the timing of input is given below.
+
+Note that INPUT and OUTPUT are just examples of Pascal file variables.
+If  your  PROGRAM  statement  lists a different set of file variables,
+then Pascal will ask about them instead of INPUT and OUTPUT.  If  your
+program  does not read any input, you should not put any input file in
+the PROGRAM statement.  If you do not want  Pascal  to  ask  the  user
+about  file  names  at  all,  you  should  just  leave out the PROGRAM
+statement completely.  However in this case you will need to build the
+file names into the program, as described below.
+
+Here is an example of the way things will look on your  terminal  when
+you  execute a Pascal program on a DECSYSTEM-20.  The at sign shown is
+the system's prompt.  You do not type it.  You type only  what  is  in
+lower case.  Things after the ! are explanatory comments.
+
+
+
+
+        @execute test.pas
+        PASCAL: TEST        ! Pascal compiler produces TEST.REL
+        LINK:   LOADING     ! LINK loads TEST.REL
+        [LNKXCT TEST EXECUTION]     ! Your program is now started
+        INPUT   : in.file   ! You tell it what files to use
+        OUTPUT  : out.file
+        @                  ! Your program is finished.
+
+
+On a DECsystem-10, the prompt will be a dot instead of an at sign, and
+you will see "EXIT" when your program is finished.
+
+
+
+1.2 Compiler switches
+
+
+This  section  discusses  some  of  the  more  useful  options  in the
+compiler.  You can specify these options when you compile the program,
+or you can build the specifications into  the  program  itself.    For
+example,  to  turn  off  checking  for arithmetic exceptions you could
+specify /NOARITHCHECK  when  you  compile  the  program,  or  put  the
+specification {$A-} into the program.
+
+To  include  an  option  in  the program, you simply include a comment
+containing the specification in your program.  The comment must  begin
+with  $ and then contain a list of specification, separated by commas.
++ turns on an option and - turns it off.  E.g. consider the following
+
+            {$A-,Z+}
+            PROGRAM TEST(INPUT,OUTPUT)
+            ....
+
+This will turn off the A option and turn on the Z  option.    In  most
+cases  this should be done before the program statement, although many
+of the specifiers can be put anywhere in the program.
+
+Here is an example of how  you  specify  options  when  compiling  the
+program:
+
+       Tops-20:
+            one option, /NOARITH
+                 EXEC TEST.PAS/LANG:"/NOARITH"
+            more than one option, /NOARITH and /ZERO
+                 EXEC TEST.PAS/LANG:"/NOARITH/ZERO"
+       Tops-10:
+            one option, /NOARITH
+                 EXEC TEST.PAS(NOARITH)
+            more than one option, /NOARITH and /ZERO
+                 EXEC TEST.PAS(NOARITH/ZERO)
+
+Note  that  these  options  will  only  take  effect if the program is
+compiled.  If you do not see a message like
+
+
+
+            PASCAL: TEST
+
+it  means  that  your program did not need to be recompiled.  A binary
+file left from a previous compilation was used instead, so you end  up
+with  whatever options were in effect during that earlier compilation.
+To force a new compilation, specify /COMPILE, e.g.
+
+        Tops-20:
+            EXEC/COMPILE  TEST.PAS/LANG:"/NOARITH"
+        Tops-10:
+            EXEC/COMPILE  TEST.PAS(NOARITH)
+
+Here is a list of the most useful of the  options.    For  a  complete
+list,  see the full reference manual.  Some of these options are noted
+as being the "default".  This means that they are in effect unless you
+specifically turn them off.  Note that the form with the slash can  be
+abbreviated by using any unique abbreviation.
+
+     /ARITHCHECK {$A+} [DEFAULT] This causes your program to check for
+               arithmetic  exceptions.  An arithmetic exception is any
+               case where an  arithmetic  operation  gives  the  wrong
+               results.      These   include  division  by  zero,  and
+               production of values too large (overflow) or too  small
+               (underflow)  for  the  computer  to store.  When one of
+               these problems occurs, your program will print an error
+               message.  If you are  using  a  debugger,  it  will  be
+               activated  after  the error message is printed.  If you
+               are not, your  program  will  simply  stop.    You  can
+               continue  execution of your program by typing CONTINUE,
+               although you should not place too  much  faith  in  any
+               answer produced once an error has happened.
+
+     /NOARITHCHECK  {$A-} Turn off checking for arithmetic exceptions,
+               as described above.
+
+     /CHECK {$C+} [DEFAULT] This causes  your  program  to  check  for
+               various  conditions  that  would  make its execution be
+               invalid.  It turns on the same checks that  are  turned
+               on  by  /ARITHCHECK.    In  addition, your program will
+               check all array subscripts to see that they are  within
+               the  size  declared  for  the  array.    It  will check
+               assignments to subrange variables to see that  the  new
+               value  is  within  the limits defined for the subrange.
+               And it will check use of pointer variables to see to it
+               that you do not attempt to follow a pointer that is NIL
+               or zero. (Usually a zero pointer is the result of using
+               a pointer variable that has not been initialized.)   If
+               the  program  detects  an  error,  it acts as described
+               under /ARITHCHECK above.
+
+     /NOCHECK {$C-} Turn off checking for errors, as described above.
+
+     /DEBUG {$D+} [DEFAULT]  This  causes  the  binary  form  of  your
+               program  (.REL  file) to contain information about your
+               program that is needed by the debugger.  You must  have
+
+
+
+               this  option  turned  on  in order to use the debugger.
+               This information takes up space in your  program.    So
+               large  programs  that  are  going to be used many times
+               will sometimes be compiled without this information, to
+               save space.
+
+     /NODEBUG {$D-} Do not include  debugging  information  with  your
+               program.
+
+     /ZERO  {$Z+}  This  causes  your  program to initialize all local
+               variables to 0.  Also, NEW will initialize all  records
+               it  generates  to 0.  This is very helpful when you are
+               trying to debug a program that deals with pointers.  It
+               guarantees that any pointer  variables  you  forget  to
+               initialize  in  your  program  will be zero.  This will
+               allow any attempt to use  them  to  be  caught  by  the
+               error-handling  code  compiled  by  the  /CHECK option.
+               This option affects only variables that  are  local  to
+               procedures.    Global  variables (variables declared at
+               the outer level of your program) are always initialized
+               to zero when your program is first loaded.  However  if
+               you  restart  your  program  once it has been run once,
+               global variables will not be reinitialized.
+
+     /NOZERO {$Z-} [DEFAULT] Do not initialize local variables to 0.
+
+
+
+              2. How to Write a Program (Lexical Issues)
+
+
+
+This  chapter  will  describe the character set used by this compiler.
+This section may be summarized very simply: You can type your  program
+just as it appears in most Pascal textbooks and manuals.
+
+You  can  write  a  PASCAL  program  using  any of the printable ASCII
+characters, including lower case.  Control characters are not legal in
+a source program under normal  circumstances.    You  can  write  your
+program  in  either  upper  case  or lower case - they are consider as
+equivalent.  Thus the variables ABC, abc, and AbC are the  same.    Of
+course  in  quoted  strings  (string  constants),  the compiler leaves
+characters as you type them.
+
+In standard Pascal, comments are enclosed in { and }.    Because  some
+textbooks  use  (*  and  *)  or  /*  and  */, these are also accepted.
+However the pairs must match.  I.e. don't try {comment*).  For example
+
+
+            {This is an official comment}
+            (*This is a comment*)
+            (*This comment would end here } under the new ISO
+              standard, but in the current version it ends here *)
+
+
+The pair % and \ are also present in the compiler.  However  they  are
+now considered out of date, so you should not use them.
+
+You  may  write  identifiers  using the underline character to improve
+readability, e.g.:
+
+
+            NEW_NAME
+
+
+Strings are character sequences enclosed in single quotes, e.g.:
+
+
+            'This is a string'
+
+
+If you want to put a quote in a string, use two quotes, e.g.:
+
+
+            'Isn''t PASCAL fun?'
+
+
+Note that lower case and upper case are kept separate in strings.
+
+You can write an integer in octal form by putting a B after it.    You
+can  write  it in hexadecimal form by putting a " in front of it.  For
+example, the following all represent the same number:
+
+
+
+
+            63      77B     "3F
+
+
+Several  PASCAL  operators  have  an  alternate  representation.   The
+alternate form is provided for compatibility with  older  versions  of
+PASCAL.    In  new  programs,  you should use the form of the operator
+shown in the left column.
+
+
+       operator    alternate form         explanation
+
+         >=              "                greater or equal
+         <=              @                less or equal
+         AND             &                logical and
+         OR              !                logical or
+         NOT             $                logical negation
+         <>              #                not equal
+         +               OR,!             set union
+         *               AND,&            set intersection
+
+
+
+                           3. Input/Output
+
+
+
+This  section  is provided for two reasons.  First, existing textbooks
+and manuals are often somewhat ambiguous about Input/Output.   Second,
+this  version  of Pascal has some special features that will make your
+life a bit easier.
+
+
+
+3.1 Standard Files
+
+
+The files INPUT and OUTPUT are called "standard files",  because  they
+are  built  into  the  language.  If you use any other files, you must
+declare the file variables in the VAR section of your program.   INPUT
+and  OUTPUT  should not be declared in the VAR section, since they are
+already builtin ("predeclared").  In addition  to  being  predeclared,
+INPUT and OUTPUT have the following special properties:
+
+   - INPUT and OUTPUT are default files for READ and WRITE.  E.g.
+     READ(X,Y) really means READ(INPUT,X,Y) and WRITE(X,Y) really
+     means  WRITE(OUTPUT,X,Y).    If  you wanted to use any other
+     file, you would have to mention it by name in every READ and
+     WRITE statement referring to it.
+
+   - INPUT and  OUTPUT  are  automatically  opened  if  they  are
+     mentioned  in the PROGRAM statement.  If you want to use any
+     other file, you have to open it by RESET  (for  reading)  or
+     REWRITE (for writing).
+
+The  net  effect  of  this  is  that  you can just say READ(X) in your
+program.  You do not have to do any declarations or file openning,  as
+long as you mention INPUT in the PROGRAM statement.
+
+In  addition  to the standard files INPUT and OUTPUT the standard file
+TTY is available in this implementation.  You may  use  this  file  to
+communicate  with  the terminal.  Most users will not need to use TTY,
+since INPUT and OUTPUT will also default to  the  terminal.    TTY  is
+provided mostly for compatibility with older versions of the compiler,
+where terminal I/O via INPUT and OUTPUT was somewhat inconvenient.
+
+As  with  INPUT  and OUTPUT, you do not need to declare TTY in the VAR
+section of your program.  Because it always  describes  the  terminal,
+you  also  do  not  need to (indeed you should not) mention TTY in the
+PROGRAM statement.  The purpose of the program statement is to specify
+which files the system should ask you about when your program  starts.
+Since TTY is always associated with your terminal, it obviously serves
+no purpose to ask about it.
+
+PASCAL automatically opens TTY with a builtin RESET and REWRITE before
+starting  your  program.    So  as  with INPUT and OUTPUT you need not
+(indeed should not) include RESET and REWRITE statements for TTY.
+
+
+
+When  you  want to READ or WRITE from TTY, you must explicitly mention
+it as the first argument to READ or WRITE.  Otherwise INPUT or  OUTPUT
+will be used by default.
+
+WARNING:    TTY  is automatically opened in interactive mode.  See the
+section "The first line of input from INPUT or TTY" for an explanation
+of what this means.
+
+To summarize, here is a table of special  properties  of  the  various
+files:
+
+                            INPUT&OUTPUT    TTY     others
+
+    Must be listed in
+    PROGRAM statement            Y           N          Y
+    if used.
+
+    Must be declared in          N           N          Y
+    the VAR section.
+
+    Must be RESET or             N           N          Y
+    REWRITE'n before use
+
+    Must be mentioned as         N           Y          Y
+    first arg to READ or
+    WRITE
+
+
+
+3.2 Other ways of specifying a file name
+
+
+Most  of the time, you will list all of the files you are going to use
+in the PROGRAM statement.  The effect  of  including  a  file  in  the
+PROGRAM statement is
+
+   - to  specify  that Pascal should ask the user for a file name
+     for that file when your programs starts.
+
+   - for INPUT and OUTPUT only, to specify that the system should
+     automatically open the file when your program  starts.  (TTY
+     is always opened, and other files must be opened by RESET or
+     REWRITE).
+
+Sometimes  it  is  not desirable to have your program ask the user for
+file names in that way.   In  such  cases,  the  file  should  not  be
+mentioned  in  the PROGRAM statement.  If you do not specify a file in
+the PROGRAM statement, there are two  ways  of  determining  its  file
+name.    The most common is to specify the file name as the (optional)
+second argument to RESET or REWRITE.  E.g. if you always want INPUT to
+refer to the file BASIC.DAT, you might omit  INPUT  from  the  PROGRAM
+statement and then start your program with
+
+
+
+
+            RESET(INPUT,'BASIC.DAT')
+
+
+You  can  also  use  a variable as the second argument.  This variable
+should be a PACKED ARRAY OF CHAR, of any size.  It  will  contain  the
+file name.
+
+If  you  do  not  list a file in the PROGRAM statement, and you do not
+specify a file name for  the  RESET  or  REWRITE,  the  file  will  be
+classified  as an "internal" file.  Such files are intended for use as
+working storage within your program.  They are  automatically  deleted
+when  the  program  exits  from  the  block  in  which the Pascal file
+variable was declared.
+
+
+
+3.3 Details about terminal I/O
+
+
+By far the most confusing thing about Pascal I/O is the way it  treats
+terminals.  There are two problems: the fact that the language insists
+on  reading  the first line before the program starts, and the strange
+effects of READLN.  Let us consider these separately.
+
+
+
+3.3.1 The first line of input from INPUT and TTY
+
+
+Let us start with a simple case, where you just want to  read  several
+numbers  and  then  print a result based on them.  This is easy to do.
+You can simply issue a READ statement for  each  number,  and  then  a
+WRITE statement for the result.  The program will do more or less what
+you would expect:
+
+            @execute test.pas
+            PASCAL:  TEST
+            LINK:    LOADING
+            [LNKXCT TEST EXECUTION]
+            INPUT   :
+            OUTPUT  :
+            [INPUT, end with ^Z: ]
+            1
+            2
+            3
+            ^Z
+            The sum is 6
+
+The problem comes when you want to type out something before doing the
+first read, e.g.
+
+            PLEASE TYPE X: 12.3
+            PLEASE TYPE Y: 548
+
+
+
+If  you  attempt to write a program that does this, you will soon find
+out that Pascal will ask for the first line of input from the terminal
+before it gives you a chance to write out the prompt "PLEASE TYPE  X".
+This  is  because  of  a  problem  with  the  definition of the Pascal
+language.  It is not a "bug" in the system.  The  easiest  way  for  a
+beginner  to  "solve"  this problem is this:  Have your program ignore
+the first line of input.  You can then instruct your user  to  type  a
+carriage return (i.e. a blank line) as soon as the I/O system requests
+input  by  saying  "[INPUT,  end  with  ^Z:  ]".    Once your user has
+satisfied the initial input request, your program  can  type  out  its
+request,  and the user can then proceed to type the first real line of
+input.  The only problem this introduces is that you  must  make  sure
+that your program discards that dummy blank line.  But that is usually
+easy:
+
+   - If  the  first  READ  statement  is reading into a numerical
+     variable, there is no problem,  since  READ  skips  carriage
+     returns and spaces until it finds something.
+
+   - If  you  are  reading  in some other way, just use READLN to
+     throw away the dummy blank line and get the first real line.
+     E.g.
+
+                 begin
+                 write('Please type a magic character: ');
+                 readln; read(magic_char);
+
+     The definition of READLN is: throw  away  the  rest  of  the
+     current  line  and  read in the next line.  So this discards
+     the dummy line and gets the line  that  the  user  typed  in
+     response  to the message.  Of course the READLN must be done
+     AFTER the WRITE.  Since READLN actually reads  a  new  line,
+     you  should do it after you have told the user what you want
+     him to type.
+
+If you don't like the idea of telling your users to  begin  all  their
+programs by typing a carriage return, it is possible to ask the system
+to  supply  an  end  of  line  automatically  at  the beginning of the
+program.  To do this put :/ after  INPUT  in  the  PROGRAM  statement.
+E.g.
+
+            PROGRAM TEST(INPUT:/,OUTPUT)
+
+This  completely  solves  the problem of the startup. You can think of
+INPUT:/ as simulating  an  initial  carriage  return  from  the  user.
+(Actually  a  null is put in INPUT^, but EOLN is set, so it is treated
+as an end of line.)  The only disadvantage of  INPUT:/  is  that  your
+program  is no longer standard Pascal.  This feature is only available
+on the DECSYSTEM-10/20 and CDC Cyber implementations of  Pascal.    If
+you  have  to  write  interactive  programs  which will run on several
+versions  of  Pascal,  we  recommend  that  you   use   :/   on   this
+implementation,  and  instruct your users to type an initial carriage-
+return on implementations not having this feature or  some  equivalent
+feature.  Several other implementations have completely different, but
+equally  valid,  ways  of solving the problems of interactive terminal
+
+
+
+I/O.
+
+Note  that :/ only has an effect for the file INPUT.  However INPUT is
+the only file for which the problem arises, because INPUT and TTY  are
+the  only input files that are opened before your program starts.  TTY
+is always opened in a mode corresponding to INPUT:/.
+
+
+
+3.3.2 Odd effects for READLN
+
+
+The other thing you must beware of  with  terminal  input  is  READLN.
+READLN(X) is defined as reading X and then going to a new line.  Going
+to  a  new  line means throwing away any data on the current line that
+may not have been read yet and  then  getting  a  new  line  from  the
+terminal.
+
+Suppose  you want to write a program to read 4 numbers, one to a line,
+and print  their  sum.    Most  textbooks  will  suggest  to  use  the
+following:
+
+            {Wrong code}
+            readln(x);
+            readln(y);
+            readln(z);
+            readln(w);
+            writeln(x+y+z+w);
+
+This would work on cards.  The problem on a terminal is with that last
+READLN(W).    It  would read a number and then ask for a new line.  So
+your user would be forced to type one extra line after the one with  W
+on  it.    If  you  must use READLN (often there is no reason to), you
+should do it at the beginning of each line, e.g.
+
+            {right code}
+            readln; read(x);
+            readln; read(y);
+            readln; read(z);
+            readln; read(w);
+            writeln(x+y+z+w);
+
+Each READLN throws away any junk left over from a  previous  line  and
+gets  a  new one, which will be used by the following READ.  Note that
+this style is compatible with the suggestion we made in  the  previous
+section.   We suggested above that you specify INPUT:/ or instruct the
+user to type a dummy carriage return at the start of the program.  The
+style shown above has an extra READLN at the beginning of the program,
+which will throw away that dummy end of line.
+
+Here is another example, this time of a dialog with the  user.    Note
+that the same style works for this program:
+
+
+
+            begin
+            write('Please type X: ');
+            readln; read(x);
+            write('Please type Y and Z: ');
+            readln; read(y,z);
+            write('Please type A');
+            readln; read(a);
+
+Again,  READLN  gets  you  to  a  new line, so you want to do it after
+writing the prompt for the line and before actually reading  the  data
+on  it.    If you made a mistake and used READLN(X) instead of READLN;
+READ(X), your program would try to read the line with Y and  Z  on  it
+before  typing  out the prompt asking for Y and Z. Again, this example
+assumes that the user is instructed to type a carriage return  at  the
+beginning  of  the  program,  or  that  INPUT:/ is used in the PROGRAM
+statement.  The first READLN  then  throws  away  the  dummy  carriage
+return or end of line and gets the first real line.
+
+
+
+3.3.3 Summary of how to do it right
+
+
+If  all  of  this  has  managed  to  confuse  you, try looking at this
+summary.  Here is all you have to do to make terminal I/O work right:
+
+   - Use INPUT:/ in the PROGRAM statement,  to  avoid  having  to
+     type  the  first line of input before the system starts your
+     program.
+
+   - Use READLN at the beginning of each line, not at the end.
+
+Here is a complete example:
+
+            program demo(input:/,output);
+            var x,y,z:real;
+            begin
+            write('Please type x');
+            readln; read(x);
+            write('Please type y and z');
+            readln; read(y,z);
+            writeln('The sum of the numbers is ',x+y+z)
+            end.
+
+
+
+3.4 Formatted Output
+
+
+In this section we will discuss  formatted  output.    Most  textbooks
+describe  this  correctly.    We are discussing it because some of the
+details are left up to the implementor, so we need to  tell  you  what
+has  been  done in this implementation.  Also, we have added octal and
+hexadecimal output.
+
+
+
+When  you  write out a value using a WRITE (or WRITELN) statement, you
+can either let Pascal choose an output format, or you can specify  the
+format  yourself.    You  specify  the  format yourself by putting the
+format definition after the value that you are writing.  For example
+
+
+            WRITE(I:4,X:8:2,(I*X)/3:I+1:J)
+
+
+In this example, I, X, and (I*X)/3 are values being written  out,  and
+:4, :8:2, and :I+1:J specify the output format.
+
+Here are examples of all the legal output formats:
+
+
+            X : 4
+            X : 8  : 2
+            X : 4  : O
+            X : 5  : H
+
+
+X is an example of a value that is being written out.
+
+The  number  after  the first colon is called the "field width".  This
+lets you specify how much space will be used to write out  the  value.
+If  the  value  would normally take fewer characters than this, blanks
+will be put in front of it.  For example,  23:4  will  be  written  as
+"  23".    Notice that two blanks are put in front of the 23, in order
+to take up 4 characters, as specified.  The field  width  can  be  any
+expression that results in a positive integer.
+
+If  you  do  not specify a format, the following default fields widths
+will be used:
+
+
+            INTEGER         12
+            BOOLEAN          6
+            CHAR             1
+            REAL            16
+            STRING          length of string
+
+Sometimes  a  value  will  turn  out  to  take  more  space  than  you
+anticipated.    If a value takes more space than is allowed for by the
+field width, here is what happens:
+
+
+            INTEGER(normal) field width increased to fit
+            INTEGER(octal)  least significant digits
+            INTEGER(hex)    least significant digits
+            REAL            field width increased to fit
+            BOOLEAN         field width increased to fit
+            STRING          leftmost characters
+
+
+"field width increased to fit" means that the  entire  value  will  be
+
+
+
+printed  out,  even if it takes more space than you specified.  "least
+significant digits" means that characters  will  be  chopped  off  the
+beginning  of  the  number  until it fits into the amount of space you
+specified.   "leftmost  characters"  means  that  characters  will  be
+chopped  off  the  end  of the string until it fits into the amount of
+space you specified.
+
+Many people like to use a field width of 1 when printing integers.  If
+you do this, Pascal will use exactly as many characters as it needs to
+for each number.
+
+For real numbers, the field width you  give  controls  the  number  of
+digits  after  the decimal point.  The smallest field width that makes
+sense for a real number is 9.  If you specify 9, you will get a number
+that looks like " -1.1E-23".  As you increase  the  field  width,  you
+will  get  more digits after the decimal point.  E.g. a field width of
+11 might give " -1.123E-23".  This keeps up until there are  6  digits
+after the decimal point, for a total of 7 digits.  Since this computer
+only  has  7  digits of precision, any additional space you ask for is
+taken up by extra blanks in front of the number.  E.g a field width of
+16 might give "    -1.123456E-23".  If a number has  more  significant
+digits  than  you  have  asked  for,  it  is rounded at the last digit
+printed.
+
+
+    Example:   WRITELN('STR':4, 'STR', 'STR':2, -12.0:10);
+               WRITELN(15:9, TRUE, FALSE:4, 'X':3);
+
+
+The following character sequence will  be  printed  (colons  represent
+blanks):
+
+
+            :STRSTRST -1.20E+01
+            :::::::15::TRUEFALSE::X
+
+
+(Note that the field width for FALSE has been expanded in order to fit
+in the output.)
+
+Many  people  prefer  to  print  real  numbers  in the form " 123.45",
+instead of the usual " 1.2345E+02".    This  format  requires  you  to
+specify  two  things:  the total field width, and the number of digits
+after the decimal point.  Thus you use two colons to specify a  format
+of  this  kind, e.g. "X:6:2".  The number after the first colon is the
+field width, as usual.  The number  after  the  second  colon  is  the
+number  of  digits  to  use  after  the  decimal point.  It can be any
+expression that results in a positive integer.  You  will  always  get
+exactly  that  many  digits  after  the  decimal point.  If you do not
+specify enough digits after the decimal point, some numbers  may  show
+up  as  zero.   Pascal will use as many digits in front of the decimal
+point as are required for the number you are writing  out.    It  will
+also  put one blank before the number.  Additional blanks will be used
+before the number as needed, to fill up the space  requested  by  your
+field  width  specification.    (If  you do not want any fill, you can
+
+
+
+specify a field width of 1.)  If a number has more significant figures
+than  you  have  asked  for,  it is rounded at the last digit printed.
+Since this computer only keeps 7 significant digits, numbers  will  be
+rounded to 7 digits even if more digits than that are printed.
+
+
+    Example:      WRITELN(1.23:5:2, 1.23:4:1, 1.23:6:0);
+                  WRITELN(1.23:4:3, 123456123456:0:0);
+
+
+The  following  character  sequence  will be printed (colons represent
+blanks):
+
+
+            :1.23:1.2::::1.
+            :1.230:123456100000.
+
+
+The :1.230 is a  result  of  automatic  format  expansion,  since  the
+specified  4  spaces  was  not  enough.    The 123456100000 shows that
+numbers will be rounded after 7 significant digits.
+
+You can ask for an integer to be printed in octal or hexadecimal form.
+To do this, specify O or H after a second colon.  If the  field  width
+is  big  enough to allow it, numbers are always printed using 12 octal
+digits, or 9 hexadecimal digits.  If you specify a field width smaller
+than this, the rightmost digits are used.   If  you  specify  a  field
+width  larger  than  this,  an  appropriate  number of blanks are used
+before the number.
+
+
+    Example:   WRITE(12345B:2:O, 12345B:6:O, 12345B:15:O);
+               WRITE(12345B:2:H, 12345B:6:H, 12345B:15:H);
+
+
+The following character sequence will  be  printed  (colons  represent
+blanks):
+
+
+            45012345:::000000012345
+            E50014E5::::::0000014E5
+
+
+
+
+3.5 Reading characters
+
+
+
+3.5.1 Turning end of lines into blanks
+
+
+A  Pascal program can read any character except null (0).  However the
+Pascal language definition requires the system to "censor" end of line
+characters by showing them as blanks.  That is, when  Pascal  reads  a
+carriage  return  from  the  file  INPUT,  what shows up in the buffer
+variable, INPUT^, is a blank.  There obviously needs to  be  some  way
+for  you  to  know that what appears to be a blank is really an end of
+line.  This is the purpose of the special function EOLN.  If  EOLN  is
+true,  it  tells  you that what looks like a blank in the input buffer
+variable is really an end of line (probably a carriage return).
+
+The Pascal language considers an end of line to be a single character.
+So when EOLN is true, a single GET will read the  first  character  on
+the  next line.  This is true even though most lines on a DECsystem-10
+or DECSYSTEM-20 end with a carriage-return followed by  a  line  feed.
+That  is,  when  the file is positioned at a carriage return, the next
+GET skips the following line feed, and reads the  first  character  on
+the  next  line.  (Of course when the file is positioned at a carriage
+return, what you see in the buffer is a blank.)
+
+There are five different characters that can end  a  line:    carriage
+return,   line  feed,  escape,  form  feed  (^L),  and  control-Z(^Z).
+Sometimes you need to know which  particular  end  of  line  character
+actually  appeared.  In this case, you can RESET the file in a special
+mode.  This mode turns off Pascal's "end of line censor",  and  causes
+the  actual  end  of  line  character  to  appear in the input buffer,
+instead of the usual blank.  When this mode  is  in  effect,  you  can
+still  check  whether  the buffer contains an end of line character by
+using EOLN.  Indeed this is the recommended practice.  However in this
+mode carriage return is treated as a single character,  separate  from
+the  line  feed.    So if a line ends with carriage-return followed by
+line feed, you would need two GET's to advance to the beginning of the
+next line.  For this reason READLN is recommended as the safest way to
+get to the beginning of the next line.  READLN will always get to  the
+first  character  of  the  next line, no matter how the line ends.  To
+open a file in the mode where you  see  the  end  of  line  character,
+specify /E in the options string used in the RESET.  For example
+
+
+            RESET(INFILE,'FOO.BAR','/E')
+            RESET(INFILE,'','/E')
+
+
+Normally  Pascal  opens the file INPUT for you automatically.  To make
+Pascal's automatic open use '/E', you should specify  INPUT:#  in  the
+PROGRAM  statement.   The # can be combined with a / if you want INPUT
+opened interactively.  E.g.
+
+
+            PROGRAM TEST(INPUT:#/,OUTPUT)
+
+
+You may also request the special file TTY to be opened  with  '/E'  by
+
+
+
+listing  TTY:# in your PROGRAM statement.  This is the only reason for
+listing TTY in a PROGRAM statment.  TTY is always opened, even if  you
+don't  list  it.   So the only reason for listing it is if you want to
+specify a special option.
+
+'/E' and :# are  extensions.    That  is,  they  are  not  present  in
+implementations of Pascal on other computers.  So do not use either of
+them if you want your program to be transportable to other systems.
+
+
+
+3.5.2 Reading strings
+
+
+This  implementation allows you to read a whole sequence of characters
+at once with a single READ or READLN.  In the simplest case, you might
+ask to read an entire line into a single PACKED ARRAY of CHAR.    More
+complex  capabilities  are  also available, modelled after SAIL's very
+fine string input routines.  An example of the full syntax is
+
+
+            read(input,array1:howmany:[' ',':'])
+
+
+This will read characters into the array ARRAY1  until  one  of  three
+things happens:
+
+   - One  of the characters mentioned in the "break set" (in this
+     case blank or colon) is read.  This  character  (the  "break
+     character")  is  not put into the array.  You can find it by
+     looking at INPUT^,  since  this  always  contains  the  next
+     character  that will be read by READ.  HOWMANY is set to the
+     number of characters actually  put  into  the  array.    Any
+     integer variable could be used in place of HOWMANY.
+
+   - End  of line is reached in the input.  Again, HOWMANY is set
+     to the number of characters put into the  array.    You  can
+     tell  that this is what happened because EOLN(INPUT) will be
+     true.
+
+   - The array is filled.  In this case, INPUT^ is the  character
+     that  would  have  overflowed  the array.  You can tell that
+     this is what happened because HOWMANY is  set  to  one  more
+     than the size of the array in this case.
+
+If the read operation stopped before the end of the array, the rest of
+the array is cleared to blanks.
+
+If  you  don't  need a break set, you can leave it out.  You would use
+this simpler form of READ if you just wanted to read  into  the  array
+until it fills or you get to the end of a line.  Here is an example of
+this form of READ:  READ(S:I).
+
+If  you don't want to know how many characters were actually read, you
+can also leave out the integer variable.  This would leave you with  a
+
+
+
+statement that looked like READ(S).  The READ operation works the same
+way  whether  you put in an integer variable or not.  If you don't put
+it in, you just don't know how many characters were read.
+
+WARNING:  The integer variable used with READ looks  a  lot  like  the
+field  width  specification  used  with  WRITE.  Please do not confuse
+these two things.   READ(X:I)  does  not  specify  a  field  width  of
+I. Rather  it  asks  for I to be set by the read operation to show how
+many characters were actually read.
+
+
+
+3.5.3 Turning lower case into upper case
+
+
+You can ask Pascal to turn all lower case letters it  reads  into  the
+equivalent  upper  case  letter.  You do this on a file by file basis,
+when you open the file.  Here are two examples:
+
+
+            RESET(INFILE,'MY.DATA','/U')
+            RESET(INFILE,'','/U')
+
+
+The /U specifies conversion to upper case.   The  second  argument  to
+RESET  is  optional.   It lets you specify the file name to be used in
+the RESET.  The second example above  shows  how  to  leave  out  this
+argument.
+
+
+
+                          4. Core Allocation
+
+
+
+Except on a KA-10 running Tops-10, PASCAL has dynamic core allocation.
+This  means that memory will automatically expand if you do NEW a lot,
+or use a large stack.  Thus if you get a message  informing  you  that
+you  have  run out of core, it means that you used all of your virtual
+memory space.  In such a case, you will probably  want  to  reconsider
+your  data  structures  or  algorithms.    Even if you do not get this
+message, large-scale use of NEW can turn your program  into  a  memory
+hog,  slowing  it down and causing unfriendly scowls in your direction
+from the system staff.
+
+If your program uses NEW, you can probably reduce its memory usage  by
+using  DISPOSE.    DISPOSE  is  applicable only to pointers to objects
+gotten by NEW.  It frees the space used  by  an  object  that  you  no
+longer  need.  DISPOSE(P) assumes that P is a pointer, and will return
+the object to which P points.  P is set to NIL.
+
+
+
+                       5. Extensions to PASCAL
+
+
+
+This  version  of  Pascal  has a number of useful extensions.  However
+many of them are of interest primarily to system programmers.  In  the
+interests of reducing the complexity of this manual, only a few of the
+more  important extensions are described here.  You should consult the
+complete reference manual if you are interested in a full list.    You
+should  feel  free  to skip any or all of this chapter, if it does not
+seem to be relevant to you.
+
+
+
+5.1 Extended CASE Statement
+
+
+In standard Pascal, you must list every case that can happen in a CASE
+statement.  If a case comes up that you have not listed, the effect is
+undefined.  This implementation allows you to define what will  happen
+when  cases  come  up  that  you have not listed.  To do this, use the
+special case OTHERS.  This  case  will  be  executed  if  the  control
+expression  does  not match any of the other cases. If you use OTHERS,
+it must be the last case listed.
+
+Here is an example of how you might use OTHERS.  X is assumed to be  a
+variables of type CHAR.
+
+
+       CASE X OF
+            'A' : WRITELN('VALUE IS A');
+            'B' : WRITELN('VALUE IS B');
+            OTHERS : WRITELN('VALUE IS NEITHER A NOR B')
+       END   %CASE STATEMENT\
+
+
+
+
+5.2 LOOP Statement
+
+
+Standard  Pascal  provides  only  two  rather  limited kinds of loops.
+WHILE makes its test at the beginning.  REPEAT makes its test  at  the
+end.    This implementation provides LOOP, a statement that allows you
+to put the test anywhere within the loop.
+
+The LOOP statement has the following syntax:
+
+
+       <loop statement> ::= LOOP
+                              <statement> [; <statement> ]
+                            EXIT IF <expression> ;
+                              <statement> [; <statement> ]
+                            END
+
+
+
+The  expression  must result in a Boolean value.  Note that there must
+be exactly one EXIT IF in each LOOP.  It must  not  occur  inside  any
+other statement.
+
+
+
+5.3 Extra control over file I/O
+
+
+This  implementation  supplies  you with a number of optional features
+that you can use when  you  do  I/O.    Most  of  these  features  are
+controlled  by  two extra arguments to RESET and REWRITE.  In standard
+Pascal, RESET and REWRITE take only  one  argument,  the  Pascal  file
+identifier.    Here  is  an  example  of  a  RESET that uses the extra
+arguments in order to take advantage of features present only in  this
+implementation:
+
+
+            RESET(INFILE,'TEST.DAT','/I/U/E')
+
+
+     INFILE  This is the Pascal file variable.  It represents the file
+               throughout the rest of your program.    You  must  have
+               declared it in the VAR section as FILE OF something.
+
+     'TEST.DAT'  This  is  the file name.  You should specify the file
+               name in this way if you want the program  to  determine
+               the  name of the file.  If you want to ask the user for
+               the name of the file, it is better to list the file  in
+               the  PROGRAM  statement.    Pascal  will  ask  the user
+               automatically about every file listed  in  the  PROGRAM
+               statement.    Usually  it does not make sense to list a
+               file in the PROGRAM statement and to supply a file name
+               in RESET and REWRITE.  This argument is either  a  name
+               in  quotes or a variable (of type PACKED ARRAY OF CHAR)
+               containing a file name.  You can  use  ''  to  indicate
+               that  you are not supplying a file name.  This would be
+               useful if you want to specify the  third  argument  but
+               not the second.
+
+     '/I/U/E'  This  is  the  option string.  It allows you to specify
+               various details about how the file will  be  processed.
+               It consists of a number of letters.  Each of them is an
+               abbreviation  for  an  option  that you want to select.
+               Each letter must be preceeded by a  slash.    The  most
+               common options will be described below.
+
+Here are the options that you can specify in the option string:
+
+     /B:nn  Byte  size  specification.    Input  and output is done in
+               bytes.  In a text file, Pascal uses  one  byte  in  the
+               file for each character read or written.  If you do not
+               specify the byte size, Pascal will use a byte size of 7
+               for  text  files.    This is what other system software
+               uses.  In any file other than a text file, Pascal  uses
+
+
+
+               one  byte  in  the  file  for  each  word  in  the file
+               component.  If you do specify  the  byte  size,  Pascal
+               will  use a byte size of 36 bits for these files.  This
+               will allow your data to be stored exactly as it appears
+               in memory.  If you specify a byte size, Pascal will use
+               it.  You should do this only if you have a  clear  idea
+               of  how  items of data are going to appear in the file.
+               8 bit bytes are  sometimes  useful  when  dealing  with
+               industry-compatible magtape.
+
+     /D Data transmission errors will be handled by the user.  See the
+               section  below  on error handling.  A data transmission
+               error is usually a physical problem of some  sort.  See
+               /F  if  you want to be able to handle problems with the
+               format of the data.
+
+     /E End of  line  characters  will  be  visible  to  the  program.
+               Normally  Pascal  programs  put  a  blank  in the input
+               buffer  at  the  end  of  line.    If  this  option  is
+               specified, the actual end of line character will appear
+               in  the  buffer.   Normally a single GET will read past
+               both a carriage return and a line feed, since they form
+               a single line terminator.  If /E is set,  the  carriage
+               return  and  the  line feed will be treated as separate
+               characters.  However, READLN will still skip them both.
+
+     /F Format errors in the data will be handled by the  user.    See
+               the  section  below  on error handling.  A format error
+               occurs when the data is readable, but is not what  READ
+               wants. E.g. such an error will occur if you try to read
+               a  number,  but  the  next  character  in the file is a
+               letter.
+
+     /I Interactive file.  The meaning  of  this  has  been  discussed
+               above.   When you do a RESET, Pascal will normally read
+               the first component in the file.  This initial read  is
+               done  as part of the RESET operation, before it returns
+               control to your program.    This  option  will  prevent
+               RESET from doing such an initial read.
+
+     /M:nn  Mode  specification.    Currently  you  can  only use this
+               specification on Tops-20.  It allows you to specify the
+               internal software mode that Pascal will use to  process
+               a file.  This option will probably not be much use to a
+               normal  user.    It  is  discussed  in  detail  in  the
+               reference manual.
+
+     /O Open errors will be handled by the  user.    See  the  section
+               below  on  error  handling.   An open error is an error
+               that occurs during the RESET  or  REWRITE.    The  most
+               common  kinds  of open error are for the specified file
+               to be missing or for it to be protected such  that  you
+               are not allowed to access it.
+
+     /U  Upper  case  the file.  All lower case letters will be turned
+
+
+
+               into  the  equivalent  upper  case.    Only letters are
+               affected.
+
+
+
+5.3.1 Labelled tapes
+
+
+Tops-20  Pascal  has  fairly  powerful  facilities  for  dealing  with
+labelled  tapes.  These facilities use Tops-20's special labelled tape
+support, so they are not  yet  available  for  Tops-10.    To  read  a
+labelled  tape,  you  normally  do  not  need  to do anything special.
+However when you write a  labelled  tape,  you  may  want  to  specify
+exactly  how  the  file  is  to  be  written.  To do this, you include
+"attributes" as part of the file name.  Here is a  typical  file  name
+that uses attributes to control the format of a file on tape:
+
+            MT0:DATA;FORMAT:F;RECORD:80;BLOCK:8000
+
+This  entire  string  is considered to be the file name.  You can type
+such a string when you are  asked  about  the  files  in  the  program
+statement.   Or you can supply such a string as the second argument to
+a REWRITE statement.  This particular string asks for  a  file  called
+DATA to be written in fixed format, with records of length 80, blocked
+100  per  block.    Pascal  will  fill  lines that are shorter than 80
+characters with blanks.
+
+The record format is described by  ;FORMAT:x,  where  x  is  a  single
+letter.  The following formats are supported by Pascal:
+
+     U  (undefined)  This is the default for output files.  If this is
+               what you want, you do not need to use any attributes at
+               all.  "MT0:" alone would be sufficient. Pascal  assumes
+               that  a  file  in  format U has the same structure as a
+               disk file.  That  is,  end  of  lines  are  denoted  by
+               carriage  returns,  etc.    Pascal will ignore physical
+               record boundaries on the  tape.    If  you  do  not  do
+               anything  special,  such  files  can be copied back and
+               forth between disk and tape using a simple COPY command
+               in the EXEC.  You might want to specify a block size in
+               order to make more efficient use of  the  tape.    E.g.
+               "MT0:;BLOCK:5120".    Tapes  written  in  format U will
+               probably not be readable  on  computers  other  than  a
+               DECsystem-10 or DECSYSTEM-20.
+
+     D  (variable)  This format is useful for text files that you want
+               to be able to move to other  computers.    This  format
+               uses  special  record headers to show where lines begin
+               and end.  Carriage returns are not used in this format.
+               When dealing with  such  a  file,  WRITELN  causes  the
+               current  line to written out, with the proper header at
+               the beginning.  It does not  cause  a  carriage  return
+               line  feed  to  be written.  EOLN is turned on when you
+               come to the end of a line, as defined by the header  at
+               the  beginning  of it.  Most other computers understand
+
+
+
+               this  format, but do not know about the use of carriage
+               returns to define lines.  Unless you really  know  what
+               you  are  doing,  you will only be able to use D format
+               for text files (files declared TEXT or FILE  OF  CHAR).
+               To  use  this  mode,  you should specify something like
+               "MT0:;FORMAT:D;BLOCK:5000".  The block size  should  be
+               chosen large enough to make reasonably efficient use of
+               tape, but not to waste memory.
+
+     F (fixed) This format is also useful when you need to communicate
+               with  other  computers.   In it there is nothing on the
+               tape to show where lines end.  There  are  no  carriage
+               returns  and no headers.  In order to make it work, you
+               must declare a fixed line length.  When writing a tape,
+               each line will be filled with blanks to be  the  length
+               you  specify.    When reading, the system knows where a
+               line ends by counting characters.   The  example  above
+               showed how to specify format F. You should specify both
+               a block size and a record size.  The record size is the
+               length  to which you want all lines filled.  The system
+               will put as many records of this size as  it  can  into
+               one physical tape block. The block size must be an even
+               multiple  of  the  record  size.  Again, the block size
+               should be big enough not to waste tape.  Unless you are
+               an expert you will only be able to use  this  mode  for
+               text files.
+
+     S  (spanned) This is a somewhat unusual mode.  It is very similar
+               to mode D. However the record headers  are  written  in
+               such  a  way  that  records can cross block boundaries.
+               This mode makes somewhat more efficient  use  of  tape,
+               but  is  more complex to process.  Many other computers
+               do not support it.
+
+You do not need to worry about decoding record headers, filling  lines
+to be the right length, or counting characters to determine the end of
+a  line.    Pascal does all of these things for you.  You only need to
+specify what format you want  by  using  the  appropriate  attributes.
+WRITELN and EOLN still work as they always do for disk files.  However
+instead of dealing with carriage returns they deal with record headers
+or character counts.
+
+When you are reading a labelled tape, Pascal can tell the structure of
+the  tape  from  the  label.   Thus you should not have to specify any
+attributes for an input file.
+
+
+
+5.3.2 I/O Error processing
+
+
+Errors may occur at three different times.  You may decide  separately
+how Pascal should handle each of these three error types.
+
+   - Data  transmission  errors:  errors occuring during physical
+
+
+
+     I/O operations (GET and PUT).  These would normally indicate
+     some problem with the device or medium.
+
+   - Format  errors:  errors  occuring  during  number conversion
+     (READ and WRITE).  These would be errors such  as  having  a
+     letter appear where you requested that a number be read.
+
+   - Opening  errors:  errors  during  file  opening  (RESET  and
+     REWRITE).  These would be errors having something to do with
+     the file system, e.g. that the file  you  requested  is  not
+     present.
+
+When  an  error occurs, the system checks to see whether you specified
+that you want to handle this error.  You would have specified this  by
+giving the corresponding switch in the option list when you opened the
+file.   If you didn't ask to handle this kind of error, the I/O system
+will take a default action.  The default actions are as follows:
+
+   - Data transmission  errors:    Print  an  error  message  and
+     terminate the program.
+
+   - Format  errors:    If  the  file  involved  is assigned to a
+     terminal, ask the user is given to  retype  his  input,  and
+     then  continue  with  the  program.  If the file is not on a
+     terminal, print an error message and terminate the program.
+
+   - Opening errors:  Ask the user for a new file name.
+
+If you did specify that you want to handle  the  appropriate  kind  of
+error, the I/O system will not attempt to do any error recovery of its
+own.    The  I/O  procedure  that  your  program was executing will be
+aborted, and your program  will  continue.    As  an  indication  that
+something  odd  has  happened,  EOF (and EOLN) will be set.  Normally,
+future I/O operations will do nothing until  you  recover  the  error.
+The  runtimes  are  constructed  so  that the high-level read routines
+(READ and READLN) return immediately with no effect when EOF  is  set.
+Other  routines  proceed  as  usual, but usually the system sees to it
+that they have no effect.  The moral is, if you set one of  the  magic
+bits,  you had better check EOF (or ERSTAT, to be explained below) now
+and then, or your program may be trying to process non-existent data.
+
+One would hope that you will ask to handle errors yourself only if you
+intend to do something about them. To do so  you  need  two  tools:  a
+function  to tell you what kind of error has happened, and a procedure
+to  clear  out  error  conditions.    These  are  ERSTAT  and  CLREOF,
+respectively.   To use these, you must declare them near the beginning
+of your  program.    Put  the  following  declarations  anywhere  that
+procedure  declarations  would  be legal, at the top (global) level of
+your program:
+
+
+            function erstat(var f:file):integer; extern;
+            procedure clreof(var f:file); extern;
+
+
+
+They  both  take  one argument, the name of a file.  ERSTAT returns an
+internal code for the  most  recent  error,  or  0  if  no  error  has
+happened.  Trying to read past the end of file is considered an error.
+(Its  code  is  600220B  on  Tops-20,  and 20000B on Tops-10.)  CLREOF
+clears an error condition.  It restores EOF and EOLN to  their  normal
+states,  and  clears  the error condition in the operating system.  If
+you wish to continue with (or  retry)  I/O,  you  should  call  CLREOF
+before continuing.
+
+Note  that the error "Quota exceeded or disk full" cannot currently be
+processed by your program.  The Pascal I/O system  (Tops-20),  or  the
+monitor  (Tops-10)  will print an error message and advise the user to
+type CONTINUE after having freed up some disk space.
+
+
+
+5.4 CLOSE
+
+
+Pascal automatically closes all files when  a  program  ends.  However
+there  are cases where you may want to close a file in the middle of a
+program.  You may want to do this to make the file available to  other
+programs,   or   simply  to  prevent  the  program  from  changing  it
+accidentally later on.  Thus the procedure CLOSE is  available.    The
+normal call is
+
+
+            CLOSE(file)
+
+
+This  closes  the file, but does not release Pascal's internal pointer
+to it (the "jfn" on Tops-20, a data block containing the name  of  the
+file  on Tops-10).  Thus any future RESET or REWRITE of this file will
+use the same file name, unless it includes an explict file name.
+
+
+
+5.5 RENAME
+
+
+You may use RENAME(file,newname) to rename  an  existing  file.    The
+newname  argument  is  treated  the  same way as the name argument for
+RESET and REWRITE.  It specifies the new name for the file.    If  the
+operation works, EOF is set to false, otherwise to true.  (On Tops-10,
+there  may  be some problem here at the moment.)  The system must know
+which existing file you are referring to.  On Tops-10, the  file  must
+be  open.   This means that you must have done a RESET or REWRITE, and
+not closed it since.  On Tops-20 you only need to have a jfn  for  the
+file.   Specifying the file in the PROGRAM statement will cause Pascal
+to get a jfn for it.  Opening the file with RESET or REWRITE will also
+get a jfn.  CLOSE will not lose the jfn unless  you  specifically  ask
+for  the  jfn  to be returned.  (We have not told you how to do that.)
+Once the RENAME is finished, the file will be closed.
+
+
+
+5.6 DELETE
+
+
+DELETE(file) will delete the mentioned file.  As with RENAME, on Tops-
+10  the  file must be open.  On Tops-20 Pascal must have a jfn for the
+file. (This will be the case  if  it  was  mentioned  in  the  PROGRAM
+statement or if RESET, REWRITE, etc., were done on it.)
+
+
+
+5.7 UPDATE
+
+
+In  standard  Pascal, the only way you can change a file is by reading
+it and writing a new copy.  In this  implementation,  you  can  change
+files  without recopying them, as long as they are stored on a random-
+access device (probably disk).  If you intend to change a file in this
+way, you must open it by using the procedure UPDATE instead  of  RESET
+or  REWRITE. When you have opened a file with UPDATE, you may use both
+GET and PUT (or READ and WRITE) with it.  There is a  single  "current
+position" within the file, which is advanced by both GET and PUT.
+
+UPDATE  has  the  same  arguments  as  RESET.  At a few places in this
+manual, we say that a file must have been opened by RESET or  REWRITE.
+If a file was opened by UPDATE, that is OK too.
+
+Note  that  EOF is normally false for a file opened by UPDATE.  Pascal
+will turn on EOF if you try to read beyond the end of file  or  if  an
+error  occurs.  Of course you will never see EOF after an error unless
+you requested user error handling in your UPDATE.  (See  5.3.)    Note
+that  it  is  perfectly  legitimate  to  write beyond the end of file.
+Pascal simply moves the end of file to be after the new data.
+
+
+
+5.8 Random access
+
+
+It is possible to move around a file randomly when it is on a  direct-
+access  device  (i.e.  disk or some equivalent).  In order to use this
+facility, you must know what a  "byte"  is.    Unless  you  are  doing
+something  wierd, a byte is one character for normal text files, and a
+word for other (binary) files.  The procedures that  implement  random
+access  use  a  byte serial number to keep track of their position.  I
+will henceforth call this the "position".  This number refers  to  the
+number  of bytes between the beginning of the file and the position in
+question.  Thus the beginning of the file is position 0.
+
+CURPOS(FILE) returns the current position of the  file.  This  is  the
+position  at  which  the next thing to be read or written would begin.
+When a file has just been opened, the position is, of course, 0.  Note
+that CURPOS may give an error if used with a file not on disk.
+
+SETPOS(FILE,POSITION)  sets  the  file  buffer  so  it  points  to the
+position indicated.
+
+
+
+     If  the  file  is  open  for  input  (it was opened with RESET or
+               UPDATE), SETPOS goes to the position indicated and gets
+               the record there into the Pascal buffer.  This involves
+               reading  a  record   (effectively   doing   GET(file)).
+               Because   of   this   reading,   the  current  position
+               immediately after a SETPOS is the position you gave  it
+               + the record size of the file.  Because of this, SETPOS
+               followed by a GET or PUT may not do what you expected.
+
+     If  the  file  is  open  for write (it was opened with REWRITE or
+               APPEND), SETPOS goes  to  the  position  indicated  and
+               clears the buffer.
+
+     SETPOS(file,position,true)   is  a  special  form  that  prevents
+               reading the record, in case the file is open for input.
+               The file buffer is  cleared.    After  this  call,  the
+               current  position  is  the  position  requested  in the
+               SETPOS call.
+
+This convention of setting the buffer  to  the  record  specified  has
+caused some confusion.  The following code sequences will probably not
+do what you had in mind.
+
+    update(f);
+    setpos(f,3);
+    f^ := <stuff>;
+    put(f);
+
+The  problem  here  is  that  SETPOS  reads  the record at location 3,
+leaving the current position somewhere later.  Thus the PUT  writes  a
+record   at   a   later   location.    The  writer  should  have  used
+SETPOS(f,3,true) to prevent reading the record at location 3.
+
+    update(f);
+    setpos(f,3);
+    f^.use := f^.use + 1;
+    put(f)
+
+Here the user wanted the SETPOS to read the record at position 3.   He
+then  changed  it  and wrote it out again.  Unfortunately the PUT does
+not put the changed record back at position 3.    Because  the  SETPOS
+read  a  record,  it  leaves  the  file  pointer positioned after that
+record.  The PUT then writes over the next record in the  file.    The
+writer  should  have used PUTX instead of PUT.  This rewrites the most
+recently  read  record.    In  this  case,   it   is   equivalent   to
+SETPOS(f,3,true); PUT(f).
+
+    rewrite(f);
+    f^.name := 'hedrick';
+    f^.num := 45892;
+    setpos(f,123);
+    put(f)
+
+Here the user thought he was writing a record containing 'Hedrick' and
+45892  at  position 123.  However SETPOS clears the file buffer in the
+
+
+
+cases  where  it doesn't read a record.  So a blank record was written
+at position 123.
+
+On Tops-10, SETPOS is only legal with files  opened  for  input  (i.e.
+with  RESET  or  UPDATE).   On Tops-20, it is sometimes possible to do
+SETPOS on files opened for output only (i.e. with REWRITE or APPEND).
+
+If you SETPOS to a position beyond the end of file, the next read will
+set EOF.  If you really wanted to read, you should SETPOS  to  a  more
+reasonable  position.   This will reset EOF.  It is perfectly legal to
+write beyond the end of file, however.  Doing so extends the length of
+the file.  If you SETPOS to a position beyond the end of the  file  on
+Tops-20,  it  is  possible to leave non-existent pages between the old
+end of file and the newly written part.  These should cause no trouble
+to PASCAL (such pages are treated as full of binary zeroes),  but  may
+for programs written in other languages.
+
+
+
+5.9 I/O to strings
+
+
+It is often convenient to be able to use the number-scanning abilities
+of  READ  to  process  a  string  of  characters  in an array of CHAR.
+Similarly, it may be useful to  use  the  formatting  capabilities  of
+WRITE  to  make up a string of characters.  To allow these operations,
+this implementation provides a facility to treat  a  packed  array  of
+CHAR  as  if  it  were  a file, allowing READ from it and WRITE to it.
+This facility is  equivalent  to  the  REREAD  and  REWRITE  functions
+present in many implementations of FORTRAN.
+
+To  make  use of this, you must use a file that has been declared FILE
+OF CHAR.  Rather than using RESET or REWRITE to  initialize  I/O,  you
+use  STRSET  or  STRWRITE  instead.  These associate a string with the
+file and set the internal file pointer to the beginning of the  string
+(in    the    simplest    case).       A   typical   call   would   be
+STRSET(FILE1,MYARRAY).  After that call is issued FILE1  can  be  used
+with  READ, etc., and will take successive characters out of the array
+MYARRAY.  Similarly, one might do STRWRITE(FILE2,YOURARRAY), and  then
+use  WRITE(FILE2,...)  to  write  things into YOURARRAY.  Note that as
+with a RESET, an implicit GET is done as part of  the  STRSET.    Thus
+immediately  after the STRSET, the first character of the string is in
+the file buffer.
+
+It is possible to start I/O at a location other than the beginning  of
+the  array.  To do so, use a third argument, which is the index of the
+first element to be transferred.  E.g.  STRSET(FILE1,MYARRAY,5)  means
+that  the  GET  will  retrieve  element  5  from  MYARRAY.    (This is
+MYARRAY[5].  It is not necessarily the fifth element, since the  index
+might be -20..6 or something.)
+
+There is a procedure to see where you currently are in the string.  It
+is GETINDEX(file,variable).  Variable is set to the current index into
+the  array.    This is the index of the thing that will be read by the
+next GET (or written by the next PUT).
+
+
+
+Note  that no runtime error messages will ever result from string I/O.
+Should you run over the end of the string, PASCAL will simply set  EOF
+(or  clear  it  if you are doing output).  It will also set EOF if you
+read  an  illegal  format  number.    (GETINDEX  will  allow  you   to
+discriminate these two cases, if you care.)
+
+There is also a fourth optional argument to STRSET and STRWRITE.  This
+sets a limit on how much of the array will be used.  It thus gives you
+the   effect  of  the  substring  operator  in  PL/I.    For  example,
+STRWRITE(F1,AR1,3,6) will make it possible to change characters 3 to 6
+inclusive.  If absent,  the  fourth  argument  defaults  to  the  last
+location in the array.
+
+Beware  that  it  is possible to set a file to an array, and then exit
+the block in which the array is defined.  The file  is  then  pointing
+out into nowhere.  This is not currently detected.
+
+
+
+                   6. PASCAL Debug System (PASDDT)
+
+
+
+A  PASCAL program may be run with the PASCAL Debug System by using the
+monitor command DEBUG instead of EXECUTE.  (Successful debugging  also
+requires  that the program be assembled with /DEBUG, but this is on by
+default.)  For example, the following command will cause  the  program
+GAUSS to be run under the control of PASDDT:
+
+
+            DEBUG GAUSS.PAS
+
+
+PASDDT  is an extra command interpreter that allows you to control how
+your program is executed.  It lets you stop  your  program  at  places
+that  you  have  specified  in advance, or trace its execution line by
+line.  When PASDDT is control, you can look at the  current  value  of
+the  variables in your program (using normal PASCAL notation), and you
+can even assign new values to them.
+
+
+
+6.1 How PASDDT works
+
+
+PASDDT commands can only be given when PASDDT is in control.  When you
+start out debugging a program, PASDDT is initially in control.  PASDDT
+continues accepting commands from you until you tell it to start  your
+program.    Once  you have done that, your program is in control until
+something happens to return control to PASDDT.  Here are the ways that
+PASDDT can regain control:
+
+   - You can set a "breakpoint".  This is a specific line in your
+     program where you would like to have the opportunity to look
+     at variables or do other PASDDT commands.  When the  program
+     reaches  such  a line during its execution, it is suspended,
+     and control returns to PASDDT.  You  insert  breakpoints  by
+     using the STOP command, described below.
+
+   - You  can  request "single stepping".  In this case, one line
+     of the program is executed at a time, with PASDDT  regaining
+     control  after each line is executed.  You enter single step
+     mode by using the STEP command.
+
+   - When an error occurs, control goes to PASDDT, to  allow  you
+     to examine the program context when the error happened.
+
+   - If  you  need to get into the debugger while your program is
+     running,  the  procedure  differs  somewhat  depending  upon
+     whether  you are running under Tops-10 or Tops-20.  On Tops-
+     20, you simply type ^D (control-D).  When you type  ^D,  you
+     program  will  immediately  be suspended and PASDDT will get
+     control.  This will work no matter what the program  happens
+     to  be  doing  at  the  time.    On  Tops-10, such interrupt
+
+
+
+     characters  are  not  available.  So there you would ^C your
+     program, and type the command DDT to the monitor.  This will
+     cause you to enter PASDDT.
+
+Once  PASDDT  has  regained  control,  you  can  look  at  and  change
+variables,  and do other PASDDT commands.  Then you can request PASDDT
+to continue your program.  When you do,  your  program  will  continue
+from exactly where it was when it was stopped.
+
+Many  PASDDT  commands  use  line  numbers  to refer to a line in your
+program.  If your file contains SOS line numbers, these  line  numbers
+are  used.    Otherwise,  1 refers to the first line, 2 to the second,
+etc.
+
+Many files are organized into pages.  In  SOS  and  TVEDIT  there  are
+special  commands  to produce page marks.  In other editors, pages are
+delimited by form feed characters (^L, control-L).  In PASDDT you  can
+specify line 75 on page 3 by the syntax "75/3".  If you do not specify
+a  page  number,  it  is assumed that you are referring to the current
+page (the page on which  the  most  recent  typeout  of  program  text
+began).   Line numbers start over again with 1 on each page (except in
+SOS file, where the SOS line numbers are used).
+
+Here are some examples of legal line number specifications.
+
+     1864 line 1864 on the current page
+
+     1200/5 line 1200 on page 5
+
+     * the current line (where the most recent typeout of program text
+               started)
+
+You can find out what the current line and  page  are  by  typing  the
+command "*="
+
+
+
+6.2 Commands for controlling your program
+
+
+The  section  will describe commands that start and stop your program,
+thus determining when PASDDT will get control.
+
+After you issue the DEBUG command, your program will  go  through  the
+normal  startup  dialog.    It  will  ask for file names for all files
+listed in the PROGRAM statement, just as it usually would.   If  INPUT
+is assigned to the terminal (and is not declared interactive), it will
+ask  for  the  first  line  of  input from the terminal.  Once this is
+finished, PASDDT will get control.  You will see  something  like  the
+following:
+
+
+
+
+            @debug merge.pas
+            LINK:   Loading
+            [LNKXCT MERGE Execution]
+            OUTPUT    : tty:
+            > Stop at main BEGIN - module MERGE open at 270/1
+            270     for i := 1 to 36 do
+            271       for j := 1 to 104 do
+            272         for k := 1 to 11 do
+            >>
+
+
+The  >>  prompt  shows  that  PASDDT is waiting for a command.  PASDDT
+always shows you the line of your program that will be  executed  next
+if you continue the program.  In this case it is line 270 on page 1 of
+your  program.    A  message like this will be printed whenever PASDDT
+gets control from your program.
+
+The following commands can be used to control when  Pascal  will  next
+get control:
+
+                           STOP line-number
+
+This  puts  a  breakpoint at the specified line.  If you continue your
+program's execution, and it ever reaches this line, the  program  will
+be  suspended  and PASDDT put in control.  You will then see a message
+similar to the one shown above.  The >>  prompt  will  tell  you  that
+PASDDT is again waiting for commands.
+
+                              STOP LIST
+
+Lists the line numbers of all the breakpoints.
+
+                         STOP NOT line-number
+
+Removes the breakpoint at the specified line.
+
+                             STOP NOT ALL
+
+Removes all breakpoints.
+
+                                 END
+
+This  ends  the  control by PASDDT.  It causes your program to proceed
+from the point where it was most recently stopped.  The  program  will
+continue until something happens to give control back to PASDDT.  Most
+commonly  it  will continue until it reaches a line where a breakpoint
+has been set.  If you have been single-stepping, END  cancels  single-
+step mode.
+
+
+
+6.3 Single step mode
+
+
+Single  step  mode is a convenient way of executing your program while
+maintaining a maximum  of  control  under  PASDDT.    In  contrast  to
+breakpoints, which are used when you know what part of the program you
+are  interested in looking at, single step mode is used when you don't
+know exactly what you are looking for.  It causes  only  one  line  of
+your program to be executed.  PASDDT regains control at every line.
+
+Here  is  what  you  will see at each line when you are in single step
+mode:
+
+
+    > Stop in MERGE:270/1
+    270     for i := 1 to 36 do
+    271       for j := 1 to 104 do
+    272         for k := 1 to 11 do
+    S>
+
+
+This indicates that the next line to be executed is line 270  on  page
+1.    The  prompt of S> instead of >> indicates that you are in single
+step mode.
+
+Here are the commands that are used  to  start  and  stop  single-step
+mode, and to control your program when you are in it:
+
+                                 STEP
+
+Start  single-stepping.    This  will  cause  your  program  to regain
+control, but will return control to PASDDT at the  next  line.    This
+command  is  valid  whether  you  are  in single-step mode or not.  It
+leaves you in single-step mode.
+
+                           carriage return
+
+When you  are  in  single-step  mode,  a  simple  carriage  return  is
+equivalent to the command STEP.  This is simply a convenience to allow
+you  to move through your program without having to type the word S-T-
+E-P for each line to be done.  In fact  the  only  difference  between
+single  step  mode  and  normal PASDDT is the fact that in single-step
+mode,  carriage  return  and  escape  are  available   as   convenient
+abbreviations.    All  normal  PASDDT  commands are still available in
+single-step mode.
+
+                                escape
+
+When  you  are  in  single-step  mode,  you  sometimes  find  yourself
+steppping  through procedures in which you are not interested.  If you
+hit the escape key, execution of your program will continue until  the
+program  exits from the procedure it is currently executing.  When the
+program reaches the next line after the call to that procedure, PASDDT
+will regain control.  You will probably have  to  try  single-stepping
+before you see why this is a useful feature.
+
+
+
+                                 END
+
+You  get  out  of  single-step  mode by continuing your program in the
+normal way, i.e. by the END command.
+
+
+
+6.4 Commands for looking at and changing variables
+
+
+The main reason for using PASDDT is that it lets you look at  what  is
+going on inside your program.  The commands listed in this section are
+those  that  allow  you  to  look  at variables, and even change their
+values.
+
+                              variable =
+
+This command shows you the value of  a  variable  from  your  program.
+There  is some problem because of Pascal's block structure.  There can
+be 25 different variables in your program all called "I".  Each one is
+defined in a different procedure.   PASDDT  uses  the  same  rule  for
+figuring  out  which one you mean that Pascal itself uses.  The search
+starts at the location that was shown when PASDDT gained control  (the
+next  line  to be executed).  Any variable defined in the procedure of
+which that line is a part is used first.  Then  procedures  containing
+that  one  are  searched, until the search ends with global variables.
+Procedures that do not contain the next line to be  executed  are  not
+accessible.
+
+Note  that  variable  is  any  legal  Pascal  variable.    You can use
+subscripts, dots, and pointer arrows, and even complex combinations of
+these.  If you ask for an array or structure, all of its elements will
+be printed.  (For an array, several identical elements are printed  in
+a abbreviated form.)
+
+Integer variables can be printed in hexadecimal or octal by using "=h"
+or "=o" respectively after the variable name.
+
+                          variable := value
+
+This allows you to change the value of a variable.  Whatever value you
+set  it  to  will  be  used  by the program if you continue it.  Value
+should be a Pascal constant of a type  compatible  with  the  variable
+involved.
+
+                                TRACE
+
+Trace gives you a "backtrace", a list of what procedures are currently
+active,  and  where  they were called from.  If you do not want to see
+the whole backtrace, you can use the following form:
+
+                               TRACE n
+
+which prints only the first N procedure calls from the full trace.
+
+
+
+                              STACKDUMP
+
+Stackdump  prints  the value of all local variables.  Needless to say,
+this output can get a bit voluminous.  Thus it is possible  to  direct
+the output of this command to a file:
+
+                         STACKDUMP 'filename'
+
+It  is  also  possible  to  specify  that  you  only want to see local
+variables from the N innermost procedures currently active.  (You  can
+see what these are from the output of TRACE.)
+
+                             STACKDUMP n
+
+
+
+6.5 Looking around in the source file
+
+
+Sometimes  you  will  want  to  place  a breakpoint somewhere, but not
+remember the exact line number.  Or for some other reason you may need
+to look around in the source file.  For this purpose, PASDDT  has  two
+commands useful for looking around.
+
+
+
+6.6 FIND 'string'
+
+
+This  command  searches forward in the source file, beginning from the
+current location (denoted by a dot).  It looks for the first occurence
+of the string specified.  In doing the search, upper  and  lower  case
+letters  are considered equivalent.  So if you say FIND 'MYPROC', this
+will match an appearance of MyProc in the source file.  The first line
+found will be displayed, and will become the new current line.
+
+                       TYPE start-line end-line
+
+This allows you to type out any  part  of  the  source  file  on  your
+terminal.    If  you  specify only one line number, just that one line
+will be typed.  The ending line number can be  something  ridiculously
+big if you want to see everything to the end of the file.
+
+
+
+6.7 A warning about confusing PASDDT
+
+
+It is possible for PASDDT to become confused about where it is in your
+program.    This  will  generally  happen if you transfer to PASDDT by
+typing ^D (control-D) in the middle of your program. (Or  on  Tops-10,
+typing  ^C  and then the monitor command DDT.)  As long as the part of
+your program that is written is Pascal is being executed, things  will
+be fine.  But if you happen to be in one of the library routines (e.g.
+I/O  routines, NEW, or routines written in another language and loaded
+
+
+
+with  your  Pascal program), PASDDT will be unable to figure out where
+you are.  In this case, it will usually claim that you are  at  either
+line 0/0, or at the last line in your program.
+
+The  only  serious  problem raised by this case is that you can't tell
+exactly where you are in the program.  The usual functions  of  PASDDT
+should still work.  Note that the TRACE command will at least tell you
+what  procedure  you  are  in.   And END and STEP can still be used to
+continue your program.  (In fact STEP is a convenient way to find  out
+where  you are, as it will cause a stop at the next line in the source
+program.)
+
+The problem happens most often when you stop the program while  it  is
+waiting for input from the terminal.
+
+
+
+                 7. Standard Procedures and Functions
+
+
+
+The  following  standard  procedures  and  functions (described in the
+Revised PASCAL Report(ref)) are implemented.
+
+
+
+      Standard Functions   Standard Procedures
+
+            ABS             GET
+            SQR             PUT
+            ODD             RESET (See 5.3)
+            SUCC            REWRITE (See 5.3)
+            PRED            NEW
+            ORD             READ
+            CHR             READLN (See 3.5)
+            TRUNC           WRITE (See 3.4)
+            ROUND           WRITELN (See 3.4)
+            EOLN            PAGE
+            EOF             PACK
+            SIN             UNPACK
+            COS
+            EXP
+            LN
+            SQRT
+            ARCTAN
+
+
+
+Additional mathematical functions are available:
+
+
+            ARCSIN          SIND
+            ARCCOS          COSD
+            SINH            LOG
+            COSH
+            TANH
+
+
+
+The following functions  may  be  used  to  simulate  the  missing  **
+operator.  They must be declared EXTERN.
+
+     FUNCTION POWER(X,Y:REAL):REAL; EXTERN; - X ** Y
+
+     FUNCTION IPOWER(I,J:INTEGER):INTEGER;EXTERN - I ** J
+
+     FUNCTION MPOWER(X:REAL;I:INTEGER):REAL;EXTERN - X ** I
+
+Additional  standard  functions.    Those  prefixed  by a star are not
+described in this document.  See the full manual.
+
+     CURPOS(file) returns the current position in a file.  See section
+
+
+
+               5.8.    Only  valid  for files on random access device.
+               (type integer)
+
+     DATE result is a PACKED ARRAY  [1..9]  OF  CHAR.    The  date  is
+               returned in the form 'DD-Mmm-YY'.
+
+     *NEXTFILE(file).  Advances to the next spec for a wildcard file.
+
+     RANDOM(dummy) result is a real number in the interval 0.0 .. 1.0.
+               Ignores its argument, but an argument is required.
+
+     *RECSIZE(file) returns the record size of the file.
+
+     RUNTIME elapsed CPU time in msec (type integer)
+
+     TIME current time in msec (type integer)
+
+Additional standard procedures:
+
+     *APPEND(file,name,...).    Like  REWRITE, but extends an existing
+               file.
+
+     *BREAK(file). Forces out the output buffer of a file.
+
+     *BREAKIN(file,noget). Clears the input buffer count.
+
+     *CALLI(calli number ...). Arbitrary monitor call.  Tops-10 only.
+
+     CLOSE(file,bits). Close file and release its channel. See section
+               5.4.
+
+     DELETE(file). Delete file.  See 5.6.
+
+     *DISMISS(file). Abort creation of a file.
+
+     GETINDEX(file,index). If file is open  on  a  string  (STRSET  or
+               STRWRITE), sets index to current index into the string.
+               (See section 5.9.)
+
+     *GETLINENR(file,lineno).   Lineno must be a packed array of char.
+               It is set to the last line number seen in the file.  If
+               no line numbers have been seen '-----' is returned.   '
+               '  is  returned  for  a page mark.  If file is omitted,
+               INPUT is assumed.
+
+     *JSYS(jsysnumber, ...). Arbitrary monitor call.  Tops-20 only.
+
+     *MARK(index). Save state of the heap.
+
+     *PUTX(file). Rewrite record in update mode.
+
+     *RCLOSE(file).  Close, releasing jfn.
+
+     *RELEASE(index).  Restore saved state of the heap.
+
+
+
+     RENAME(file,name,...). Rename an open file.  See 5.5.
+
+     SETPOS(file,position).  Move in random access file.  See 5.8.
+
+     STRSET(file,array,...).  Open input file on array.  See 5.9.
+
+     STRWRITE(file,array,...).  Open output file on array.  See 5.9.
+
+     UPDATE(file,name,...).  Open  random  access file for revising in
+               place.  See section 5.7.
+
+Although it is not exactly a procedure or function,  some  explanation
+should  be  given of the MOD operator.  X MOD Y is the remainder after
+dividing X by Y, using integer division.  The sign of  the  result  is
+the  same  as  the  sign  of X (unless the result is zero, of course).
+Note that this  is  a  different  definition  than  the  one  used  by
+mathematicians.    For them X MOD Y is always between 0 and Y-1.  Here
+it may be between -(Y-1)  and  +(Y-1),  depending  upon  the  sign  of
+X. This   implementation  is  used  for  consistency  with  the  Cyber
+implementation, which is the semi-official standard.  Note  that  SAIL
+(and  some  other  widely  used  languages)  also  use  this perverted
+definition of MOD.
+
+
+
+                    8. Implementation Restrictions
+
+
+
+a) A maximum of 20 labels is permitted in any one procedure.  (This is
+an  assembly  parameter.  The whole restriction may be removed easily,
+at the cost of some extra local  fixups  in  the  .REL  file.)    This
+includes  both  labels  declared in the LABEL section and those not so
+declared.  (Labels need be declared only if they will be the object of
+a non-local goto.)
+
+b) Printer control characters are  not  available.    A  new  page  is
+started by a call to the standard procedure PAGE.
+
+c)  Procedures and functions may be passed as parameters to procedures
+and functions, as described in the Revised  Report(ref)  We  have  not
+modified  the  syntax  to  allow  declaration of the arguments to such
+parametric procedures/functions.  (Prof.    Nagel's  version  contains
+such   a   modification.)      Also,   note  that  when  a  parametric
+procedure/function is called, all of the arguments passed to  it  must
+fit  in  the accumulators.  Normally this allows 5 arguments, although
+certain arrays count as 2 arguments, and  functions  allow  one  extra
+argument.  An appropriate error message is given if this constraint is
+violated.
+
+d) A maximum of 40000 words of code may be generated for any procedure
+or  function.  Since /DEBUG and /CHECK produce more code, it is normal
+to run into this limit when /DEBUG  is  turned  on  in  programs  that
+compile  correctly for /NODEBUG.  The error message "Too many cases in
+CASE statement" is usually caused by a procedure or function  that  is
+too  long, rather than by too many cases.  (There is no separate limit
+to the number of cases in a CASE statement.)  The  maximum  number  of
+words  is  an assembly parameter, so it may be expanded easily, if the
+compiler is recompiled.
+
+e) Only comparisons described in the PASCAL manual can be done.  There
+were serious problems with the earlier attempt to allow comparison  of
+arbitrary records and arrays.
+
+f)  Sets  may only be defined on types or subranges of types having 72
+or fewer members.  With subranges of integers the set may only include
+0 to 71.  With enumerated types it  may  include  only  the  first  72
+members of the enumeration.  Special provisions are made to allow sets
+of CHAR.  The problem is that there are 128 possible ASCII characters.
+This problem is "solved" by treating certain characters as equivalent.
+In  particular,  lower  case  letters are treated as equivalent to the
+corresponding upper case letter.  And all  control  characters  except
+for the tab are treated as equivalent.  Thus ['a'] is exactly the same
+set  as ['A'].  (One of those is lower case and the other upper case.)
+Similarly 'a' in ['A'] will succeed.  And ['^X'] is the  same  set  as
+['^B'].
+
+g) WRITE(TTY,X,Y) actually writes to the file TTYOUTPUT.  This mapping
+of TTY into TTYOUTPUT occurs at compile time.  So if you pass the file
+TTY  to  a  procedure  as parameter F, WRITE(F,X,Y) is not transformed
+
+
+
+into WRITE(TTY,X,Y).  It is not clear whether this is a bug or not.
+
+h)  This  compiler  attempts  to  check  that  assignments to subrange
+variables are within the subrange.  It is possible to fool  this  test
+by  using  VAR  parameters.   These problems cannot be overcome unless
+there is some way for the compiler to tell which  VAR  parameters  are
+intended as inputs to the procedure and which as outputs.
+
+i)  The  contents  of  unused  bits  in  packed  arrays and records is
+undefined.  This should not cause trouble, except in programs the play
+fast and loose with variant records, or programs that pass  arrays  of
+type  PACKED  ARRAY  OF  CHAR  to  Fortran  programs.    Many  Fortran
+programmers will use  integer  comparisons  on  character  data,  thus
+requiring the low order bit in the word to be zero.  The code compiled
+in  Pascal  to  compare PACKED ARRAY OF CHAR variables ignores the low
+order bit, so this does not cause a problem in Pascal.  If you require
+unused fields to be zero in all cases, you can set /ZERO or (*$Z+*).
+
+j) Only the first 10 characters of identifiers are  examined,  so  all
+identifiers  must  be  unique to their first 10 characters.  Note that
+the Revised Report(ref) only requires the implementation  to  look  at
+the first 8.
+
+k)  All  of  the  entry  points in the runtime library are effectively
+reserved external names.  That is, if  you  use  one  of  these  names
+either  as your program name (in the PROGRAM statement) or as the name
+of a procedure in a file of external procedures, disaster may  result.
+Any  name whose first six characters is the same as one of these names
+will cause the problem.  You can sometimes  get  away  with  violating
+this  rule  if your program does not use any of the features of Pascal
+which cause the particular runtime routine involved to be invoked.  As
+of the time when this document was prepared, the  following  were  the
+entry  point  names.    For  an  up  to  date  list,  use  the command
+"TTY:=PASLIB/POINTS" to MAKLIB:  DEBUG, READC, READI,  READPS,  READR,
+READUS,  WRITEC,  WRTBOL,  WRTHEX,  WRTINT,  WRTOCT,  WRTPST,  WRTREA,
+WRTUST, ANALYS, APPEND, BREAK, BREAKI, CLOFIL, CLREOF, CORERR, CURPOS,
+DELF., END, ENTERC, ERSTAT,  GETCH,  GETCHR,  GETFN.,  GETLN,  GETLNX,
+GETX.,  ILLFN,  INXERR,  LEAVEC,  LSTNEW, LSTREC, NEW, NEWBND, NEWCL.,
+NEWPAG, NEXTFI, NORCHT, PASIN., PTRER.,  PUT,  PUTCH,  PUTLN,  PUTLNX,
+PUTPG,  PUTPGX,  PUTX,  QUIT,  RELF.,  RENAME, RESDEV, RESETF, RETPAG,
+REWRIT, SETPOS, SRERR, UPDATE, SAFBEG, SAFEND, STSET., STWR.,  PSIDEF,
+PSIDIS, PSIENA, CURJFN, FROM6, SETJFN, TO6, DATE, .STCHM
+
+l)  The compiler does not enforce the restriction that a FOR loop body
+may not change the controlled variable.  The  following  statement  is
+illegal,  but  will compile under this compiler:  FOR I := 1 TO N DO I
+:= I+1 It will do every other value of I. 
+
+
+
+                          Table of Contents
+
+
+1. How to compile and execute your program.                          1
+
+1.1 How to use the normal compiler                                   1
+1.2 Compiler switches                                                3
+
+2. How to Write a Program (Lexical Issues)                           6
+
+3. Input/Output                                                      8
+
+3.1 Standard Files                                                   8
+3.2 Other ways of specifying a file name                             9
+3.3 Details about terminal I/O                                      10
+     3.3.1 The first line of input from INPUT and TTY               10
+     3.3.2 Odd effects for READLN                                   12
+     3.3.3 Summary of how to do it right                            13
+3.4 Formatted Output                                                13
+3.5 Reading characters                                              16
+     3.5.1 Turning end of lines into blanks                         17
+     3.5.2 Reading strings                                          18
+     3.5.3 Turning lower case into upper case                       19
+
+4. Core Allocation                                                  20
+
+5. Extensions to PASCAL                                             21
+
+5.1 Extended CASE Statement                                         21
+5.2 LOOP Statement                                                  21
+5.3 Extra control over file I/O                                     22
+     5.3.1 Labelled tapes                                           24
+     5.3.2 I/O Error processing                                     25
+5.4 CLOSE                                                           27
+5.5 RENAME                                                          27
+5.6 DELETE                                                          28
+5.7 UPDATE                                                          28
+5.8 Random access                                                   28
+5.9 I/O to strings                                                  30
+
+6. PASCAL Debug System (PASDDT)                                     32
+
+6.1 How PASDDT works                                                32
+6.2 Commands for controlling your program                           33
+6.3 Single step mode                                                35
+6.4 Commands for looking at and changing variables                  36
+6.5 Looking around in the source file                               37
+6.6 FIND 'string'                                                   37
+6.7 A warning about confusing PASDDT                                37
+
+7. Standard Procedures and Functions                                39
+
+8. Implementation Restrictions                                      42

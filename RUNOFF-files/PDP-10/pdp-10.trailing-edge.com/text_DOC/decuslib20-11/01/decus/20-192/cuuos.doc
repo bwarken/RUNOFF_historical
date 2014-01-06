@@ -1,0 +1,446 @@
+
+
+
+7.1 Utility UUO Package for Macro-20
+
+    [ Programs and text by Chris Ryland, 1978. ]
+
+
+
+
+                              Preliminary Specs
+
+    Note:  all of these UUOs have a general restriction that must be
+    observed:  no strings addressed as arguments may live in the ACs.
+    Further, none of the COMND functions may use FLDDBs that address
+    indirectly through ac's t1-t4, .fp or p. 
+
+
+
+7.1.1 Formatted Printing Package
+
+    %print <format string>, <
+            addr of arg1
+            addr of arg2
+                ...>
+
+This expands into a call on the %uprint uuo, with argument
+
+    [[point 7,[asciz/string/], addr of arg1, addr of arg2, ...]
+
+If you understand that the arguments are just part of a literal, then you can
+understand why they're in this format, and how to extend it; e.g., you might
+also say
+
+    %print <format>, <exp arg1-addr, arg2-addr, ...>
+
+or call the %uprint uuo directly, if the format string is a variable, e.g.,
+
+    %uprint [exp fmstr, arg1-addr, arg2-addr]
+
+The semantics of this beast are:  the characters in the format string are
+output sequentially, until an escape character `%' is seen; then, a argument
+descriptor is eaten from the format string (see below for the definition of
+the argument descriptor), and one or more arguments are eaten from the
+argument list, and used for output, as directed by the descriptor.  the basic
+idea here is that each argument descriptor item directs special output
+handling for a group of argument items (usually one).  to make this discussion
+more concrete, here is an example of how this macro might be used:
+
+        %print <Here's a number: %d, and the time: %@n%/>, <
+                [^d234]
+                [ot%day!ot%fdy]
+        >
+
+What happens here is that "Here's a number:  " is printed on the primary
+output, and then the argument descriptor %d is processed, which slurps up the
+next argument, [^d234] (remember, all arguments are actually addresses of the
+object in question), and prints it as a decimal number.  then, ", and the
+time:  " is printed --nothing special here--, and the argument descriptor %@n
+                                     137
+
+is hit; this descriptor, mnemonic for `the time as of now', has a @ modifier
+(described in detail below) which causes the print package to pick up the next
+argument from the list and use it as the date/time format value (again, what's
+actually there is a literal, since arguments are always addresses of the value
+to be used).  finally, the arg descriptor `%/' is seen, which means print a
+CRLF, and we're all done (because we hit the end of the asciz format string).
+
+Each argument descriptor is of the form `%<@><key>'.  The `@' means pick up
+additional data to modify the action of the <key>, from the argument list
+(this data is eaten just like data that is output; see below).  Then, the
+action denoted by <key> is taken, which results in one or more data items
+being eaten from the argument list and output according the the format <key>.
+these constant references to `eating' are to graphically state that when an
+argument is used, it disappears from the argument list.  thus, you can think
+of the argument list as being eaten one argument at a time, from the top to
+the bottom (or left to right, depending on how you coded it).
+
+Note that this type of output differs from Fortran-style formatting, in that
+it is format-driven, not argument-driven.  E.g., in Fortran, each list item
+(argument) is taken in turn, and the next format item selected to be used as
+the output specification.  in this package, just the reverse is done; the
+format items cause argument-handling.
+
+If any Jsys errors occur during printing, then if the %print is followed by an
+erjmp or ercal, the jump or call is taken, just as in a jsys invocation.
+Otherwise, a fatal error occurs.
+
+The equivalent, but skipping, UUO is %prSkp; it returns +2 on success (or +3
+if it has an erjmp or ercal after it).
+
+The various argument descriptors, also known as format items, are:
+
+%%              print a `%'
+
+%!              ignore all following characters until a `!' is seen, at which
+                point formatting resumes normally.  This is designed to allow
+                formats to nicely cross line boundaries.
+
+%{              print a <
+
+%}              print a > (these last two are for non-paired <>)
+
+%/              print a Carriage-Return/Line-feed pair
+
+%=              use the argument as a destination designator for the remainder
+                of the output for this %print call; note that any JFN
+                top-of-stack is then ignored for the rest of the %print (and
+                is NOT updated after the %print is done).
+
+%_              print a Horizontal Tab
+
+%^              print a Form-Feed (^L)
+
+%c              print the name of the Connected directory, with punctuation
+                (str:<...>); use any @ modifier value as a directory number,
+                and print its name instead
+                                     138
+
+%d              print a Decimal number; use any @ modifier as the NOUT format.
+                If no radix is given in the @ modifier case, decimal radix is
+                used.
+
+%e              with no modifier, print the last error message encountered by
+                this process; with a modifier, use the argument value as an
+                error number to print symbolically.
+
+%?              do error synchronization: clear terminal input and wait for
+                terminal output to drain, and print a newline, followed by a
+                "?".  Rest of this %print will go to the physical terminal
+                device.
+
+%f              print the Floating (single-precision) value of the argument;
+                use any @ modifier as the FLOUT format
+
+%h              print the ascii cHaracter value of the argument
+
+%i              like %d, but print +Inf if negative (for printing positive
+                numbers)
+
+%j              print the name of the file as given by the Jfn argument; use
+                any @ modifier value as the JFNS format
+
+%n              print the date and time of Now; use any @ modifier value as
+                the ODTIM format
+
+%o              print the argument as an (unsigned) Octal number; use any
+                @ modifier value as the NOUT format.  If no radix is given in
+                the @ modifier case, octal radix is used.
+
+%s              print the argument as an asciz String (of byte size as given
+                by the argument's byte size); -1 in the left half of the
+                argument means treat it as 7-bit asciz (NB: the argument is a
+                really the address of a byte pointer, not a byte pointer
+                itself; see examples below)
+
+%t              print the date and Time as given by the argument; use any
+                @ modifier value as the ODTIM format
+
+%u              print the user's login ID, with no punctuation; with a
+                @ modifier, print the user name of the given user number
+
+%v              print the deVice name for the designator given as argument
+
+%x              print the argument as a siX-bit value.
+
+
+
+7.1.2 %prPush and %prPop
+
+    Warning: this facility is not implemented yet!
+
+These two instructions push and pop the %print UUO's output JFN stack,
+respectively.  The top-of-stack entry (or .priou if the stack is empty) is
+used as the destination designator, and is updated after each %print (unless a
+%= or %?  is used in the format string, see above), so that a byte pointer may
+                                     139
+
+be effectively used as the output destination.  %prPush takes an argument
+which is an address of the output designator (a JFN or a byte pointer).
+%prPop simply pops off the top of stack and discards it.  (Note that you can't
+have indexed or indirected byte pointers, as this is doable but infinitely
+hairy for the UUO package.  Also note that since the destination designator
+itself is updated after each %print, you can't use a literal (e.g. a byte
+pointer) for the argument to %prPush, unless you don't mind modifying pure
+data (which you should!).)
+
+Some examples are:
+
+sPtr:   point 7, buffer         ; Byte pointer to a memory buffer.
+          :
+        %prPush sPtr            ; Use buffer as general
+          :                     ;   output area.
+        %print <foo, bar>       ; Output to it.
+          :                     ; (sPtr now points at last char).
+        %prPop                  ; Get rid of this destination
+          :                     ;  now that we're done.
+                                     140
+
+
+7.1.3 COMND-Jsys-Made-Easy Package
+
+This set of macros implements an easy access route to the COMND Jsys;
+familiarity with COMND and its functions IS required, though - we're only
+trying to ease the pain of using it, not learning about it.
+
+Following are the macros used to invoke the different functions of the COMND
+Jsys as well as ancillary tasks such as setting up various control blocks,
+getting information out of some of the data structures deliberately hidden to
+ease use of COMND, etc.  The naming conventions used are designed to follow as
+much as possible the names of each of the COMND functions, with slightly
+varied punctuation that corresponds to CUsym conventions.  E.g., the .cmkey
+function of COMND is invoked with the %cmkey macro; induction should get you
+the rest.
+
+Some philosophy about error-handling:  any COMND function can fail in two ways
+(actually, three, but the third is merged into the first to make your job all
+that much easier):  the function can't be parsed with the given input, or the
+user deletes input back into an already-parsed field.  We treat these two
+`errors' uniformly:  each invocation of a function either returns normally if
+no error occurs, or takes an erjmp or ercal path (if provided) if an error is
+found.  Thus, a simple, uniform method of handling parse errors and reparse
+conditions is provided:  each subroutine of the main parse routine can always
+return non-skip on any error (real or reparse), or skip on success.  The main
+parse routine can worry about whether a real error occurred, and print an
+appropriate message, restarting the parse from scratch, or whether just a
+reparse is needed, restarting from the first parse step.  When an error
+occurs, t1 contains the flags from COMND (note in the success case that t1
+isn't modified), and t1 is not set.  If a real COMND Jsys error (i.e., not a
+user parse error occurs, like a COMND internal buffer overflow), the parse
+error bit will be set, and the error return will happen as usual; this is done
+to make COMND errors be treated uniformly.
+
+Note that each COMND function, if it succeeds, returns a value in t2 (even if
+it doesn't return any useful result).
+
+Also, if any COMND function is invoked with more than one FDB (i.e., alternate
+FDBs are used), then upon return t3 contains what it normally after the COMND
+Jsys (q.v.):  the FDB actually used, and the first FDB given.
+
+    %cmini (prompt, flags, iojfn, gjfblk)
+
+This macro prepares everything for a command parse.  All the arguments are
+optional; their use is:
+
+prompt          a text string used as the prompt; e.g., <<CRDIR>>.  If not
+                supplied, the prompt `>' is used.  Note that if a `>' is
+                required on the end of this prompt, then you must use the form
+                <<prompt>>.  Blame macro.
+
+flags           the flags destined for the (left half of the) CSB .cmflg word,
+                such as raise all input, wake on every field, etc.
+
+iojfn           the <input jfn,,output jfn> pair for the parse.
+
+gjfblk          the address of the GTJFN argument block, used in the .cmifi,
+                .cmofi, .cmfil functions (and it must be supplied if you plan
+                                     141
+
+                to use these functions).  Its length must be at least .gjln
+                (defined in CUsym).
+
+This function will only fail if some horrible mistake has been made, usually
+by the COMND package, so expect success.  Note that this UUO only does a
+.CMini COMND Jsys on the second and subsequent invocations, until a %cmres UUO
+is done, at which point it will re-initialize everything (see the %cmres UUO
+description below for an explanation).
+
+
+
+7.1.3.1  %cmRes
+
+This UUO, automatically done by %setUp at normal program startup, resets all
+COMND parsing information, so that the next %cmini UUO will cause a full setup
+of the Command State Block (set up the prompt, reset all the buffer pointers,
+etc.).  It should be invoked whenever you intend to start a whole new section
+of parsing (e.g., changing the prompt or the set of commands, such as
+subcommand mode).  In the simplest case, you never have to worry about it, as
+it's automatically done at startup.  In the most usual case where it would be
+needed, a subroutine called to do some subsidiary parsing (e.g., the GetOK
+routine in mac:), the safest approach is to do a %cmres before the
+subroutine's %cmini, and a %cmres after finishing its parsing job.  This
+guarantees that the caller won't get hurt.
+
+
+
+7.1.3.2 %cmKey (keytab, help, default, flags)
+
+This macro invokes the .cmkey COMND function; upon success, t2 contains the
+address of the table entry where the parsed keyword was found.  All but the
+first arguments are optional.
+
+keytab          address of a TBLUK keyword table
+
+help            a literal string (usually enclosed in <> if it contains
+                anything other than alphanumerics and spaces) that will be
+                used as the help message.  if not given, the default help
+                message is used.
+
+default         a literal string that will be used as the default keyword if
+                none is supplied; if not given, no default is possible.
+
+flags           flags, such as suppress default help, etc.
+
+Note that these arguments are just used to build a function descriptor block,
+and thus the usual things happen in their absence or presence.  Many of the
+other macros use the same structure for their arguments, and the same comments
+apply as here, so they will usually be elided.  If you need to use a
+hand-crafted function descriptor block, you can call the COMND package uuo
+directly, with the address of the FDB, as in %comnd [flddb. .cmkey,...].
+
+Rather than give each COMND function as above, we will let you induce on the
+`base step' above and assume that the remaining functions are invoked
+similarly.  What follows are those functions that do not map directly to a
+COMND function.
+                                     142
+
+
+7.1.3.3 %cmgab bp
+
+This function asks the COMND interface package to get the current contents of
+the atom buffer into the string pointed to by the byte-pointer given as
+argument; this cannot fail.  Note that the atom buffer can be quite long --how
+long depends on the current implementation of the COMND package, but a
+reasonable size would be 100 words--, so be wary of extremely long atoms.  The
+byte pointer is updated.
+
+Note that `bp' is the address of where the byte pointer can be found; i.e.,
+the effective address of this UUO is the address of the byte pointer.  BEWARE:
+if you supply the argument as a literal, the byte pointer gets updated in the
+literal pool; if you use the same literal later, it will not be pointing where
+you think!
+
+
+
+7.1.3.4 %comnd flddb
+
+This is the general COMND function interface, for doing things not directly
+supported by this package.  `flddb' is the address of a function descriptor
+block.  It returns the data as the COMND jsys does, except that t1 is not used
+to return the parse flags (see %cmgfg below, if you want to do this).
+
+
+
+7.1.3.5 %cmgfg flag
+
+This function get the flags from the .cmflg word of the Command State Block
+into the word addressed by `flag'; e.g., to get the parse flags into t1, a
+%cmgfg t1 will do just fine.
+
+Some notes about using these COMND support macros in a structured fashion:
+
+   - The basic idea, as hinted at in the description above, is that each
+     COMND function either returns successfully if the parse succeeded
+     (including no reparse needed), or takes an erjmp/ercal path if one
+     is provided.  Thus, each subroutine that is doing some `piece' of
+     the parsing can, at each step in its job, simply return non-skip on
+     error, or go on if each parse step succeeds, returning skip when it
+     finally finishes successfully.  Only the top-level parse routine has
+     to worry about whether a reparse is needed, or an actual parse error
+     occurred; in the former case, the routine only needs to start the
+     parse over (without re-initializing); in the latter, an error
+     message can be issued, and the parse started over from scratch.
+
+   - There are several macros to help with this philosophy of parsing:
+
+%pret                To be used in a parse subroutine after each COMND
+                     function; it just returns non-skip if a parse error
+                     occurs.
+
+%errep errlab, replab
+
+                     To be used in a situation (either top-level or a
+                     subroutine) where an error or reparse must be
+                     handled specially.  Mostly useful in the top-level
+                                     143
+
+                     parse routine.
+
+%merrep errlab, replab
+
+                     Mostly like %errep, but it prints a parse error
+                     message before going to errlab; this is useful in
+                     the top-level parse routine.
+
+Note that an erjmp or ercal after a COMND function invocation is usually
+sufficient for handling most errors; e.g., after a %cmfil invocation in a
+parse subroutine, if any errors occur later in the same routine, an erjmp to a
+cleanup segment (that releases the jfn gotten by the %cmfil) is quite
+sufficient for handling both noparse and reparse errors.
+                                     144
+
+                                    Index
+
+
+
+
+          %cmRes   141
+          %print   136
+          %prSkp   137
+          %setUp   141
+
+          Command Initialization   140
+          COMND   136, 140
+          CUUOs   136
+
+          Device   138
+          Directory   137
+
+          ERCAL   137
+          ERJMP   137
+          Error Message   138
+
+          Floating Point   138
+
+          GTJFN   140
+
+          JFNS   138
+
+          Keyword   141
+
+          Literal   136
+
+          NOUT   137
+
+          Octal   138
+
+          Prompt   140
+
+          SIXBIT   138
+          Subroutine   142
+                                      i
+
+                              Table of Contents
+
+7.1 Utility UUO Package for Macro-20                                       136
+     7.1.1 Formatted Printing Package                                      136
+     7.1.2 %prPush and %prPop                                              138
+     7.1.3 COMND-Jsys-Made-Easy Package                                    140
+          7.1.3.1 %cmRes                                                   141
+          7.1.3.2 %cmKey (keytab, help, default, flags)                    141
+          7.1.3.3 %cmgab bp                                                142
+          7.1.3.4 %comnd flddb                                             142
+          7.1.3.5 %cmgfg flag                                              142
+
+Index                                                                      144

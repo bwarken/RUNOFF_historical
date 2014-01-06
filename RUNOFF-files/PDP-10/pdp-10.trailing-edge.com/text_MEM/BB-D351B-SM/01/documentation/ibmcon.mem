@@ -1,0 +1,400 @@
+
+
+
++---------------+
+! d i g i t a l !   I N T E R O F F I C E  M E M O R A N D U M
++---------------+
+To: All Interested Parties 
+                                       Date: 29 October, 1979 
+                                       From: Peter Mierswa  
+                                       Dept: NCSS
+                                       Loc:  MR1-2/H22
+                                       Ext:  4263
+Subj: IBMCON DN6x statistics logger for TOPS20 Rel 4 
+
+     The DN64 software available with TOPS20  Release  3A  automatically
+made entries in the system log file, ERROR.SYS providing notification of
+the enabling and disabling of lines and periodic statistics reports.  In
+release  4  of TOPS20 the DN6x software has been integrated into Galaxy,
+but the code to enter statistics into the  system  error  file  was  not
+included.   The  program  IBMCON  provides  this service in release 4 of
+TOPS20 for both the KS and KL processors.
+To: All Interested Parties                                        Page 2
+USING IBMCON
+
+
+                              USING IBMCON
+
+     IBMCON obtains the status of the front end solely  by  use  of  the
+monitor  interface to the DTE.  Since IBMCON does not rely on other DN6x
+components running in the mainframe it must periodically examine or poll
+the  front end to collect statistics and determine status changes.  This
+polling can affect performance.  Only run IBMCON periodically  when  you
+need to collect statistics or when the hardware is suspect.
+
+     To run IBMCON you must be an enabled user with  wheel  or  operator
+capabilities.   If  you  are  not  enabled  or  you do not have wheel or
+operator capabilities, the enable command will always  report  that  the
+front  end  is  not  running.   IBMCON  provides command recognition and
+prompting  and  defaults  most  arguments.   The   minimum   interaction
+necessary to begin data gathering is the enable command and port number.
+
+                                COMMANDS
+
+DISABLE (polling on port) port number
+
+
+     The DISABLE command stops IBMCON from polling the  specified  port,
+thus  stopping  all data gathering for all lines on that port.  The port
+number must be specified, it has no default.  When IBMCON is run on a KS
+processor,  the  port number is restricted to 10 or 11.  Ports 10 and 11
+refer to the DN22 running  on  synchronous  lines  KDP_0_0  and  KDP_0_1
+respectively.   When  running  on a KL, the port number is restricted to
+the range 11-13.  Ports 11-13 refer to the DN20  running  on  DTE'2  1-3
+respectively.
+
+ENABLE (polling on port) port number (interval) minutes between polling
+
+
+     The ENABLE command starts polling on the  specified  port  for  the
+specified interval.  After each interval has passed, IBMCON examines all
+lines on the front end associated with the specified port  to  determine
+if  they  have  become active (the node to which they connect has become
+enabled) or  inactive  (the  node  to  which  they  connect  has  become
+disabled).   When  a line becomes active or inactive an entry is made in
+ERROR.SYS.  Statistics entries are made  in  ERROR.SYS  for  all  active
+lines.   The  default  polling  interval  is 10 minutes.  Note that when
+IBMCON is started it will make a NODE HAS ENABLED entry even if the node
+had  been  up  for some time.  Also note that the timestamp for the NODE
+ENABLED or DISABLED entries reflects the time that IBMCON first saw  the
+node active, not the exact time at which the node was enabled.
+
+EXIT
+
+
+     The EXIT command causes IBMCON to exit to EXEC command level.
+
+SET (logging interval on line) line number (port) port number
+     (interval) minutes between logging
+To: All Interested Parties                                        Page 3
+USING IBMCON
+
+
+     The SET command changes the default logging interval on a  line  by
+line basis.  The logging interval is the time between statistics entries
+for all active lines on enabled ports.  The default logging interval  is
+60  minutes.  Note that this command must be entered separately for each
+line which is to have a logging interval different from the default.
+
+WAIT (forever)
+
+
+     The wait command causes IBMCON to run without an outstanding  input
+wait  for commands.  Following the wait command, no prompt is issued and
+no command will be processed.  The WAIT command allows the user  to  run
+IBMCON in batch.
+
+                                EXAMPLES
+
+     Run IBMCON to collect hourly statistics for all active lines on the
+DN20  on  DTE   1 on a KL.  Poll every 10 minutes to look for changes in
+line status.
+
+@ENABLE
+$IBMCON
+IBMCON>ENABLE (polling on port) 11
+IBMCON>
+
+
+     Run IBMCON to collect statistics for all active lines on  the  DN22
+on  KDP_0_1  on a KS every 30 minutes.  Poll every 5 minutes to look for
+changes in line status.  Only lines 0 and 1 are installed in the DN22.
+
+@ENABLE
+$IBMCON
+IBMCON>SET (logging interval on line) 0 (port) 11 (interval) 30
+IBMCON>SET (logging interval on line) 1 (port) 11 (interval) 30
+IBMCON>ENABLE (polling on port) 11 (interval) 5
+IBMCON>
+
+                             ERROR MESSAGES
+
+     PORT port number IS NOT ENABLED
+
+     An attempt was made to disable a port which was not enabled.
+
+     PORT port number IS ALREADY ENABLED
+
+     An attempt was made to enable a port which was already enabled.
+
+     MORE LINES actual number of lines ON PORT THAN ALLOWED max number
+
+     More lines were found on the enabled port than are allowed  for  by
+IBMCON.   IBMCON  will  truncate  the number of lines watched to its own
+maximum number (6).
+To: All Interested Parties                                        Page 4
+USING IBMCON
+
+
+     PORT port number NOT RUNNING
+
+     This error message is printed whenever IBMCON cannot determine  the
+status of the front end.  It is printed if the port is not running or if
+the user is not an enabled wheel or operator.
+
+     SYERR JSYS FAILED
+
+     The JSYS failed which enters entries into the  system  error  file,
+ERROR.SYS.
+
+     UNABLE TO SET TIMER INTERRUPT
+
+     The TIMER JSYS failed.
+To: All Interested Parties                                        Page 5
+ENTRY FORMATS
+
+
+                          SYSERR ENTRY FORMATS
+
+     Following are the formats of the entries made in the  system  error
+file.
+
+     This is a  description  of  the  SYSERR  entry  header.   The  body
+descriptions follow later.
+
+    +===================================================+
+    !   Code   !   n/u   ! T ! Version ! 4  !  Length   !
+    +---------------------------------------------------+
+    !    Date and time in Universal date/time format    !
+    +---------------------------------------------------+
+    !                 System uptime                     !
+    +---------------------------------------------------+
+    !             Processor serial number               !
+    +===================================================+
+
+
+        DEFSTR  (SYCOD,0,8,9)   ; Event code
+        DEFSTR  (SYT20,0,17,1)  ; Entry was created by TOPS20
+        DEFSTR  (SYVER,0,23,6)  ; SYSERR entry type version number
+        DEFSTR  (SYHLN,0,26,3)  ; Header length (currently 4)
+        DEFSTR  (SYLEN,0,35,9)  ; Length of entry (w/o header)
+        DEFSTR  (SYDAT,1,35,36) ; Date and time of this entry
+        DEFSTR  (SYUPT,2,35,36) ; System uptime  days,,fraction of day
+        DEFSTR  (SYPSN,3,35,36) ; Proc. serial number of recording CPU
+        .SYDAT==4               ; Offset to data portion of entry
+To: All Interested Parties                                        Page 6
+ENTRY FORMATS
+
+
+                    Data format for SYSERR code 233
+
+    +===================================================+
+    !      Port number      !       Line number         !
+    +---------------------------------------------------+
+    !                   Status string                   !
+    /                                                   /
+    /                                                   /
+    +===================================================+
+
+
+     The line status string is returned as an 8 bit byte string packed 4
+bytes  left  justified in a 36 bit word.  In each byte the bit numbering
+is bit 0 to the right (LSB) and bit 7 to the left  (MSB).   Any  16  bit
+values  have  the  8 bit bytes that make it up swapped.  So before these
+bits defined below are valid, the bytes have to be swapped back again.
+
+
+         7       0 15      8 7       0 15      8        Bit no.'s in
+         !       ! !       ! !       ! !       !        11's word
+        +------------------------------------------+
+        ! byte 0  ! byte 1  ! byte 2  ! byte 3  !  !    Byte no. in
+        +------------------------------------------+      11's word
+         !    11-word 0    ! !     11-word 1   !  !     11 word no.'s
+         0                15 16                31 35    Bit no.'s in
+                                                         -10's word
+
+Line status  [ 70 (8 bit) bytes, 18 (36 bit) words ]
+
+ Byte           Meaning
+ ----           -------
+
+ 0              Terminal type: 0 = unknown, 1 = 3780, 2 = 2780, 3 = HASP
+ 1-2            Flags:  bit 0 set = simulate, clear = support
+                        bit 1 set = primary BSC protocol,
+                              clear = secondary
+                        bit 2 set = signed on
+                        bit 3 set = transparent
+                        bit 4 set = disable in progress
+                        bit 5 set = line enable complete
+                        bit 6 set = line abort complete
+                        bit 7 set = off line (2780/3780 only)
+                        bit 8 set = line disable complete
+                        bit 9 set = disable done by DTE failure
+                        bit 10 set = Line aborted by hardware failure
+                        bit 11 set = Communications established
+ 3              Line info:
+                        bit 0 set = line is enabled
+                        bit 1 set = DTR (data terminal ready)
+                        bit 2 set = DSR (data set ready)
+ 4-5            Count of DQ11/DUP11 error interrupts
+ 6-7            DQ11/DUP11 status register 1 at last error
+ 8-9            DQ11/DUP11 status register 2 at last error
+ 10-11          Count of times receiver wasn't fast enough
+To: All Interested Parties                                        Page 7
+ENTRY FORMATS
+
+
+ 12-13          Count of times transmitter wasn't fast enough
+ 14-15          Count of CTS (clear to send) failures
+ 16-17          Count of message sent and ACK'ed
+ 18-19          Count of NAK's received (+wrong ack after timeout)
+ 20-21          Count of invalid responses to TTD
+ 22-23          Count of invalid responses to messages
+ 24-25          Count of TTD's sent
+ 26-27          Count of WACK's received in response to messages
+ 28-29          Count of EOT's (aborts) in response to messages
+ 30-31          Count of invalid bids of responses to bids
+ 32-33          Count of RVI's received while transmitting
+ 34-35          Count of message received ok
+ 36-37          Count of bad BCC's
+ 38-39          Count of NAK's sent in response to data messages
+ 40-41          Count of WACK's sent
+ 42-43          Count of TTD's received
+ 44-45          Count of EOT's sent or received which abort the stream
+ 46-47          Count of messages ignored (out of chunks, unrecognizable
+                 or timeout)
+ 48-49          Count of transparent msg with an invalid char after DLE
+ 50-51          Count of attempts to change between transparent and
+                normal mode in a blocked message
+ 52-53          Count of transmitter timeouts
+ 54-55          Clear to send delay in jiffies
+ 56-57          Count of silo overflows
+ 58-59          Number of bytes in silo warning area (usually 64,
+                must be even)
+ 60-61          Max number of bytes used in silo warning area since
+                set last
+ 62-63          Max bytes per message
+ 64-65          Number of records per message
+ 66-67          Line signature
+ 68-69          Line driver type: 1=DQ11, 2=KMC11/DUP11, 3=DUP11 w/o KMC
+To: All Interested Parties                                        Page 8
+ENTRY FORMATS
+
+
+                       Format for SYSERR code 234
+
+
+Node enable/disable
+
+        +=======================================================+
+        !                       !       Enable/disable code     !
+        +-------------------------------------------------------+
+        !               Node name in sixbit     *               !
+        +-------------------------------------------------------+
+        !       Port            !       Line                    !
+        +=======================================================+
+        !       Flags           !       Station type            !
+        +-------------------------------------------------------+
+        !               Clear to send delay (in jiffies)        !
+        +-------------------------------------------------------+
+        !               Silo warning level (in bytes)           !
+        +-------------------------------------------------------+
+        !               Bytes per message                       !
+        +-------------------------------------------------------+
+        !               Records per message                     !
+        +-------------------------------------------------------+
+        !               Line signature                          !
+        +=======================================================+
+
+        Where
+
+         Enable/disable code is:
+
+                .CNENB = 1      Enable the line
+                .CNDIS = 2      Disable the line (hang-up)
+
+         Node name is the sixbit name that GALAXY uses for the node
+  *     IBMCON cannot determine the node name, because it does
+        not communicate with Galaxy. The contents of this field
+        are indeterminate.
+
+         Port and line number uniquely describe the synchronous line
+          talking to IBM node
+
+         Flags are:
+
+                CN$TRA = 1b15           Transparency enabled
+                CN$PSP = 1b16           Primary protocol if 1,
+                                         secondary if 0
+                CN$ETF = 1b17           Emulation mode if 1,
+                                        termination if 0
+
+         Station type is:
+
+                SL378 = 1               3780 protocol
+                SL278 = 2               2780 protocol
+                SLHSP = 3               HASP multileaving protocol
+To: All Interested Parties                                        Page 9
+ENTRY FORMATS
+
+
+         Clear to send delay is a 16 bit value in jiffies.
+
+         Bytes per message and silo warning level are 16 bit values
+        in bytes.
+
+         Records per message is a 16 bit value in records.
+
+         Line signature is a 16 bit value of no dimensions, used for
+          identification only.
+
+
+        NED.CD==.SYDAT+0                ; Enable/disable code
+        NED.NM==NED.CD+1                ; Node name
+        NED.ID==NED.NM+1                ; Port,,line (ID)
+        NED.FL==NED.ID+1                ; Flags,,type
+        NED.CS==NED.FL+1                ; Clear to send delay
+        NED.SW==NED.CS+1                ; Silo warning level
+        NED.BM==NED.SW+1                ; Bytes per message
+        NED.RM==NED.BM+1                ; Records per message
+        NED.SG==NED.RM+1                ; Line signature
+
+        NED.SZ==^d9                     ; Size of entry w/o header
+        NED.SH==^d3                     ; Short entry for disable
+To: All Interested Parties                                       Page 10
+INSTALLATION
+
+
+     Following  the  installation  procedures  described  in   the   IBM
+Emulation/Termination  manual (AA-5095B-TM) is sufficient for installing
+IBMCON.  IBMCON requires no setup procedure or  data  files;   only  the
+executable file IBMCON.EXE is required.
+
+     Rebuilding IBMCON requires that the following files from the Galaxy
+distribution  tape  can be found in the DSK:  search path.  The versions
+of the files from the Galaxy tape used to build IBMCON  must  correspond
+to  the versions of the files used to build the Galaxy which runs on the
+same system as IBMCON.
+
+GLXINI.REL
+OPRPAR.REL
+GLXMAC.UNV
+QSRMAC.UNV
+ORNMAC.UNV
+
+
+     Rebuilding IBMCON also requires that these files from the DN6x tape
+can be found in the DSK:  search path:
+
+IBMCON.MAC
+D60HOK.MAC
+D60UNV.UNV
+D60JSY.MAC
+
+
+     Executing the following steps will rebuild IBMCON.EXE:
+
+@COMPILE D60HOK+D60JSY D60HOK.REL
+@LOAD IBMCON
+@SAVE
+   

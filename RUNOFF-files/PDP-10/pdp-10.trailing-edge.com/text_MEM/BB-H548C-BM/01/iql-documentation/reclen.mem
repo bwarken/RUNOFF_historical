@@ -1,0 +1,223 @@
+Changing Record Lengths in IQL3                                   Page 1
+
+
+     1.  Standard (Field Image or  Field  Test)  versions  of  IQL3  are
+         distributed  with  generous record lengths for user data files.
+         If you do not have files with records this long, IQL uses  more
+         core  than  necessary.   You can cut down on (or enlarge) these
+         record lengths with no impact on the output  of  IQL,  and  the
+         shorter the record lengths, the faster IQL will run.
+
+     2.  The standard compiled-in record lengths on distributed versions
+         are, at the time of writing:
+
+                Primary ASCII sequential file:          3410 characters
+                Primary SIXBIT sequential file:         4092 characters
+
+                Primary ASCII ISAM  file:               3410 characters
+                        x 10 blocking factor
+                Primary SIXBIT ISAM file:               4092 characters
+                        x 10 blocking factor
+
+                Secondary ASCII sequential file:        3410 characters
+                        (also tertiary)
+                Secondary SIXBIT sequential file:       4092 characters
+                        (also tertiary)
+
+                Secondary ASCII ISAM file:              3410 characters
+                (and tertiary)  x 10 blocking factor
+                Secondary SIXBIT ISAM file:             4092 characters
+                (and tertiary)  x 10 blocking factor
+
+     3.  Normally secondary and tertiary files are used for lookup under
+         control  of  the  primary  file.   They are usually quite a bit
+         shorter than the primary file, which is  often  a  long  record
+         length master file.
+
+     4.  We therefore suggest consideration of the following procedure:
+
+         1.  Canvass your users to see what the longest  record  lengths
+             they  expect  to present to IQL.  Break expected file usage
+             into one of the categories shown above.
+
+         2.  Edit the IQL sources as described in the next paragraph and
+             regenerate the system with the new record lengths.
+
+         3.  If you are using DBMS, leave the primary SIXBIT file record
+             length  (the  file  is  named INF1SD6) sufficiently long to
+             hold the  concatenated  records  from  the  database.   IQL
+             abutts  the  database  records  end-to-end  in this buffer,
+             thereby requiring that it be moderately large.  In  certain
+             installations  using DBMS, it may even be the case that the
+             default record buffer size is too small for very large DBMS
+             schemas.   In such cases, it is permissable to increase the
+             primary  buffer  size  as  necessary  to  accomodate   such
+             schemas.
+Changing Record Lengths in IQL3                                   Page 2
+
+
+         4.  If you choose to change the ISAM data file blocking factors
+             from  10,  you  should  also  change  the value of the item
+             MAX-BLKFACT in IQL.CBL, which  is  used  to  test  for  and
+             generate  a warning message in case someone tries to define
+             a dictionary with a bloking factor too  large.   It  is  at
+             line  sequence  number 002715, which is at the beginning of
+             the WORKING-STORAGE section.
+
+
+     5.  There is a problem in IQL that is inherent to its use of  COBOL
+         and which will go away with COBOL V13:
+
+         1.  COBOL,  at  RESET  time,  checks  the  parameters  of   the
+             compiled-in ISAM files against named files that it requires
+             to be found on DSK:.  This is the reason  the  dummy  files
+             ISAMF6.IDX and ISAMF7.IDX are required.
+
+         2.  At OPEN time COBOL complains if the parameters of the  file
+             actually   opened   (IQL   changes  the  files'  names  and
+             parameters such as  record  length,  blocking  factor,  key
+             location,  key  length,  etc.   after reset time and before
+             OPEN time).
+
+         3.  As distributed, COBOL V12 required that the  parameters  on
+             the  opened file match exactly those compiled-in.  PCO #535
+             changed this so that COBOL V12  requires  that  the  record
+             length   of  the  opened  file  be  not  greater  than  the
+             copiled-in record length, and that the blocking  factor  of
+             the opened file be not greater than that of the compiled-in
+             file.  This means that in setting  up  the  new  ISAM  file
+             parameters  in  IQL you should independently set the record
+             length to the maximum record length you expect for any ISAM                                                                ___
+             file,  and the blocking factor independently to the maximum
+             blocking factor you expect in  any  such  ISAM  file.   The                                            ___
+             alternative is to block down the actual ISAM data files for
+             IQL usage.
+
+Changing Record Lengths in IQL3                                   Page 3
+
+
+     6.  The following lines in the modules shown are  those  to  change
+         for record lengths:
+
+
+
+                              Module IQE:
+
+
+Primary sequential SIXBIT file:
+        002120 01 INF1SD6-REC PIC X(3410).
+
+Primary sequential ASCII file:
+        002260 01 INF1SD7-REC PIC X(3410).
+
+Secondary and Tertiary sequential SIXBIT files:
+        002400 01 INF2SD6-REC PIC X(3410).
+        002680 01 INF3SD6-REC PIC X(3410).
+
+Secondary and Tertiary sequential ASCII files:
+        002540 01 INF2SD7-REC PIC X(3410).
+        002820 01 INF3SD7-REC PIC X(3410).
+
+Primary SIXBIT ISAM file:
+        003400     LABEL RECORDS ARE STANDARD 
+                        BLOCK CONTAINS 10 RECORDS
+        003440 01 INF1ISAM6-REC.
+        003460     02  INF1ISAM6-RECKEY PIC X(30).
+        003480     02  FILLER           PIC X(4062).
+
+Primary ASCII ISAM file:
+        003580     LABEL RECORDS ARE STANDARD 
+                        BLOCK CONTAINS 10 RECORDS
+        003620 01 INF1ISAM7-REC.
+        003640     02  INF1ISAM7-RECKEY PIC X(30).
+        003660     02  FILLER           PIC X(4062).
+
+Secondary and Tertiary SIXBIT ISAM files:
+        003760     LABEL RECORDS ARE STANDARD 
+                        BLOCK CONTAINS 10 RECORDS
+        003800 01 INF3ISAM6-REC.
+        003820     02  INF3ISAM6-RECKEY PIC X(30).
+        003840     02  FILLER           PIC X(4062).
+
+        004120     LABEL RECORDS ARE STANDARD 
+                        BLOCK CONTAINS 10 RECORDS
+        004160 01 INF3ISAM6-REC.
+        004180     02  INF3ISAM6-RECKEY PIC X(30).
+        004200     02  FILLER           PIC X(4062).
+
+Secondary and Tertiary ASCII ISAM files:
+        003940     LABEL RECORDS ARE STANDARD 
+                        BLOCK CONTAINS 10 RECORDS
+        003980 01 INF2ISAM7-REC.
+        004000     02  INF2ISAM7-RECKEY PIC X(30).
+        004020     02  FILLER           PIC X(3380).
+Changing Record Lengths in IQL3                                   Page 4
+
+
+        004300     LABEL RECORDS ARE STANDARD 
+                        BLOCK CONTAINS 10 RECORDS
+        004340 01 INF3ISAM7-REC.
+        004360     02  INF3ISAM7-RECKEY PIC X(30).
+        004380     02  FILLER           PIC X(3380).
+Changing Record Lengths in IQL3                                   Page 5
+
+
+                               Module IQU
+
+
+001420 FD  QIFLE7
+001440     VALUE OF IDENTIFICATION IS QIFLE7-ID
+001460     LABEL RECORD IS STANDARD
+001480     BLOCK CONTAINS 0 RECORDS
+001500     DATA RECORD IS QIFLE7-REC.
+001520 01  QIFLE7-REC USAGE IS DISPLAY-7.
+001540     02  FILLER          PIC X(3410).
+001560
+001580 FD  QIFLE6
+001600     VALUE OF IDENTIFICATION IS QIFLE6-ID
+001620     LABEL RECORD IS STANDARD
+001640     BLOCK CONTAINS 0 RECORDS
+001660     DATA RECORD IS QIFLE6-REC.
+001680 01  QIFLE6-REC USAGE IS DISPLAY-6.
+001700     02  MAIN-REC.
+001720         04  MAIN-REC72   PIC X(72).
+001740         04  FILLER       PIC X(4020).
+001760
+001780 FD  QOFLE7
+001800     VALUE OF IDENTIFICATION IS QOFLE7-ID
+001820     LABEL RECORD IS STANDARD
+001840     BLOCK CONTAINS 0 RECORDS
+001860     DATA RECORD IS QOFLE7-REC.
+001880 01  QOFLE7-REC USAGE IS DISPLAY-7.
+001900     02  FILLER          PIC X(3410).
+001920
+001940 FD  QOFLE6
+001960     VALUE OF IDENTIFICATION IS QOFLE6-ID
+001980     LABEL RECORD IS STANDARD
+002000     BLOCK CONTAINS 0 RECORDS
+002020     DATA RECORD IS QOFLE6-REC.
+002040 01  QOFLE6-REC USAGE IS DISPLAY-6.
+002060     02  FILLER          PIC X(4092).
+
+002280 FD  QISAM6
+002300         VALUE OF IDENTIFICATION IS QIFLE6-ID
+002320     LABEL RECORDS ARE STANDARD
+002340     BLOCK CONTAINS 10 RECORDS
+002360     DATA RECORD IS QISAM6-REC.
+002370*    *NOTE THAT BOTH RECORD AND KEY BELOW -MUST- BE WORD-ALIGNED
+002380 01  QISAM6-REC DISPLAY-6.
+002390     02  QISAM6-RECKEY PIC X(30).
+002400     02  FILLER        PIC X(4062).
+002404 
+002440 FD  QISAM7
+002460     VALUE OF IDENTIFICATION IS QIFLE7-ID
+002480     LABEL RECORDS ARE STANDARD
+002500     BLOCK CONTAINS 10 RECORDS
+002520     DATA RECORD IS QISAM7-REC.
+002530*    *NOTE THAT BOTH RECORD AND KEY BELOW -MUST- BE WORD-ALIGNED
+002540 01  QISAM7-REC USAGE IS DISPLAY-7.
+002550     02  QISAM7-RECKEY PIC X(30).
+Changing Record Lengths in IQL3                                   Page 6
+
+
+002560     02  FILLER        PIC X(3380).

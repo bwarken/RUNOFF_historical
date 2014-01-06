@@ -1,0 +1,754 @@
+
+
+
+
+          
+
+
+
+
+                             AN INTRODUCTION TO MIC
+
+
+
+
+
+     MIC stands for Macro Interpreted Commands and is a system that  allows                    _     _           _
+     users to create their own system commands.
+
+     This User Guide is intended as an introduction  to  MIC;   it  is  not
+     intended as a reference document.  A MIC reference manual is available
+     for a small fee from the Job Receptionist and a copy is  held  in  the
+     user  area  book  racks.   A MIC Summary Card is also available (free)
+     from Job Reception.
+
+
+     keywords:  MIC, macro commands, command files
+
+
+                                                              J.D. Service
+                                                              A.J. Bullen
+
+
+
+          CONTENTS                                                    page
+
+     1.  What MIC does                                                 2
+     2.  Creating MIC files                                            3
+     3.  Calling MIC files                                             3
+     4.  Example                                                       4
+     5.  Parameters in MIC macro commands                              4
+     6.  Labels and branching facilities                               6
+     7.  Error detection and processing                                7
+     8.  Silencing MIC                                                10
+     9.  Manipulating parameters in a command file                    11
+     10. Character subscripting facilities                            11
+     11. Other useful facilities                                      12
+     12. Miscellaneous notes on MIC                                   13
+     13. Commands not covered in this guide                           13
+
+
+
+
+
+
+
+
+This is a reprint with minor changes of the version dated 1 September 1978.
+Replacement is not necessary.
+     User Guide No. U6                                               Page 2
+     14 November 1979
+
+
+ 1.  What MIC does. __  ____ ___ _____
+
+
+     MIC is particularly useful if you are a regular user of the system and
+     find  that  you  are  frequently typing the same sequence of commands,
+     which is boring.  What you require is a single command which  performs
+     the  functions  of  all  of your commands.  In computer jargon this is
+     called a MACRO command, and on the DEC-10 they are known as
+
+          macro commands
+     or   MIC commands
+     or   MIC command files.
+
+     For example if you frequently use the sequence of commands:
+
+          .DELETE *.TMP,*.Q??
+          .EX LINUS.FOR,SYS:NAGF/LIB
+
+     you could create a macro command called SNOOPY, say, to perform  their
+     combined function.  
+
+     To do this, SOS or TECO (see User Guide U2 for SOS  or  U1  for  TECO)
+     could  be used to create a file, called a MIC file, containing the two
+     commands (including the full stops at the start  of  the  lines).   If
+     this  file was called SNOOPY.MIC - note the .MIC extension - you could
+     cause the sequence of commands to  be  obeyed  simply  by  typing  the
+     single command
+
+          .DO SNOOPY          _
+
+     The commands in the MIC file will then be typed on your  terminal  and
+     obeyed  as  if  you had typed them;  all output from the commands will
+     also be displayed on the  terminal.   The  file  SNOOPY.MIC  can  then
+     remain available for use at any time.
+
+
+     MIC files may contain any number of commands, of any  type,  including
+     macro  commands.  In order to make MIC commands more useful, MIC files
+     may  use  many  other  facilities,  including  command  arguments  (or
+     parameters)   and  switches  in  the  command  call,  conditional  and
+     branching statements to enable jumps to labelled lines, and assignment
+     statements  which  allow  parameters  and  variables to be assigned or
+     altered during the processing of the MIC command.
+
+
+
+     User Guide No. U6                                               Page 3
+     14 November 1979
+
+
+ 2.  Creating MIC files. __  ________ ___ ______
+
+
+     MIC files may be created using a normal text file editor, e.g.  SOS or
+     TECO.  The file may be with or without line numbers.  It will normally
+     have the extension .MIC.
+
+     Each line should have as its first non-space or tab character  one  of
+     the characters =, ., *, !  or ; which are interpreted as follows:
+
+          .    monitor command follows
+          *    data to be input to a program follows
+          =    ignore carriage return at the end of this line
+          !    comment line follows
+          ;    comment line follows (see section 8 for difference from !)
+
+
+     In order to get control characters such as  control-C,  control-Z,  or
+     altmode  into  a  MIC  file,  the  control  key  and the character are
+     replaced by the up-arrow key followed by the character, e.g.
+
+          ^C for control-C
+          ^Z for control-Z
+          ^[ for altmode (escape)
+
+     The ' (single  quotation  mark)  followed  by  a  letter  indicates  a
+     parameter in MIC (see section 5) so if quotation marks are needed in a
+     MIC file it is advisable to use double quotes ("<text>").
+
+     If any of the special characters described in this section is required
+     as itself, however, the character should be repeated, e.g.
+
+          ^^C                        gives ^C not control-C.
+          VID:''MYTAPE'              gives VID:'MYTAPE' not parameter M
+
+     Note - the characters =, ., *, !, and ;  need only be repeated if they
+     are required in the first character position of a line.
+
+
+
+ 3.  Calling MIC files. __  _______ ___ ______
+
+
+     MIC files are called into action with a command of the form
+
+          .DO <dev>:<micfilename>[<ppn>]          _
+
+     where the device, ppn and file extension are optional.  If the file is
+     in your own disk area or in the MIC library area (MIC:), the following
+     is sufficient:
+
+          .DO <micfilename>          _
+
+     User Guide No. U6                                               Page 4
+     14 November 1979
+
+
+     because the defaults are
+
+          DSK:, or if not found, MIC:, for device
+          your own project-programmer number for [<ppn>]
+          .MIC for the filename extension.
+
+
+
+ 4.  Example. __  ________
+
+
+     The following is an example of a computer session to create and use  a
+     MIC file to tidy up one user's disk area:
+
+          .MAKE TIDY.MIC           Call TECO to make a file called TIDY.MIC.          _
+          *I.DELETE *.BAK          Insert monitor commands as shown ...          _
+          .PROTECT *.DAT <177>     
+          .PRINT *.LST             
+           $ $
+          *EX $ $                  Exit from TECO.          _
+
+          .DO TIDY                 Call TIDY.MIC into action          _
+          .DELETE *.BAK            From this point on, the system           _______ _____
+          FILES DELETED            obeys your MIC file automatically.          _____ _______
+          FIND.BAK                 The remainder of the example has           ________
+          10 BLOCKS FREED          been output in its entirety by           __ ______ _____
+          .PROTECT *.DAT <177>     the system with no input from you.          ________ _____ _____
+          FILES RENAMED          _____ _______
+          TEST.DAT          ________
+          TEST1.DAT          _________
+          .PRINT *.LST          _
+          [LPT:<filename>=/Seq:2601/Limit:203,4 Files]          _____________________________________ ______
+          .          __
+
+
+
+ 5.  Parameters in MIC macro commands. __  __________ __ ___ _____ _________
+
+
+     More generalised commands may be constructed using parameters  in  the
+     MIC  file  to  stand  for filenames or other quantities which would be
+     entered in the MIC command command call.  The full specification of  a
+     MIC call is
+
+          .DO <dev>:<micfilespec>[<ppn>] <parameterA>, <parameterB>, ...          _
+
+     A parameter may be  any  string  of  characters  separated  by  commas
+     (special rules exist for brackets - see the MIC Reference Manual).  Up
+     to 26 parameters are allowed and within the MIC file itself  they  are
+     introduced  by  'A,  'B,  'C  ....'Z,  i.e.   a letter of the alphabet
+     preceded by a single quote.  During execution  of  a  macro  a  single
+     quote  followed  by  the  <n>th  letter of the alphabet will always be
+     replaced by the <n>th parameter in the MIC call.  
+     User Guide No. U6                                               Page 5
+     14 November 1979
+
+
+     As an example, the TIDY macro described earlier changed the protection
+     code  of all .DAT files to 177.  The actual protection code used could
+     have been selected at run time  by  giving  the  required  code  as  a
+     parameter in the MIC call.  To do this the MIC file should contain
+
+          .DELETE *.BAK
+          .PROTECT *.DAT <'A>
+          .PRINT *.LST
+
+     To obtain a protection of 177 the MIC call is
+
+          .DO TIDY 177          _
+
+     To obtain a protection of 157 the MIC call is
+
+          .DO TIDY 157          _
+
+     In the first case 177 is substituted for  'A  at  run  time;   in  the
+     second case 157 is substituted.
+
+
+     Parameters are very useful when setting up MIC files which will act on
+     file  names  at run time;  the parameters will then be file names.  As
+     an example consider the problem of retrieving a file from  a  magnetic
+     tape.   First  the magnetic tape must be mounted, then the file copied
+     to disk.  Finally you may want to see that the file  has  really  been
+     retrieved by checking your directory listing.  It is possible to write
+     a retrieval macro called, say, RESTOR, which would  perform  the  task
+     when you give a command of the form
+
+          .DO RESTOR <filename>.<ext>          _
+
+     The commands in RESTOR.MIC would be
+
+          .MOUNT MTA:BACKUP/REELID:Y00530/VID:"FRED BLOGGS"
+          .R BACKUP
+          *RESTORE 'A
+          *EXIT
+          .DIR/FAST
+
+     When the MIC command call
+
+          .DO RESTOR PROG1.F4          _
+
+     is typed, PROG1.F4 would be substituted for 'A in  the  processing  of
+     the macro.
+
+     The example can be further generalised by  using  parameters  for  the
+     tape identity.  In this case RESTOR.MIC would contain
+
+          .MOUNT MTA:BACKUP/REELID:'B/VID:"'C"
+          .R BACKUP
+          *RESTORE 'A
+          *EXIT
+          .DIRECT/FAST
+     User Guide No. U6                                               Page 6
+     14 November 1979
+
+
+     and a MIC call would be of the form
+
+          .DO RESTOR PROG2.ALG,Y00537,BILL SMITH          _
+
+
+
+ 6.  Labels and branching facilities. __  ______ ___ _________ ___________
+
+
+     The normal sequential processing of a MIC file may be  interrupted  by
+     using  jump  commands  to  labelled  lines.   Conditional  statements,
+     described later, allow a conditional jump or a conditional command  to
+     be included.
+
+
+                                      NOTE
+
+         These jump commands and conditional statements, as well as the
+         error  processing  features  described  in section 7, have the
+         same names and functions as those used by the batch system.
+
+
+     6.1  Labels.     ___  _______
+
+
+     A line in MIC may be labelled by placing the label at the beginning of
+     the  line.  A label consists of one to six alphanumeric characters and
+     is terminated by a double colon (::).  Example -
+
+          FRED::.DELETE *.BAK
+
+
+     6.2  Jump statements.     ___  ____ ___________
+
+
+     Two jump statements are available:
+
+          .GOTO      
+     and  .BACKTO      
+
+     The GOTO statement is used for a forward branch and the BACKTO  for  a
+     backward branch.  (`Backward' here means going to the beginning of the
+     file and starting the search from there.)
+
+     A not to be recommended  example  which  will  perform  DIRECT  in  an
+     infinite loop is
+
+          FRED::.DIRECT
+          .BACKTO FRED
+
+     User Guide No. U6                                               Page 7
+     14 November 1979
+
+
+     Another not very exciting example is
+
+          .GOTO MYLAB
+          .DEL *.TMP
+          MYLAB::.RENAME OLD.DAT=FOR05.DAT
+
+     because the .DEL *.TMP will never be obeyed.
+
+
+     There is one label, %FIN, which acts as a kind of `super label' and is
+     branched  to by any GOTO or BACKTO if the %FIN occurs before the label
+     for which they are searching.  In the following example,
+
+          .GOTO FRED
+              .
+              .
+              .
+          %FIN::.COMP MYPROG.FOR
+          FRED::.DIR
+
+     the statement GOTO FRED will cause a branch to %FIN rather  than  FRED
+     because %FIN occurs before FRED.
+
+
+
+ 7.  Error detection and processing. __  _____ _________ ___ ___________
+
+
+     When a monitor or system program error  occurs  an  error  message  is
+     normally  output,  and  this  is  what most sensible user programs do.
+     Conventionally error messages are preceded by ?  for fatal errors, and
+     %  for warnings, and this `error character' always occurs as the first
+     character of an output line.  MIC, like the batch system,  allows  you
+     to  monitor  this  first character in the output line and take special
+     action if your defined error character occurs in this position.
+
+     By default this facility is off, unless you are running MIC in  batch.
+     To use it, you include a command of the form
+
+          .ERROR <character>          _
+
+     to inform MIC which character in the first character position  of  the
+     output  line  is  to  be  regarded  as preceding an error message.  In
+     batch, the default  character  is  question  mark  (?).   This  single
+     command allows you to introduce very simple error processing into your
+     MIC macro.  Whenever the error character specified by the  command  is
+     detected, processing of the MIC file will cease and the message
+
+          [ABORT ON ERROR]
+
+     will be displayed.
+
+
+     User Guide No. U6                                               Page 8
+     14 November 1979
+
+
+     For example if we modify the TIDY macro thus:
+
+          .ERROR ?
+          .DELETE *.TMP
+          .PROTECT *.DAT <'A>
+          .PRINT *.LST
+
+     then if we give an invalid argument to the macro the result will be:
+
+          .DO TIDY 875          _
+          .ERROR ?          _
+          .DELETE *.TMP          _
+          FILES DELETED          _____ _______
+          XYZ.TMP          _______
+          .PROTECT *.DAT <875>          _
+          FILES RENAMED          _____ _______
+          ?CMLIPC Illegal protection code: 875          _______ _______ __________ _____ ___
+          [ABORT ON ERROR]          ______ __ ______
+          .          _
+
+     Note that the PRINT command has not been obeyed.
+
+
+     While this is useful it is obviously  more  useful  if  the  user  can
+     specify  what  action  is  to  be  taken if an error is detected.  MIC
+     provides three ways in which this can be done (only two of  which  are
+     described  in this document) and all three may be included in the same
+     macro.
+
+
+
+ 7.1  Error labels. ___  _____ _______
+
+
+     The first method is to  include  error  recovery  labels  at  suitable
+     points within the MIC macro.  There are three special labels which may
+     be classed as error recovery labels;  "%ERR", "%CERR", and "%FIN".
+
+     On detecting an error character MIC does not actually stop  processing
+     the  MIC  file  immediately as was said in the last section, rather it
+     searches the remaining part of the MIC file for the occurrence of  one
+     of the three error labels.  Which label is searched for depends on the
+     following simple rule:
+
+     If the error occurred in a program which  came  from  SYS:   (i.e.   a
+     systems  program)  or a monitor command, the label "%CERR" is searched
+     for, otherwise the label "%ERR" is searched for.  However  "%FIN"  has
+     the  same  super-label  effect described in section 6.2 and if, during
+     the search for "%ERR" or "%CERR" a "%FIN" label is  encountered,  this
+     will be regarded as satisfying the search.
+
+     Once MIC has found one of these error labels it  `forgets'  about  the
+     error  and  continues  processing  the  command  file  from a position
+     immediately after the error label.
+
+     User Guide No. U6                                               Page 9
+     14 November 1979
+
+
+     For example if our TIDY macro is modified thus:
+
+          .ERROR ?
+          .DELETE *.TMP
+          .PROTECT *.DAT <'A>
+          %FIN::.PRINT *.LST
+
+     the print command will always be obeyed even if  an  error  occurs  in
+     either of the preceeding two commands.
+
+     An alternative form is:
+
+          .ERROR ?
+          .DELETE *.TMP
+          .PROTECT *.DAT <'A>
+          %CERR::.PRINT *.LST
+
+     because DELETE and PROTECT are system commands, but
+
+          .ERROR ?
+          .DELETE *.TMP
+          .PROTECT *.DAT <'A>
+          %ERR::.PRINT *.LST
+
+     is not correct.        ___
+
+
+     These labels may occur as often as required in a MIC macro as the file
+     is always searched forward for error characters.
+
+     For example the following would be a rather silly way of ignoring all
+     errors in TIDY:
+
+          .ERROR ?
+          %FIN::.DELETE *.TMP
+          %FIN::.PROTECT *.DAT <'A>
+          %FIN::.PRINT *.LST
+
+     or
+
+          .ERROR ?
+          %FIN::.DELETE *.TMP
+          %CERR::.PROTECT *.DAT <'A>
+          %CERR::.PRINT *.LST
+
+     or any other combination of %CERR and %FIN.
+
+
+
+     7.2  Error conditionals.     ___  _____ _____________
+
+
+     The second method of processing errors allows  a  much  finer  control
+     over  error  recovery,  and to explain how it works we must once again
+     change our explanation of MIC's action on detecting an error.
+     User Guide No. U6                                              Page 10
+     14 November 1979
+
+
+     When an error is detected the command file is first searched  for  the
+     next  monitor  level  line,  that is the next line starting with a "."
+     (see section 2) and if the command on that line is
+
+          .IF (ERROR) <argument>
+
+     or
+
+          .IF (NOERROR) <argument>
+
+     processing of the command file will recommence  with  that  same  "IF"
+     command.  
+
+     If a %FIN or other appropriate error label is found during the  search
+     for the next monitor level command the error will be treated as in the
+     previous section.  Similarly if the first command line is not  one  of
+     the  two  IF  commands  the  error  will be treated as in the previous
+     section.
+
+     Thus if we modify TIDY yet again -
+
+          .ERROR ?
+          .DELETE *.TMP
+          .PROTECT *.DAT <'A>
+          .IF (ERROR) .DIR/F
+          .PRINT *.LST
+
+     then if an error occurs in the PROTECT command the command IF  (ERROR)
+     will  cause  the  DIR/F  command  to  be  obeyed followed by the PRINT
+     command, but if the error occurs in the DELETE  command  none  of  the
+     following commands will be obeyed.
+
+
+ 8.  Silencing MIC. __  _________ ____
+
+
+     Generally the commands in a MIC control file  will  be  typed  on  the
+     terminal  as they are obeyed.  However this type-out can be suppressed
+     by the MIC command .SILENCE or reinstated by the command .REVIVE.  For
+     example
+
+          .SILENCE 
+          .R SETSRC
+          *NEW
+          ^C
+
+     in a MIC file will suppress the output from the running of SETSRC.
+
+     The whole MIC control file may be silenced by giving it  a  protection
+     code  of <2??>, i.e.  any protection with the first digit a `2'.  This
+     is over-ridden in the file by  any  .REVIVE  command.   In  the  above
+     example this would allow the .SILENCE command to be omitted.
+
+     Note that comments preceeded by "!"  will  be  displayed  despite  the
+     SILENCE condition;  those preceeded by ";" will not.
+     User Guide No. U6                                              Page 11
+     14 November 1979
+
+
+ 9.  Manipulating parameters in a command file. __  ____________ __________ __ _ _______ _____
+
+
+     Users' parameters to MIC command files are held within  MIC  as  ASCII
+     strings.   The  LET  statement  allows a user to change parameters and
+     define new parameters during the processing of a MIC file by assigning
+     a string or integer expression to the parameter thus:
+
+             .LET <parameter name>=<expression>
+
+     where  <parameter name> is a parameter to the MIC file
+            either passed in the calling statement or newly 
+            constructed.  It must be one of the characters 
+            A through Z.
+
+            <expression> is either a string expression or a
+            simple integer expression.
+
+     A string expression may be a simple string such as "FRED.FOR" or  have
+     a  more  complex form allowing a string to be constructed from strings
+     in  other  parameters;   e.g.   $A+"."+$B  is  an   expression   which
+     concatenates  three  strings.   Note  the  use  of  the  $  before the
+     parameter to indicate that the contents of the  parameter  are  to  be
+     treated as a string, i.e.  $A is equivalent to "'A".
+
+     An integer  expression  may  also  have  parameters  and  involve  the
+     arithmetic  operators  + - * / and ^ where the normal precedence rules
+     apply.  An example of an integer expression is 3*C+A-B.
+
+     Examples:
+
+     a)  .LET Z="THIS FORMS A NEW PARAMETER"
+         Whenever parameter Z is referred to in future it 
+         will contain the text "THIS FORMS A NEW PARAMETER"
+
+     b)  A calling statement of DO LINUS DSKD and statements in
+         the MIC file LINUS of
+         .LET F="[1045,33]"
+         .LET H=$A+"FRED.FOR"+$F
+         .EX 'H
+         would execute the program DSKD:FRED.FOR[1045,33]
+
+     c)  .LET D=A+1 will add the integer 1 to the integer
+         held in A.  If A does not contain an integer an 
+         error message will result.
+
+
+
+ 10. Character subscripting facilities. ___ _________ ____________ ___________
+
+
+     Any single character or  group  of  characters  in  a  string  may  be
+     referred  to individually by using the subscripting facilities.  These
+     allow you to give a MIC command  which  will  loop  around  a  set  of
+     monitor commands substituting a different parameter from a sequence of
+     parameters each time the loop is obeyed.
+     User Guide No. U6                                              Page 12
+     14 November 1979
+
+
+     A subscripted string expression used in a LET statement has the form
+
+          $<parameter>.[<subscript1>,<subscript2>]
+
+     The first subscript specifies the first character to be extracted from
+     the  string contained in the parameter, the second subscript specifies
+     the total number of characters to be extracted.
+
+     Thus if parameter A contains the string BCDEF the  subscripted  string
+     expression $A.[2,3] refers to the string CDE.
+
+     The second subscript may be omitted and in this case the length of the
+     extracted  string  is  assumed  to  be  one character.  The expression
+     $A.[4] refers to the 4th character in the string, i.e.  character E in
+     the above example.
+
+     Negative subscripts may be used to count backwards from the end of the
+     string.  If A contains BCDEFG then $A.[-2] refers to character F.
+
+
+
+ 11. Other useful facilities. ___ _____ ______ ___________
+
+
+     11.1  The PLEASE command.     ____  ___ ______ ________
+
+
+     A PLEASE command exists to enable a message to be transmitted  to  the
+     user  of a MIC file.  This may be used to indicate progress during the
+     operation of a silenced MIC file or to transmit  a  message  from  the
+     creator of a MIC file to a user of the file.
+
+     The form of the command is
+
+          .PLEASE <message> $
+
+     The message is displayed on the terminal when the  PLEASE  command  is
+     processed in the MIC file.  If the terminating altmode is omitted then
+     MIC will suspend processing until you give instructions to proceed  by
+     typing control-P - see section 11.2.
+
+
+     11.2 Suspending MIC processing.     ____ __________ ___ ___________
+
+
+     The processing of a MIC file may be  suspended  by  typing  control-B.
+     MIC will then output the message [BREAK] and await further action from
+     you.
+
+     At this stage any monitor command or any MIC command may be typed  in.
+     (If a MIC command is typed in, the initial `.' should be omitted.) You
+     may for example wish to type in LET commands to alter  the  values  of
+     the parameters in the suspended MIC file or GOTO and BACKTO statements
+     to cause jumps to other parts of the MIC file.
+
+     User Guide No. U6                                              Page 13
+     14 November 1979
+
+
+     To continue processing of the MIC file type control-P.  Any changes in
+     parameters  or  instructions  to  jump  to  labelled  commands will be
+     recognised in the processing of the remainder of the MIC file.
+
+     Note that a control-C typed in during the break period will cancel the
+     suspended MIC process.
+
+
+     11.3 Nested MIC processes     ____ ______ ___ _________
+
+
+     MIC command files may themselves contain MIC commands.  Each file  may
+     have  its own parameters but inner processes may access the parameters
+     in an outer process.   For  further  details  see  the  MIC  reference                                                             ___  _________
+     manual.     ______
+
+
+
+ 12. Miscellaneous notes on MIC. ___ _____________ _____ __ ____
+
+
+  a) If a job is currently executing a MIC file, type-ahead is not allowed.
+     The  only  exception  is for control characters;  all other type-ahead
+     will be discarded.
+
+  b) An existing batch control file can be run as a MIC macro as long as it
+     does  not  include single quote characters which MIC will interpret as
+     parameter indicators.
+
+
+
+ 13. Commands not covered in this guide. ___ ________ ___ _______ __ ____ ______
+
+
+     The following MIC facilities are not covered in this  user  guide  but
+     are fully documented in the MIC reference manual.                                 ___ _________ ______
+
+     Multiple LET statements
+     IF (command) extensions
+     OPERATOR/NOOPERATOR commands
+     MIC RESPONSE command
+     MIC ABORT command
+     MIC CANCEL command
+     MIC BREAK command
+     MIC PROCEED command
+     MIC EXIT command
+     MIC RETURN command
+     MIC INPUT command
+     Obtaining system parameters such as TTY number, PPN, Job numbers
+     ON command
+     WHENEVER command
+     MIC SET command
+     MIC COJOB
+     Action parameters
+     Multiple commands on a line
+     User Guide No. U6                                              Page 14
+     14 November 1979
+
+
+     You are advised to see the MIC reference manual for full documentation                                ___ _________ ______
+     on  MIC.  A copy is held in the computer building user area book rack,
+     and copies may also be obtained from Job Reception for a small fee.

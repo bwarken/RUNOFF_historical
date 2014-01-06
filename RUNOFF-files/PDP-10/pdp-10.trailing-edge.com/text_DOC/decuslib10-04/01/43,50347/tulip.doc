@@ -1,0 +1,3961 @@
+
+
+
+
+                           Table of Contents
+
+
+
+1      Abstract.
+
+2      Introduction.
+
+3      Primer overview.
+
+4      Program 1 - A Date/Time printer.
+
+5      Program 2 - Print directory of DTA0.
+
+6      Register conventions.
+
+7      Input UUOs.
+
+8      Program 3 - Print a directory from any DECtAPE.
+
+9      LEXINT - The 'L' in TULIP.
+
+10     Program 4 - The last one.
+
+11     SIXSRC and coroutines.
+
+12     Command files.
+
+13     Odds and ends.
+
+14     Future plans and possibilities.
+
+15     Reference manual.
+
+
+
+
+Author      Eric Werme
+  Date      February, 1975
+  File      TULIP.RND
+
+
+                               Dedication
+
+     This manual is dedicated to  Ed  Taft  who  wrote  TULIP  while  an
+undergraduate  student  at  Harvard (and who tells me I should also give
+credit to George Mealy who was his project advisor).   I  hope  I  never
+find another piece of code so deserving of good documentation in such an
+undocumented state!
+TULIP - an IO package for MACRO-10 programs                       Page 2
+ABSTRACT
+
+
+1.0  ABSTRACT
+
+     An  LUUO  driven,  byte  (or  character)  oriented  IO  package  is
+described.   Capabilities  include  octal or decimal output with leading
+spaces or zeros, SIXBIT  or  ASCII  strings  with  extensive  formatting
+capabilities,  IO  error  detection  with limited handling but excellent
+reporting, and a character oriented lexical analyzer.  This is the  only
+stuffy section in the whole manual.
+TULIP - an IO package for MACRO-10 programs                       Page 3
+INTRODUCTION
+
+
+2.0  INTRODUCTION
+
+     One of the main reasons why most computer  languages  have  runtime
+systems  is  to  provide  an  easy means of doing IO.  Without this aid,
+writing even the simplest program suddenly can become a tedious  affair,
+especially  if  error  handling  must  be  done.   Assembler  and  BLISS
+programmers have long been aware of these problems but for the most part
+have  simply put up with them.  Those who decide to try their hand at an
+IO package generally wind up with something too simple or  small  to  be
+used  by  others,  or (if they have the time) some monster containing so
+much that it is difficult to learn and often puts restrictions  on  what
+the programmer is allowed to do himself.  (Assigning channel numbers and
+error recovery are common problems.)
+
+     TULIP (The Uuo/Lexint Io Package) is designed for use with MACRO-10
+programs,  and  perhaps could be interfaced to BLISS, but at the loss of
+some features.  (A simple solution I've found  to  that  problem  is  to
+rewrite  BLISS  programs  in MACRO.  The improvement is phenomenal!) The
+TULIP distribution consists of several files for both the IO package and
+documentation:
+
+   TULIP.MAC - A  universal  file  that  supplies  AC,  UUO,  and  macro
+      definitions  that enable the TULIP features to be used.  This file
+      should be used with any program that uses TULIP.
+
+   TULLIB.MAC - The TULIP library and is  searched  at  load  time  with
+      every program.  It consists of two modules:
+
+      UUO - The UUO handler itself.  Always loaded.
+
+      LEXINT - The lexical  interpreter.   Loaded  only  if  the  symbol
+         LEXINT is declared external.  
+
+   TULIP.RND - The RUNOFF (version 10 or later,  NOT  7B)  documentation
+      file that produces this manual.
+
+   EXAMPL.MAC - A library of four MACRO-10 programs that  are  described
+      in  detail  in  the  following  primer.  The listing of EXAMPL.MAC
+      should be appended to TULIP.DOC  produced  by  RUNOFF  to  provide
+      complete documentation.
+
+     One technique that most programmers overlook or are afraid  to  use
+are  the LUUOs, the 31 instructions (opcodes 1-37) that trap to the user
+program instead of the monitor.  A UUO can pass a surprising  amount  of
+information  -  the 5 bits of opcode, 4 of accumulator and 18 of address
+(after indexing and indirection) provide a way to pass a lot in a single
+PDP-10  word.  In many programs, the IO routines are the most frequently
+called, and just the code needed to load specific registers and call the
+routines take a considerable amount of space, whereas one UUO has enough
+room to pass the information one or  two  registers  commonly  do  in  a
+conventional  IO  package.  For example, instead of loading one register
+with a number to print and another with the field  width,  a  TULIP  UUO
+passes the width from 0 to 15 spaces in the accumulator field and points
+to the  data  in  the  address  field.   What  might  have  taken  three
+TULIP - an IO package for MACRO-10 programs                       Page 4
+INTRODUCTION
+
+
+instructions  is accomplished with one UUO.  Because TULIP UUOs point to
+their data, a temporary accumulator may be used as a loop counter inside
+a low level loop without worrying about whether or not any IO calls will
+clobber it or need it as  a  parameter.   While  UUO  handlers  do  need
+accumulators,  any  saving  and restoring may now take place at a single
+point in the program instead of either at the caller or the  IO  routine
+itself.
+
+     This is not to say  UUOs  are  without  problems  -  there  is  new
+overhead  processing,  both  from  the  execution of the UUO (which is a
+rather slow instruction, slower than a MOVEM/PUSHJ pair), and time spent
+decoding  and dispatching to the various UUO routines.  Still, this time
+is small in some cases compared to the time the monitor spends doing the
+actual  IO.   All in all, I think they are worth the expense considering
+what they buy.  (By  the  way,  in  cases  where  high  speed  IO  is  a
+necessity,  you  can  do  it  yourself,  while using TULIP to report any
+errors....)
+TULIP - an IO package for MACRO-10 programs                       Page 5
+PRIMER OVERVIEW
+
+
+3.0  PRIMER OVERVIEW
+
+     As mentioned before, this document is both a primer and a reference
+manual.   Programmers  typically don't write good manuals as they prefer
+to spend their time programming.  Furthermore, the mapping from  program
+to  document results in a reference manual, so generally people learning
+a new system do so the hard way.  Having been on both the receiving  and
+giving  ends, I have attempted to do things right for a change.  (By the
+way, if you think DEC turns out bad documentation,  try  to  read  IBM's
+sometime  -  PSISER  and  IPCF  excluded!)  This  primer is based on the
+development of a program that prints DECtape directories, starting  with
+one  so  simple it doesn't even use a DECtape (or print a directory) and
+culminating with one that has  a  real  command  string  processor  with
+command files, full word switches, and multiple input and output files.
+
+     Besides describing TULIP, I will also do  a  little  philosophizing
+about  MACRO  programming  along  the  way.   A word of warning - I will
+assume  a  fairly  complete  knowledge  of  MACRO-10  and   the   PDP-10
+instruction  set,  so  keep  a  copy  of  the  phone book (the assembler
+language handbook) handy.  TULIP uses DEC's C.MAC parameter file, so you
+should also be familiar with that.
+TULIP - an IO package for MACRO-10 programs                       Page 6
+PROGRAM 1 - A DATE/TIME PRINTER
+
+
+4.0  PROGRAM 1 - A DATE/TIME PRINTER
+
+     Our first program simply prints the current date and time, which we
+will use for the heading on our directories.  The date is printed twice,
+first using a simple mapping from conventional to TULIP IO,  then  again
+using  the full capabilities of TULIP.  For the time being, do not worry
+about accumulator definitions too much.   The  full  set  will  be  well
+described later on.
+
+Here are all the UUOs that we will use in this program:
+
+START - Actually a MACRO,  this  does  a  SALL  pseudo  op  to  suppress
+      printing the expansion of the MOVX class of MACROs from C.MAC, and
+      then calls an initialization routine in the UUO handler which does
+      a  RESET  UUO,  clears  the  flag  register,  and  initializes the
+      internal data structure.  This should be called between  the  time
+      the stack pointer is set up and the first TULIP UUO is executed.
+
+WDEC length,addr - Outputs an  unsigned  decimal  number  from  location
+      <addr>  in  a  field  at least <length> characters long.  For now,
+      assume that all UUOs access the TTY;  how to change that  will  be
+      discussed  in  a  section  or  two.   Free format output is simply
+      achieved by  making  <length>  be  zero,  or  by  leaving  it  out
+      altogether as is usually the case.
+
+WDECI length,number - Like WDEC but prints the  number  in  the  address
+      field of the UUO.
+
+WOCT and WOCTI - Not used, but like WDEC and WDECI, only with output  in
+      octal.
+
+WCHI character - Outputs the character given by  the  effective  address
+      field of the instruction.
+
+W2CHI <char 1>B28+<char 2> - Outputs the two right justified  characters
+      given  by the effective address field.  The symbol CRLF is defined
+      in TULIP.MAC and provides the  main  use  for  W2CHI.   Note  that
+      quoted characters (e. g. W2CHI "HI") may also be used.
+
+WCH and W2CH - Not used, but acts like WCHI  and  W2CHI,  only  printing
+      from <addr>.
+
+WNAME addr - Prints the SIXBIT word in <addr> without  trailing  spaces.
+      Good for outputing device names.
+
+DISIX [next,,[SIXBIT\string\]
+       inst 1
+       inst 2
+       ........
+       inst n] -  Outputs  a  SIXBIT  string  while  performing  special
+      actions as the following characters are processed:
+
+  #      Output a CRLF.  (No CRLF in SIXBIT).
+TULIP - an IO package for MACRO-10 programs                       Page 7
+PROGRAM 1 - A DATE/TIME PRINTER
+
+
+  $      Output a tab.  (No TAB either!)
+
+  &      Switch current case conversion.  String output is initially  in
+        upper case mode, but may be shifted to lower and back again with
+        this character.  This  allows  you  to  write  a  program  on  a
+        terminal no smarter than a model 33 TTY yet still use lower case
+        messages with a minimum of grief.  (Not  to  mention  preventing
+        continually  updating  updated  programs  to  change  upper case
+        messages into lower case!)
+
+  %      Execute the next instruction in the  <inst>  list,  which  will
+        normally  be  a  TULIP  UUO to output something like a number or
+        file name.  It may also be a PUSHJ  to  a  routine  to  do  more
+        complicated  output  than  one UUO allows, or it could even be a
+        normal instruction readying something to be printed.
+
+  "      Quoting character.  Output the next character  as  is  with  no
+        special  processing.   Needed  to print any of the characters in
+        this list.
+
+  !      End of string.  Needed because NULL  in  SIXBIT  is  the  space
+        character.   The  next  instruction  to be executed will be from
+        location <next> or will be immediately after the DISIX if <next>
+        is omitted.
+
+  DIASC [....] - Not used, but acts  like  DISIX,  only  with  an  ASCIZ
+        string.   The  only  edit  character used (or needed) is CTRL-A,
+        which acts like % does in DISIX.
+
+     The initialization for Program 1 is as simple as it  can  be.   The
+first three lines comprising section 1 are necessary and do it all.
+
+     Section 2 is the first pass  at  a  date  printer  using  only  the
+simplest   of  the  UUOs  and  without  taking  advantage  of  the  full
+capabilities of TULIP or the PDP-10 hardware.  This is for two  reasons:
+first, it makes each instruction easier to follow;  and second, it makes
+for a more direct mapping from conventional IO  packages  that  normally
+require instructions like the ADDI T2,1 since they do not generally have
+routines for printing a number one (or 64) greater than passed.
+
+     Section 3 is a much more polished date printer and  uses  the  full
+capabilities  of  TULIP.   Not  surprisingly, another advantage of TULIP
+pops up in the process.  Since we can use all  the  temporary  registers
+without needing them for parameters, we can calculate all the data first
+then print it in one fell swoop.  By putting indexing to good  advantage
+we  can  save  an  instruction  and  have  TULIP print the contents of a
+register modified by a constant, which is a feature with more uses  than
+in  just  date  printers!   There  is  one minor difference between this
+routine and the previous one - this one doesn't print the CRLF,  instead
+it  lets the time print on the same line.  Note that to include the CRLF
+all that need be done is to add a # just before the !  in the DISIX edit
+string.
+TULIP - an IO package for MACRO-10 programs                       Page 8
+PROGRAM 1 - A DATE/TIME PRINTER
+
+
+     Section 4 as promised prints the time, pretty much the same way  as
+the  date  printer  works,  but  using a couple extra features.  Here we
+start  using  the  C.MAC  macros,  both  for  arithmetic  use  and  flag
+manipulation.   (To  those  who think the IDIVX macro is a bit too much,
+compare 60*60*1000 with 2^18!) LZEFLG is the only flag  defined  in  the
+UUO processor and directs TULIP to print numbers with leading zeros when
+it is on.  Also, we now use WDEC to format not only the hours,  minutes,
+and  seconds  in  the  standard  two characters each format, but also to
+print the thousanths which needs the leading zeros.
+
+     There isn't much to say about section 5.  From here out it's pretty
+standard.   The MAKLST macro deserves a little study, as it uses the IRP
+pseudo op.  Both IRP and IRPC are extremely  powerful  -  this  is  just
+their simplest use.
+
+     Date and time routines should be subroutines (even if you expect to
+use them only once [philosophy]), and since we're writing a program that
+will be printing several dates in a list,  each  month  should  have  an
+equal  length abbreviation.  In the time routine, who gives a damn about
+the thousanths of a second?  The purpose of Program 1  was  to  give  an
+example  of  TULIP  with  as  little  overhead  as absolutely necessary.
+Program 2 will scatter in a little more and turn the date/time  routines
+into something practical.
+TULIP - an IO package for MACRO-10 programs                       Page 9
+PROGRAM 2 - PRINT DIRECTORY FOR DTA0
+
+
+5.0  PROGRAM 2 - PRINT DIRECTORY FOR DTA0
+
+     Program 2 actually goes out to a tape  and  prints  its  directory.
+For  now,  the  choice  is  rather  limited (DTA0) and the output format
+equally so (no choice between long and short forms).  There's  a  little
+more  overhead  in  the  program such as the title and subtitle, and the
+code is now in the HISEG and is reentrant.  Various symbols are  defined
+to  setup IO channels, push down list length, and the characteristics of
+DECtapes and their directories.  A new output UUO is used that comes  in
+two forms:
+
+   WSIX len,addr - This form outputs a SIXBIT  string  <len>  characters
+      long  starting  from  location  <addr>.   No editing (as done with
+      DISIX) will be done, making this UUO good for our use of  printing
+      file names and extensions.
+
+   WSIX addr - This form outputs an indefinite length string starting at
+      location  <addr>.   All editing characters will apply, including %
+      which will probably cause the program to bomb.  Don't try it!
+
+WSIX has a close relative that isn't used in Program 2:
+
+   WASC addr - Output an ASCIZ string that starts  in  location  <addr>.
+      CTRL-A,  the  only  DIASC  editing character will not be specially
+      processed.  The length field may not be specified.
+
+     There are two DISIX UUOs that transfer to location CPOPJ when done.
+This and CPOPJ1 are routines in the UUO handler that provide a mechanism
+to do a non-skip or skip return from subroutines when normal methods are
+inconvenient.   Both  are  generally reached by conditional jumps, e. g.
+'JUMPE T1,CPOPJ##'.
+
+     One of three macros, POINTR, that simplify byte  pointer  usage  is
+used  within  PRTDIR  to extract the date field from the extension word.
+All three rely on byte masks which are conceptually much simpler to  use
+than  the  usual bit positions.  I after I wrote this, I discovered that
+all three macros were defined in C.MAC and not in  TULIP.MAC  as  I  had
+thought.   I hereby present this with the hope it will act as a seed for
+the documentation of C.MAC sometime in the future.
+
+   WID (mask) - Returns the width of mask in bits.  [WID(7777)=^D12]
+   POS (mask) - Returns the position  of  the  rightmost  bit  in  mask.
+      [POS(7777)=^D35]
+   POINTR (addr,mask) - Generates a byte pointer via
+      POINT WID(mask),addr,POS(mask)
+      [POINTR(DIREXT(P1),7777)=POINT 12,DIREXT(P1),35]
+
+     The most important changes involve the setup for  simple  file  IO,
+namely  the  FILE  macro,  FIGET, and FREL UUOs.  The entire set of file
+utility UUOs follows the description of the FILE macro:
+
+FILE chan,dir,loblk,<spec(arg),...,spec(arg)>  -  Associated  with  each
+      file  is  one or two HISEG file blocks containing the defaults for
+      entries in their corresponding LOSEG file block.  This macro  sets
+TULIP - an IO package for MACRO-10 programs                      Page 10
+PROGRAM 2 - PRINT DIRECTORY FOR DTA0
+
+
+      up the HISEG block based on these parameters:
+
+   chan - The software IO channel number.
+
+   dir - I for input, O for output.  If both input and output  are  done
+         on  an  IO  channel,  there  must  be  one  file block for each
+         direction.
+
+   loblk - Address of the LOSEG file block paired with this  HISEG  file
+         block.
+
+   spec(arg)  -  Specify  nonstandard  defaults,  and  will  be  a  list
+         comprised  from some of the following macros:  (brackets denote
+         the defaults)
+
+      DEV (n) [DSK] Device to use.
+
+      NAME (n) [blank] File name.
+
+      EXT (n) [blank] Extension.
+
+      PPN (n) [0] Project - programmer number.  Commas cannot be used in
+            <n>  because  the macro will think they mark the end of that
+            parameter, so to specify [1,4], you must  use  a  form  like
+            PPN(1000004),   PPN(1B17+4),   PPN(SYSPPN),   or  use  angle
+            brackets as done for INST below.
+
+      STATUS (n) [0] Initial file status.
+
+      <INST (<i>)> [PUSHJ P,I1BYTE or PUSHJ P,O1BYTE] Instruction  which
+            will  be  used to read or write all bytes.  See the register
+            convention section for an explanation of what data is in the
+            UUO  handler  registers.  The defaults (and those below) are
+            routines in the UUO handler.
+
+      OTHER (l) [none] Address of the opposite  direction  loseg  block,
+            and  is  necessary if both input and output are done on this
+            channel.
+
+      OPEN (l) [ILERI1 and ILERO1]  Location  to  transfer  to  on  OPEN
+            error.
+
+      LOOKUP and ENTER (l) [ILERI2 and ILERO2] LOOKUP and ENTER  failure
+            address.
+
+      INPUT and OUTPUT (l) [ILERI3 and ILERO3] IO errors except  end  of
+            file.
+
+      EOF (l) [ILERI3] End of file.
+
+     Warning:  each specifier must be immediately preceded by its  comma
+or angle bracket.
+TULIP - an IO package for MACRO-10 programs                      Page 11
+PROGRAM 2 - PRINT DIRECTORY FOR DTA0
+
+
+     With each FILE macro goes the  corresponding  loseg  block,  FBSIZE
+words long, which is where runtime information such as the OPEN, LOOKUP,
+and buffer header blocks are kept.  The example used  in  Program  2  is
+rather  simple,  so  here's  the  somewhat  more complicated use of file
+blocks needed for accessing a disk file in update mode:
+
+DSKFIH: FILE    DCHN,I,DSKFIL,<OTHER(DSKFOL),NAME(FOO),EXT(BAR),
+                                        EOF(DSKEOF)>
+DSKFOH: FILE    DCHN,O,DSKFOL<OTHER(DSKFIL),NAME(FOO),EXT(BAR)>
+
+DSKFIL: BLOCK   FBSIZE
+DSKFOL: BLOCK   FBSIZE
+
+     The address field of all the file utility UUOs  points  to  a  file
+block.  In all but one case (FSETUP) they point to the loseg block.
+
+   FSETUP - Generate the loseg block from the default data in the  hiseg
+         block.
+
+   FIGET and FOGET - Does an OPEN on the device in the loseg file block.
+
+   FLOOK and FENT - Does a LOOKUP or ENTER on  the  file  in  the  loseg
+         block.
+
+   FIOPEN and FOOPEN - Does both OPEN and either LOOKUP or ENTER.
+
+   FICLS and FOCLS - Does CLOSE on channel.
+
+   FREL - Does RELEASE on channel.
+
+   FICLOS and FOCLOS - Does CLOSE and RELEASE on channel.
+
+     So, to handle the IO for our  update  mode  disk  file  above,  the
+program section will look somewhat like:
+
+        FSETUP  DSKFIH          ;READY THE LOSEG FILE BLOCKS
+        FSETUP  DSKFOH
+        FIOPEN  DSKFIL          ;OPEN, LOOKUP
+        FENT    DSKFOL          ;ENTER TO GET INTO UPDATE MODE
+          ;DO ALL IO
+        FICLOS  DSKFIL          ;CLOSE UP
+
+     The FILE macro as described only sets  up  defaults  in  the  loseg
+block.   To do anything other than that requires that the program set up
+the pertinent data itself.   The  complete  list  is  in  the  reference
+manual, but the more important locations are:
+
+        FILDEV - Device name
+        FILNAM - File name
+        FILEXT - Extension
+        FILPPN - Project - programmer number of the file's disk area
+TULIP - an IO package for MACRO-10 programs                      Page 12
+REGISTER CONVENTIONS
+
+
+6.0  REGISTER CONVENTIONS
+
+     Program 2 also started to make complex use of registers, so this is
+a good place to give the full description.  Most of the PDP-10 registers
+are defined by TULIP and are in these catagories:
+
+     Name        Range     Use
+     F           0         Flags
+     T1-T4       1-4       Temporary
+     P1-P4       5-10      Permanent
+                 11-13     Unassigned
+     U1-U3       14-16     Used by UUO handler (but preserved)
+     P           17        Stack pointer
+
+     P is the stack pointer, used for  subroutine  calls  and  temporary
+storage.   The  SAVE  and  RESTORE  macros make the latter easier to do.
+Both take an angle bracketed list  of  registers  or  memory  locations;
+SAVE  will  push  their  data on the stack and RESTORE will pop it back.
+The parameter list to RESTORE must be opposite that used for SAVE, i. e.
+if  a  SAVE <A,B> is done, RESTORE <B,A> must be used to restore them in
+the right order.  As a special (and not very necessary) frill, the  CALL
+and  RETURN  macros are available to replace PUSHJ P, and POPJ P, making
+them useful mainly for ex-FORTRAN programmers with fond  memories  of  a
+useless  language.   Sigh.   We system wizards do get cynical in our old
+age....  A new instruction, MCALL, has  been  defined  for  those  cases
+where  the  CALL  UUO is necessary, mainly when software that uses local
+UUOs (negative CALLIs) is also expected to run elsewhere.
+
+     C.MAC provides an interesting instruction, PJRST, which is opdeffed
+to  be  nothing  more  than  a  JRST!   Nevertheless,  it  does serve an
+extremely important  place  in  maintaining  the  clarity  of  assembler
+programs.   Although  this  paragraph  really  falls  under the 'assumed
+knowledge of C.MAC', I feel compelled to add it because  I  know  of  no
+place  that  really  defines  PJRST  well, and I have seen some programs
+recently that misuse it.  PJRST says, "This routine is done and  has  no
+more to do except call another, so I will simply jump there and its POPJ
+will be my return".  Technically, this means that 'PJRST <addr>'  should
+be used whenever it can replace the following sequence:
+
+         PUSHJ   P,addr
+           POPJ  P,
+         AOS     (P)
+         POPJ    P,
+
+Therefore, PJRST is not meant to transfer to a 'subroutine' that expects
+data  on the top of the stack instead of a PCword (as if a PUSH was done
+before the PJRST), but there is an exception.  PJRST may go to code that
+references  solely  the stack, either to prepare for a skip return or to
+restore registers.  Generally these routines have 'POPJ' in their  names
+to advertise their function (CPOPJ and TPOPJ1 are common examples).
+
+     T1-T4 are the temporary, scratch pad type registers  and  are  used
+for  most  of  the  calculations  done  by  a  program.   They  are also
+extensively used for  passing  and  returning  parameters  to  and  from
+TULIP - an IO package for MACRO-10 programs                      Page 13
+REGISTER CONVENTIONS
+
+
+subroutines.   Technically,  any  subroutine may clobber T1-T4, but most
+programs (including  these  sample  ones)  will  often  advertise  which
+registers  will  be  used.  Most of the time it works out okay, the main
+exception being when a program becomes so large that it is difficult  to
+trace  all  possible  routine flows to see which registers will be wiped
+out.  Generally, problems with large programs are not a result  of  just
+their size, but poor design and nonadherance to simple protocols such as
+these [philospohy (sort of)].
+
+     P1-P4 are permanent registers and normally  are  not  clobbered  by
+subroutines,  the  main exception being on a subroutine call made to set
+one to a value for use in later subroutines.  To facilitate  saving  and
+restoring  these,  four  subroutines  (SAVE1 to SAVE4) are provided that
+save that number of registers (e. g. SAVE3 saves P1-P3), then  call  the
+caller.   When the caller finally returns, control goes back to the save
+routine which restores the registers and does the real return.  This has
+great  advantages  for  subroutines  that have several exit points since
+you're freed of the  hassle  of  chasing  down  each  one  whenever  the
+subroutine  is  changed to save more or fewer registers.  However, there
+is one limitation.  Subroutines that call these must exit with either  a
+skip or non-skip return, anything else will probably bomb the program!
+
+     In general, if you always assume T1-T4 get clobbered by any routine
+you  call (except SAVE1-SAVE4) and never let a subroutine clobber P1-P4,
+you should have no trouble with register usage.  (But note  that  DIRLOP
+relies on DATTHN not clobbering T4....)
+
+     U1-U3 may not be used  in  such  a  way  as  to  require  TULIP  to
+reference  them  as  memory  locations  (i. e.  WDECI (U1)  is okay, but
+WDEC U1 is not),  nor  may  they  be  used  at  all  in  the  DISIX  UUO
+instruction  list  (or subroutines those instructions call).  Basically,
+if you don't use them, you'll be safe.  However, when a program does its
+own  IO via FILE's INST submacro, it must access or pass data, and these
+registers are set up as follows:
+
+         U1      Holds byte (either set or read by routine).
+         U2      Holds address of file block for this operation.
+         U3      Unused, may be used by routine.
+
+     The unassigned registers 11-13 are available to the programmer  for
+any use he has, which generally is to access a global data structure.
+
+     The flag register, F, currently has only one bit  defined  (LZEFLG)
+leaving  the  remaining  35  to the program which may be defined via the
+FLAG macro.  FLAG requires a list of symbol names and will assign a  bit
+from 1B35 to 1B0 to each symbol, requiring that they be accessed via the
+C.MAC macros (TXNE, etc.).  Since bits are assigned from right to  left,
+this  normally  leaves  the  sign  bit available for any high speed flag
+requirements (in the sense that it may be used to transfer control in  a
+single  instruction  (JUMPL)  instead of the two the other flags require
+(TXNE/JRST)).
+TULIP - an IO package for MACRO-10 programs                      Page 14
+INPUT UUOs
+
+
+7.0  INPUT UUOs
+
+     So far we have seen most of the output UUOs, but have said  nothing
+about  input.   The  next two programs will do input via TULIP, yet will
+not execute the UUOs.   This  paradox  will  be  resolved  in  the  next
+section,  but since an understanding of TULIP input will be helpful, the
+UUOs are described here (each points to a memory location).
+
+   RCH    Read the next character (or any size byte) into <addr>.
+
+   CCH    Reread the current character (returned by the last  RCH)  into
+         <addr>.
+
+   LCH    Reread the last character (returned by the next to  last  RCH)
+         into  <addr>.   Input  may  not  be  backed  up  more  than one
+         character;  attempts to do so will be ignored.
+
+The following UUOs are meant for use only with ASCII characters:
+
+   RFLG   Put the character flags (below) for the  character  in  <addr>
+         into <addr>+1.
+
+   RCHF, CCHF, and LCHF - Act like RCH, CCH, and LCH followed  by  RFLG;
+         hence read a character into <addr> and the flags into <addr>+1.
+
+     Since  there  are  several  characters  that  cannot  be  used   as
+parameters  to a macro because they will confuse parameter decoding, the
+following symbols are defined so they may be easily used:
+
+   NULL     Null (0)
+   BELL     Control-G (7)
+   TAB      Tab (11)
+   LF       Linefeed (12)
+   VT       Vertical tab (13)
+   FF       Formfeed (14)
+   CR       Carriage return (15)
+   CTRLZ    Control-Z (32)
+   ESC      Escape (33)
+   ALT      Altmode (33) [Long past time to bury 175 and 176!]
+   DBLQ     Double quote (")
+   SNGLQ    Single quote (')
+   LPAREN   Left parenthesis '('
+   RPAREN   Right parenthesis ')'
+   COMMA    Comma (,)
+   SEMI     Semi-colon (;)
+   LANGLE   Left angle bracket (<)
+   RANGLE   Right angle bracket (>)
+   LSQUAR   Left square bracket ([)
+   RSQUAR   Right square bracket (])
+   RUBOUT   Yes (177)
+   CRLF     CR, LF right justified (<CR>B28+LF)
+TULIP - an IO package for MACRO-10 programs                      Page 15
+INPUT UUOs
+
+
+     Associated with most ASCII characters are one or more  flags  which
+are  used  to  simplify character processing and parsing.  The currently
+defined flags are:
+
+   LETTER   A-Z, upper and lower case.
+   DIGIT    0-9.
+   BLANK    Space and tab.
+   BREAK    Linefeed, vert. tab, formfeed, escape, CTRL-G, CTRL-Z.
+   LGLSIX   Codes 40-137. (Valid SIXBIT characters.)
+TULIP - an IO package for MACRO-10 programs                      Page 16
+PROGRAM 3 - PRINT A DIRECTORY FROM ANY DECTAPE.
+
+
+8.0  PROGRAM 3 - PRINT A DIRECTORY FROM ANY DECTAPE.
+
+     One of the new additions in Program 3 is  that  it  has  a  version
+number.   TULIP is involved in this too and with three macros allows any
+version number processing needed.
+
+   VERSION (version,update,edit,who) - This puts the program version  in
+      location  .JBVER  using  the  standard  DEC  format which is fully
+      described in the phone book.  In addition, symbols %VVERS, %VUPDA,
+      %VEDIT,  and  %VWHO  are  all  defined  with the appropriate data.
+      VERSION also references the symbol %%%TLP, TULIP's  major  version
+      number,  to  force  it  into  the  symbol table so the loader will
+      complain if programs assembled with  very  different  versions  of
+      TULIP.MAC  are  used.   This  is  done as a warning if new UUOs or
+      register  assignments  have  been  made,   hinting   at   possible
+      imcompatibilities.
+
+   VERSION (version,update,edit,who,symbol) - [Like the previous  sample
+      call,  but with a fifth parameter.] Instead of storing the version
+      number in .JBVER, this will define <symbol> to  be  the  assembled
+      value  and  is  primarily  meant to be used within libraries since
+      .JBVER may not.  In  this  manner,  TULLIB.MAC  defines  %UUO  and
+      %LEXINT to be the versions of those two modules.
+
+   VERSTR - Defined by VERSION, this expands to simply a call on the  XX
+      macro (below) using same parameters as were used for VERSION.
+
+   XX ver,upd,edit,who - Defined in the program, this macro allows it to
+      make  printable  strings  or  pretty  TITLE  and SUBTTL statements
+      containing the version number.  This need not be at the  beginning
+      as  is  done  in program 3, but may be anywhere.  In fact, for the
+      purists, one could define XX at the begining of  the  program  and
+      call via VERSTR to set up the program title, then redfine XX later
+      in the constants area to put the version message there!  If  using
+      three macros seems a little more complicated than necessary, it is
+      done to allow the version number to be changed by  modifying  only
+      one line in the program.
+
+     A couple new UUOs are used, FOSEL and its mate, FISEL.  As might be
+expected  these  are  actually  file  utility  UUOs, but as they are not
+involved with the monitor IO UUOs I didn't bother to  describe  them  in
+that section.  TULIP is designed to have one input stream and one output
+stream in use at any given time (which is generally ideal for tasks like
+copying  files),  and these streams are set up with any file utility UUO
+except FSETUP and FREL.  (FISEL, FIOPEN, FIGET, FLOOK, FICLOS, and FICLS
+all  make  the  input  stream  be  from the file block they point to and
+FOSEL, FOGET, FENT, FOCLOS, and FOCLS all make the output stream be from
+theirs.)  To  reslect  the default TTCALL IO blocks, FISEL 0 and FOSEL 0
+will do the job.  FOSEL is used here because FIGET has already done  the
+OPEN, so there is no reason to do everything a FOOPEN would.  There is a
+second output stream which may be used with a special subset of UUOs and
+is meant for use as an error reporting stream, normally using TTCALL IO.
+(This is that 'allowable' use of TTCALL mentioned a couple  of  sections
+ago.   It is especially handy for programs that may output to any device
+TULIP - an IO package for MACRO-10 programs                      Page 17
+PROGRAM 3 - PRINT A DIRECTORY FROM ANY DECTAPE.
+
+
+(including TTY) but always want error messages to go  to  TTY.   To  use
+buffered  mode  IO for TTY error messages, you must either allow the TTY
+to be used by only the error routines or intercept attempts to  open  it
+and redirect output to the previously opened TTY file.)
+
+     All that FISEL and FOSEL do is simply put their address  fields  in
+locations  IFILE  and  OFILE,  respectively.   Both  these locations are
+defined within TULLIB  and  normally  will  be  of  little  interest  to
+programmers.   However,  at  times they are most useful as in saving the
+contents of either of them to allow a subroutine to temporarily redirect
+data  flow  and  restore  it before returning to the caller.  Also, when
+debugging programs, there are many instances where it is very  handy  to
+redirect  output  to TTCALL so you can see what the beast is doing.  DDT
+makes for a very simple means of manually clearing OFILE to  do  exactly
+that.  The error stream also has its own file block location, EFILE, but
+since there is no 'FESEL' UUO, if the  program  wants  to  redirect  the
+error stream, it must do so explicitly.
+
+     Program 3 does all its own IO error handling  because  TULIP  would
+only  print  an  error message and stop the program.  Instead, Program 3
+will print the same message but then restart.
+
+     There are four string printing UUOs that direct output to the error
+device:
+
+   EWSIX and EWASC - Like WSIX and WASC.  The length (the AC field)  may
+         not be specified.
+
+   EDISIX and EDIASC - Like DISIX  and  DIASC,  except  that  all  TULIP
+         output  UUOs  in  the  instruction list will print on the error
+         device, meaning you can use UUOs like WDEC and friends.
+
+     Furthermore, there are ten UUOs that report failures on the monitor
+IO  UUOs.   Half  of  them  print  on  the error device and precede each
+message with
+   '?  Device <dev>'
+for OPEN failures or
+   '?  <dev>:<file>.<ext>[<ppn>] (<error code>)'
+for all others.  The rest print on the normal output device without  the
+message  header.   The  names of the error device UUOs are prefixed with
+'ERR' and the normal output  device  ones  with  'WER'.   All  take  the
+address of the low segment file block involved in the address field.
+
+Input open errors:  ERRIOP, WERIOP and
+Output open errors:  ERROOP, WEROOP
+   Currently the two pairs  are  identical  since  an  OPEN  failure  is
+   direction independent.
+Associated messages:
+
+      not available
+      does not exist
+
+
+TULIP - an IO package for MACRO-10 programs                      Page 18
+PROGRAM 3 - PRINT A DIRECTORY FROM ANY DECTAPE.
+
+
+LOOKUP errors:  ERRLK, WERLK and
+ENTER errors:  ERRENT, WERENT - Different processing is done  for  error
+   type  (LOOKUP/ENTER) and device type (disk, DECtape, and other) which
+   should  solve  the  confusion  resulting  from  programs  like  LIB40
+   complaining  about full tapes when the disk runs out of space!  ERRLK
+   and WERLK may also be used to report GETSEG and RUN UUO failures, but
+   the  pertinent data must first be copied into the file block (device,
+   file, extension, and PPN).  Extended LOOKUP blocks are not handled so
+   data  must  be  copied  from  the  extended block into the file block
+   before executing this UUO.
+Associated messages:
+
+      (0) File not found
+      (0) Illegal file name
+      (1) User File Directory not found
+      (2) Protection violation
+      (2) Directory full
+      (3) File being modified
+      (4) Already existing filename
+      (5) Illegal UUO sequence
+      (6) Transmission error
+      (6) UFD or Rib error
+      (7) Not a save file
+      (10) Insufficient core
+      (11) Device not available
+      (12) No such device
+      (13) GETSEG UUO illegal
+      (14) Disk full or quota exceeded
+      (15) Write-lock error
+      (16) Insuffcient monitor table space
+      (17) Partial allocation only
+      (20) Block not free on allocation
+      (21) Attempt to supercede directory
+      (22) Attempt to delete directory
+      (23) Sub File Directory not found
+      (24) Search list empty
+      (25) SFD nested too deeply
+      (26) No-create for specified path
+      (27) Segment not in swap area
+      (..) Unexpected error
+
+
+INPUT errors:  ERRIN, WERIN and
+OUTPUT errors:  ERROUT, WEROUT -  The  entire  18  bit  file  status  is
+   printed  followed by the appropriate error message.  Should more than
+   one error bit be set, only the first applicable message in  the  list
+   will  be  printed.   Again,  different  processing  is done as in the
+   LOOKUP/ENTER routines.
+TULIP - an IO package for MACRO-10 programs                      Page 19
+PROGRAM 3 - PRINT A DIRECTORY FROM ANY DECTAPE.
+
+
+Associated messages:
+
+      (400000) Write lock error
+      (200000) Device error
+      (100000) Checksum or parity error
+      (40000) Block or block # too large
+      (40000) Tape full
+      (40000) Disk full or quota exceeded
+      (20000) End of file
+      (.....) Unexpected error
+TULIP - an IO package for MACRO-10 programs                      Page 20
+LEXINT - THE 'L' IN TULIP.
+
+
+9.0  LEXINT - THE 'L' IN TULIP.
+
+     Despite the size of the last section, the major addition in Program
+3  is  the  lexical  analysis  to parse a device name.  Usage here is as
+simple as possible and is designed to show how to use it with as  little
+overhead  as  possible  (like  what  we  did in program 1).  Three basic
+things are necessary:  a call on LEXINT to do the  parse,  a  production
+table to drive LEXINT which describes how to parse the input stream, and
+a set of action routines which manipulate the parsed  data.   The  heart
+and  most interesting piece is the production table which is set up with
+the aid of three macros:
+
+   TBLBEG label - This must be at the begining of a production table and
+      is  used to initialize internal symbols that are of no interest to
+      us.  <Label> will be defined to be the address of  the  production
+      table and is used for identification.
+
+   TBLEND - This must appear at the end  of  the  production  table  and
+      generates  a dispatch table to the action routines.  If you forget
+      it, MACRO will complain about all sorts of undefined symbols.
+
+   PROD( char spec,action routine,char disp,next prod)
+      Now this is a macro!  Each call generates one production  (in  one
+      word,  by  the way).  To aid readability, the parameters should be
+      in the format used in the program, i. e. a tab after  'PROD(',  16
+      spaces  for <char spec> (two tab stops), 4 for <action routine>, 1
+      for <char disp>, 6 for <next prod> and a tab  for  comments  after
+      ')'.   Trailing  blanks  (tabs  for  <char  spec>)  should be used
+      instead of preceding blanks.  The parameters are:
+
+      char spec - This may be a  character  (e. g.  "M"  or  CR),  angle
+         bracketed  flags  (e. g.  <BLANK>  or  <LETTER!DIGIT>), negated
+         characters (e. g. -"M" or  -CR),  or  negated  angle  bracketed
+         flags  (e. g.  -<BREAK>).   This  parameter  defines  the match
+         condition for the production.  If the match fails, the rest  of
+         the  production is ignored, and the next one is processed using
+         the same character.  However, should it succeed,  the  rest  of
+         the  production  is  processed as described below to handle the
+         parsed data.  <SG> is a special <char spec> available that will
+         always  match and is used either for an unconditional branch or
+         to force a  call  to  an  action  routine.   Due  to  a  slight
+         misunderstanding  between  MACRO-10  and TULIP, there must be a
+         tab before the <char spec>.
+
+         One implementation detail  is  important  here.   As  might  be
+         expected,  processing these characters results in the execution
+         of a RCHF, CCHF, or LCHF UUO.  This is vital to the  action  of
+         the command files in Program 4, to be discussed below.
+
+      action routine - This names the special action routine to be  used
+         to  manipulate  the parsed data.  It is a one to four character
+         field and may be left blank which means that no special  action
+         will be done.
+TULIP - an IO package for MACRO-10 programs                      Page 21
+LEXINT - THE 'L' IN TULIP.
+
+
+      char disp - One of *, _, or space, and specifies what to  do  with
+         the character before the next production is executed:
+
+         * - We are done with this character, use the next with the next
+            production.
+
+         _ -  Backup  a  character,  use  the  previous  with  the  next
+            production.
+
+         space - No  change,  use  the  same  character  with  the  next
+            production.  (The same happens if the production fails.)
+
+      next prod - Address of the next production to execute  (each  PROD
+         macro  call  may  be labeled).  If the field is blank, the next
+         production will be assumed.
+
+     The action routines allow us to do something with the data  parsed.
+Without them, we couldn't even stop LEXINT except via an IO error!  Most
+of the action routines are supplied by the program and are used whenever
+a   successful  production  has  found  something  interesting.   Action
+routines may  communicate  with  each  other  to  pass  results  through
+registers  T1, T2, and T3.  (T4 is clobbered.) LEXINT passes data to the
+action routine in the permanent registers:
+
+   P1 - Relative address in production table of this one.
+
+   P2 - Current character under scan.
+
+   P3 - Character flags for this character.
+
+   P4 - P1,,address of production table.
+
+Of these, only P2 and P3 have data normally used.
+
+Four special action routines are supplied in LEXINT:
+
+   SRET - Perform a skip return from LEXINT, normally used to indicate a
+      successful parsing.
+
+   RET - Perform a non-skip return, normally indicating an  unsuccessful
+      parsing.
+
+   CALL - LEXINT uses a stack subroutine calling convention for repeated
+      parsings  of  data  like  numbers, file specifiers, etc.  Take the
+      next production specified by <next prod>, but when RET  is  called
+      it  will  do  a subroutine return and the next production executed
+      will be the one immediately after the CALL.  SRET may also be used
+      to  cause  a  skip return for subroutines needing an error/success
+      indication.
+
+   JUMP - Normally only called  (by  a  JRST)  from  an  action  routine
+      instead  of a production, this allows an action routine to control
+      parsing.  The next production executed will be  from  the  address
+      pointed  at  by  register  T1.  This is meant for something like a
+TULIP - an IO package for MACRO-10 programs                      Page 22
+LEXINT - THE 'L' IN TULIP.
+
+
+      command dispatch where an action routine is called after a command
+      is parsed.  Generally the command is mapped to the production used
+      to parse further data, and that address is passed to JUMP.
+
+     Whereas action routines are refered to by  a  four  character  name
+inside  a  production,  they  are  defined  in the program as those four
+prefixed with 'A.'.  Therefore, to call the JUMP  routine,  you  need  a
+JRST A.JUMP  instruction.   One  other  note  -  the TBLBEG macro does a
+PHASE 0, so all the labels are relative to the start of the table.
+
+     Finally, to start all this rolling, the program calls  LEXINT  with
+the right half of T1 pointing to the table and the left half pointing to
+the relative address of the first production (which is normally zero, so
+a  MOVEI instruction will save a word).  The normal return is taken from
+LEXINT if the last production called RET as the action routine, the skip
+return if SRET was the action routine.
+
+     Whew.  With that behind us, let's look at Program 3  and  see  just
+how  we  use  all this.  On page 2, TRYAGN prompts for a DECtape, forces
+out the buffer to print it, then calls LEXINT telling it to  use  LEXTAB
+as  the  table, and to start with the first production.  Since we always
+return via RET, LEXINT will always do a non-skip  return.   Page  5  has
+both  the  production  table  and  the two action routines needed by the
+program.  TBLBEG heads the production table,  and  LEXTAB  will  be  its
+name.   If  you  want  to  comment  that line, some separator must occur
+immediately after the table name or  else  MACRO-10  will  get  confused
+(dumb  program).   Perhaps  better  than a semi-colon right after LEXTAB
+would have been to say TBLBEG(LEXTAB) which solves the  problem  nicely.
+This  production  table  simply  parses a SIXBIT device name without any
+error checking, so we need a few action routines to help us collect that
+information.   The  first production loops on itself (note the period in
+the <next prod> field), throwing away any nulls left in the buffer after
+the  previous  command,  if  any.   The  second  production  calls  SIXI
+(remember, <SG> matches any character) which is coded after the table at
+A.SIXI.   All  it  does  is make a byte pointer to the register where we
+will assemble the SIXBIT word as it is parsed and clears  that  register
+of  any  garbage  it had.  The third production will call SIXS for every
+alphanumeric character until it finds one that isn't.  After  the  first
+non-alphanumeric  character is scanned, STOR is called to save it in the
+file block.  At this point, we're done, but  we  continue  to  scan  and
+throw  away  characters  up to (but not including) the break, which must
+not be scanned because it already has been read once.  Telling LEXINT to
+scan   it  will  result  in  reading  another  character  for  the  next
+production, which we do not want to happen.
+TULIP - an IO package for MACRO-10 programs                      Page 23
+PrOGRAM 4 - THE LAST ONE
+
+
+10.0  PrOGRAM 4 - THE LAST ONE
+
+     Program 4 started out as a program improving mostly on the  lexical
+analysis  portion  to  provide real command scanning.  However, it got a
+little carried away, and wound up having a few multi character  switches
+and even command files (nested, of course).  At least, it has given me a
+chance to write the SIXBIT name search routine I've  wanted  to  do  for
+some  time!   The  easiest  way  to discuss all the changes is to simply
+start on page 14 and skim through the simple differences and then return
+and  hit  the  big ones.  In fact, I think that just about every page in
+the program has been changed, so any other scheme would probably be more
+confusing.
+
+     The first page has a number of new assignments  plus  a  new  macro
+(GETCHN) which assigns software channels.  It is used not only here, but
+also later to assign IO channels for the command files.  I came up  with
+a  good  use  for  a global register, so FB will be used to point to the
+address of a loseg file block  within  the  command  scanner.   Finally,
+there  are some flags for use around the program.  FSTDIR and UNLOAD are
+set by switches in the command line and are used to request  printing  a
+short  format directory and unloading the DECtape after the directory is
+printed.  PRSDFL (PaRSeD FiLe name) is set in the file specifier code to
+remember  when  a  file  name has been seen so as to expect an extension
+next.  LSTOPN is set when output is going somewhere other than to TTY to
+remember that that file must be closed sometime.
+
+     Page 15 has code to reclaim any buffer space  used  during  command
+processing and is especially useful when several output files or command
+files are used.
+
+     Pages 16 and 17 are a slightly expanded version  of  the  directory
+printer,  now  with  code to handle short format directories.  Since the
+code for that is so simple (thanks to TULIP), it  is  implemented  in  a
+separate loop.  Note that since SAVE1 handles the restore action itself,
+we are free to transfer control to ZERDIR or DIRXIT  without  having  to
+worry  about  the state of the registers, except that those sections are
+no longer free to use P1.
+
+     Pages 18 and 19 have a vastly larger production table with  command
+dispatching  and  subroutine calls - a far cry from the simplistic table
+in Program 3!
+
+     Pages 20 to 23 have all the action routines with a few  others  put
+in  when they seem to belong, specifically the code needed to manipulate
+the command files which work on the data base on pages 28 and  30.   One
+neat  trick - note the PUSH/POP of IFILE in A.DIRE to preserve the input
+stream for the caller (the command scanner).
+
+     Even TIMPRT on page 24 has been tweaked a little to  use  one  less
+register  for  no  better reason than to use one less register.  The old
+form was sort of a holdover from Program 1, which did use the thousanths
+of a second, as you may recall.
+TULIP - an IO package for MACRO-10 programs                      Page 24
+SIXSRC AND COROUTINES
+
+
+11.0  SIXSRC AND COROUTINES
+
+     Pages 25 and 26 make up the SIXBIT name scanner,  which  takes  two
+pages  mainly  because  of  all  the  comments I've put in to thoroughly
+explain it.  Perhaps too many,  but  it  should  be  helpful  to  anyone
+stumbling  across  this without being familiar with coroutines.  (By the
+way, I have long claimed that the only comment better than a blank  line
+is a formfeed.  [philosophy]) Besides LUUOs, another thing that is often
+overlooked by programmers are coroutines, which at times provide a  more
+convenient  calling  mechanism  than  subroutines,  especially when past
+information is important.  Whereas a subroutine must  record  its  state
+someplace  where it can access it later, a coroutine can simply store it
+in the AC used in the call instruction.  SIXSRC is in two pieces  -  the
+main  routine,  called  to  search  a  table,  and a pure coroutine that
+remembers how many partial matches have been made.  A coroutine  differs
+from  a subroutine in that whereas a subroutine is always entered at its
+start, a coroutine picks up where it left off from the last  call.   The
+effect  is not so much like a call to a coroutine as it is a RETURN to a
+co....  no, like a call from...  no, like a transfer to...  no,  like  a
+coroutine  transfer  between  sections of code.  Yeah!  Like a coroutine
+transfering  to  another  which  might  transfer  back!   Got  it.   One
+interesting   feature   of  coroutines  is  that  the  call  and  return
+instructions are identical.  Oops.  One transfer instruction is the same
+as another.  Err, you know what I mean.  (By the way, Knuth volume 1 has
+a section on  coroutines  in  case  you  didn't  follow  this  scholarly
+description!)  The coroutine instruction on a PDP-10 is a 'JSP AC,(AC)',
+which will simply exchange the PC with AC  (which  must  be  initialized
+before  the first transfer is made).  Note that if the first transfer to
+the  coroutine  is  not  within  a  loop,  the  standard   'JSP AC,addr'
+instruction will do it quite nicely!
+
+     From the outside, SIXSRC itself is a subroutine.  Each call  enters
+it  from  the  top  and  it  returns  after a list is scanned.  However,
+internally it is a coroutine, trading control  back  and  forth  between
+itself  and  SIXMAT  as it finds each partial match.  SIXMAT's coroutine
+structure enables it to easily and cleanly keep track of the progress of
+the  search  and  print  any  necessary error messages.  One interesting
+thing about these coroutines is that both of them do skip  transfers  to
+pass  a  little  more information, much like a subroutine's skip return,
+only augmented with a skip entry.  SIXSRC does a skip transfer  when  it
+has  reached  the  end  of  the list and needs to know what SIXMAT found
+checking the number of matches.  SIXMAT does a skip transfer  only  when
+entered  by  a  skip transfer, and then only when it wishes to return an
+error, which will be  when  SIXMAT  was  not  called  only  once  before
+(meaning  either  the entry was not found or more than one partial match
+was detected meaning it is ambiguous).  The point of all this is to have
+a  table  searcher  that  reports  any ambiguous commands, a very useful
+feature but surprisingly never done to my knowledge.
+TULIP - an IO package for MACRO-10 programs                      Page 25
+COMMAND FILE PROCESSING
+
+
+12.0  COMMAND FILE PROCESSING
+
+     Not only is TULIP's  IO  stream  concept  very  nice  for  allowing
+routines  to output to any device, but the same holds true for input and
+allows  command  file  implementation  to  be  almost  trivial.    TULIP
+generates  a  couple  problems,  but neither is insurmountable.  All the
+command file code is on pages  21  and  22;   page  21  has  the  action
+routines  for LEXINT and page 22 has the routines referenced in the file
+blocks.  On page 21, A.ACAL steps to the next  command  file  level  and
+sets  register  FB  to point at the right file block to recieve the data
+from FILSPC.  A.DCMD opens the command  file,  thereby  redirecting  the
+input  stream.   This  routine runs into one problem with LEXINT.  Since
+LEXINT must use the first character of the command file, the  production
+that  got  us  here has a '*' in the <char disp> field to force it to be
+read in.  If it did not, parsing would continue with the last  character
+read  via  that file block, which would clearly be wrong.  To 'pop' back
+up to the previous level, we must not only change the input stream,  but
+we  must  also  read  the current character.  Think about it - it really
+does work!  (I think.)
+
+     Page 22 has all the routines referenced in the file block (plus  an
+error  routine called from A.ACAL).  Any error is reported, then all the
+open command files are closed and the rest of the command is aborted via
+SWTBAD.   We  even  do  our own IO through the CMDCHR routine because we
+must be able to stop processing before end of file is reached.  This  is
+due  to  the other problem with TULIP.  Had we used the end of file trap
+facility we would have transfered out of LEXINT without any  tracks  for
+us  to follow back to reattempt execution of the UUO.  Therefore, CMDCHR
+will stop scanning when it finds a  CR  and  go  back  to  the  previous
+stream.   What is really needed is a mechanism to allow access to the PC
+of the UUO so error routines can reattempt IO.  Maybe next version....
+TULIP - an IO package for MACRO-10 programs                     Page 26
+ODDS AND ENDS
+
+
+13.0  ODDS AND ENDS
+
+     At long last we have run out of programs to discuss and  all  that
+is left is to tie up some loose ends, which are all macros.
+
+PFILE loseg,inst,data - Defines a high segment pseudo file block  which
+   differs  from  a  normal file block in that it has no device related
+   information associated with it.  Meant to provide a means  of  doing
+   'IO'  to  core,  pseudo  files are great for setting up page headers
+   (like for compiler listing files or the line  at  the  top  of  this
+   page.  Other uses include a line buffer for later processing, as PIP
+   and editors do;  or as a means to save the text  of  a  command  and
+   output  it  later  to  show the location of a syntax error as COMPIL
+   does not do.  I  contemplated  putting  that  into  Program  4,  but
+   decided  it was plenty big enough already!  Maybe I will sometime in
+   the future.  The biggest difference between PFILE and FILE  is  that
+   since  none  of  the  device  data  is  necessary, PFILE is almost a
+   reasonable macro with a mere three arguments:
+
+   loseg - The address of the corresponding  low  segment  pseudo  file
+      block, which is PBSIZE words long.
+
+   inst - The instruction which will be used to transfer all the  data.
+      U1  and  U2  have  data  as described in the register conventions
+      section a long time ago.  Normally this will be either a PUSHJ or
+      an ILDB U1,FILCHN(U2), where FILCHN is:
+
+   data - This argument is optional, but  is  normally  either  a  byte
+      pointer  or  the  address  of  a  buffer.  This will be stored in
+      location FILCHN of the  loseg  block  when  FSETUP  is  executed.
+      Basically,  it  allows  the  string  routines  to  be  reentrant,
+      operating on a number of them at once.
+
+GLOBAL (sym1,sym2,...,symn)
+   This macro will take the list of symbols supplied and make them  all
+   global  (either  internal  or external).  It acts very much like the
+   GLOB macro in C.MAC  except  it  performs  slightly  differently  to
+   handle a few special cases.
+
+HWDGEN (name,macro,submac,prefix)
+   This macro is used to generate a halfword dispatch table based  upon
+   a data structure passed to it as macros.
+
+   name - Optional.  If specified, define it to be the address  of  the
+      table.
+   macro - Name of  the  macro  that  holds  the  data  structure.   It
+      consists of a series of calls on <submac>, below.
+   submac - The name of a macro having one argument, a label that is to
+      be  put into the dispatch table.  This macro is defined by HWDGEN
+      to do the actual work.
+   prefix - Optional.  A prefix to be concatenated with the data passed
+      to  <submac>.   This  allows  the  entire structure to be used to
+      generate several different types of data.
+TULIP - an IO package for MACRO-10 programs                     Page 27
+ODDS AND ENDS
+
+
+     Normally the  submacro  parameters  include  a  command  name  and
+usually  asscociated  flags  besides the transfer address.  HWDGEN will
+work on this form too, if a third level macro is passed to HWDGEN  that
+is  called  by  the  real  submacro  that  extracts only the data.  For
+example, in Program 4 the SWITCH macro consists of calls to a  submacro
+that  has  three arguments.  I could have (should have!) used HWDGEN to
+generate a table by replacing the last two lines with:
+
+   DEFINE XX(A,B,C)<FOO(C)>
+   HWDGEN  (SWITDP,SWITCH,XX)
+
+See TULLIB for some even better examples!  The code to  do  the  switch
+dispatch on page 20 would replace the
+
+   SKIPA   T1,SWITDP(T3)
+with:
+   ROT     T3,-1         ;DIVIDE BY 2, BUT KEEP THE REMAINDER
+   JUMPGE  T3,.+2        ;IF EVEN, USE THE LEFT HAND SIDE
+   SKIPA   T1,SWITDP(T3) ;IF ODD GET THE RIGHT HAND SIDE
+   MOVS    T1,SWITDP(T3) ;GET THE LEFT SIDE IF IT WAS EVEN
+   TLZA    T1,-1         ;CLEAR LEFT TO ISOLATE TRANSFER ADDRESS
+
+In many applications, this routine may  be  written  to  use  only  one
+register.
+TULIP - an IO package for MACRO-10 programs                     Page 28
+FUTURE PLANS AND POSSIBILITIES
+
+
+14.0  FUTURE PLANS AND POSSIBILITIES
+
+     So, where does TULIP head from here?  Since it was developed on  a
+small  PDP-10A  there  is  currently  no  support  for  either SFD's or
+extended LOOKUP/ENTER blocks.  (The latter are simple to  put  in,  but
+I've never worked with SFD's before so I have no idea how hard they are
+to add.) Time and time again I've  wished  for  a  mechanism  to  allow
+programs to add UUO's of their own, if not for all the unassigned ones,
+then certainly for  some  DISIX-like  UUOs  that  call  user  routines.
+Returning  the  PC of a UUO that causes an IO error trap is a must (see
+the command file section) and new subroutines that  act  like  SAVE1  -
+SAVE4  but  operate  on  IO  steams  are  so simple they will be added.
+TULLIB should be broken into more modules (if possible) to  allow  very
+small  programs by leaving out the IO error section.  TULIP is so large
+now that it is difficult to write a program in less than 2K!  In  fact,
+the  DATE75 code pushed Harvard's DIRECT cusp to 12 words more than 1K.
+Code not related to TULIP could be added such as routines  like  SIXSRC
+and  PRTDIR  (perhaps  in two pieces, DTADRL and DTADRS).  Basically, I
+would like to build  a  library  of  useful  assembler  routines.   One
+interesting  spinoff  that  might  occur  would  be  in  forcing better
+structured programs.  Something like the second sample program would be
+very  simple  to  read  and  comprehend if it called external directory
+routines, whereas a program that not only had its own directory printer
+but all the IO routines could very well be a mess.  Not only does TULIP
+allow better structured programs by its beautiful design, but it forces
+it!  [philosophy]
+
+     On the larger  scale  of  things,  Ed  Taft  wrote  and  partially
+debugged  a  SCAN  and WILD package patterned after an early version of
+DEC's.  Unfortunately, it was designed around a very old  precursor  of
+TULIP,  so  will  take  a fair amount of time to make it work (size - a
+little more than 1K).  Don't expect it soon.  Another pet  idea  is  to
+write a new monitor for the PDP-10 (the first one I worked on was about
+10K, how big is yours now?) and incorprate TULIP into the IO structure.
+Don't ever expect to see that!
+
+     In any case, I have enjoyed writing this primer (well,  would  you
+believe  I  enjoyed  it  more  than  I had expected?) and hope you have
+enjoyed reading it, both  for  its  information  content  and  informal
+structure.    There  are  a  couple  notes  I  can't  (terrible,  using
+contractions in print!) resist adding (I think  this  section  has  too
+many parenthetical expressions).  First, there is one item in the index
+that  carries  virtually  no  information.   What  is  it?   Second,  I
+accidentally  coded  a  beautiful  'pun'  into  SIXSRC/SIXMAT involving
+coroutine definitions.  A free Coke to the first person  who  tells  me
+the answers while in sight of a Coke machine!
+TULIP - an IO package for MACRO-10 programs                     Page 29
+REFERENCE MANUAL
+
+
+15.0  REFERENCE MANUAL
+
+     Finally the primer is done and all that remains is  the  reference
+manual  I  promised  way back at the beginning.  This will not be quite
+the manual that most programmers write and call documentation  as  this
+is  only  meant  for  use  as  a  memory jogger and a source of all the
+information  that  is  normally  available  only  from  the   listings.
+Basically,  it will be a true reference manual!  In the following table
+of  contents,  data  to  be  described  will  follow  the  heading   in
+parentheses  and  the first order related information that it refers to
+will  be  in  brackets  either  within  the  name  list  (for  isolated
+references)   or  without  (for  global  references).   Finally,  angle
+brackets are used to enclose items that could have been included in the
+current section, but have been deferred to a more suitable section.
+
+1     Register definitions.  (F  [Macros:   FLAG;   Flag  definitions],
+      T1-T4,  P1-P4, [Routines:  SAVE1-4], U1-U3 [File block macros], P
+      [Macros:  START]) [Macros:  SAVE, RESTORE]
+
+2     Character definitions (NULL, BELL, TAB, LF, VT,  FF,  CR,  CTRLZ,
+      ESC,  ALT,  DBLQ,  SNGLQ,  LPAREN,  RPAREN,  COMMA, SEMI, LANGLE,
+      RANGLE, LSQUAR, RSQUAR, RUBOUT, CRLF) [UUOs:  Input:  RFLG, RCHF,
+      CCHF, LCHF;  File block macros:  FILE]
+
+3     Flag  definitions  (LZEFLG  [UUOs:   Output  with  field  width])
+      [Macros:  FLAG]
+
+4     File block macros (FILE, PFILE) [UUOs:  File block, File  errors;
+      Data structures:  File blocks]
+
+5     Data structures (Loseg file and pseudo-file  blocks  [File  block
+      macros:  FILE, PFILE;  UUOs:  File block, File errors], Edit list
+      [UUOs:  DISIX, DIASC, EDISIX, EDIASC])
+
+6     Macros (WID, POS,  POINTR;   FLAG  [Flag  definitions:   LZEFLG];
+      VERSION,  VERSTR,  XX;   SAVE,  RESTORE;   START;  CONC;  HWDGEN;
+      OPDEFs:  MCALL, CALL, RETURN)  <Lexical  analysis  TBLBEG,  PROD,
+      TBLEND>
+
+7     Routines (SAVE1-4) <Lexical analysis LEXINT>
+
+8     UUOs:  [Macro START]
+
+   8.1   Input (RCH, CCH,  LCH,  RFLG,  RCHF,  CCHF,  LCHF)  [Character
+         definitions]
+
+   8.2   Output without field width  (DISIX,  DIASC  [Data  structures:
+         Edit list];  WASC, WCH, WCHI, W2CH, W2CHI, WNAME, WPPN, WNAMX,
+         WFNAME [UUOs:  File block]) <Output with field width:  WSIX>
+
+   8.3   Output with field width (WSIX, WDEC, WDECI, WOCT, WOCTI)
+
+   8.4   Error stream (EDISIX, EDIASC, EWSIX, EWASC) [Data  structures:
+         Edit list]
+TULIP - an IO package for MACRO-10 programs                     Page 30
+REFERENCE MANUAL
+
+
+   8.5   File block (FSETUP [File block macros], FISEL, FOSEL,  FIOPEN,
+         FOOPEN,  FIGET,  FOGET,  FLOOK,  FENT,  FICLS,  FOCLS, FICLOS,
+         FOCLOS, FREL)
+
+   8.6   File errors (ERRIOP, WERIOP,  ERROOP,  WEROOP,  ERRLK,  WERLK,
+         ERRENT, WERENT, ERRIN, WERIN, ERROUT, WEROUT)
+
+9     Lexical  analysis  (Macros:   TBLBEG,  PROD,  TBLEND;    Routine:
+      LEXINT) [Character definitions]
+
+10    Source files,  assembly,  and  usage  instructions.   (TULIP.MAC,
+      TULLIB.MAC, EXAMPL.MAC, TULIP.RND)
+
+11    Reserved symbols (many - see section!)
+
+
+
+1.0  REGISTER DEFINITIONS
+
+
+   Name     Range    Use
+   F        0        Flags
+   T1-T4    1-4      Temporary
+   P1-P4    5-10     Permanent
+            11-13    Unassigned
+   U1-U3    14-16    Used by UUO handler (but preserved)
+   P        17       Stack pointer
+
+
+
+2.0  CHARACTER DEFINITIONS
+
+
+   NULL     Null (0)
+   BELL     Control-G (7)
+   TAB      Tab (11)
+   LF       Linefeed (12)
+   VT       Vertical tab (13)
+   FF       Formfeed (14)
+   CR       Carriage return (15)
+   CTRLZ    Control-Z (32)
+   ESC      Escape (33)
+   ALT      Altmode (33) [Long past time to bury 175 and 176!]
+   DBLQ     Double quote (")
+   SNGLQ    Single quote (')
+   LPAREN   Left parenthesis '('
+   RPAREN   Right parenthesis ')'
+   COMMA    Comma (,)
+   SEMI     Semi-colon (;)
+   LANGLE   Left angle bracket (<)
+   RANGLE   Right angle bracket (>)
+   LSQUAR   Left square bracket ([)
+   RSQUAR   Right square bracket (])
+   RUBOUT   Yes (177)
+TULIP - an IO package for MACRO-10 programs                     Page 31
+CHARACTER DEFINITIONS
+
+
+   CRLF     CR, LF right justified (<CR>B28+LF).
+
+Character class definitions returned as bit flags by RFLG  and  related
+UUOs:
+
+   LETTER   A-Z, upper and lower case.
+   DIGIT    0-9.
+   BLANK    Space and tab.
+   BREAK    Linefeed, vert. tab, formfeed, escape, CTRL-G, CTRL-Z.
+   LGLSIX   Codes 40-137. (Valid SIXBIT characters.)
+
+
+
+3.0  FLAG DEFINITIONS
+
+   LZEFLG   Force numeric output UUOs to print leading zeros.
+
+
+
+4.0  FILE BLOCK MACROS
+
+PFILE loseg block,instruction,data
+
+   Loseg block - The address of the  corresponding  low  segment  PFILE
+      block.  (See Data structures for format.)
+
+   Instruction - The instruction all  'IO'  flows  through.   Registers
+      U1-U3 have this data:
+
+      U1 - The character (if output) or where the character  is  to  be
+         returned (if input).
+
+      U2 - File block address.
+
+      U3 - Currently available as a temporary.
+
+      T1-T4 - Contain user's data, and may not be clobbered!
+
+   Data - Optional, but if  specified  is  usually  the  address  of  a
+      buffer.   Stored  in location FILCHN within the low segment PFILE
+      block.
+
+FILE chan,dir,loblk,<spec(arg),...,spec(arg)>
+   chan - IO channel number.
+
+   dir - I for input, O for output.
+
+   loblk - Address of corresponding low segment block.
+
+   <spec(arg),...,spec(arg)> - A list of special  arguments  and  is  a
+      list composed from:
+
+      DEV (n)       [DSK]     Device.
+      NAME (n)      [blank]   File name.
+TULIP - an IO package for MACRO-10 programs                     Page 32
+FILE BLOCK MACROS
+
+
+      EXT (n)       [blank]   Extension.
+      STATUS (n)    [0]       Status (all 36 bits are available).
+      <INST (<i>)>  [PUSHJ P,I1BYTE or O1BYTE] IO instruction.
+      OTHER (n)     [none]    Address of matching loseg file block.
+      OPEN (addr)   [ILERI1, ILERO1] Address for open error transfer.
+      LOOKUP (addr) [ILERI2]  LOOKUP error.
+      ENTER (addr)  [ILERO2]  ENTER error.
+      INPUT (addr)  [ILERI3]  INPUT error.
+      OUTPUT (addr) [ILERO3]  OUTPUT error.
+      EOF (addr)    [ILERI3]  End of file.
+
+Warning:  1) Each specifier must be immediately preceded with its angle
+bracket  or  comma.   2)  If commas are to be used within arguments the
+spec(arg) macros, they must have angle brackets as used  for  the  INST
+macro.
+
+
+
+5.0  DATA STRUCTURES
+
+5.1  Loseg File Block
+
+     Both file and pseudo file  blocks  use  the  same  data  structure
+below,  except  the  latter stops with FILCHN, where the data word from
+the PFILE macro is stored.  Two symbols are used to reserve storage for
+them:
+
+FBSIZE - Length of file block
+PBSIZE - Length of pseudo file block
+
+Loc  name   contents
+0   FILXCT  IO instruction
+1   FILBAK  Character (byte) before last (for LCH UUO)
+2   FILCUR  Current character (for CCH UUO)
+3   FILCHN  Channel number in AC field
+4   FILSTS  Open block - Initial file status
+5   FILDEV    Device name
+6   FILHDP    Buffer header addresses
+7   FILNAM  LOOKUP/enter block - File name
+10  FILEXT    Extension (et al)
+11  FILDAT    File data (creation data, protection, etc.)
+12  FILPP1    PPN before, file size after
+13  FILPPN  Copied to FILPP1 before each LOOKUP/enter UUO
+14  FILHDR  Buffer header - Address of current buffer
+15  FILPTR    Byte pointer to current buffer
+16  FILCTR    Count of bytes left in current buffer
+17  FILER1  OPEN,,LOOKUP/ENTER error addresses
+20  FILER2  EOF ,,INPUT/OUTPUT error addresses
+TULIP - an IO package for MACRO-10 programs                     Page 33
+DATA STRUCTURES
+
+
+5.2  Edit List
+
+The edit list is data for the UUOs DISIX, EDISIX,  DIASC,  and  EDIASC.
+The  left  half of first word contains the address to transfer to after
+the UUO completes and the right half is the address of the edit string.
+Following this word are the instructions to be used for variable output
+from the UUO.  If  the  edit  string  is  SIXBIT,  then  the  following
+characters have special effects:
+
+   #  Print a CRLF.
+   $  Print a tab.
+   &  Switch case mode (initially upper case).
+   %  Execute the next instruction in the instruction list.
+   "  Output the next character as is.
+   !  End of string.
+
+If the edit string is ASCIZ, then the only special  character  will  be
+CTRL-A, which acts as % above.
+
+
+
+6.0  MACROS
+
+Byte pointer macros (Actually in C.MAC, not TULIP.MAC.)
+
+WID (mask) - Return width of supplied mask in bits.
+POS (mask) - Return bit position of last bit in mask.
+POINTR (addr,mask) - Make byte pointer to that byte.
+
+Flag macro
+
+FLAG (symbol) - Assigns a bit value to symbol, starting at bit  34  and
+   working to the left.  There may be a list of symbols as an argument.
+
+Version macros
+
+VERSION (version,update,edit,who,symbol) If <symbol> is  omitted,  this
+   sets  location  .JBVER  to  be  the  version number.  If <symbol> is
+   supplied, this defines it to be the version number.  Special symbols
+   %VVERS, %VUPDA, %VEDIT, and %VWHO are defined and
+VERSTR
+   is defined to be simply
+XX (version,update,edit,who)
+   which is meant to be called by the programmer once he defines XX  so
+   something useful is done with it.
+
+Stack manipulaters
+
+SAVE <arg1,arg2,...,argn> - Save the specified locations on the stack.
+
+RESTORE <argn,...,arg2,arg1> - Restore the specified locations from the
+   stack.  Note that the order of the list is reversed!
+
+TULIP - an IO package for MACRO-10 programs                     Page 34
+MACROS
+
+
+Miscellaneous macros
+
+START - Initialize UUO handler  by  clearing  the  flag  register  (F),
+   clearing  all  IO  streams  (IFILE,  OFILE, and EFILE) and resetting
+   job's IO status (RESET UUO).  Also does an SALL MACRO-10  pseudo  op
+   to  suppress  macro expansions (for C.MAC and PROD).  Should be used
+   by every program after the stack has been set up.
+
+CONC (a,b,c,d) - Concatenates up  to  four  parameters  into  a  single
+   MACRO-10 source line.
+
+HWDGEN (name,macro,submac,prefix) - Generate half word dispatch.
+
+   name - Becomes the address of the table.
+   macro - Consists  of  calls  to  <submac>,  one  for  each  dispatch
+      generated.
+   submac - Takes one argument, the  label  to  transfer  to  for  this
+      index.   This  macro  allows further processing to be done on the
+      labels and is defined by HWDGEN (and any other users of this data
+      structure).
+   prefix - Optional.  This will be concatenated with <label> to  allow
+      separation between other macro generated names.
+
+The generated table will be in 18 bit byte  format  (entries  start  at
+left, go to right and down).
+
+OPDEFs
+
+MCALL   CALL            So the CALL UUO is still available.
+CALL    PUSHJ   P,
+RETURN  POPJ    P,
+
+
+
+7.0  ROUTINES
+
+
+SAVE1-4 - Save up to all 4 permanent registers (P1-P4), and  then  call
+   the  caller  to  be  able  to handle the restore itself, meaning the
+   caller does not have to worry about restoring the registers himself.
+
+
+
+8.0  UUOS
+
+8.1  Input
+
+RCH      loc      Reads next character into <loc>.
+CCH      loc      Reads current character into <loc>.
+LCH      loc      Reads last  character  into  <loc>.   Next  RCH  will
+                 reread  the  current  character.  Note:  LCH cannot be
+                 used to back up more than one character.  Attempts  to
+                 do so will be ignored.
+RFLG     loc      Reads flags for character in loc into <loc>+1.
+TULIP - an IO package for MACRO-10 programs                     Page 35
+UUOS
+
+
+RCHF, CCHF, LCHF  Act as RCH, CCH, and LCH immediately  followed  by  a
+                 RFLG.
+
+
+
+8.2  Output Without Field Width
+
+DISIX    elist    Output using SIXBIT edit list starting at <elist>.
+DIASC    elist    Output using ASCIZ edit list starting at <elist>.
+WASC     addr     Output ASCIZ string starting at <addr>.
+WCH      addr     Output character from <addr>.
+WCHI     char     Output character in address field.
+W2CH     addr     Output two characters right justified in <addr>.
+W2CHI    chars    Output two  characters  right  justified  in  address
+                 field.
+WNAME    addr     Output SIXBIT word in <addr>, no trailing spaces.
+WPPN     addr     Output PPN in <addr>.  (Without brackets.)
+WNAMX    addr     Output 'NAME.EXT' in <addr> and <addr>+1.
+WFNAME   file     Output 'DEV:NAME.EXT[PPN]' in file block starting  at
+                 <file>.   If the extension is 'UFD', then the name wil
+                 be printed as a PPN.
+
+
+
+8.3  Output With Field Width.
+
+WSIX     w,addr   Write from SIXBIT test at <addr>.  If  <w>  is  blank
+                 then  output will be controlled by the edit characters
+                 (do not use '%'!), otherwise only <w> characters  will
+                 be written.
+WDEC     w,addr   Write a decimal number at least <w> characters  long.
+                 If  LZEFLG  is set in F, then it will be preceded with
+                 leading zeros.
+WDECI    w,num    Like WDEC, but immediate mode.
+WOCT     w,addr   Like WDEC, but octal output.
+WOCTI    w,num    Like WOCT, but immediate mode.
+
+
+
+8.4  Error Stream
+
+EDISIX   elist    Write SIXBIT edit list through error stream (EFILE).
+EDIASC   elist    Write ASCIZ edit list through error stream.
+EWSIX    addr     Do WSIX to the error stream.
+EWASC    addr     Do WASC to the error stream.
+
+
+
+8.5  File Block
+
+All UUOs take the address of a loseg file block (except  FSETUP,  which
+uses  a  HISEG  file block).  'Select input' means simply that the file
+block address is stored in  location  IFILE  (a  location  in  the  UUO
+handler)  and  'select  output'  means  storing  into  OFILE.   A third
+TULIP - an IO package for MACRO-10 programs                     Page 36
+UUOS
+
+
+location, EFILE, is the file IO stream location for  the  error  output
+but may be used by the program for any other use.
+
+FSETUP   Initialize loseg file block from hiseg block at file.
+FISEL    Select input stream to be through file.
+FOSEL    Select output stream to be through file.
+FIOPEN   Select input, OPEN, and LOOKUP file.
+FOOPEN   Select output, OPEN, and ENTER file.
+FIGET    Select input and OPEN file.
+FOGET    Select output and OPEN file.
+FLOOK    Select input and LOOKUP file.
+FENT     Select output and ENTER file.
+FICLS    Select input and CLOSE file.
+FOCLS    Select output and CLOSE file.
+FICLOS   Select input, CLOSE, and RELEASE file.
+FOCLOS   Select output, CLOSE, and RELEASE file.
+FREL     RELEASE file (don't select).
+
+
+
+8.6  File Errors.
+
+All UUOs in this section will take the address of a loseg file block to
+reference,  and  therefore  will not be included in the list.  Each UUO
+may be prefixed with either a 'WER' or a 'ERR'.  The former will output
+to  the  output  device  whereas  the  latter  will output to the error
+device.  Furthermore, UUOs starting  with  'WER'  will  not  print  the
+device descriptor before printing the error message.
+
+???IOP   Write OPEN error message.
+???OOP   Like ???IOP.
+???LK    Write LOOKUP/GETSEG error message.
+???ENT   Write ENTER error message.
+???IN    Write INPUT error message.
+???OUT   Write OUTPUT error message.
+
+
+
+9.0  LEXICAL ANALYSIS
+
+To perform lexical analysis, a routine (LEXINT) must be called with the
+address  of a production table in the right side of T1 and the relative
+first production number in the left.  To make a production table, three
+macros are used:
+
+TBLBEG (symbol) - Defines symbol to be the address  of  the  production
+   table and initializes data for the other macros.
+
+PROD( char spec, action routine, char disp, next prod) - This generates
+   a production word.
+
+      char spec - Match condition (character or angle bracketed flags).
+
+      action routine - Last four characters (first two are 'A.') to  be
+TULIP - an IO package for MACRO-10 programs                     Page 37
+LEXICAL ANALYSIS
+
+
+         called to parse data if the character matches.
+
+      char disp - What to do with character before next  production  is
+         processed  (*:   read  a  new  one, _:  read last, blank:  use
+         same).
+      next prod - Relative address of next production to process.
+
+TBLEND - This marks the end of a production table,  generating  a  half
+   word table for use by LEXINT to dispatch to action routines.
+
+
+
+10.0  SOURCE FILES
+
+
+C.MAC        Provided by DEC, this is a universal file  (when  properly
+            assembled) that supplies many symbol definitions.
+TULIP.MAC    A universal file providing all TULIP definitions.
+TULLIB.MAC   Library that must be searched to load the  TULIP  routines
+            needed.
+TULIP.RND    A RUNOFF file (version 10) that generates this document.
+EXAMPL.MAC   A library of sample programs discussed by the primer.
+
+
+
+11.0  RESERVED SYMBOLS
+
+
+The following symbols may be useful:
+Name     value   function
+FTDBUG   0       -1 if a debug version of TULIP.MAC.
+FTCREF   0       -1 if prgrammer wants full CREF.
+FTCMU    0       -1 at CMU for CMUPPNs.
+FTIMP    0       -1 at HARVARD and CMU for ARPAnet features.
+$FLAGN   -       Bit location of last defined flag.
+$NCHFL   -       Non zero if character classes are defined.
+$UUON    -       Value of the last UUO defined.
+
+                 HISEG file block format:
+FHDBTS   0        Mark bits indicating which words are non-zero.
+FHDLOC   1        AOBJN word to use in data copy loop.
+FHDOFS   2        Offset of first real data word in HISEG FILE block.
+
+The following symbols are defined in TULIP, but  may  be  used  without
+causing trouble.
+   $NBYPW, SCNBIT, RSCBIT, CLSBIT, NEGBIT, BAKFLG.
+
+Version numbers:  %LEXINT, %TULIP, %UUO, %%%TLP.
+
+The following are used or defined by HWDGEN:
+Macros   $HDW
+Symbols  ZZ
+
+The following are used or defined by the lexical analysis macros:
+TULIP - an IO package for MACRO-10 programs                     Page 38
+RESERVED SYMBOLS
+
+
+Macros   $NWACT, %TBLFN, $ACT
+Symbols  $ACTN, $ANG, $TESTF, $NEXT, N$POPJ, N$????, ZZ
+           (????  are the names of action routines used)
+
+Miscellaneous macros:
+UUOS     Contains entire UUO structure.
+CLASSES  Used by TULLIB.MAC to create the character class table.
+REDEF,  TSTANG  -  Used  by  lexical  analysis  macros.   Must  not  be
+redefined.
+TULIP - an IO package for MACRO-10 programs                     Page 39
+Index
+
+
+!  . . . . . . . . . . . . . . . .  7
+
+"  . . . . . . . . . . . . . . . .  7
+
+#  . . . . . . . . . . . . . . . .  6
+
+$  . . . . . . . . . . . . . . . .  7
+$FLAGN . . . . . . . . . . . . . .  37
+$HDW . . . . . . . . . . . . . . .  37
+$NCHFL . . . . . . . . . . . . . .  37
+$UUON  . . . . . . . . . . . . . .  37
+
+%  . . . . . . . . . . . . . . . .  7, 9
+%%%TLP . . . . . . . . . . . . . .  16, 37
+%LEXINT  . . . . . . . . . . . . .  16, 37
+%TULIP . . . . . . . . . . . . . .  37
+%UUO . . . . . . . . . . . . . . .  16, 37
+%VEDIT . . . . . . . . . . . . . .  16
+%VUPDA . . . . . . . . . . . . . .  16
+%VVERS . . . . . . . . . . . . . .  16
+%VWHO  . . . . . . . . . . . . . .  16
+
+&  . . . . . . . . . . . . . . . .  7
+
+.JBVER . . . . . . . . . . . . . .  16
+
+Action routine . . . . . . . . . .  22
+Action routines  . . . . . . . . .  21-22
+ALT  . . . . . . . . . . . . . . .  14, 30
+Author . . . . . . . . . . . . . .  1
+
+BELL . . . . . . . . . . . . . . .  14
+BLANK  . . . . . . . . . . . . . .  15, 31
+BLISS  . . . . . . . . . . . . . .  3
+BREAK  . . . . . . . . . . . . . .  15, 31
+Byte pointers  . . . . . . . . . .  9, 33
+
+C.MAC  . . . . . . . . . . . . . .  5-6, 8-9, 12-13, 26, 33, 37
+CALL . . . . . . . . . . . . . . .  12, 21, 34
+Carnegie -Mellon University  . . .  37
+Case conversion  . . . . . . . . .  7, 33
+CCH  . . . . . . . . . . . . . . .  14, 32, 34
+CCHF . . . . . . . . . . . . . . .  14, 20, 35
+Character quoting  . . . . . . . .  7, 33
+CLOSE  . . . . . . . . . . . . . .  11, 36
+COMMA  . . . . . . . . . . . . . .  14, 30
+CONC . . . . . . . . . . . . . . .  34
+Coroutines . . . . . . . . . . . .  24
+CPOPJ  . . . . . . . . . . . . . .  9, 12
+CPOPJ1 . . . . . . . . . . . . . .  9
+CR . . . . . . . . . . . . . . . .  14, 30
+CREF . . . . . . . . . . . . . . .  37
+CRLF . . . . . . . . . . . . . . .  6-7, 14, 31, 33
+CTRL-A . . . . . . . . . . . . . .  7, 9, 33
+CTRLZ  . . . . . . . . . . . . . .  14, 30
+
+DBLQ . . . . . . . . . . . . . . .  14, 30
+DDT  . . . . . . . . . . . . . . .  17
+DEC  . . . . . . . . . . . . . . .  5
+DEV  . . . . . . . . . . . . . . .  10, 31
+DIASC  . . . . . . . . . . . . . .  7, 17, 35
+DIGIT  . . . . . . . . . . . . . .  15, 31
+DISIX  . . . . . . . . . . . . . .  6-7, 9, 17, 28, 35
+
+EDIASC . . . . . . . . . . . . . .  17, 35
+EDISIX . . . . . . . . . . . . . .  17, 35
+EFILE  . . . . . . . . . . . . . .  17, 35
+End of string  . . . . . . . . . .  7, 33
+ENTER  . . . . . . . . . . . . . .  10-11, 18, 32, 36
+EOF  . . . . . . . . . . . . . . .  10, 32
+ERR prefix . . . . . . . . . . . .  17, 36
+ERRENT . . . . . . . . . . . . . .  18, 36
+ERRIN  . . . . . . . . . . . . . .  18, 36
+ERRIOP . . . . . . . . . . . . . .  17, 36
+ERRLK  . . . . . . . . . . . . . .  18, 36
+ERROOP . . . . . . . . . . . . . .  17, 36
+ERROUT . . . . . . . . . . . . . .  18, 36
+ESC  . . . . . . . . . . . . . . .  14, 30
+EWASC  . . . . . . . . . . . . . .  17, 35
+EWSIX  . . . . . . . . . . . . . .  17, 35
+EXAMPL.MAC . . . . . . . . . . . .  3, 37
+EXT  . . . . . . . . . . . . . . .  10, 32
+
+F  . . . . . . . . . . . . . . . .  13
+FBSIZE . . . . . . . . . . . . . .  11, 32
+FENT . . . . . . . . . . . . . . .  11, 16, 36
+FF . . . . . . . . . . . . . . . .  14, 30
+FHDBTS . . . . . . . . . . . . . .  37
+FHDLOC . . . . . . . . . . . . . .  37
+FHDOFS . . . . . . . . . . . . . .  37
+FICLOS . . . . . . . . . . . . . .  11, 16, 36
+FICLS  . . . . . . . . . . . . . .  11, 16, 36
+FIGET  . . . . . . . . . . . . . .  9, 11, 16, 36
+FILBAK . . . . . . . . . . . . . .  32
+FILCHN . . . . . . . . . . . . . .  26, 31-32
+FILCTR . . . . . . . . . . . . . .  32
+FILCUR . . . . . . . . . . . . . .  32
+FILDAT . . . . . . . . . . . . . .  32
+FILDEV . . . . . . . . . . . . . .  11, 32
+FILE . . . . . . . . . . . . . . .  9, 11, 13, 26
+FILER1 . . . . . . . . . . . . . .  32
+FILER2 . . . . . . . . . . . . . .  32
+FILEXT . . . . . . . . . . . . . .  11, 32
+FILHDP . . . . . . . . . . . . . .  32
+FILHDR . . . . . . . . . . . . . .  32
+FILNAM . . . . . . . . . . . . . .  11, 32
+FILPP1 . . . . . . . . . . . . . .  32
+FILPPN . . . . . . . . . . . . . .  11, 32
+FILPTR . . . . . . . . . . . . . .  32
+FILSTS . . . . . . . . . . . . . .  32
+FILXCT . . . . . . . . . . . . . .  32
+FIOPEN . . . . . . . . . . . . . .  11, 16, 36
+FISEL  . . . . . . . . . . . . . .  16-17, 36
+FLAG . . . . . . . . . . . . . . .  13, 33
+Flag register  . . . . . . . . . .  6, 12-13, 30
+FLOOK  . . . . . . . . . . . . . .  11, 16, 36
+FOCLOS . . . . . . . . . . . . . .  11, 16, 36
+FOCLS  . . . . . . . . . . . . . .  11, 16, 36
+FOGET  . . . . . . . . . . . . . .  11, 16, 36
+FOOPEN . . . . . . . . . . . . . .  11, 16, 36
+FOSEL  . . . . . . . . . . . . . .  16-17, 36
+FREL . . . . . . . . . . . . . . .  9, 11, 16, 36
+FSETUP . . . . . . . . . . . . . .  11, 16, 26, 36
+FTCMU  . . . . . . . . . . . . . .  37
+FTCREF . . . . . . . . . . . . . .  37
+FTDBUG . . . . . . . . . . . . . .  37
+FTIMP  . . . . . . . . . . . . . .  37
+
+GETCHN . . . . . . . . . . . . . .  23
+GETSEG . . . . . . . . . . . . . .  18
+GLOB . . . . . . . . . . . . . . .  26
+GLOBAL . . . . . . . . . . . . . .  26
+
+Harvard University . . . . . . . .  1, 28, 37
+HWDGEN . . . . . . . . . . . . . .  26-27, 34
+
+I1BYTE . . . . . . . . . . . . . .  10, 32
+IBM  . . . . . . . . . . . . . . .  5
+IDIVX  . . . . . . . . . . . . . .  8
+IFILE  . . . . . . . . . . . . . .  17, 23, 35
+ILERI1 . . . . . . . . . . . . . .  32
+ILERI2 . . . . . . . . . . . . . .  10, 32
+ILERI3 . . . . . . . . . . . . . .  10, 32
+ILERO1 . . . . . . . . . . . . . .  10, 32
+ILERO2 . . . . . . . . . . . . . .  10, 32
+ILERO3 . . . . . . . . . . . . . .  10, 32
+Index  . . . . . . . . . . . . . .  39
+Initialization . . . . . . . . . .  6-7
+INPUT  . . . . . . . . . . . . . .  10, 18, 32, 36
+INST . . . . . . . . . . . . . . .  10, 13, 32
+Instruction list . . . . . . . . .  7, 13, 33
+IO error UUOs  . . . . . . . . . .  17-19
+IO streams . . . . . . . . . . . .  16
+
+JUMP . . . . . . . . . . . . . . .  21-22
+
+LANGLE . . . . . . . . . . . . . .  14, 30
+LCH  . . . . . . . . . . . . . . .  14, 32, 34-35
+LCHF . . . . . . . . . . . . . . .  14, 20, 35
+LETTER . . . . . . . . . . . . . .  15, 31
+Lexical analysis . . . . . . . . .  3, 19-22, 36
+LEXINT . . . . . . . . . . . . . .  20-22, 25, 37
+LF . . . . . . . . . . . . . . . .  14, 30-31
+LGLSIX . . . . . . . . . . . . . .  15, 31
+LOOKUP . . . . . . . . . . . . . .  10-11, 18, 32, 36
+LPAREN . . . . . . . . . . . . . .  14, 30
+LSQUAR . . . . . . . . . . . . . .  14, 30
+LUUO . . . . . . . . . . . . . . .  3
+LZEFLG . . . . . . . . . . . . . .  8, 13, 31, 35
+
+MAKLST . . . . . . . . . . . . . .  8
+MCALL  . . . . . . . . . . . . . .  34
+MCALL, . . . . . . . . . . . . . .  12
+
+NAME . . . . . . . . . . . . . . .  10, 31
+NULL . . . . . . . . . . . . . . .  7, 14
+
+O1BYTE . . . . . . . . . . . . . .  10, 32
+OFILE  . . . . . . . . . . . . . .  17, 35
+OPEN . . . . . . . . . . . . . . .  10-11, 17, 32, 36
+OTHER  . . . . . . . . . . . . . .  10, 32
+OUTPUT . . . . . . . . . . . . . .  10, 18, 32, 36
+
+PBSIZE . . . . . . . . . . . . . .  26, 32
+Permanent registers  . . . . . . .  12-13, 30, 34
+PFILE  . . . . . . . . . . . . . .  26, 31-32
+Philosophy . . . . . . . . . . . .  5, 8, 12-13, 24, 28
+PJRST  . . . . . . . . . . . . . .  12
+POINTR . . . . . . . . . . . . . .  9, 33
+POS  . . . . . . . . . . . . . . .  9, 33
+PPN  . . . . . . . . . . . . . . .  10
+PROD . . . . . . . . . . . . . . .  20-21, 36
+
+RANGLE . . . . . . . . . . . . . .  14, 30
+RCH  . . . . . . . . . . . . . . .  14, 34
+RCHF . . . . . . . . . . . . . . .  14, 20, 35
+RELEASE  . . . . . . . . . . . . .  11, 36
+RESET  . . . . . . . . . . . . . .  34
+RESTORE  . . . . . . . . . . . . .  12, 33
+RET  . . . . . . . . . . . . . . .  21-22
+RETURN . . . . . . . . . . . . . .  12, 34
+RFLG . . . . . . . . . . . . . . .  14, 31, 34
+RPAREN . . . . . . . . . . . . . .  14, 30
+RSQUAR . . . . . . . . . . . . . .  14, 30
+RUBOUT . . . . . . . . . . . . . .  14, 30
+RUN UUO  . . . . . . . . . . . . .  18
+RUNOFF . . . . . . . . . . . . . .  3, 37
+
+SAVE . . . . . . . . . . . . . . .  12, 33
+SAVE1  . . . . . . . . . . . . . .  13, 23, 34
+SAVE2  . . . . . . . . . . . . . .  13, 34
+SAVE3  . . . . . . . . . . . . . .  13, 34
+SAVE4  . . . . . . . . . . . . . .  13, 34
+SEMI . . . . . . . . . . . . . . .  14, 30
+SG . . . . . . . . . . . . . . . .  20
+SIXMAT . . . . . . . . . . . . . .  24
+SIXSRC . . . . . . . . . . . . . .  24
+SNGLQ  . . . . . . . . . . . . . .  14, 30
+Source . . . . . . . . . . . . . .  1
+SRET . . . . . . . . . . . . . . .  21-22
+Stack pointer  . . . . . . . . . .  12, 30
+START  . . . . . . . . . . . . . .  6, 34
+STATUS . . . . . . . . . . . . . .  10, 32
+SUBTTL . . . . . . . . . . . . . .  16
+
+TAB  . . . . . . . . . . . . . . .  7, 14, 33
+TBLBEG . . . . . . . . . . . . . .  20, 22, 36
+TBLEND . . . . . . . . . . . . . .  20, 37
+Temporary registers  . . . . . . .  12-13, 30-31
+TITLE  . . . . . . . . . . . . . .  16
+TSTANG . . . . . . . . . . . . . .  38
+TTCALL . . . . . . . . . . . . . .  16-17
+TULIP registers  . . . . . . . . .  12-13, 30
+TULIP.DOC  . . . . . . . . . . . .  3
+TULIP.MAC  . . . . . . . . . . . .  3, 6, 9, 16, 33, 37
+TULIP.RND  . . . . . . . . . . . .  1, 3, 37
+TULLIB . . . . . . . . . . . . . .  17, 27
+TULLIB.MAC . . . . . . . . . . . .  3, 16, 37-38
+
+Unassigned registers . . . . . . .  12, 23, 30-31
+UUO handler  . . . . . . . . . . .  3
+
+VERSION  . . . . . . . . . . . . .  16, 33
+Version numbers  . . . . . . . . .  37
+VERSTR . . . . . . . . . . . . . .  16, 33
+VT . . . . . . . . . . . . . . . .  14, 30
+
+W2CH . . . . . . . . . . . . . . .  6, 35
+W2CHI  . . . . . . . . . . . . . .  6, 35
+WASC . . . . . . . . . . . . . . .  9, 17, 35
+WCH  . . . . . . . . . . . . . . .  6, 35
+WCHI . . . . . . . . . . . . . . .  6, 35
+WDEC . . . . . . . . . . . . . . .  6, 8, 17, 35
+WDECI  . . . . . . . . . . . . . .  6, 35
+WER prefix . . . . . . . . . . . .  17, 36
+WERENT . . . . . . . . . . . . . .  18, 36
+WERIN  . . . . . . . . . . . . . .  18, 36
+WERIOP . . . . . . . . . . . . . .  17, 36
+WERLK  . . . . . . . . . . . . . .  18, 36
+WEROOP . . . . . . . . . . . . . .  17, 36
+WEROUT . . . . . . . . . . . . . .  18, 36
+WFNAME . . . . . . . . . . . . . .  35
+WID  . . . . . . . . . . . . . . .  9, 33
+WNAME  . . . . . . . . . . . . . .  6, 35
+WNAMX  . . . . . . . . . . . . . .  35
+WOCT . . . . . . . . . . . . . . .  6, 35
+WOCTI  . . . . . . . . . . . . . .  6, 35
+WPPN . . . . . . . . . . . . . . .  35
+WSIX . . . . . . . . . . . . . . .  9, 17, 35
+
+XX . . . . . . . . . . . . . . . .  16, 33
+
+ZZ . . . . . . . . . . . . . . . .  37
+
+.MAIN	MACRO %50(272) 04:11 13-JAN-75 PAGE 1
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+     1					;SECTION 1
+     2						SEARCH	C,TULIP		;ACCESS TULIP AND C DEFINITIONS
+     3
+     4	000000'	200 17 0 00 000105'	TULIP1:	MOVE	P,[IOWD 40,PDL]	;SET UP PUSHDOWN LIST
+     5						START	^		;CALL UUO TO INITIALIZE TULIP
+     6	000001'	260 17 0 00 000000*
+     7
+     8					;SECTION 2
+     9	000002'	047 01 0 00 000014 		DATE	T1,		;GET THE DATE IN FUNNY FORMAT
+    10	000003'	231 01 0 00 000037 		IDIVI	T1,^D31		;T2_DAY-1
+    11	000004'	271 02 0 00 000001 		ADDI	T2,1		;FIXT2 SO IT'S NOW 1-31
+    12	000005'	003 00 0 00 000002 		WDEC	T2		;AND PRINT IT
+    13	000006'	001 01 0 00 000056 		WCHI	"."		;SEPARATE EUPOPEAN STYLE
+    14	000007'	231 01 0 00 000014 		IDIVI	T1,^D12		;T1_YEARS-64, T2_MONTH-1
+    15	000010'	010 01 0 02 000031'		WNAME	MONTAB(T2)	;PRINT THIS MONTH
+    16	000011'	001 01 0 00 000056 		WCHI	"."		;SEPARATE THIS
+    17	000012'	271 01 0 00 000100 		ADDI	T1,^D64		;MAKE THIS THE CURRENT YEAR
+    18	000013'	003 00 0 00 000001 		WDEC	T1		;BOY, THIS IS STILL RATHER TEDIOUS...
+    19	000014'	001 03 0 00 003212 		W2CHI	CRLF		;CRLF IS DEFINED IN TULIP, AND IS JUST THAT
+    20
+    21					;SECTION 3
+    22	000015'	047 01 0 00 000014 		DATE	T1,		;LET'S DO IT AGAIN, ONLY BETTER!
+    23	000016'	231 01 0 00 000564 		IDIVI	T1,^D<12*31>	;T1_YEAR-64
+    24	000017'	231 02 0 00 000037 		IDIVI	T2,^D<   31>	;T2_MONTH-1, T3_DAY-1
+    25						DISIX	[[SIXBIT\%.%.%!\]
+    26							 WDECI	1(T3)	;DAY
+    27							 WNAME	MONTAB(T2);MONTH
+    28	000020'	001 10 0 00 000107'			 WDECI	^D64(T1)];AND YEAR
+.MAIN	MACRO %50(272) 04:11 13-JAN-75 PAGE 2
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+    29					;SECTION 4
+    30	000021'	047 01 0 00 000023 		MSTIME	T1,		;TOP OFF WITH TIME
+    31	000022'	230 01 0 00 000113'		IDIVX	T1,^D<60*60*1000>;T1_HOURS
+    32	000023'	231 02 0 00 165140 		IDIVX	T2,^D<   60*1000>;T2_MINUTES
+    33	000024'	231 03 0 00 001750 		IDIVX	T3,^D<      1000>;T3_SECONDS, T4_THOUSANTHS
+    34	000025'	660 00 0 00 000001 		TXO	F,LZEFLG	;PRINT TIME WITH LEADING ZEROS
+    35						DISIX	[[SIXBIT\  %:%:%.%#!\]
+    36							 WDEC	2,T1	;HOURS
+    37							 WDEC	2,T2	;MINUTES
+    38							 WDEC	2,T3	;SECONDS
+    39	000026'	001 10 0 00 000116'			 WDEC	3,T4]	;THOUSANTHS. NOTE THAT THIS NEEDS LEADING ZEROS!
+    40
+    41					;SECTION 5
+    42	000027'	047 01 0 00 000012 		MONRT.			;BACK TO MONITOR
+    43	000030'	047 00 0 00 000012 		EXIT			;IN CASE OF CONTINUE
+    44
+    45					DEFINE	MAKLST	(A)<
+    46						IRP	A<SIXBIT/A/>>
+    47
+    48	000031'	52 41 56 00 00 00 	MONTAB:	MAKLST	<JAN,FEB,MARCH,APRIL,MAY,JUNE,JULY,AUGUST,SEPT,OCT,NOV,DEC>
+    49	000032'	46 45 42 00 00 00 
+    50	000033'	55 41 62 43 50 00 
+    51	000034'	41 60 62 51 54 00 
+    52	000035'	55 41 71 00 00 00 
+    53	000036'	52 65 56 45 00 00 
+    54	000037'	52 65 54 71 00 00 
+    55	000040'	41 65 47 65 63 64 
+    56	000041'	63 45 60 64 00 00 
+    57	000042'	57 43 64 00 00 00 
+    58	000043'	56 57 66 00 00 00 
+    59	000044'	44 45 43 00 00 00 
+    60
+    61	000045'				PDL:	BLOCK	40
+    62
+    63						PRGEND
+
+NO ERRORS DETECTED
+
+PROGRAM BREAK IS 000123
+CPU TIME USED 00:21.842
+
+13K CORE USED
+.MAIN	MACRO %50(272) 04:11 13-JAN-75 PAGE S-1
+EXAMPL	MAC	11-JAN-75 00:12		SYMBOL TABLE
+
+CRLF		003212	SPD	
+DATE	047000	000014		
+DISIX	001400	000000		
+EXIT	047000	000012		
+F		000000		
+LZEFLG		000001	SPD	
+MONRT.	047040	000012		
+MONTAB		000031'		
+MSTIME	047000	000023		
+P		000017		
+PDL		000045'		
+T1		000001		
+T2		000002		
+T3		000003		
+T4		000004		
+TULIP1		000000'		
+USTART		000001'	EXT	
+W2CHI	001140	000000		
+WCHI	001040	000000		
+WDEC	003000	000000		
+WDECI	004000	000000		
+WNAME	010040	000000		
+
+TULIP2 - PROGRAM 2 FOR THE TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 3
+EXAMPL	MAC	11-JAN-75 00:12	
+
+    64						TITLE	TULIP2 - PROGRAM 2 FOR THE TULIP MANUAL
+    65						SUBTTL	RIC WERME, OCTOBER 1974
+    66						SEARCH	C,TULIP		;ACCESS TULIP AND C DEFINITIONS
+    67	400000'					TWOSEG			;GENERATE BOTH SEGMENTS
+    68	400000'					RELOC	400000		;STARTING WITH THE HISEG
+    69
+    70					;SYMBOLS WE NEED:
+    71			000000		DTA==0				;IO CHANNEL FOR DECTAPE
+    72			000100		PDLLEN==100			;LENGTH OF PUSHDOWN LIST
+    73			000200		DIRSIZ==200			;SIZE OF DTA DIRECTORY BLOCK
+    74			000144		DIRADR==^D100			;ADDRESS OF DIRECTORY BLOCK
+    75			000026		MAXFIL==^D22			;MAX # OF FILES THAT WILL FIT ON A TAPE
+    76			001102		TAPLEN==^D578			;# OF BLOCKS ON A DECTAPE
+    77			000000		DIRBYT==0			;RELATIVE ADDR OF DIRECTORY BYTE MAP (5 BIT BYTES)
+    78			000123		DIRFIL==^D83			;RELATIVE ADDR OF FIRST FILENAME
+    79			000151		DIREXT==^D105			;RELATIVE ADDR OF EXTENSION/DATE WORD
+    80			000177		DIRLBL==^D127			;RELATIVE ADDR OF LABEL WORD
+    81
+    82					ENTRY	TULIP2			;TO LET PEOPLE PLAY WITH THIS
+    83	400000'	200 17 0 00 000362'	TULIP2:	MOVE	P,[IOWD PDLLEN,PDL];SET UP PUSHDOWN LIST
+    84	400001'	260 17 0 00 000000*		START			;CALL UUO TO INITIALIZE TULIP
+    85	400002'	010 00 0 00 400115'		FSETUP	DTAFIH		;SETUP DECTAPE FILE BLOCK
+    86	400003'	007 04 0 00 000000'		FIGET	DTAFIL		;OPEN DECTAPE
+    87	400004'	074 00 0 00 000144 		USETI	DTA,DIRADR	;READY TO READ DIRECTORY
+    88						INPUT	DTA,[IOWD DIRSIZ,DIRBLK
+    89	400005'	066 00 0 00 000363'			     0]		;AND READ IT. ERROR HANDLING WILL BE IN PROGRAM 3
+    90	400006'	201 01 0 00 000021'		MOVEI	T1,DIRBLK	;PRTDIR WANTS ADDRESS OF DIRECTORY IN T1
+    91	400007'	260 17 0 00 400013'		PUSHJ	P,PRTDIR	;READ, PRINT DIRECTORY
+    92	400010'	007 14 0 00 000000'		FREL	DTAFIL		;RELEASE THE DTA
+    93	400011'	047 01 0 00 000012 		MONRT.			;AND RETURN TO MONITOR LEVEL
+    94	400012'	047 00 0 00 000012 		EXIT			;IN CASE OF CONTINUE
+TULIP2 - PROGRAM 2 FOR THE TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 4
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+    95					;SUBROUTINE TO PRINT A DECTAPE DIRECTORY POINTED AT BY T1 ON
+    96					;THE CURRENT OUTPUT CHANNEL. USES T1-T4
+    97
+    98	400013'	260 17 0 00 000000*	PRTDIR:	PUSHJ	P,SAVE1##	;NEED A PERMANENT AC FOR DIRECTORY ADDR
+    99	400014'	505 01 0 00 777752 		HRLI	T1,-MAXFIL	;MAKE A HANDY AOBJN WORD
+   100	400015'	200 05 0 00 000001 		MOVE	P1,T1		;AND SAVE IN AN OUT OF THE WAY CORNER
+   101
+   102	400016'	400 02 0 00 000000 		SETZ	T2,		;CLEAR FILE COUNTER
+   103	400017'	336 00 0 01 000123 	FILLOP:	SKIPN	DIRFIL(T1)	;FREE FILES HAVE A ZERO NAME
+   104	400020'	201 02 0 02 000001 		MOVEI	T2,1(T2)	;WHICH THIS ONE DOES
+   105	400021'	253 01 0 00 400017'		AOBJN	T1,FILLOP	;LOOK AT REST
+   106	400022'	202 02 0 00 000221'		MOVEM	T2,FREFIL	;SAVE FOR LATER USE.
+   107
+   108	400023'	402 00 0 00 000222'		SETZM	FILSIZ		;CLEAR OUT COUNT LIST OF FILE SIZES
+   109	400024'	200 01 0 00 000365'		MOVE	T1,[FILSIZ,,FILSIZ+1]
+   110	400025'	251 01 0 00 000247'		BLT	T1,FILSIZ+MAXFIL-1;USING TRIED, TRUE AND SLOW BLT
+   111	400026'	201 01 0 00 001101 		MOVEI	T1,TAPLEN-1	;# OF BLOCKS TO SCAN (0 ISN'T IN BYTE MAP)
+   112	400027'	205 02 0 00 440505 		MOVX	T2,<POINT 5,DIRBYT(P1)>;POINT TO BEFORE FIRST BYTE IN MAP
+   113	400030'	134 03 0 00 000002 	SIZLOP:	ILDB	T3,T2		;GET OWNER OF THIS BLOCK
+   114	400031'	350 00 0 03 000222'		AOS	FILSIZ(T3)	;COUNT IT (N.B. - FREE BLOCKS ARE IN FILSIZ)
+   115	400032'	367 01 0 00 400030'		SOJG	T1,SIZLOP	;GO FOR NEXT
+   116
+   117						DISIX	[[SIXBIT\D&IRECTORY %#&F&REE: % BLOCKS, % FILES#!\]
+   118							 PUSHJ	P,DATTIM;PRINT DIRECTORY HEADER. FIRST DATE AND TIME
+   119							 WDEC	FILSIZ	;THEN THE FREE BLOCKS
+   120	400033'	001 10 0 00 000375'			 WDEC	FREFIL]	;AND THE FREE FILES
+   121	400034'	332 01 0 05 000177 		SKIPE	T1,DIRLBL(P1)	;DOES THIS TAPE HAVE A LABEL?
+   122						DISIX	[[SIXBIT\T&APE &ID: %#!\]
+   123	400035'	001 10 0 00 000404'			 WNAME	T1]
+   124	400036'	001 03 0 00 003212 		W2CHI	CRLF		;SEPARATE HEADER FROM DATA
+   125
+   126	400037'	200 01 0 00 000221'		MOVE	T1,FREFIL	;CHECK TO SEE IF ANY REASON TO PRINT
+   127	400040'	306 01 0 00 000026 		CAIN	T1,MAXFIL	;  DIRECTORY. SAY EMPTY IF NO FILES WRITTEN
+   128	400041'	001 10 0 00 000411'		DISIX	[CPOPJ##,,[SIXBIT\D&IRECTORY EMPTY#!\]]
+   129	400042'	201 04 0 00 000001 		MOVEI	T4,1		;MAKE INDEX INTO FILSIZ FOR BLOCKS USED
+   130									;NO NEED TO SAVE P1 NOW, USE IT AS AOBJN WORD
+   131	400043'	336 00 0 05 000123 	DIRLOP:	SKIPN	DIRFIL(P1)	;DOES THIS FILE EXIST?
+   132	400044'	254 00 0 00 400056'		JRST	DIRAOB		;NO, TRY NEXT
+   133	400045'	135 01 0 00 000412'		LDB	T1,[POINT 12,DIREXT(P1),35];GET LOW 12 BITS OF CREATION DATE
+   134	400046'	201 02 0 00 000001 		MOVEI	T2,1		;CHECK THE BYTE MAP FOR THE TOP 3 BITS
+   135	400047'	612 02 0 05 000000 		TDNE	T2,DIRBYT(P1)
+   136	400050'	435 01 0 00 010000 		IORI	T1,1B23		;BRING UPTO 1985
+   137	400051'	612 02 0 05 000026 		TDNE	T2,DIRBYT+MAXFIL(P1)
+   138	400052'	435 01 0 00 020000 		IORI	T1,1B22		;UPTO 2007
+   139	400053'	612 02 0 05 000054 		TDNE	T2,DIRBYT+<2*MAXFIL>(P1)
+   140	400054'	435 01 0 00 040000 		IORI	T1,1B21		;UPTO 2051 (FOR THE PDP-10 IN THE SMITHSONIAN)
+   141						DISIX	[[SIXBIT\%.% %  %#!\]
+   142							 WSIX	6,DIRFIL(P1);FILE
+   143							 WSIX	3,DIREXT(P1);AND EXTENSION
+   144							 WDEC	3,FILSIZ(T4);THEN LENGTH
+   145	400055'	001 10 0 00 000415'			 PUSHJ	P,DATTHN]   ;AND CREATION DATE
+   146	400056'	201 04 0 04 000001 	DIRAOB:	MOVEI	T4,1(T4)	;POINT TO NEXT FILE NUMBER
+   147	400057'	253 05 0 00 400043'		AOBJN	P1,DIRLOP	;AND LOOP FOR NEXT FILE
+   148	400060'	263 17 0 00 000000 		POPJ	P,		;OR RETURN WHEN DONE
+TULIP2 - PROGRAM 2 FOR THE TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 5
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   149					;SUBROUTINE TO PRINT CURRENT DATE AND TIME AS
+   150					;	'ON <DATE> AT <TIME>'
+   151					;USES T1-T4
+   152
+   153					DATTIM:	DISIX	[CPOPJ##,,[SIXBIT\&ON % AT %!\];PRINT DATE, TIME, THEN RETURN
+   154							PUSHJ	P,DATPRT ;PRINT CURRENT DATE
+   155	400061'	001 10 0 00 000424'			PUSHJ	P,TIMPRT];PRINT CURRENT TIME
+   156
+   157
+   158					;SUBROUTINE TO PRINT EITHER CURRENT DATE (ENTER AT DATPRT) OR DATE
+   159					;PASSED IN T1 (ENTER AT DATTHN). USES T1-T3
+   160
+   161	400062'	047 01 0 00 000014 	DATPRT:	DATE	T1,		;GET TODAY'S DATE
+   162	400063'	231 01 0 00 000564 	DATTHN:	IDIVI	T1,^D<12*31>	;T1_YEAR-64
+   163	400064'	231 02 0 00 000037 		IDIVI	T2,^D<   31>	;T2_MONTH-1, T3_DAY-1
+   164	400065'	004 02 0 03 000001 		WDECI	2,1(T3)		;DAY
+   165	400066'	010 01 0 02 400101'		WNAME	MONTAB(T2)	;.MONTH.
+   166	400067'	004 00 0 01 000100 		WDECI	^D64(T1)	;AND YEAR
+   167	400070'	263 17 0 00 000000 		POPJ	P,		;AND RETURN
+   168
+   169
+   170					;SUBROUTINE TO PRINT TODAYS TIME. USES T1-T4, EXITS WITH LZEFLG OFF
+   171
+   172	400071'	047 01 0 00 000023 	TIMPRT:	MSTIME	T1,		;GET CURRENT TIME
+   173	400072'	230 01 0 00 000427'		IDIVX	T1,^D<60*60*1000>;T1_HOURS
+   174	400073'	231 02 0 00 165140 		IDIVX	T2,^D<   60*1000>;T2_MINUTES
+   175	400074'	231 03 0 00 001750 		IDIVX	T3,^D<      1000>;T3_SECONDS, T4_THOUSANTHS
+   176	400075'	660 00 0 00 000001 		TXO	F,LZEFLG	;PRINT TIME WITH LEADING ZEROS
+   177						DISIX	[[SIXBIT\%:%:%!\]
+   178							 WDEC	2,T1	;HOURS
+   179							 WDEC	2,T2	;MINUTES
+   180	400076'	001 10 0 00 000431'			 WDEC	2,T3]	;SECONDS
+   181	400077'	620 00 0 00 000001 		TXZ	F,LZEFLG	;TURN OFF AS PROMISED
+   182	400100'	263 17 0 00 000000 		POPJ	P,		;AND RETURN
+TULIP2 - PROGRAM 2 FOR THE TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 6
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   183					DEFINE	MAKLST	(A)<
+   184						IRP	A<SIXBIT/.'A'./>>
+   185	400101'	16 52 41 56 16 00 	MONTAB:	MAKLST	<JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC>
+   186	400102'	16 46 45 42 16 00 
+   187	400103'	16 55 41 62 16 00 
+   188	400104'	16 41 60 62 16 00 
+   189	400105'	16 55 41 71 16 00 
+   190	400106'	16 52 65 56 16 00 
+   191	400107'	16 52 65 54 16 00 
+   192	400110'	16 41 65 47 16 00 
+   193	400111'	16 63 45 60 16 00 
+   194	400112'	16 57 43 64 16 00 
+   195	400113'	16 56 57 66 16 00 
+   196	400114'	16 44 45 43 16 00 
+   197	400116'	777757	000000'		DTAFIH:	FILE	DTA,I,DTAFIL,<STATUS(IO.NSD!.IODMP),DEV(DTA0)>
+   198	400117'	260 17 0 00 000000*
+   199	400120'	000000	000117
+   200	400121'	44 64 41 20 00 00 
+   201	400122'	000000	000014'
+   202	400123'	000000*	000000*
+   203	400124'	000000*	000000*
+   204	400115'	434006	000000
+   205
+   206	000000'					RELOC	0		;POINT TO LOWSEG DATA
+   207	000000'				DTAFIL:	BLOCK	FBSIZE		;CORRESPONDING LOSEG BLOCK FOR DTAFIH
+   208	000021'				DIRBLK:	BLOCK	DIRSIZ		;WHERE WE READ DIRECTORY
+   209	000221'				FREFIL:	BLOCK	1		;WHERE WE PUT # OF FREE FILES
+   210	000222'				FILSIZ:	BLOCK	40		;NEED 40 ENTRIES FOR ANY BYTE SIZE
+   211	000262'				PDL:	BLOCK	PDLLEN
+   212
+   213						PRGEND
+
+NO ERRORS DETECTED
+
+HI-SEG. BREAK IS 400125
+PROGRAM BREAK IS 000435
+CPU TIME USED 00:01.521
+
+13K CORE USED
+TULIP2 - PROGRAM 2 FOR THE TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE S-2
+EXAMPL	MAC	11-JAN-75 00:12		SYMBOL TABLE
+
+CPOPJ		000000	EXT	USTART		400001'	EXT	
+CRLF		003212	SPD	W2CHI	001140	000000		
+DATE	047000	000014		WDEC	003000	000000		
+DATPRT		400062'		WDECI	004000	000000		
+DATTHN		400063'		WNAME	010040	000000		
+DATTIM		400061'		WSIX	002000	000000		
+DIRADR		000144	SPD	ZZ		000021	SPD	
+DIRAOB		400056'		$FIBTS	434006	000000	SPD	
+DIRBLK		000021'		$FILC1		400125'	SPD	
+DIRBYT		000000	SPD	$FILOC		400115'	SPD	
+DIREXT		000151	SPD	.IODMP		000017	SPD	
+DIRFIL		000123	SPD	
+DIRLBL		000177	SPD	
+DIRLOP		400043'		
+DIRSIZ		000200	SPD	
+DISIX	001400	000000		
+DTA		000000	SPD	
+DTAFIH		400115'		
+DTAFIL		000000'		
+EXIT	047000	000012		
+F		000000		
+FBSIZE		000021	SPD	
+FIGET	007200	000000		
+FILHDR		000014	SPD	
+FILLOP		400017'		
+FILSIZ		000222'		
+FREFIL		000221'		
+FREL	007600	000000		
+FSETUP	010000	000000		
+I1BYTE		400117'	EXT	
+ILERI1		000000	EXT	
+ILERI2		400123'	EXT	
+ILERI3		400124'	EXT	
+INPUT	066000	000000		
+IO.NSD		000100	SPD	
+LZEFLG		000001	SPD	
+MAXFIL		000026	SPD	
+MONRT.	047040	000012		
+MONTAB		400101'		
+MSTIME	047000	000023		
+P		000017		
+P1		000005		
+PDL		000262'		
+PDLLEN		000100	SPD	
+PRTDIR		400013'		
+SAVE1		400013'	EXT	
+SIZLOP		400030'		
+T1		000001		
+T2		000002		
+T3		000003		
+T4		000004		
+TAPLEN		001102	SPD	
+TIMPRT		400071'		
+TULIP2		400000'	ENT	
+USETI	074000	000000		
+TULIP3 - VERSION 3(2) - PROGRAM 3 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 7
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   214						SUBTTL	RIC WERME, OCTOBER 1974
+   215						SEARCH	C,TULIP		;ACCESS TULIP AND C DEFINITIONS
+   216	400000'					TWOSEG			;GENERATE BOTH SEGMENTS
+   217	400000'					RELOC	400000		;STARTING WITH THE HISEG
+   218
+   219	000137	0 003 00 000002 	VERSION(3,,2,0)			;VERSION, UPDATE, EDIT, WHO
+   220					DEFINE	XX(VER,UPD,EDIT,WHO)<
+   221					IFIDN <WHO><0>,<
+   222					TITLE	TULIP3 - VERSION VER'UPD(EDIT) - PROGRAM 3 FOR TULIP MANUAL
+   223					VERMSG:	SIXBIT	\TULIP3 V'VER'UPD(EDIT)#!\
+   224					>IFDIF <WHO><0>,<
+   225					TITLE	TULIP3 - VERSION VER'UPD(EDIT)-WHO - PROGRAM 3 FOR TULIP MANUAL
+   226					VERMSG:	SIXBIT	\TULIP3 V'VER'UPD(EDIT)-WHO#!\
+   227					>>
+   228	400000'	64 65 54 51 60 23 	VERSTR
+   229	400001'	00 66 23 10 22 11 
+   230	400002'	03 01 00 00 00 00 
+   231
+   232					;SYMBOLS WE NEED:
+   233			000000		DTA==0				;IO CHANNEL FOR DECTAPE
+   234			000001		TTY==1				;  AND FOR TTY
+   235			000100		PDLLEN==100			;LENGTH OF PUSHDOWN LIST
+   236			000200		DIRSIZ==200			;SIZE OF DTA DIRECTORY BLOCK
+   237			000144		DIRADR==^D100			;ADDRESS OF DIRECTORY BLOCK
+   238			000026		MAXFIL==^D22			;MAX # OF FILES THAT WILL FIT ON A TAPE
+   239			001102		TAPLEN==^D578			;# OF BLOCKS ON A DECTAPE
+   240			000000		DIRBYT==0			;RELATIVE ADDR OF DIRECTORY BYTE MAP (5 BIT BYTES)
+   241			000123		DIRFIL==^D83			;RELATIVE ADDR OF FIRST FILENAME
+   242			000151		DIREXT==^D105			;RELATIVE ADDR OF EXTENSION/DATE WORD
+   243			000177		DIRLBL==^D127			;RELATIVE ADDR OF LABEL WORD
+TULIP3 - VERSION 3(2) - PROGRAM 3 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 8
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   244					ENTRY	TULIP3			;TO LET PEOPLE PLAY WITH THIS
+   245	400003'	200 17 0 00 400215'	TULIP3:	MOVE	P,[IOWD PDLLEN,PDL];SET UP PUSHDOWN LIST
+   246	400004'	260 17 0 00 000000*		START			;CALL UUO TO INITIALIZE TULIP
+   247	400005'	010 00 0 00 400165'		FSETUP	DTAFIH		;SETUP DECTAPE FILE BLOCK
+   248	400006'	010 00 0 00 400175'		FSETUP	TTYFIH		;SETUP BOTH TTY BLOCKS
+   249	400007'	010 00 0 00 400205'		FSETUP	TTYFOH
+   250	400010'	007 02 0 00 000021'		FIOPEN	TTYFIL		;AND GET TTY FOR COMMAND PROCESSING
+   251	400011'	007 03 0 00 000042'		FOOPEN	TTYFOL		;AND FOR OUTPUT, TOO.
+   252	400012'	002 00 0 00 400000'		WSIX	VERMSG		;PRINT GREETING
+   253	400013'	002 00 0 00 400216'	TRYAGN:	WSIX	[SIXBIT\DEC&TAPE NAME: !\]
+   254	400014'	067 01 0 00 000000 		OUTPUT	TTY,		;FORCE OUTPUT TO TTY BEFORE INPUT
+   255	400015'	201 01 0 00 400125'		MOVEI	T1,LEXTAB	;ENTER AT FIRST PRODUCTION IN LEXTAB
+   256	400016'	260 17 0 00 000000*		PUSHJ	P,LEXINT##	;PROCESS DECTAPE NAME
+   257	400017'	007 04 0 00 000000'		FIGET	DTAFIL		;OPEN DECTAPE
+   258	400020'	074 00 0 00 000144 		USETI	DTA,DIRADR	;READY TO READ DIRECTORY
+   259						IN	DTA,[IOWD DIRSIZ,DIRBLK
+   260	400021'	056 00 0 00 400221'			     0]		;AND READ IT.
+   261	400022'	334 01 0 00 400223'		  SKIPA	T1,[DIRBLK]	;NO ERROR. GET DIRECTORY ADDR AND SKIP ERROR REPORTER
+   262						DISIX	[DTAREL,,[SIXBIT\#!\];THIS IS A GREAT USE FOR DISIX...
+   263	400023'	001 10 0 00 400225'			 ERRIN	DTAFIL]	;REPORT INPUT ERROR AND PUNT
+   264	400024'	201 01 0 00 000063'		MOVEI	T1,DIRBLK	;PRTDIR WANTS ADDRESS OF DIRECTORY IN T1
+   265	400025'	260 17 0 00 400036'		PUSHJ	P,PRTDIR	;READ, PRINT DIRECTORY
+   266	400026'	007 14 0 00 000000'	DTAREL:	FREL	DTAFIL		;RELEASE THE DTA
+   267	400027'	007 00 0 00 000021'	DTARE1:	FISEL	TTYFIL		;POINT BACK TO TTY INPUT
+   268	400030'	254 00 0 00 400013'		JRST	TRYAGN		;GO GET ANOTHER
+   269
+   270	400031'	007 10 0 00 000021'	TTYEOF:	FICLOS	TTYFIL		;HERE IF USER TYPES ^Z
+   271	400032'	047 01 0 00 000012 		MONRT.			;CLOSE TTY AND RETURN TO MONITOR LEVEL
+   272	400033'	047 00 0 00 000012 		EXIT			;IN CASE OF CONTINUE
+   273
+   274	400034'	011 02 0 00 000000'	DTAOPN:	ERRIOP	DTAFIL		;TELL WHY WE COULDN'T OPEN IT
+   275	400035'	254 00 0 00 400027'		JRST	DTARE1		;RESELECT THE TTY AND TRY AGAIN
+TULIP3 - VERSION 3(2) - PROGRAM 3 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 9
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   276					;SUBROUTINE TO PRINT A DECTAPE DIRECTORY POINTED AT BY T1 ON
+   277					;THE CURRENT OUTPUT CHANNEL. USES T1-T4
+   278
+   279	400036'	260 17 0 00 000000*	PRTDIR:	PUSHJ	P,SAVE1##	;NEED A PERMANENT AC FOR DIRECTORY ADDR
+   280	400037'	505 01 0 00 777752 		HRLI	T1,-MAXFIL	;MAKE A HANDY AOBJN WORD
+   281	400040'	200 05 0 00 000001 		MOVE	P1,T1		;AND SAVE IN AN OUT OF THE WAY CORNER
+   282
+   283	400041'	400 02 0 00 000000 		SETZ	T2,		;CLEAR FILE COUNTER
+   284	400042'	336 00 0 01 000123 	FILLOP:	SKIPN	DIRFIL(T1)	;FREE FILES HAVE A ZERO NAME
+   285	400043'	201 02 0 02 000001 		MOVEI	T2,1(T2)	;WHICH THIS ONE DOES
+   286	400044'	253 01 0 00 400042'		AOBJN	T1,FILLOP	;LOOK AT REST
+   287	400045'	202 02 0 00 000263'		MOVEM	T2,FREFIL	;SAVE FOR LATER USE.
+   288
+   289	400046'	402 00 0 00 000264'		SETZM	FILSIZ		;CLEAR OUT COUNT LIST OF FILE SIZES
+   290	400047'	200 01 0 00 400227'		MOVE	T1,[FILSIZ,,FILSIZ+1]
+   291	400050'	251 01 0 00 000311'		BLT	T1,FILSIZ+MAXFIL-1;USING TRIED, TRUE AND SLOW BLT
+   292	400051'	201 01 0 00 001101 		MOVEI	T1,TAPLEN-1	;# OF BLOCKS TO SCAN (0 ISN'T IN BYTE MAP)
+   293	400052'	205 02 0 00 440505 		MOVX	T2,<POINT 5,DIRBYT(P1)>;POINT TO BEFORE FIRST BYTE IN MAP
+   294	400053'	134 03 0 00 000002 	SIZLOP:	ILDB	T3,T2		;GET OWNER OF THIS BLOCK
+   295	400054'	350 00 0 03 000264'		AOS	FILSIZ(T3)	;COUNT IT (N.B. - FREE BLOCKS ARE IN FILSIZ)
+   296	400055'	367 01 0 00 400053'		SOJG	T1,SIZLOP	;GO FOR NEXT
+   297
+   298						DISIX	[[SIXBIT\D&IRECTORY %#&F&REE: % BLOCKS, % FILES#!\]
+   299							 PUSHJ	P,DATTIM;PRINT DIRECTORY HEADER. FIRST DATE AND TIME
+   300							 WDEC	FILSIZ	;THEN THE FREE BLOCKS
+   301	400056'	001 10 0 00 400237'			 WDEC	FREFIL]	;AND THE FREE FILES
+   302	400057'	332 01 0 05 000177 		SKIPE	T1,DIRLBL(P1)	;DOES THIS TAPE HAVE A LABEL?
+   303						DISIX	[[SIXBIT\T&APE &ID: %#!\]
+   304	400060'	001 10 0 00 400246'			 WNAME	T1]
+   305	400061'	001 03 0 00 003212 		W2CHI	CRLF		;SEPARATE HEADER FROM DATA
+   306
+   307	400062'	200 01 0 00 000263'		MOVE	T1,FREFIL	;CHECK TO SEE IF ANY REASON TO PRINT
+   308	400063'	306 01 0 00 000026 		CAIN	T1,MAXFIL	;  DIRECTORY. SAY EMPTY IF NO FILES WRITTEN
+   309	400064'	001 10 0 00 400254'		DISIX	[CPOPJ##,,[SIXBIT\D&IRECTORY EMPTY###!\]]
+   310	400065'	201 04 0 00 000001 		MOVEI	T4,1		;MAKE INDEX INTO FILSIZ FOR BLOCKS USED
+   311									;NO NEED TO SAVE P1 NOW, USE IT AS AOBJN WORD
+   312	400066'	336 00 0 05 000123 	DIRLOP:	SKIPN	DIRFIL(P1)	;DOES THIS FILE EXIST?
+   313	400067'	254 00 0 00 400101'		JRST	DIRAOB		;NO, TRY NEXT
+   314	400070'	135 01 0 00 400255'		LDB	T1,[POINT 12,DIREXT(P1),35];GET LOW 12 BITS OF CREATION DATE
+   315	400071'	201 02 0 00 000001 		MOVEI	T2,1		;CHECK THE BYTE MAP FOR THE TOP 3 BITS
+   316	400072'	612 02 0 05 000000 		TDNE	T2,DIRBYT(P1)
+   317	400073'	435 01 0 00 010000 		IORI	T1,1B23		;BRING UPTO 1985
+   318	400074'	612 02 0 05 000026 		TDNE	T2,DIRBYT+MAXFIL(P1)
+   319	400075'	435 01 0 00 020000 		IORI	T1,1B22		;UPTO 2007
+   320	400076'	612 02 0 05 000054 		TDNE	T2,DIRBYT+<2*MAXFIL>(P1)
+   321	400077'	435 01 0 00 040000 		IORI	T1,1B21		;UPTO 2051 (FOR THE PDP-10 IN THE SMITHSONIAN)
+   322						DISIX	[[SIXBIT\%.% %  %#!\]
+   323							 WSIX	6,DIRFIL(P1);FILE
+   324							 WSIX	3,DIREXT(P1);AND EXTENSION
+   325							 WDEC	3,FILSIZ(T4);THEN LENGTH
+   326	400100'	001 10 0 00 400260'			 PUSHJ	P,DATTHN]   ;AND CREATION DATE
+   327	400101'	201 04 0 04 000001 	DIRAOB:	MOVEI	T4,1(T4)	;POINT TO NEXT FILE NUMBER
+   328	400102'	253 05 0 00 400066'		AOBJN	P1,DIRLOP	;AND LOOP FOR NEXT FILE
+   329	400103'	002 00 0 00 400265'		WSIX	[SIXBIT\##!\]	;ADD A LITTLE SPACE
+   330	400104'	263 17 0 00 000000 		POPJ	P,		;OR RETURN WHEN DONE
+TULIP3 - VERSION 3(2) - PROGRAM 3 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 10
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   331					;SUBROUTINE TO PRINT CURRENT DATE AND TIME AS
+   332					;	'ON <DATE> AT <TIME>'
+   333					;USES T1-T4
+   334
+   335					DATTIM:	DISIX	[CPOPJ##,,[SIXBIT\&ON % AT %!\];PRINT DATE, TIME, THEN RETURN
+   336							PUSHJ	P,DATPRT ;PRINT CURRENT DATE
+   337	400105'	001 10 0 00 400270'			PUSHJ	P,TIMPRT];PRINT CURRENT TIME
+   338
+   339
+   340					;SUBROUTINE TO PRINT EITHER CURRENT DATE (ENTER AT DATPRT) OR DATE
+   341					;PASSED IN T1 (ENTER AT DATTHN). USES T1-T3
+   342
+   343	400106'	047 01 0 00 000014 	DATPRT:	DATE	T1,		;GET TODAY'S DATE
+   344	400107'	231 01 0 00 000564 	DATTHN:	IDIVI	T1,^D<12*31>	;T1_YEAR-64
+   345	400110'	231 02 0 00 000037 		IDIVI	T2,^D<   31>	;T2_MONTH-1, T3_DAY-1
+   346	400111'	004 02 0 03 000001 		WDECI	2,1(T3)		;DAY
+   347	400112'	010 01 0 02 400151'		WNAME	MONTAB(T2)	;.MONTH.
+   348	400113'	004 00 0 01 000100 		WDECI	^D64(T1)	;AND YEAR
+   349	400114'	263 17 0 00 000000 		POPJ	P,		;AND RETURN
+   350
+   351
+   352					;SUBROUTINE TO PRINT TODAYS TIME. USES T1-T4, EXITS WITH LZEFLG OFF
+   353
+   354	400115'	047 01 0 00 000023 	TIMPRT:	MSTIME	T1,		;GET CURRENT TIME
+   355	400116'	230 01 0 00 400273'		IDIVX	T1,^D<60*60*1000>;T1_HOURS
+   356	400117'	231 02 0 00 165140 		IDIVX	T2,^D<   60*1000>;T2_MINUTES
+   357	400120'	231 03 0 00 001750 		IDIVX	T3,^D<      1000>;T3_SECONDS, T4_THOUSANTHS
+   358	400121'	660 00 0 00 000001 		TXO	F,LZEFLG	;PRINT TIME WITH LEADING ZEROS
+   359						DISIX	[[SIXBIT\%:%:%!\]
+   360							 WDEC	2,T1	;HOURS
+   361							 WDEC	2,T2	;MINUTES
+   362	400122'	001 10 0 00 400275'			 WDEC	2,T3]	;SECONDS
+   363	400123'	620 00 0 00 000001 		TXZ	F,LZEFLG	;TURN OFF AS PROMISED
+   364	400124'	263 17 0 00 000000 		POPJ	P,		;AND RETURN
+TULIP3 - VERSION 3(2) - PROGRAM 3 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 12
+EXAMPL	MAC	11-JAN-75 00:12		LEXICAL ANALYSIS
+
+   365					SUBTTL	LEXICAL ANALYSIS
+   366
+   367	400125'	000004	400134'			TBLBEG	LEXTAB;		PARSER FOR A DEVICE NAME
+   368
+   369	000000	1 0 0 0 00 000 000000 		PROD(	NULL		,    ,*,.     )	;IGNORE ANY NULLS LEFT BEHIND
+   370	000001	0 0 1 1 01 002 000000 		PROD(	<SG>		,SIXI, ,      )	;INIT SIXBIT PARSER
+   371	000002	1 0 1 0 02 002 000003 		PROD(	<LETTER!DIGIT>	,SIXS,*,.     )	;SAVE THIS CHARACTER
+   372	000003	0 0 1 1 03 004 000000 		PROD(	<SG>		,STOR, ,      )	;STORE DEVICE NAME
+   373	000004	1 0 1 1 00 004 000010 		PROD(	-<BREAK>	,    ,*,.     )	;THROW AWAY REST OF LINE
+   374	000005	0 0 1 1 04 006 000000 		PROD(	<SG>		,RET , ,      )	;RETURN
+   375
+   376	400134'	000000*	400137'			TBLEND
+   377	400135'	400142'	400147'
+   378	400136'	000000*	000000
+   379
+   380	400137'	200 02 0 00 400301'	A.SIXI:	MOVE	T2,[POINT 6,T1]	;SETUP POINTER TO WHERE WE'LL ACCUMULATE THE NAME
+   381	400140'	400 01 0 00 000000 		SETZ	T1,		;AND CLEAR THAT OF ANY GARBAGE IT MIGHT HAVE
+   382	400141'	263 17 0 00 000000 		POPJ	P,		;BACK TO SCAN FIRST CHARACTER
+   383
+   384	400142'	602 07 0 00 000020 	A.SIXS:	TRNE	P3,LGLSIX	;THIS IS CUTE. WE MAY HAVE ONE OF 3 TYPES OF CHARS:
+   385									;NUM, RANGE 60-71 (SIXBIT 20-31)
+   386									;UC, RANGE 101-132 (41-72)
+   387									;LC, RANGE 141-172 (41-72)
+   388									;SO, IF IT IS LEGAL SIXBIT, WE HAVE TO COMPLEMENT
+   389									;BIT 40:
+   390	400143'	431 06 0 00 000040 		XORI	P2,40		;LIKE THAT, WHILE LEAVING LOWER CASE ALONE
+   391	400144'	603 02 0 00 770000 		TLNE	T2,770000	;MORE CUTENESS. THIS FIELD IS 0 AFTER T1 IS FILLED
+   392	400145'	136 06 0 00 000002 		IDPB	P2,T2		;STUFF INTO T1
+   393	400146'	263 17 0 00 000000 		POPJ	P,		;AND BACK FOR MORE
+   394
+   395	400147'	202 01 0 00 000005'	A.STOR:	MOVEM	T1,DTAFIL+FILDEV;SAVE DEVICE IN DTA FILE BLOCK
+   396	400150'	263 17 0 00 000000 		POPJ	P,
+TULIP3 - VERSION 3(2) - PROGRAM 3 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 13
+EXAMPL	MAC	11-JAN-75 00:12		LEXICAL ANALYSIS
+
+   397					DEFINE	MAKLST	(A)<
+   398						IRP	A<SIXBIT/.'A'./>>
+   399	400151'	16 52 41 56 16 00 	MONTAB:	MAKLST	<JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC>
+   400	400152'	16 46 45 42 16 00 
+   401	400153'	16 55 41 62 16 00 
+   402	400154'	16 41 60 62 16 00 
+   403	400155'	16 55 41 71 16 00 
+   404	400156'	16 52 65 56 16 00 
+   405	400157'	16 52 65 54 16 00 
+   406	400160'	16 41 65 47 16 00 
+   407	400161'	16 63 45 60 16 00 
+   408	400162'	16 57 43 64 16 00 
+   409	400163'	16 56 57 66 16 00 
+   410	400164'	16 44 45 43 16 00 
+   411	400166'	777757	000000'		DTAFIH:	FILE	DTA,I,DTAFIL,<STATUS(IO.NSD!.IODMP),OPEN(DTAOPN)>
+   412	400167'	260 17 0 00 000000*
+   413	400170'	000000	000117
+   414	400171'	44 63 53 00 00 00 
+   415	400172'	000000	000014'
+   416	400173'	400034'	000000*
+   417	400174'	000000*	000000*
+   418	400165'	434006	000000
+   419	400176'	777757	000021'		TTYFIH:	FILE	TTY,I,TTYFIL,<DEV(TTY),OTHER(TTYFOL),EOF(TTYEOF)>
+   420	400177'	260 17 0 00 400167*
+   421	400200'	000040	000000
+   422	400201'	64 64 71 00 00 00 
+   423	400202'	000056'	000035'
+   424	400203'	000000*	400173*
+   425	400204'	400031'	400174*
+   426	400175'	454006	000000
+   427	400206'	777757	000042'		TTYFOH:	FILE	TTY,O,TTYFOL,<DEV(TTY),OTHER(TTYFIL)>
+   428	400207'	260 17 0 00 000000*
+   429	400210'	000040	000000
+   430	400211'	64 64 71 00 00 00 
+   431	400212'	000056'	000035'
+   432	400213'	000000*	000000*
+   433	400214'	000000*	000000*
+   434	400205'	454006	000000
+   435
+   436	000000'					RELOC	0		;POINT TO LOWSEG DATA
+   437	000000'				DTAFIL:	BLOCK	FBSIZE		;CORRESPONDING LOSEG BLOCK FOR DTAFIH
+   438	000021'				TTYFIL:	BLOCK	FBSIZE		; AND FOR THE REST
+   439	000042'				TTYFOL:	BLOCK	FBSIZE
+   440	000063'				DIRBLK:	BLOCK	DIRSIZ		;WHERE WE READ DIRECTORY
+   441	000263'				FREFIL:	BLOCK	1		;WHERE WE PUT # OF FREE FILES
+   442	000264'				FILSIZ:	BLOCK	40		;NEED 40 ENTRIES FOR ANY BYTE SIZE
+   443	000324'				PDL:	BLOCK	PDLLEN
+   444
+   445	400215'					RELOC			;BACK TO HISEG FOR LITERAL DATA
+   446						PRGEND
+
+NO ERRORS DETECTED
+
+HI-SEG. BREAK IS 400302
+PROGRAM BREAK IS 000424
+TULIP3 - VERSION 3(2) - PROGRAM 3 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 13-1
+EXAMPL	MAC	11-JAN-75 00:12		LEXICAL ANALYSIS
+
+CPU TIME USED 00:03.750
+
+13K CORE USED
+TULIP3 - VERSION 3(2) - PROGRAM 3 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE S-3
+EXAMPL	MAC	11-JAN-75 00:12		SYMBOL TABLE
+
+A.POPJ		000000	EXT	IN	056000	000000		$TESTF		000000	SPD	
+A.RET		000000	EXT	IO.NSD		000100	SPD	%%%TLP		000001	SIN	
+A.SIXI		400137'	INT	LETTER		000001	SPD	%VEDIT		000002	SPD	
+A.SIXS		400142'	INT	LEXINT		400016'	EXT	%VUPDA		000000	SPD	
+A.STOR		400147'	INT	LEXTAB		400125'	INT	%VVERS		000003	SPD	
+BREAK		000010	SPD	LGLSIX		000020	SPD	%VWHO		000000	SPD	
+CPOPJ		000000	EXT	LZEFLG		000001	SPD	.IODMP		000017	SPD	
+CRLF		003212	SPD	MAXFIL		000026	SPD	
+D$LEXT		400134'		MONRT.	047040	000012		
+DATE	047000	000014		MONTAB		400151'		
+DATPRT		400106'		MSTIME	047000	000023		
+DATTHN		400107'		NEGBIT	040000	000000	SPD	
+DATTIM		400105'		NULL		000000	SPD	
+DIGIT		000002	SPD	O1BYTE		400207'	EXT	
+DIRADR		000144	SPD	OUTPUT	067000	000000		
+DIRAOB		400101'		P		000017		
+DIRBLK		000063'		P1		000005		
+DIRBYT		000000	SPD	P2		000006		
+DIREXT		000151	SPD	P3		000007		
+DIRFIL		000123	SPD	PDL		000324'		
+DIRLBL		000177	SPD	PDLLEN		000100	SPD	
+DIRLOP		400066'		PRTDIR		400036'		
+DIRSIZ		000200	SPD	SAVE1		400036'	EXT	
+DISIX	001400	000000		SG	040000	000000	SPD	
+DTA		000000	SPD	SIZLOP		400053'		
+DTAFIH		400165'		T1		000001		
+DTAFIL		000000'		T2		000002		
+DTAOPN		400034'		T3		000003		
+DTARE1		400027'		T4		000004		
+DTAREL		400026'		TAPLEN		001102	SPD	
+ERRIN	011500	000000		TIMPRT		400115'		
+ERRIOP	011100	000000		TRYAGN		400013'		
+EXIT	047000	000012		TTY		000001	SPD	
+F		000000		TTYEOF		400031'		
+FBSIZE		000021	SPD	TTYFIH		400175'		
+FICLOS	007400	000000		TTYFIL		000021'		
+FIGET	007200	000000		TTYFOH		400205'		
+FILDEV		000005	SPD	TTYFOL		000042'		
+FILHDR		000014	SPD	TULIP3		400003'	ENT	
+FILLOP		400042'		USETI	074000	000000		
+FILSIZ		000264'		USTART		400004'	EXT	
+FIOPEN	007100	000000		VERMSG		400000'		
+FISEL	007000	000000		W2CHI	001140	000000		
+FOOPEN	007140	000000		WDEC	003000	000000		
+FREFIL		000263'		WDECI	004000	000000		
+FREL	007600	000000		WNAME	010040	000000		
+FSETUP	010000	000000		WSIX	002000	000000		
+FTDBUG		000000	SIN	ZZ		000021	SPD	
+I1BYTE		400177'	EXT	$ACTN		000004	SPD	
+ILERI1		000000	EXT	$ANG		000001	SPD	
+ILERI2		400203'	EXT	$FIBTS	454006	000000	SPD	
+ILERI3		400204'	EXT	$FILC1		400215'	SPD	
+ILERO1		000000	EXT	$FILOC		400205'	SPD	
+ILERO2		400213'	EXT	$NEG		000001	SPD	
+ILERO3		400214'	EXT	$NEXT		000006	SPD	
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 14
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   447						SUBTTL	RIC WERME, OCTOBER 1974
+   448						SEARCH	C,TULIP		;ACCESS TULIP AND C DEFINITIONS
+   449	400000'					TWOSEG			;GENERATE BOTH SEGMENTS
+   450	400000'					RELOC	400000		;STARTING WITH THE HISEG
+   451
+   452	000137	0 004 00 000003 	VERSION(4,,3,0)			;VERSION, UPDATE, EDIT, WHO
+   453					DEFINE	XX(VER,UPD,EDIT,WHO)<
+   454					IFIDN <WHO><0>,<
+   455					TITLE	TULIP4 - VERSION VER'UPD(EDIT) - PROGRAM 4 FOR TULIP MANUAL
+   456					VERMSG:	SIXBIT	\TULIP4 V'VER'UPD(EDIT)#!\
+   457					>IFDIF <WHO><0>,<
+   458					TITLE	TULIP4 - VERSION VER'UPD(EDIT)-WHO - PROGRAM 4 FOR TULIP MANUAL
+   459					VERMSG:	SIXBIT	\TULIP4 V'VER'UPD(EDIT)-WHO#!\
+   460					>>
+   461	400000'	64 65 54 51 60 24 	VERSTR
+   462	400001'	00 66 24 10 23 11 
+   463	400002'	03 01 00 00 00 00 
+   464
+   465					DEFINE	GETCHN(CHN)<		;;MACRO TO DEFINE ANY IO CHANNELS WE NEED
+   466					  CHN==<$CHN==$CHN+1>>
+   467		777777	777777		$CHN==-1			;INIT GETCHN MACRO
+   468
+   469					;SYMBOLS WE NEED:
+   470			000011		FB=11				;DEFINE OUR OWN AC - HAS ADDR OF FILE BLOCK FOR FILSPC
+   471					FLAG	(FSTDIR)		;ON MEANS SHORT FORMAT DIRECTORY
+   472					FLAG	(PRSDFL)		;SET WHEN A FILENAME IS PARSED
+   473					FLAG	(LSTOPN)		;SET WHENEVER A LIST FILE IS OPENED, TO
+   474									;  REMIND US TO CLOSE IT
+   475					FLAG	(UNLOAD)		;SET BY UNLOAD SWITCH, TELLS A.DIRE
+   476									;  TO REWIND IT WHEN WE'RE DONE
+   477			000000		GETCHN	(DTA)			;IO CHANNEL FOR DECTAPE
+   478			000001		GETCHN	(TTY)			;  AND FOR TTY
+   479			000002		GETCHN	(LST)			;THEN THE LST DEVICE
+   480			000003		GETCHN	(CMD0)			;AND THE FIRST COMMAND FILE
+   481			000100		PDLLEN==100			;LENGTH OF PUSHDOWN LIST
+   482			000200		DIRSIZ==200			;SIZE OF DTA DIRECTORY BLOCK
+   483			000144		DIRADR==^D100			;ADDRESS OF DIRECTORY BLOCK
+   484			000026		MAXFIL==^D22			;MAX # OF FILES THAT WILL FIT ON A TAPE
+   485			001102		TAPLEN==^D578			;# OF BLOCKS ON A DECTAPE
+   486			000000		DIRBYT==0			;RELATIVE ADDR OF DIRECTORY BYTE MAP (5 BIT BYTES)
+   487			000123		DIRFIL==^D83			;RELATIVE ADDR OF FIRST FILENAME
+   488			000151		DIREXT==^D105			;RELATIVE ADDR OF EXTENSION/DATE WORD
+   489			000177		DIRLBL==^D127			;RELATIVE ADDR OF LABEL WORD
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 15
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   490					ENTRY	TULIP4			;TO LET PEOPLE PLAY WITH THIS
+   491	400003'	200 17 0 00 400762'	TULIP4:	MOVE	P,[IOWD PDLLEN,PDL];SET UP PUSHDOWN LIST
+   492	400004'	260 17 0 00 000000*		START			;CALL UUO TO INITIALIZE TULIP
+   493	400005'	010 00 0 00 400721'		FSETUP	DTAFIH		;SETUP DECTAPE FILE BLOCK
+   494	400006'	010 00 0 00 400730'		FSETUP	TTYFIH		;SETUP BOTH TTY BLOCKS
+   495	400007'	010 00 0 00 400740'		FSETUP	TTYFOH
+   496	400010'	007 02 0 00 000357'		FIOPEN	TTYFIL		;AND GET TTY FOR COMMAND PROCESSING
+   497	400011'	007 01 0 00 000400'		FOSEL	TTYFOL		;DID THE OPEN, NO NEED TO DO IT AGAIN
+   498	400012'	201 01 0 00 000400'		MOVEI	T1,TTYFOL	;SINCE WE NEVER ALLOW OPENS ON TTY (SORT OF),
+   499	400013'	202 01 0 00 000000*		MOVEM	T1,EFILE##	;  WE CAN FAIRLY SAFELY PUT ERRORS ON THE TTY BLOCK
+   500	400014'	064 01 0 00 000001 		INBUF	TTY,1		;SHOULDN'T NEED MORE THAN 1 BUFFER
+   501	400015'	002 00 0 00 400000'		WSIX	VERMSG		;IDENTIFY OURSELVES AND GET SOME OUTPUT BUFFERS
+   502	400016'	200 01 0 00 000000*		MOVE	T1,.JBFF##	;SAVE FIRST FREE LOC AFTER TTY
+   503	400017'	202 01 0 00 000642'		MOVEM	T1,SJBFF	;SO WE CAN REUSE BUFFER SPACE EACH COMMAND
+   504
+   505	400020'	200 01 0 00 000642'	TRYAGN:	MOVE	T1,SJBFF	;RECLAIM ANY CORE USED BY LAST COMMAND
+   506	400021'	202 01 0 00 400016*		MOVEM	T1,.JBFF##	;OR ACT AS NOP ON FIRST TIME THRU
+   507	400022'	001 01 0 00 000052 		WCHI	"*"		;STANDARD PROMPT
+   508	400023'	067 01 0 00 000000 		OUTPUT	TTY,		;FORCE OUTPUT TO TTY BEFORE INPUT
+   509	400024'	201 01 0 00 400121'		MOVEI	T1,LEXTAB	;ENTER AT FIRST PRODUCTION IN LEXTAB
+   510	400025'	260 17 0 00 000000*		PUSHJ	P,LEXINT##	;PROCESS DECTAPE NAME
+   511	400026'	001 12 0 00 400763'		  EWSIX	[SIXBIT\S&YNTAX ERROR.#!\]
+   512	400027'	622 00 0 00 000010 		TXZE	F,LSTOPN	;HAVE WE BEEN USING A LIST FILE?
+   513	400030'	007 11 0 00 000421'		FOCLOS	LSTFOL		;YES, CLOSE IT
+   514	400031'	007 00 0 00 000357'		FISEL	TTYFIL		;POINT BACK TO TTY INPUT
+   515	400032'	007 01 0 00 000400'		FOSEL	TTYFOL		;AND TTY OUTPUT
+   516	400033'	254 00 0 00 400020'		JRST	TRYAGN		;GO GET ANOTHER
+   517
+   518	400034'				TTYEOF:				;HERE ON TTY END OF FILE
+   519	400034'	622 00 0 00 000010 		TXZE	F,LSTOPN	;HAVE WE BEEN USING A LIST FILE?
+   520	400035'	007 11 0 00 000421'		FOCLOS	LSTFOL		;YES, CLOSE IT
+   521	400036'	007 11 0 00 000357'		FOCLOS	TTYFIL		;RELEASE TTY CHANNEL
+   522	400037'	047 01 0 00 000012 		MONRT.			;AND GO BACK TO THE MONITOR
+   523	400040'	047 00 0 00 000012 		EXIT			;HMM. THIS GUY WON'T TAKE MONRT. FOR AN ANSWER
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 16
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   524					;SUBROUTINE TO PRINT A DECTAPE DIRECTORY POINTED AT BY T1 ON
+   525					;THE CURRENT OUTPUT CHANNEL. USES T1-T4
+   526					;WARNING: ZERDIR AND DIRXIT MAY BE REACHED WITHOUT SAVE1 BEING CALLED!!
+   527
+   528	400041'	505 01 0 00 777752 	PRTDIR:	HRLI	T1,-MAXFIL	;MAKE AN AOBJN POINTER (MUCH MORE USEFUL)
+   529	400042'	606 00 0 00 000002 		TXNN	F,FSTDIR	;USER WANT A SHORT FORM DIRECTORY?
+   530	400043'	254 00 0 00 400053'		JRST	LNGDIR		;NO, GIVE HIM THE WORKS
+   531
+   532	400044'	400 02 0 00 000000 		SETZ	T2,		;USE T2 TO 'COUNT' FILES WE SEE
+   533	400045'	332 03 0 01 000123 	FSTLOP:	SKIPE	T3,DIRFIL(T1)	;THIS IS SO EASY MIGHT AS WELL DO IT IN A SEPARATE LOOP
+   534						DISIX	[[SIXBIT\%.%#!\];CRAM FILE AND EXTENSION
+   535							 WSIX	6,DIRFIL(T1);ON EACH LINE
+   536	400046'	001 10 0 00 400767'			 WSIX	3,DIREXT(T1)]
+   537	400047'	434 02 0 00 000003 		IOR	T2,T3		;OR IT IN...NON 0 WILL SAY WE FOUND SOME
+   538	400050'	253 01 0 00 400045'		AOBJN	T1,FSTLOP	;GET ANOTHER
+   539	400051'	322 02 0 00 400100'		JUMPE	T2,ZERDIR	;SAY IF DIRECTORY EMPTY
+   540	400052'	254 00 0 00 400117'		JRST	DIRXIT		;A COUPLE OF CRLFS AND RETURN
+   541
+   542					;HERE TO PRINT ALL THE USEFUL DIRECTORY INFORMATION FOR THE LONG FORMAT
+   543	400053'	260 17 0 00 000000*	LNGDIR:	PUSHJ	P,SAVE1##	;NEED A PERMANENT AC FOR DIRECTORY ADDR
+   544	400054'	200 05 0 00 000001 		MOVE	P1,T1		;KEEP A COPY OF THE AOBJN WORD FOR LATER USE
+   545
+   546					;COUNT ALL THE FREE FILES (SHOWN BY A ZERO FILE NAME)
+   547	400055'	400 02 0 00 000000 		SETZ	T2,		;CLEAR FILE COUNTER
+   548	400056'	336 00 0 01 000123 	FILLOP:	SKIPN	DIRFIL(T1)	;FREE FILES HAVE A ZERO NAME
+   549	400057'	201 02 0 02 000001 		MOVEI	T2,1(T2)	;WHICH THIS ONE DOES
+   550	400060'	253 01 0 00 400056'		AOBJN	T1,FILLOP	;LOOK AT REST
+   551	400061'	202 02 0 00 000643'		MOVEM	T2,FREFIL	;SAVE FOR LATER USE.
+   552
+   553					;FIGURE OUT HOW MANY BLOCKS EACH FILE HAS ALLOCATED
+   554	400062'	402 00 0 00 000644'		SETZM	FILSIZ		;CLEAR OUT COUNT LIST OF FILE SIZES
+   555	400063'	200 01 0 00 400772'		MOVE	T1,[FILSIZ,,FILSIZ+1]
+   556	400064'	251 01 0 00 000671'		BLT	T1,FILSIZ+MAXFIL-1;USING TRIED, TRUE AND SLOW BLT
+   557	400065'	201 01 0 00 001101 		MOVEI	T1,TAPLEN-1	;# OF BLOCKS TO SCAN (0 ISN'T IN BYTE MAP)
+   558	400066'	205 02 0 00 440505 		MOVX	T2,<POINT 5,DIRBYT(P1)>;POINT TO BEFORE FIRST BYTE IN MAP
+   559	400067'	134 03 0 00 000002 	SIZLOP:	ILDB	T3,T2		;GET OWNER OF THIS BLOCK
+   560	400070'	350 00 0 03 000644'		AOS	FILSIZ(T3)	;COUNT IT (N.B. - FREE BLOCKS ARE IN FILSIZ)
+   561	400071'	367 01 0 00 400067'		SOJG	T1,SIZLOP	;GO FOR NEXT
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 17
+EXAMPL	MAC	11-JAN-75 00:12		RIC WERME, OCTOBER 1974
+
+   562					;COLLECTED ALL THE DATA WE NEED, PRINT THE HEADER NOW
+   563						DISIX	[[SIXBIT\D&IRECTORY %#&F&REE: % BLOCKS, % FILES#!\]
+   564							 PUSHJ	P,DATTIM;PRINT DIRECTORY HEADER. FIRST DATE AND TIME
+   565							 WDEC	FILSIZ	;THEN THE FREE BLOCKS
+   566	400072'	001 10 0 00 401002'			 WDEC	FREFIL]	;AND THE FREE FILES
+   567	400073'	332 01 0 05 000177 		SKIPE	T1,DIRLBL(P1)	;DOES THIS TAPE HAVE A LABEL?
+   568						DISIX	[[SIXBIT\T&APE &ID: %#!\]
+   569	400074'	001 10 0 00 401011'			 WNAME	T1]
+   570	400075'	001 03 0 00 003212 		W2CHI	CRLF		;SEPARATE HEADER FROM DATA
+   571
+   572	400076'	200 01 0 00 000643'		MOVE	T1,FREFIL	;CHECK TO SEE IF ANY REASON TO PRINT
+   573	400077'	306 01 0 00 000026 		CAIN	T1,MAXFIL	;  DIRECTORY. SAY EMPTY IF NO FILES WRITTEN
+   574	400100'	001 10 0 00 401017'	ZERDIR:	DISIX	[CPOPJ##,,[SIXBIT\D&IRECTORY EMPTY###!\]]
+   575	400101'	201 04 0 00 000001 		MOVEI	T4,1		;MAKE INDEX INTO FILSIZ FOR BLOCKS USED
+   576									;NO NEED TO SAVE P1 NOW, USE IT AS AOBJN WORD
+   577
+   578					;NOW PRINT OUT INFO FOR EACH FILE
+   579	400102'	336 00 0 05 000123 	DIRLOP:	SKIPN	DIRFIL(P1)	;DOES THIS FILE EXIST?
+   580	400103'	254 00 0 00 400115'		JRST	DIRAOB		;NO, TRY NEXT
+   581	400104'	135 01 0 00 401020'		LDB	T1,[POINT 12,DIREXT(P1),35];GET LOW 12 BITS OF CREATION DATE
+   582	400105'	201 02 0 00 000001 		MOVEI	T2,1		;CHECK THE BYTE MAP FOR THE TOP 3 BITS
+   583	400106'	612 02 0 05 000000 		TDNE	T2,DIRBYT(P1)
+   584	400107'	435 01 0 00 010000 		IORI	T1,1B23		;BRING UPTO 1985
+   585	400110'	612 02 0 05 000026 		TDNE	T2,DIRBYT+MAXFIL(P1)
+   586	400111'	435 01 0 00 020000 		IORI	T1,1B22		;UPTO 2007
+   587	400112'	612 02 0 05 000054 		TDNE	T2,DIRBYT+<2*MAXFIL>(P1)
+   588	400113'	435 01 0 00 040000 		IORI	T1,1B21		;UPTO 2051 (FOR THE PDP-10 IN THE SMITHSONIAN)
+   589						DISIX	[[SIXBIT\%.% %  %#!\]
+   590							 WSIX	6,DIRFIL(P1);FILE
+   591							 WSIX	3,DIREXT(P1);AND EXTENSION
+   592							 WDEC	3,FILSIZ(T4);THEN LENGTH
+   593	400114'	001 10 0 00 401023'			 PUSHJ	P,DATTHN]   ;AND CREATION DATE
+   594	400115'	201 04 0 04 000001 	DIRAOB:	MOVEI	T4,1(T4)	;POINT TO NEXT FILE NUMBER
+   595	400116'	253 05 0 00 400102'		AOBJN	P1,DIRLOP	;AND LOOP FOR NEXT FILE
+   596	400117'	002 00 0 00 401030'	DIRXIT:	WSIX	[SIXBIT\##!\]	;ADD A LITTLE SPACE
+   597	400120'	263 17 0 00 000000 		POPJ	P,		;OR RETURN WHEN DONE
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 18
+EXAMPL	MAC	11-JAN-75 00:12		LEXICAL ANALYSIS - PRODUCTION TABLE
+
+   598					SUBTTL	LEXICAL ANALYSIS - PRODUCTION TABLE
+   599
+   600	400121'	000004	400202'			TBLBEG	LEXTAB
+   601
+   602	000000	1 0 0 0 00 000 000000 		PROD(	NULL		,    ,*,.     )	;IGNORE ANY NULLS LEFT BEHIND
+   603	000001	1 0 1 0 00 001 000004 		PROD(	<BLANK>		,    ,*,.     )	;SKIP BLANKS
+   604	000002	0 0 1 1 01 003 000000 	COMCON:	PROD(	<SG>		,FINI, ,      )	;CLEAR LEFTOVER SWITCHES
+   605	000003	0 0 1 1 02 023 000000 	COMCOC:	PROD(	<SG>		,CALL, ,SWITCH)	;CHECK FOR LEADING SWITCHES
+   606	000004	0 0 1 1 00 020 000000 		  PROD(	<SG>		,    , ,CMDERR)	;BAD SWITCH, ABORT REST OF CMD
+   607	000005	0 0 1 1 03 034 000000 		PROD(	<SG>		,CCAL, ,FILSPC)	;GET INPUT OR OUTPUT SPEC
+   608	000006	0 0 1 1 02 023 000000 		PROD(	<SG>		,CALL, ,SWITCH)	;AND CHECK TRAILING SWITCHES
+   609	000007	0 0 1 1 00 020 000000 		  PROD(	<SG>		,    , ,CMDERR)	;AGAIN, BAD SWITCH
+   610
+   611	000010	1 0 0 0 04 003 000137 		PROD(	"_"		,OUTF,*,COMCOC)	;IF OUTPUT, OPEN IT AND
+   612	000011	1 0 0 0 04 003 000075 		PROD(	"="		,OUTF,*,COMCOC)	;AND CONTINUE WITHOUT CLEARING FLAGS
+   613	000012	0 0 1 1 05 013 000000 		PROD(	<SG>		,DIRE, ,      )	;MUST BE DTA, DIRE IT
+   614
+   615	000013	1 0 0 0 00 002 000054 		PROD(	COMMA		,    ,*,COMCON)	;AND SCAN OVER THE TRAILING COMMA
+   616	000014	1 0 0 0 00 002 000073 		PROD(	SEMI		,    ,*,COMCON)	;ALSO ALLOW ;
+   617	000015	1 0 0 0 00 016 000015 		PROD(	CR		,    ,*,      )	;IF NOT COMMA, MUST BE END OF LINE
+   618	000016	1 0 0 0 00 017 000032 		PROD(	"Z"-100		,    ,*,      )	;READ NEXT CHAR TO GET EOF (KLUDGE)
+   619	000017	0 0 1 0 06 020 000010 		PROD(	<BREAK>		,SRET, ,      )	;SO WE MUST HAVE A BREAK HERE
+   620
+   621	000020	1 0 1 1 00 020 000010 	CMDERR:	PROD(	-<BREAK>	,    ,*,.     )	;THROW AWAY REST OF LINE
+   622	000021	1 0 0 0 00 022 000032 		PROD(	"Z"-100		,    ,*,      )	;ALSO HAVE TO CHECK FOR ^Z HERE...
+   623	000022	0 0 1 1 07 023 000000 	CRET:	PROD(	<SG>		,RET , ,      )	;RETURN
+   624
+   625					;SWITCH PARSERS. ALL SWITCHES CONSIST OF AT LEAST A "/" IMMEDIATELY
+   626					;FOLLOWED BY A SIXBIT NAME. CALL HERE VIA 'PROD( <SG>,CALL, , SWITCH)' WHICH
+   627					;WILL PARSE ANY SWITCHES AT THIS POINT. ACTION ROUTINE SWIT WILL LOOK UP THE SWITCH
+   628					;NAME IN A TABLE AND DISPATCH ACCORDINGLY TO PARSE ANY REMAINING DATA. (E.G.
+   629					;/CMD:FOO.BAR). FOR THE SWITCHES WITH NOTHING ELSE AFTER THEM. THEY MAY GO TO
+   630					;SHRTSW WHICH DOES NO FURTHER PROCESSING ON THAT SWITCH (E.G. /FAST).
+   631					;ALL SWITCH PARSERS MUST EXIT TO SWITMR TO CHECK FOR THE POSSIBLITY OF
+   632					;MULTIPLE SWITCHES.
+   633
+   634	000023				SHRTSW:SWITMR:					;USE LABELS FOR SPECIAL CASES
+   635	000023	0 0 0 1 06 024 000057 	SWITCH:	PROD(	-"/"		,SRET, ,      )	;IF NO SLASH, CAN'T COMPLAIN
+   636	000024	1 0 1 1 00 025 000000 		PROD(	<SG>		,    ,*,      )	;SKIP THE SLASH
+   637	000025	0 0 1 1 02 053 000000 	SWITC1:	PROD(	<SG>		,CALL, ,SIXSCN)	;GET SWITCH NAME
+   638	000026	0 0 1 1 10 027 000000 		PROD(	<SG>		,SWIT, ,      )	;PROCESS SWITCH AND DISPATCH
+   639
+   640			000022		SWITER==CRET					;FOR TIME BEING, SWITCH ERROR IS EASY
+   641
+   642	000027	1 0 0 0 00 031 000072 	CMDFSW:	PROD(	":"		,    ,*,CMDF1 )	;BETTER FOLLOW WITH A COLON
+   643	000030	0 0 1 1 00 022 000000 		PROD(	<SG>		,    , ,SWITER)	;CHECK INTO LATER
+   644	000031	0 0 1 1 11 034 000000 	CMDF1:	PROD(	<SG>		,ACAL, ,FILSPC)	;WILL GOTO CALL
+   645	000032	0 0 1 1 12 023 000000 		PROD(	<SG>		,DCMD, ,SWITMR)	;POINT TO COMMAND FILE
+   646
+   647	000033	0 0 1 1 13 023 000000 	PAUSSW:	PROD(	<SG>		,PAUS, ,SWITMR)	;A SIMPLE SWITCH THAT NEEDS CODE DONE
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 19
+EXAMPL	MAC	11-JAN-75 00:12		LEXICAL ANALYSIS - PRODUCTION TABLE
+
+   648					;STANDARD SUBROUTINES (IT WOULD BE NICE TO MAKE THESE INTO A
+   649					;SEPARATE PROGRAM SINCE THEY MANAGE TO POP UP ALL THE TIME.)
+   650
+   651					;PRODUCTIONS TO PARSE THE CLASSIC FILE SPECIFIER (DEV:FILE.EXT[P,PN]
+   652					;IN ITS BIGGEST FORM)
+   653					;CALL WITH REGISTER FB POINTING TO THE LOSEG FILE BLOCK TO FILL.
+   654	000034	0 0 1 1 14 035 000000 	FILSPC:	PROD(	<SG>		,FILI, ,      )	;INIT FILE PARSER FLAGS
+   655	000035	0 0 1 1 02 053 000000 	NXTATM:	PROD(	<SG>		,CALL, ,SIXSCN)	;GET A NAME
+   656	000036	1 0 0 0 15 035 000072 		PROD(	":"		,DEV ,*,NXTATM)	;COLON MEANS A DEVICE
+   657	000037	1 0 0 0 16 035 000056 		PROD(	"."		,NAME,*,NXTATM)	;AND PERIOD MEANS NAME
+   658	000040	1 0 0 0 17 043 000133 		PROD(	"["		,NAMX,*,PPNSCN)	;THEN BRACKET MEANS NAME OR EXT
+   659	000041	0 0 1 1 17 042 000000 		PROD(	<SG>		,NAMX, ,      )	;ANYTHING ELSE IS SAME
+   660	000042	0 0 1 1 07 043 000000 	PPNDON:	PROD(	<SG>		,RET , ,      )	;QUIT WHILE AHEAD
+   661
+   662	000043	0 0 1 1 02 047 000000 	PPNSCN:	PROD(	<SG>		,CALL, ,OCTSCN)	;GET PROJECT NUMBER
+   663	000044	1 0 1 1 20 047 000000 		PROD(	<SG>		,PROJ,*,OCTSCN)	;SAVE PROJECT. PROJ WILL FAKE CALL
+   664	000045	1 0 0 0 00 046 000135 		PROD(	"]"		,    ,*,      )	;OPTIONAL CLOSE BRACKET
+   665	000046	0 0 1 1 21 042 000000 		PROD(	<SG>		,PROG, ,PPNDON)	;MERGE WITH PROJECT
+   666
+   667	000047	1 0 1 0 00 047 000004 	OCTSCN:	PROD(	<BLANK>		,    ,*,.     )	;SKIP BLANKS
+   668	000050	0 0 1 1 22 051 000000 		PROD(	<SG>		,OCTI, ,      )	;INIT OCTAL PACKER
+   669	000051	1 0 1 0 23 051 000002 		PROD(	<DIGIT>		,OCTS,*,.     )	;HMM. MAYBE WE SHOULD DEFINE OCTIT?
+   670	000052	0 0 1 1 00 056 000000 		PROD(	<SG>		,    , ,SKPBLA)	;SKIP BLANKS AND RETURN
+   671
+   672	000053	1 0 1 0 00 053 000004 	SIXSCN:	PROD(	<BLANK>		,    ,*,.     )	;SKIP BLANKS
+   673	000054	0 0 1 1 24 055 000000 		PROD(	<SG>		,SIXI, ,      )	;SETUP SIXBIT PACKER
+   674	000055	1 0 1 0 25 055 000003 		PROD(	<LETTER!DIGIT>	,SIXS,*,.     )	;SAVE ANY ALPHANUMERICS
+   675	000056	1 0 1 0 00 056 000004 	SKPBLA:	PROD(	<BLANK>		,    ,*,.     )	;IGNORE BLANKS
+   676	000057	0 0 1 1 07 060 000000 		PROD(	<SG>		,RET , ,      )	;AND RETURN
+   677
+   678	400202'	000000*	400266'			TBLEND
+   679	400203'	000000*	400234'
+   680	400204'	400215'	400237'
+   681	400205'	000000*	000000*
+   682	400206'	400270'	400304'
+   683	400207'	400313'	400302'
+   684	400210'	400347'	400350'
+   685	400211'	400352'	400352'
+   686	400212'	400360'	400362'
+   687	400213'	400372'	400374'
+   688	400214'	400371'	400364'
+   689
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 20
+EXAMPL	MAC	11-JAN-75 00:12		LEXICAL ANALYSIS - ACTION ROUTINES
+
+   690					SUBTTL	LEXICAL ANALYSIS - ACTION ROUTINES
+   691
+   692	400215'	662 00 0 00 000010 	A.OUTF:	TXOE	F,LSTOPN	;IS THIS A NEW LIST FILE?
+   693	400216'	007 11 0 00 000421'		FOCLOS	LSTFOL		;YES, CLOSE THIS ONE SO WE CAN OPEN ANOTHER
+   694	400217'	010 00 0 00 400750'		FSETUP	LSTFOH		;INIT FILE BLOCK AND SETUP DEFAULTS
+   695	400220'	332 01 0 00 000343'		SKIPE	T1,DTAFIL+FILDEV;SAVE OUTPUT SPEC WHERE IT BELONGS
+   696	400221'	202 01 0 00 000426'		MOVEM	T1,LSTFOL+FILDEV;  DEVICE
+   697	400222'	316 01 0 00 401031'		CAMN	T1,[SIXBIT/TTY/];IF POINTING BACK TO TTY,
+   698						JRST	[TXZ	F,LSTOPN;JUST USE THE NORMAL TTY BLOCK
+   699							 FOSEL	TTYFOL	;CAUSE OTHERWISE WE WILL REDIRECT OUTPUT
+   700	400223'	254 00 0 00 401032'			 POPJ	P,]	;AND THEN DO A CLOSE ON IT. NOT GOOD.
+   701	400224'	332 01 0 00 000345'		SKIPE	T1,DTAFIL+FILNAM
+   702	400225'	202 01 0 00 000430'		MOVEM	T1,LSTFOL+FILNAM;  NAME
+   703	400226'	332 01 0 00 000346'		SKIPE	T1,DTAFIL+FILEXT
+   704	400227'	202 01 0 00 000431'		MOVEM	T1,LSTFOL+FILEXT;  EXTENSION
+   705	400230'	332 01 0 00 000351'		SKIPE	T1,DTAFIL+FILPPN
+   706	400231'	202 01 0 00 000434'		MOVEM	T1,LSTFOL+FILPPN;  PPN
+   707	400232'	007 03 0 00 000421'		FOOPEN	LSTFOL		;AND GET THE FILE
+   708	400233'	263 17 0 00 000000 		POPJ	P,		;NOW OUTPUT WILL GO THERE
+   709
+   710	400234'	010 00 0 00 400721'	A.CCAL:	FSETUP	DTAFIH		;GIVE US A CLEAN SLATE
+   711	400235'	201 11 0 00 000336'		MOVEI	FB,DTAFIL	;POINT TO FILE BLOCK TO FILL
+   712	400236'	254 00 0 00 000000*		PJRST	A.CALL##	;AND GO OFF TO FILSPC
+   713
+   714	400237'	332 01 0 00 000345'	A.DIRE:	SKIPE	T1,DTAFIL+FILNAM;KLUDGE TO LET PEOPLE TYPE DECTAPE NAMES
+   715	400240'	202 01 0 00 000343'		MOVEM	T1,DTAFIL+FILDEV;  WITHOUT USING COLONS
+   716	400241'	336 01 0 00 000343'		SKIPN	T1,DTAFIL+FILDEV;WHILE WE HAVE THE CHANCE, LET'S MAKE SURE WE HAVE
+   717	400242'	263 17 0 00 000000 		POPJ	P,		;IF NOTHING SPECIFIED, DON'T DO ANYTHING
+   718	400243'	047 01 0 00 000004 		DEVCHR	T1,		;MAKE SURE WE HAVE A DECTAPE
+   719	400244'	607 01 0 00 000100 		TXNN	T1,DV.DTA	;CAUSE OTHERWISE, WE'LL LOOK RATHER FOOLISH!
+   720						EDISIX	[CPOPJ##,,[SIXBIT\? %: &IS NOT A &DEC&TAPE#!\]
+   721	400245'	001 11 0 00 401042'			 WNAME	DTAFIL+FILDEV]
+   722
+   723	400246'	261 17 0 00 000000*		PUSH	P,IFILE##	;SAVE INPUT STREAM
+   724	400247'	007 04 0 00 000336'		FIGET	DTAFIL		;OPEN DECTAPE
+   725	400250'	074 00 0 00 000144 		USETI	DTA,DIRADR	;READY TO READ DIRECTORY
+   726						IN	DTA,[IOWD DIRSIZ,DIRBLK
+   727	400251'	056 00 0 00 401044'			     0]		;AND READ IT.
+   728	400252'	334 01 0 00 401046'		  SKIPA	T1,[DIRBLK]	;NO ERROR. GET DIRECTORY ADDR AND SKIP ERROR REPORTER
+   729						DISIX	[DTAREL,,[SIXBIT\%!\];THIS IS A CUTE USE FOR DISIX...
+   730	400253'	001 10 0 00 401050'			 ERRIN	DTAFIL]	;REPORT INPUT ERROR AND PUNT
+   731	400254'	260 17 0 00 400041'		PUSHJ	P,PRTDIR	;READ, PRINT DIRECTORY
+   732	400255'	606 00 0 00 000010 		TXNN	F,LSTOPN	;IS OUTPUT REDIRECTED?
+   733	400256'	067 01 0 00 000000 		OUTPUT	TTY,		;NO, FORCE OUT NOW FOR NEATNESS
+   734	400257'	602 00 0 00 000020 	DTAREL:	TXNE	F,UNLOAD	;SHOULD TAPE BE DISMOUNTED?
+   735	400260'	072 00 0 00 000011 		MTAPE	DTA,11		;YES, DO IT (USED WITH /PAUSE, USUALLY)
+   736	400261'	007 14 0 00 000336'		FREL	DTAFIL		;NOW CAN RELEASE THE DTA
+   737	400262'	254 00 0 00 400264'		PJRST	IPOPJ		;PROBABLY SHOULD BE EXTERNAL
+   738
+   739	400263'	011 02 0 00 000336'	DTAOPN:	ERRIOP	DTAFIL		;HERE IF FIGET FAILS. SAY SO
+   740	400264'	262 17 0 00 400246*	IPOPJ:	POP	P,IFILE##	;RESTORE INPUT STREAM
+   741	400265'	263 17 0 00 000000 		POPJ	P,		;AND JUST IGNORE IT
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 21
+EXAMPL	MAC	11-JAN-75 00:12		LEXICAL ANALYSIS - ACTION ROUTINES
+
+   742	400266'	620 00 0 00 000022 	A.FINI:	TXZ	F,FSTDIR!UNLOAD	;ENSURE WE START LONG AND LEAVE THE TAPE UP
+   743	400267'	263 17 0 00 000000 		POPJ	P,
+   744
+   745					;SWITCH PROCESSOR. ENTER WITH DATA FROM A.SIXS
+   746					;T1/	NAME TYPED
+   747					;T2/	BYTE POINTER TO LAST BYTE
+   748
+   749					;THERE ARE 3 TABLES USED HERE:
+   750					;SWITTB	 SWITCH NAMES PASSED TO SIXSRC TO DECIDE ON LEGALITY OF TYPED
+   751					;	TYPED SWITCH
+   752					;SWITBT	 TABLE OF BITS TO SET ON SWITCH MATCH
+   753					;SWITDP	 LEXTAB ADDRESS TO DISPATCH TO PARSING REST OF SWITCH.
+   754
+   755	400270'	135 03 0 00 401052'	A.SWIT:	LDB	T3,[POINT 6,T2,5];EXTRACT POSITION
+   756	400271'	474 02 0 00 000000 		SETO	T2,		;READY TO MAKE MASK
+   757	400272'	242 02 0 03 000000 		LSH	T2,(T3)		;POOF
+   758	400273'	200 03 0 00 401053'		MOVE	T3,[-SWITN,,SWITTB];AOBJN WORD TO LIST OF NAMES
+   759	400274'	260 17 0 00 400417'		PUSHJ	P,SIXSRC	;TRY TO FIND IT
+   760	400275'	254 00 0 00 400300'		  JRST	SWTBAD		;ERROR OF SOME SORT...PUNT
+   761	400276'	434 00 0 03 400474'		IOR	F,SWITBT(T3)	;SET THE NECESSARY SWITCHES
+   762	400277'	334 01 0 03 400505'		SKIPA	T1,SWITDP(T3)	;GET ADDRESS OF NEXT PRODUCTION
+   763	400300'	201 01 0 00 000022 	SWTBAD:	MOVEI	T1,SWITER	;BAD SWITCH, SAY SO
+   764	400301'	254 00 0 00 000000*		PJRST	A.JUMP##	;AND DISPATCH THERE
+   765
+   766	400302'	047 01 0 00 000012 	A.PAUS:	MONRT.			;/PAUSE - JUST STOP AND LET PEOPLE CHANGE DECTAPES
+   767	400303'	263 17 0 00 000000 		POPJ	P,		;IT IS QUESTIONABLE AS TO WHETHER OR NOT THIS IS USEFUL.
+   768
+   769					SUBTTL	COMMAND FILE PROCESSOR
+   770					;COMMAND FILE PROCESSOR AND INPUT SCANNER
+   771					;THE SYMBOL 'CMDLVL' MUST BE SET TO 0 BEFORE THE FIRST
+   772					;COMMAND FILE MAY BE PROCESSED AND IMPLIES THAT CMDEOF WILL REQUIRE
+   773					;THAT CMDFLB HAVE A THE BASE FILE ENTRY FIRST BEFORE THE COMMAND FILE BLOCK
+   774					;ADDRESSES
+   775
+   776	400304'	350 01 0 00 000335'	A.ACAL:	AOS	T1,CMDLVL	;BUMP CMD FILE LEVEL
+   777	400305'	303 01 0 00 000015 		CAILE	T1,CMDDEP	;EXCEEDED CMD FILE NESTING DEPTH?
+   778	400306'	001 11 0 00 401062'		EDISIX	[CMDEXC,,[SIXBIT\?C&OMMAND FILE NESTING TOO DEEP#!\]]
+   779	400307'	200 11 0 01 400516'		MOVE	FB,CMDFLB(T1)	;GET ADDRESSES OF FILE BLOCKS (HISEG,,LOSEG)
+   780	400310'	010 00 0 11 000000 		FSETUP	(FB)		;SETUP LOSEG FILE BLOCK
+   781	400311'	554 11 0 00 000011 		HLRZ	FB,FB		;AND POINT TO IT FOR FILSPC
+   782	400312'	254 00 0 00 400236*		PJRST	A.CALL##	;AND GO TO IT
+   783
+   784	400313'	007 02 0 11 000000 	A.DCMD:	FIOPEN	(FB)		;READ THE CMD FILE
+   785	400314'	010 05 0 00 000001 		RCH	T1		;'PRIME' PARSER. THIS IS NECESSARY BECAUSE
+   786									;  IS ALWAYS ONE CHARACTER AHEAD OF US. SEE EITHER
+   787									;  LEXINT OR THE TULIP MANUAL FOR GORY DETAILS 
+   788	400315'	263 17 0 00 000000 		POPJ	P,		;AND REDIRECT INPUT
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 22
+EXAMPL	MAC	11-JAN-75 00:12		COMMAND FILE PROCESSOR
+
+   789					;VARIOUS COMAND FILE ERROR ROUTINES THAT PUNT PROCESSING
+   790	400316'	011 06 0 11 000000 	CMDLK:	ERRLK	(FB)		;HERE ON LOOKUP ERROR, REPORT IT
+   791	400317'	254 00 0 00 400323'		JRST	CMDFER		;AND WIPE OUT TRACES OF OUR PRESENCE
+   792
+   793					REPEAT 0,<			;LEAVE OUT BECAUSE WE CANNOT HANDLE INPUT ERRORS
+   794									;SINCE WE ARE COME HERE FROM WITHIN LEXINT AND HAVE
+   795									;NO IDEA AS TO WHAT THE STACK IS LIKE.
+   796					CMDIN:	ERRIN	@IFILE##	;REPORT ERROR (IFILE HAS ADDRESS OF INPUT FILE BLOCK)
+   797						JRST	CMDFER		;AND AGAIN WIPE OUT TRACES
+   798					>
+   799
+   800	400320'	011 02 0 11 000000 	CMDOPN:	ERRIOP	(FB)		;REPORT
+   801	400321'	377 01 0 00 000335'	CMDEXC:	SOSG	T1,CMDLVL	;DON'T HAVE TO CLOSE THIS LEVEL, AS NEVER WAS OPENED
+   802	400322'	254 00 0 00 400330'		JRST	CMDFIN		;IN FACT, IF AT TOP LEVEL, WE'RE ALL SET
+   803	400323'	200 01 0 00 000335'	CMDFER:	MOVE	T1,CMDLVL	;GET CURRENT LEVEL FOR ALL OTHER ERRORS
+   804	400324'	554 01 0 01 400516'	CMDELP:	HLRZ	T1,CMDFLB(T1)	;GET ADDRESS OF LOSEG FILE BLOCK
+   805	400325'	007 10 0 01 000000 		FICLOS	(T1)		;CLOSE THAT
+   806	400326'	373 01 0 00 000335'		SOSLE	T1,CMDLVL	;BACKUP ANOTHER
+   807	400327'	254 00 0 00 400324'		JRST	CMDELP		;MORE TO GO, CLOSE THIS ONE
+   808	400330'	554 01 0 00 400516'	CMDFIN:	HLRZ	T1,CMDFLB-0	;GET ADDRESS OF TTY IO BLOCK (OR WHATEVER)
+   809	400331'	007 00 0 01 000000 		FISEL	(T1)		;AND POINT TO IT
+   810	400332'	254 00 0 00 400300'		JRST	SWTBAD		;SAY THAT THIS SWITCH DIDN'T MAKE IT.
+   811
+   812					;ROUTINE CALLED TO INPUT EACH CHARACTER FROM COMMAND COMMAND FILE. IT WILL
+   813					;ALLOW ONLY ONE LINE SINCE EOF TRAPPING WILL NOT STORE THE PC OF THE
+   814					;UUO, SO THE PROGRAM HAS NO IDEA OF WHERE THE UUO WAS TO ATTEMPT
+   815					;TO REDO IT. IF WE REALLY WANTED TO ALLOW A WHOLE FILE AS A COMMAND FILE
+   816					;WE COULD DO ALL THE IO OURSELVES WITHOUT TOO MUCH TROUBLE!
+   817	400333'	260 17 0 00 000000*	CMDCHR:	PUSHJ	P,I1BYTE##	;GET A CHAR
+   818	400334'	322 14 0 00 400333'		JUMPE	U1,CMDCHR	;IGNORE NULLS
+   819	400335'	302 14 0 00 000015 		CAIE	U1,CR		;STOP ON A CRLF (CMD FILE ONLY 1 LINE)
+   820	400336'	263 17 0 00 000000 		POPJ	P,		;GOT ONE WE CAN USE
+   821
+   822	400337'	007 10 1 00 400264*		FICLOS	@IFILE##	;CLOSE THIS FILE
+   823	400340'	370 15 0 00 000335'		SOS	U2,CMDLVL	;BACKUP ONE
+   824	400341'	554 15 0 15 400516'		HLRZ	U2,CMDFLB(U2)	;GET ADDRESS OF LOSEG BLOCK
+   825	400342'	007 00 0 15 000000 		FISEL	(U2)		;BACK TO IT
+   826	400343'	250 14 0 00 000001 		EXCH	U1,T1		;SWITCH THESE SO WE CAN
+   827	400344'	010 06 0 00 000001 		CCH	T1		;GO BACK TO LAST CHARACTER FROM THIS FILE
+   828	400345'	250 14 0 00 000001 		EXCH	U1,T1		;SINCE CAN'T DO IO TO U1
+   829	400346'	263 17 0 00 000000 		POPJ	P,		; CONTINUE PROCESSING
+   830
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 23
+EXAMPL	MAC	11-JAN-75 00:12		FILE SPECIFIER ROUTINES
+
+   831					SUBTTL	FILE SPECIFIER ROUTINES
+   832
+   833	400347'	624 00 0 00 000004 	A.FILI:	TXZA	F,PRSDFL	;ALL WE NEED DO IS NOTE WE HAVEN'T SEEN A FILENAME
+   834	400350'	202 01 0 11 000005 	A.DEV:	MOVEM	T1,FILDEV(FB)	;SAVE DEVICE NAME
+   835	400351'	263 17 0 00 000000 		POPJ	P,		;THESE ROUTINES ARE OFTEN THIS SHORT!
+   836
+   837	400352'				A.NAME:				;GOT NAME, PRSDFL WILL BE OFF AND MUST BE SET
+   838	400352'	662 00 0 00 000004 	A.NAMX:	TXOE	F,PRSDFL	;SET FILE SEEN FLAG AND CHECK TO SEE IF IT WAS
+   839	400353'	254 00 0 00 400356'		JRST	A.EXT		;YES, MUST BE EXTENSION
+   840	400354'	202 01 0 11 000007 		MOVEM	T1,FILNAM(FB)	;SAVE FILE NAME
+   841	400355'	263 17 0 00 000000 		POPJ	P,
+   842
+   843	400356'	202 01 0 11 000010 	A.EXT:	MOVEM	T1,FILEXT(FB)	;SAVE EXTENSION
+   844	400357'	263 17 0 00 000000 		POPJ	P,
+   845
+   846	400360'	516 01 0 11 000013 	A.PROJ:	HRLZM	T1,FILPPN(FB)	;SAVE PROJECT (LEFT HALF)
+   847	400361'	254 00 0 00 400312*		PJRST	A.CALL##	;AND FAKE A CALL FOR THE OTHER HALF
+   848
+   849	400362'	542 01 0 11 000013 	A.PROG:	HRRM	T1,FILPPN(FB)	;AND REMEMBER IT
+   850	400363'	263 17 0 00 000000 		POPJ	P,		;BEFORE RETURNING
+   851
+   852
+   853					;ROUTINE TO HANDLE DATA FLOW WHILE PARSING A SIXBIT WORD. RETURNS:
+   854					;	T1/	SIXBIT DATA
+   855					;	T2/	BYTE POINTER POINTING TO LAST BYTE
+   856	400364'	602 07 0 00 000020 	A.SIXS:	TRNE	P3,LGLSIX	;THIS IS CUTE. WE MAY HAVE ONE OF 3 TYPES OF CHARS:
+   857									;NUM, RANGE 60-71 (SIXBIT 20-31)
+   858									;UC, RANGE 101-132 (41-72)
+   859									;LC, RANGE 141-172 (41-72)
+   860									;SO, IF IT IS LEGAL SIXBIT, WE HAVE TO COMPLEMENT
+   861									;BIT 40:
+   862	400365'	431 06 0 00 000040 		XORI	P2,40		;LIKE THAT, WHILE LEAVING LOWER CASE ALONE
+   863	400366'	603 02 0 00 770000 		TLNE	T2,770000	;MORE CUTENESS. THIS FIELD IS 0 AFTER T1 IS FILLED
+   864	400367'	136 06 0 00 000002 		IDPB	P2,T2		;STUFF INTO T1
+   865	400370'	263 17 0 00 000000 		POPJ	P,		;AND BACK FOR MORE
+   866
+   867	400371'	200 02 0 00 401063'	A.SIXI:	MOVE	T2,[POINT 6,T1]	;SETUP POINTER TO WHERE WE'LL ACCUMULATE THE NAME
+   868	400372'	400 01 0 00 000000 	A.OCTI:	SETZ	T1,		;AND CLEAR THAT OF ANY GARBAGE IT MIGHT HAVE
+   869	400373'	263 17 0 00 000000 		POPJ	P,		;BACK TO SCAN FIRST CHARACTER
+   870
+   871					;ROUTINE TO SCAN AN OCTAL NUMBER, RETURNS WITH THE NUMBER IN T1
+   872	400374'	242 01 0 00 000003 	A.OCTS:	LSH	T1,3		;MAKE ROOM
+   873	400375'	435 01 0 06 777720 		IORI	T1,-"0"(P2)	;MERGE IN
+   874	400376'	263 17 0 00 000000 		POPJ	P,		;SIMPLE
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 24
+EXAMPL	MAC	11-JAN-75 00:12		UTILITY SUBROUTINES
+
+   875					SUBTTL	UTILITY SUBROUTINES
+   876
+   877					;SUBROUTINE TO PRINT CURRENT DATE AND TIME AS
+   878					;	'ON <DATE> AT <TIME>'
+   879					;USES T1-T4
+   880
+   881					DATTIM:	DISIX	[CPOPJ##,,[SIXBIT\&ON % AT %!\];PRINT DATE, TIME, THEN RETURN
+   882							 PUSHJ	P,DATPRT ;PRINT CURRENT DATE
+   883	400377'	001 10 0 00 401066'			 PUSHJ	P,TIMPRT];PRINT CURRENT TIME
+   884
+   885
+   886					;SUBROUTINE TO PRINT EITHER CURRENT DATE (ENTER AT DATPRT) OR DATE
+   887					;PASSED IN T1 (ENTER AT DATTHN). USES T1-T3
+   888
+   889	400400'	047 01 0 00 000014 	DATPRT:	DATE	T1,		;GET TODAY'S DATE
+   890	400401'	231 01 0 00 000564 	DATTHN:	IDIVI	T1,^D<12*31>	;T1_YEAR-64
+   891	400402'	231 02 0 00 000037 		IDIVI	T2,^D<   31>	;T2_MONTH-1, T3_DAY-1
+   892	400403'	004 02 0 03 000001 		WDECI	2,1(T3)		;DAY
+   893	400404'	010 01 0 02 400447'		WNAME	MONTAB(T2)	;.MONTH.
+   894	400405'	004 00 0 01 000100 		WDECI	^D64(T1)	;AND YEAR
+   895	400406'	263 17 0 00 000000 		POPJ	P,		;AND RETURN
+   896
+   897
+   898					;SUBROUTINE TO PRINT TODAYS TIME. USES T1-T3, EXITS WITH LZEFLG OFF
+   899
+   900	400407'	047 01 0 00 000023 	TIMPRT:	MSTIME	T1,		;TOP OFF WITH TIME
+   901	400410'	231 01 0 00 001750 		IDIVI	T1,^D1000	;DISCARD THOUSANTHS
+   902	400411'	231 01 0 00 007020 		IDIVI	T1,^D<60*60>	;T1_HOURS
+   903	400412'	231 02 0 00 000074 		IDIVI	T2,^D<   60>	;T2_MINUTES; T3_SECONDS
+   904	400413'	660 00 0 00 000001 		TXO	F,LZEFLG	;PRINT TIME WITH LEADING ZEROS
+   905						DISIX	[[SIXBIT\%:%:%!\]
+   906							 WDEC	2,T1	;HOURS
+   907							 WDEC	2,T2	;MINUTES
+   908	400414'	001 10 0 00 401072'			 WDEC	2,T3]	;SECONDS
+   909	400415'	620 00 0 00 000001 		TXZ	F,LZEFLG	;TURN OFF AS PROMISED
+   910	400416'	263 17 0 00 000000 		POPJ	P,		;AND RETURN
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 25
+EXAMPL	MAC	11-JAN-75 00:12		UTILITY SUBROUTINES
+
+   911					COMMENT	\ROUTINE TO SCAN A SIXBIT LIST LOOKING FOR EXACT OR PARTIAL MATCH
+   912					ENTER WITH
+   913					T1/ SIXBIT NAME TYPED
+   914					T2/ MASK TO USE
+   915					T3/ AOBJN WORD POINTING TO A TABLE OF SIXBIT NAMES
+   916
+   917					INTERNAL USE:
+   918					T1-T3 - AS ABOVE
+   919					T4/ TEMPORARY (CURRENT NAME AND ABBREVIATION
+   920					P1/ COROUTINE PC
+   921					P2/ USED BY COROUTINE CODE...SEE COMMENTS THERE
+   922
+   923					RETURNS
+   924					T1/ NAME TYPED
+   925					T2/ MASK
+   926					T3/ RH - RELATIVE INDEX FOR COMMAND (NOT ADDRESS!!)
+   927
+   928					IF THERE ARE ANY SHORT COMMANDS THAT ARE ABBREVIATIONS OF LONGER ONES,
+   929					THEY MUST PRECEDE THE LONG ONE OR ELSE SIXSRC WILL BECOME QUITE CONFUSED,
+   930					E. G. IF FOOBAR AND FOONLY PRECEDED FOO, AND SIXSRC WAS ASKED TO SCAN
+   931					FOR FOO, AN ERROR MESSAGE WILL RESULT COMPLAINING THAT FOOBAR AND FOONLY ARE
+   932					AMBIGUOUS YET SIXSRC WILL TAKE THE SUCCESSFUL RETURN SINCE FOO IS AN
+   933					EACT MATCH.\
+   934
+   935	400417'	260 17 0 00 000000*	SIXSRC:	PUSHJ	P,SAVE2##	;4 TEMP ACS NOT ENOUGH HERE
+   936	400420'	506 03 0 17 000000 		HRLM	T3,(P)		;SAVE TABLE ADDR SO WE CAN RETURN CMD INDEX
+   937	400421'	201 05 0 00 400436'		MOVEI	P1,SIXMAT	;SETUP COROUTINE ADDR
+   938	400422'	200 04 0 03 000000 	SIXS1:	MOVE	T4,(T3)		;GET REAL COMMAND NAME
+   939	400423'	316 01 0 00 000004 		CAMN	T1,T4		;EXACT MATCH?
+   940	400424'	254 00 0 00 400432'		JRST	SIXS2		;YES, WE HAVE WHAT WE WANT!
+   941	400425'	404 04 0 00 000002 		AND	T4,T2		;TRIM NAME DOWN TO SIZE (OF WHAT WAS TYPED)
+   942	400426'	316 01 0 00 000004 		CAMN	T1,T4		;NOW DOES IT MATCH?
+   943	400427'	265 05 0 05 000000 		JSP	P1,(P1)		;CALL COROUTINE TO DETERMINE CORRECTNESS
+   944									;  OF THIS MATCH
+   945
+   946	400430'	253 03 0 00 400422'		AOBJN	T3,SIXS1	;GO TRY ANOTHER
+   947	400431'	265 05 0 05 000001 	CJSP1:	JSP	P1,1(P1)	;DONE. LET AMBIGUOUS CHECKER FINISH UP IF NECESSARY
+   948	400432'	350 00 0 17 000000 	SIXS2:	  AOS	(P)		;THE JSP WILL DO A SKIP RETURN IF ERROR
+   949	400433'	554 04 0 17 000000 		HLRZ	T4,(P)		;GET SWITCH TABLE ADDRESS BACK
+   950	400434'	274 03 0 00 000004 		SUB	T3,T4		;MAKE T3 BE INDEX. NOTE THAT T3 WILL BE
+   951									;  GARBAGE IF WE WILL TAKE THE ERROR RETURN.
+   952
+   953	400435'	263 17 0 00 000000 		POPJ	P,		;TELL CALLER HOW WE DID
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 26
+EXAMPL	MAC	11-JAN-75 00:12		UTILITY SUBROUTINES
+
+   954					COMMENT	\
+   955					COROUTINE USED TO HANDLE PARTIAL MATCHES FOUND BY SIXSRC. THIS SCHEME ALLOWS
+   956					BOTH THE EASE OF A LOOP TO SEARCH A LIST WHILE AT THE SAME TIME ALLOWING THE
+   957					EASE OF A COROUTINE TO BE USED INSTEAD OF INCREMENTING AND CHECKING AN
+   958					EVENT COUNTER.
+   959					THE COROUTINE IS CALLED BY EITHER:
+   960
+   961						JSP	P1,(P1)		;FOR EACH MATCH DETECTED. THE FIRST
+   962						 TIME IT IS CALLED, THE FIRST MATCH WILL HAVE BEEN FOUND AND MAY
+   963						 REPRESENT A VALID MATCH. NOT UNTIL THE THE SECOND CALL MAY IT REPORT
+   964						 AN ERROR, AND THEN IT MUST REPORT 2 OF THEM SINCE 2 MATCHES WILL
+   965						 HAVE OCCURED. ALL FUTURE CALLS WILL HAVE TO REPORT ONE ERROR.
+   966
+   967						JSP	P1,1(P1)	;AT THE END OF SIXSRC. THE COROUTINE IS
+   968						 QUERIED AS TO WHAT IT HAS FOUND AND MUST DO A SKIP RETURN IF A BAD
+   969						 (AMBIGUOUS OR NONEXISTANT) NAME WAS SEARCHED FOR. THIS CALL ALSO ALLOWS
+   970						 SIXMAT TO FINISH ANY ERROR REPORTING IF NECESSARY. IF
+   971						 THIS IS THE FIRST CALL TO SIXMAT, NO MATCHES HAVE BEEN FOUND AND
+   972						 SIXMAT REPORTS SO. IF THIS IS THE SECOND CALL, THEN PRECISELY
+   973						 ONE MATCH HAS BEEN FOUND, AND THE NON-SKIP RETURN IS TAKEN TO
+   974						 SIGNIFY SUCCESS WITH T3 POINTING TO THE COMMAND.
+   975						 IF THIS THE THIRD OR GREATER CALL, THEN THE AMBIGUOUS
+   976						 ERROR MESSAGE IS FINISHED WITH A ')'. IN THE CASE OF THE SUCCESSFUL
+   977						 RETURN, ACCUMULATOR T3 WILL BE SETUP WITH ADDRESS OF MATCHED SWITCH.
+   978
+   979					THE CJSP1 LABEL BACK IN SIXSRC IS SIMPLY A MEANS TO SAVE AN INSTRUCTION
+   980					HERE. IT MAY BE USED SINCE THE COROUTINE WILL BE CALLED NO LONGER.
+   981					ALL WE NEED TO DO IS A SKIP RETURN, AND A JSP DOES IT QUITE WELL.
+   982					COROUTINES ARE NEAT!\
+   983
+   984	400436'	254 00 0 00 400440'	SIXMAT:	JRST	SIXMA1		;FIRST MATCH, NOTHING TO WORRY ABOUT
+   985						 EDISIX	[CJSP1,,[SIXBIT\? % &IS NOT DEFINED.#!\]
+   986	400437'	001 11 0 00 401102'			 WNAME	T1]	;IDENTIFY IT
+   987	400440'	200 06 0 00 000003 	SIXMA1:	MOVE	P2,T3		;REMEMBER MATCH IN CASE OF SUCCESSFUL RETURN
+   988									;  AND FOR AMBIGUOUS ERROR CODE BELOW
+   989	400441'	265 05 0 05 000000 		JSP	P1,(P1)		;FROM SIXERR. JUST GO GET SOME MORE
+   990
+   991						EDISIX	[SIXAMB,,[SIXBIT\? % IS AMBIGUOUS (%, %!\]
+   992							 WNAME	T1	;SWITCH HE TYPED
+   993							 WNAME	(P2)	;LAST MATCH
+   994	400442'	001 11 0 00 401110'			 WNAME	(T3)]	;THIS MATCH
+   995	400443'	201 03 0 06 000000 		  MOVEI	T3,(P2)		;HERE FROM END OF SIXSRC TO WHEN WE FOUND JUST
+   996									;  THE ONE MATCH WE WERE HOPING FOR.
+   997									;  RETURN T3/ ADDR OF MATCH
+   998	400444'	265 05 0 05 000000 	SIXAMB:	JSP	P1,(P1)		;DO COROUTINE CALL BACK TO CALLER
+   999
+  1000						EDISIX	[SIXAMB,,[SIXBIT\, %!\];HERE FOR 3RD OR GTR MATCH
+  1001	400445'	001 11 0 00 401115'			 WNAME	(T3)]	;CURRENT MATCH
+  1002	400446'	001 11 0 00 401120'		 EDISIX	[CJSP1,,[SIXBIT\)#!\]]
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 27
+EXAMPL	MAC	11-JAN-75 00:12		HISEG DATA BASE
+
+  1003					SUBTTL	HISEG DATA BASE
+  1004
+  1005					DEFINE	MAKLST	(A)<
+  1006						IRP	A<SIXBIT/.'A'./>>
+  1007	400447'	16 52 41 56 16 00 	MONTAB:	MAKLST	<JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC>
+  1008	400450'	16 46 45 42 16 00 
+  1009	400451'	16 55 41 62 16 00 
+  1010	400452'	16 41 60 62 16 00 
+  1011	400453'	16 55 41 71 16 00 
+  1012	400454'	16 52 65 56 16 00 
+  1013	400455'	16 52 65 54 16 00 
+  1014	400456'	16 41 65 47 16 00 
+  1015	400457'	16 63 45 60 16 00 
+  1016	400460'	16 57 43 64 16 00 
+  1017	400461'	16 56 57 66 16 00 
+  1018	400462'	16 44 45 43 16 00 
+  1019
+  1020					DEFINE	SWITCH<			;;MACRO OF ALL SWITCHES
+  1021						XLIST			;;I THINK WE CAN DO WITHOUT ALL THIS DATA
+  1022						XX(SHORT ,FSTDIR,SHRTSW);;FORMAT: NAME,BITS TO SET,NEXT PROD
+  1023						XX(F     ,FSTDIR,SHRTSW);;ALLOW SEVERAL NAMES TO MAKE THIS BIGGER
+  1024						XX(FAST  ,FSTDIR,SHRTSW);;AND BETTER!
+  1025						XX(L     ,0	,SHRTSW);;THIS TO ALLOW PIP CMD STRING
+  1026						XX(COMMAN,0     ,CMDFSW);;COMMAND FILE SWITCHES
+  1027						XX(CMD   ,0     ,CMDFSW)
+  1028						XX(AUTO  ,0     ,CMDFSW)
+  1029						XX(PAUSE ,0     ,PAUSSW);;PAUSE TO REMOUNT DTAS
+  1030						XX(UNLOAD,UNLOAD,SHRTSW);;DISMOUNT TAPE AFTER DIRECTORY
+  1031						LIST			;;TURN LISTING BACK ON
+  1032					>
+  1033					DEFINE	XX(A,B,C)<<SIXBIT	/A/>>
+  1034	400463'				SWITTB:	SWITCH			;NAMES OF SWITCHES		;
+  1035			000011		SWITN==.-SWITTB
+  1036
+  1037					DEFINE	XX(A,B,C)<EXP	B>
+  1038	400474'				SWITBT:	SWITCH			;BIT TABLE		;
+  1039
+  1040					DEFINE	XX(A,B,C)<EXP	C>
+  1041	400505'				SWITDP:	SWITCH			;DISPATCH TABLE		;
+  1042
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 28
+EXAMPL	MAC	11-JAN-75 00:12		HISEG DATA BASE
+
+  1043			000015		CMDDEP==20-CMD0			;CMD0 AND ABOVE ARE IO CHANNELS RESERVED FOR CMD FILES
+  1044			000000		%Z==0				;SETUP FOR BELOW
+  1045					REPEAT CMDDEP-1,<CONC <  GETCHN(CMD>,\<%Z==%Z+1>,<)>>
+  1046					
+  1047			000017
+  1048
+  1049					DEFINE CMDGEN<
+  1050						XLIST			;;NO NEED TO SEE ALL THIS
+  1051						%Z==0			;;START WITH THE FIRST COMMAND BLOCK
+  1052					REPEAT CMDDEP,<	  CMDSUB(\%Z)
+  1053						%Z==%Z+1		;;STEP TO NEXT
+  1054					>	LIST
+  1055					>
+  1056					DEFINE	CMDSUB(N)<
+  1057						C'N'FIL,,C'N'FIH
+  1058					>
+  1059	400516'	000357'	400730'		CMDFLB:	TTYFIL,,TTYFIH		;CREATE LOSEG FILE BLOCK VECTOR, WHICH STARTS WITH
+  1060						CMDGEN			;  BASE FILE STREAM BEFORE THE COMMAND FILES		;
+  1061
+  1062					DEFINE	CMDSUB(N)<
+  1063					C'N'FIH:	FILE	CMD'N,I,C'N'FIL,<DEV(DSK),EXT(CMD),<INST(<PUSHJ P,CMDCHR>)>,OPEN(CM
+  1064					DOPN),LOOKUP(CMDLK)>>
+  1065						CMDGEN			;DEFINE ALL HISEG FILE BLOCKS FOR COMMAND FILES		
+  1066					;
+  1067
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 29
+EXAMPL	MAC	11-JAN-75 00:12		HISEG DATA BASE
+
+  1068	400722'	777757	000336'		DTAFIH:	FILE	DTA,I,DTAFIL,<DEV(),STATUS(IO.NSD!.IODMP),OPEN(DTAOPN)>
+  1069	400723'	260 17 0 00 400333*
+  1070	400724'	000000	000117
+  1071	400725'	000000	000352'
+  1072	400726'	400263'	000000*
+  1073	400727'	000000*	400720*
+  1074	400721'	424006	000000
+  1075	400731'	777757	000357'		TTYFIH:	FILE	TTY,I,TTYFIL,<DEV(TTY),OTHER(TTYFOL),EOF(TTYEOF)>
+  1076	400732'	260 17 0 00 400723*
+  1077	400733'	000040	000000
+  1078	400734'	64 64 71 00 00 00 
+  1079	400735'	000414'	000373'
+  1080	400736'	000000*	400726*
+  1081	400737'	400034'	400727*
+  1082	400730'	454006	000000
+  1083	400741'	777757	000400'		TTYFOH:	FILE	TTY,O,TTYFOL,<DEV(TTY),OTHER(TTYFIL)>
+  1084	400742'	260 17 0 00 000000*
+  1085	400743'	000040	000000
+  1086	400744'	64 64 71 00 00 00 
+  1087	400745'	000414'	000373'
+  1088	400746'	000000*	000000*
+  1089	400747'	000000*	000000*
+  1090	400740'	454006	000000
+  1091	400751'	777757	000421'		LSTFOH:	FILE	LST,O,LSTFOL,<NAME(DTDIR),EXT(LST)>
+  1092	400752'	260 17 0 00 400742*
+  1093	400753'	000100	000000
+  1094	400754'	44 63 53 00 00 00 
+  1095	400755'	000435'	000000
+  1096	400756'	44 64 44 51 62 00 
+  1097	400757'	54 63 64 00 00 00 
+  1098	400760'	000000*	400746*
+  1099	400761'	000000*	400747*
+  1100	400750'	457006	000000
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE 30
+EXAMPL	MAC	11-JAN-75 00:12		LOW SEGMENT DATA BASE
+
+  1101					SUBTTL	LOW SEGMENT DATA BASE
+  1102	000000'				RELOC	0			;POINT TO LOWSEG DATA
+  1103					DEFINE	CMDSUB(N)<
+  1104					C'N'FIL:	BLOCK	FBSIZE
+  1105					>
+  1106						CMDGEN			;ALLOCATE SPACE FOR LOSEG BLOCKS		;
+  1107	000335'				CMDLVL:	BLOCK	1		;LEVEL OF CMD FILES
+  1108	000336'				DTAFIL:	BLOCK	FBSIZE		;CORRESPONDING LOSEG BLOCK FOR DTAFIH
+  1109	000357'				TTYFIL:	BLOCK	FBSIZE		; AND FOR THE REST
+  1110	000400'				TTYFOL:	BLOCK	FBSIZE
+  1111	000421'				LSTFOL:	BLOCK	FBSIZE		;AREA FOR LIST FILE BLOCK
+  1112	000442'				DIRBLK:	BLOCK	DIRSIZ		;WHERE WE READ DIRECTORY
+  1113	000642'				SJBFF:	BLOCK	1		;AREA TO KEEP OLD .JBFF
+  1114	000643'				FREFIL:	BLOCK	1		;WHERE WE PUT # OF FREE FILES
+  1115	000644'				FILSIZ:	BLOCK	40		;NEED 40 ENTRIES FOR ANY BYTE SIZE
+  1116	000704'				PDL:	BLOCK	PDLLEN
+  1117
+  1118	400762'				RELOC				;BACK TO HISEG FOR LITERALS
+  1119			400003'		END	TULIP4
+
+NO ERRORS DETECTED
+
+HI-SEG. BREAK IS 401121
+PROGRAM BREAK IS 001004
+CPU TIME USED 00:17.856
+
+14K CORE USED
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE S-4
+EXAMPL	MAC	11-JAN-75 00:12		SYMBOL TABLE
+
+A.ACAL		400304'	INT	CMD1		000004	SPD	DV.DTA	000100	000000	SPD	MONRT.	047040	000012		
+A.CALL		400361'	EXT	CMD10		000013	SPD	EDISIX	001440	000000		MONTAB		400447'		
+A.CCAL		400234'	INT	CMD11		000014	SPD	EFILE		400013'	EXT	MSTIME	047000	000023		
+A.DCMD		400313'	INT	CMD12		000015	SPD	ERRIN	011500	000000		NEGBIT	040000	000000	SPD	
+A.DEV		400350'	INT	CMD13		000016	SPD	ERRIOP	011100	000000		NULL		000000	SPD	
+A.DIRE		400237'	INT	CMD14		000017	SPD	ERRLK	011300	000000		NXTATM		000035		
+A.EXT		400356'		CMD2		000005	SPD	EWSIX	001500	000000		O1BYTE		400752'	EXT	
+A.FILI		400347'	INT	CMD3		000006	SPD	EXIT	047000	000012		OCTSCN		000047		
+A.FINI		400266'	INT	CMD4		000007	SPD	F		000000		OUTPUT	067000	000000		
+A.JUMP		400301'	EXT	CMD5		000010	SPD	FB		000011		P		000017		
+A.NAME		400352'	INT	CMD6		000011	SPD	FBSIZE		000021	SPD	P1		000005		
+A.NAMX		400352'	INT	CMD7		000012	SPD	FICLOS	007400	000000		P2		000006		
+A.OCTI		400372'	INT	CMDCHR		400333'		FIGET	007200	000000		P3		000007		
+A.OCTS		400374'	INT	CMDDEP		000015	SPD	FILDEV		000005	SPD	PAUSSW		000033		
+A.OUTF		400215'	INT	CMDELP		400324'		FILEXT		000010	SPD	PDL		000704'		
+A.PAUS		400302'	INT	CMDERR		000020		FILHDR		000014	SPD	PDLLEN		000100	SPD	
+A.POPJ		000000	EXT	CMDEXC		400321'		FILLOP		400056'		PJRST	254000	000000		
+A.PROG		400362'	INT	CMDF1		000031		FILNAM		000007	SPD	PPNDON		000042		
+A.PROJ		400360'	INT	CMDFER		400323'		FILPPN		000013	SPD	PPNSCN		000043		
+A.RET		400205'	EXT	CMDFIN		400330'		FILSIZ		000644'		PRSDFL		000004	SPD	
+A.SIXI		400371'	INT	CMDFLB		400516'		FILSPC		000034		PRTDIR		400041'		
+A.SIXS		400364'	INT	CMDFSW		000027		FIOPEN	007100	000000		RCH	010240	000000		
+A.SRET		000000	EXT	CMDLK		400316'		FISEL	007000	000000		SAVE1		400053'	EXT	
+A.SWIT		400270'	INT	CMDLVL		000335'		FOCLOS	007440	000000		SAVE2		400417'	EXT	
+BLANK		000004	SPD	CMDOPN		400320'		FOOPEN	007140	000000		SEMI		000073	SPD	
+BREAK		000010	SPD	COMCOC		000003		FOSEL	007040	000000		SG	040000	000000	SPD	
+C0FIH		400534'		COMCON		000002		FREFIL		000643'		SHRTSW		000023		
+C0FIL		000000'		COMMA		000054	SPD	FREL	007600	000000		SIXAMB		400444'		
+C10FIH		400644'		CPOPJ		000000	EXT	FSETUP	010000	000000		SIXMA1		400440'		
+C10FIL		000210'		CR		000015	SPD	FSTDIR		000002	SPD	SIXMAT		400436'		
+C11FIH		400655'		CRET		000022		FSTLOP		400045'		SIXS1		400422'		
+C11FIL		000231'		CRLF		003212	SPD	FTDBUG		000000	SIN	SIXS2		400432'		
+C12FIH		400666'		D$LEXT		400202'		I1BYTE		400732'	EXT	SIXSCN		000053		
+C12FIL		000252'		DATE	047000	000014		IFILE		400337'	EXT	SIXSRC		400417'		
+C13FIH		400677'		DATPRT		400400'		ILERI1		000000	EXT	SIZLOP		400067'		
+C13FIL		000273'		DATTHN		400401'		ILERI2		400736'	EXT	SJBFF		000642'		
+C14FIH		400710'		DATTIM		400377'		ILERI3		400737'	EXT	SKPBLA		000056		
+C14FIL		000314'		DEVCHR	047000	000004		ILERO1		000000	EXT	SWITBT		400474'		
+C1FIH		400545'		DIGIT		000002	SPD	ILERO2		400760'	EXT	SWITC1		000025		
+C1FIL		000021'		DIRADR		000144	SPD	ILERO3		400761'	EXT	SWITCH		000023		
+C2FIH		400556'		DIRAOB		400115'		IN	056000	000000		SWITDP		400505'		
+C2FIL		000042'		DIRBLK		000442'		INBUF	064000	000000		SWITER		000022	SPD	
+C3FIH		400567'		DIRBYT		000000	SPD	IO.NSD		000100	SPD	SWITMR		000023		
+C3FIL		000063'		DIREXT		000151	SPD	IPOPJ		400264'		SWITN		000011	SPD	
+C4FIH		400600'		DIRFIL		000123	SPD	LETTER		000001	SPD	SWITTB		400463'		
+C4FIL		000104'		DIRLBL		000177	SPD	LEXINT		400025'	EXT	SWTBAD		400300'		
+C5FIH		400611'		DIRLOP		400102'		LEXTAB		400121'	INT	T1		000001		
+C5FIL		000125'		DIRSIZ		000200	SPD	LGLSIX		000020	SPD	T2		000002		
+C6FIH		400622'		DIRXIT		400117'		LNGDIR		400053'		T3		000003		
+C6FIL		000146'		DISIX	001400	000000		LST		000002	SPD	T4		000004		
+C7FIH		400633'		DTA		000000	SPD	LSTFOH		400750'		TAPLEN		001102	SPD	
+C7FIL		000167'		DTAFIH		400721'		LSTFOL		000421'		TIMPRT		400407'		
+CCH	010300	000000		DTAFIL		000336'		LSTOPN		000010	SPD	TRYAGN		400020'		
+CJSP1		400431'		DTAOPN		400263'		LZEFLG		000001	SPD	TTY		000001	SPD	
+CMD0		000003	SPD	DTAREL		400257'		MAXFIL		000026	SPD	TTYEOF		400034'		
+TULIP4 - VERSION 4(3) - PROGRAM 4 FOR TULIP MANUAL	MACRO %50(272) 04:11 13-JAN-75 PAGE S-5
+EXAMPL	MAC	11-JAN-75 00:12		SYMBOL TABLE
+
+TTYFIH		400730'		
+TTYFIL		000357'		
+TTYFOH		400740'		
+TTYFOL		000400'		
+TULIP4		400003'	ENT	
+U1		000014		
+U2		000015		
+UNLOAD		000020	SPD	
+USETI	074000	000000		
+USTART		400004'	EXT	
+VERMSG		400000'		
+W2CHI	001140	000000		
+WCHI	001040	000000		
+WDEC	003000	000000		
+WDECI	004000	000000		
+WNAME	010040	000000		
+WSIX	002000	000000		
+ZERDIR		400100'		
+ZZ		000021	SPD	
+$ACTN		000025	SPD	
+$ANG		000001	SPD	
+$CHN		000017	SPD	
+$FIBTS	457006	000000	SPD	
+$FILC1		400762'	SPD	
+$FILOC		400750'	SPD	
+$FLAGN		000037	SPD	
+$NEG		000001	SPD	
+$NEXT		000060	SPD	
+$TESTF		000000	SPD	
+%%%TLP		000001	SIN	
+%VEDIT		000003	SPD	
+%VUPDA		000000	SPD	
+%VVERS		000004	SPD	
+%VWHO		000000	SPD	
+%Z		000015	SPD	
+.IODMP		000017	SPD	
+.JBFF		400021'	EXT	
+
+
+A.ACAL	   682	   776#
+A.CALL	   679	   712	   782	   847
+A.CCAL	   679	   710#
+A.DCMD	   683	   784#
+A.DEV	   684	   834#
+A.DIRE	   680	   714#
+A.EXT	   839	   843#
+A.FILI	   684	   833#
+A.FINI	   678	   742#
+A.JUMP	   764
+A.NAME	   685	   837#
+A.NAMX	   685	   838#
+A.OCTI	   687	   868#
+A.OCTS	   687	   872#
+A.OUTF	   680	   692#
+A.PAUS	   683	   766#
+A.POPJ	   376	   376#	   678	   678#
+A.PROG	   686	   849#
+A.PROJ	   686	   846#
+A.RET	   378	   378#	   681	   681#
+A.SIXI	   376	   380#	   688	   867#
+A.SIXS	   377	   384#	   688	   856#
+A.SRET	   681	   681#
+A.STOR	   377	   395#
+A.SWIT	   682	   755#
+BLANK	   603	   667	   672	   675
+BREAK	   373	   619	   621
+C0FIH	  1061	  1067#
+C0FIL	  1061	  1107#
+C10FIH	  1061	  1067#
+C10FIL	  1061	  1107#
+C11FIH	  1061	  1067#
+C11FIL	  1061	  1107#
+C12FIH	  1061	  1067#
+C12FIL	  1061	  1107#
+C13FIH	  1061	  1067#
+C13FIL	  1061	  1107#
+C14FIH	  1061	  1067#
+C14FIL	  1061	  1107#
+C1FIH	  1061	  1067#
+C1FIL	  1061	  1107#
+C2FIH	  1061	  1067#
+C2FIL	  1061	  1107#
+C3FIH	  1061	  1067#
+C3FIL	  1061	  1107#
+C4FIH	  1061	  1067#
+C4FIL	  1061	  1107#
+C5FIH	  1061	  1067#
+C5FIL	  1061	  1107#
+C6FIH	  1061	  1067#
+C6FIL	  1061	  1107#
+C7FIH	  1061	  1067#
+C7FIL	  1061	  1107#
+CJSP1	   947#	   985	  1002
+CMD0	   480#	  1043
+CMD1	  1046#
+CMD10	  1046#
+CMD11	  1046#
+CMD12	  1046#
+CMD13	  1046#
+CMD14	  1047#
+CMD2	  1046#
+CMD3	  1046#
+CMD4	  1046#
+CMD5	  1046#
+CMD6	  1046#
+CMD7	  1046#
+CMDCHR	   817#	   818
+CMDDEP	   777	  1043#	  1045	  1061	  1067	  1107
+CMDELP	   804#	   807
+CMDERR	   606	   609	   621#
+CMDEXC	   778	   801#
+CMDF1	   642	   644#
+CMDFER	   791	   803#
+CMDFIN	   802	   808#
+CMDFLB	   779	   804	   808	   824	  1059#
+CMDFSW	   642#	  1042
+CMDLK	   790#
+CMDLVL	   776	   801	   803	   806	   823	  1107#
+CMDOPN	   800#
+COMCOC	   605#	   611	   612
+COMCON	   604#	   615	   616
+COMMA	   615
+CPOPJ	   128	   153	   309	   335	   574	   720	   881
+CR	   617	   819
+CRET	   623#	   640
+CRLF	    19	   124	   305	   570
+D$LEXT	   367	   376#	   600	   678#
+DATPRT	   154	   161#	   336	   343#	   882	   889#
+DATTHN	   145	   162#	   326	   344#	   593	   890#
+DATTIM	   118	   153#	   299	   335#	   564	   881#
+DIGIT	   371	   669	   674
+DIRADR	    74#	    87	   237#	   258	   483#	   725
+DIRAOB	   132	   146#	   313	   327#	   580	   594#
+DIRBLK	    88	    90	   208#	   259	   261	   264	   440#	   726	   728	  1112#
+DIRBYT	    77#	   112	   135	   137	   139	   240#	   293	   316	   318	   320	   486#	   558	   583	   585
+	   587
+DIREXT	    79#	   133	   143	   242#	   314	   324	   488#	   536	   581	   591
+DIRFIL	    78#	   103	   131	   142	   241#	   284	   312	   323	   487#	   533	   535	   548	   579	   590
+DIRLBL	    80#	   121	   243#	   302	   489#	   567
+DIRLOP	   131#	   147	   312#	   328	   579#	   595
+DIRSIZ	    73#	    88	   208	   236#	   259	   440	   482#	   726	  1112
+DIRXIT	   540	   596#
+DTA	    71#	    87	    88	   233#	   258	   259	   477#	   725	   726	   735
+DTAFIH	    85	   197#	   247	   411#	   493	   710	  1068#
+DTAFIL	    86	    92	   207#	   257	   263	   266	   274	   395	   437#	   695	   701	   703	   705	   711
+	   714	   715	   716	   721	   724	   730	   736	   739	  1108#
+DTAOPN	   274#	   739#
+DTARE1	   267#	   275
+DTAREL	   262	   266#	   729	   734#
+DV.DTA	   719
+EFILE	   499
+F	    34	   176	   181	   358	   363	   512	   519	   529	   692	   698	   732	   734	   742	   761
+	   833	   838	   904	   909
+FB	   470#	   711	   779	   780	   781	   784	   790	   800	   834	   840	   843	   846	   849
+FBSIZE	   207	   437	   438	   439	  1107	  1108	  1109	  1110	  1111
+FILDEV	   395	   695	   696	   715	   716	   721	   834
+FILEXT	   703	   704	   843
+FILLOP	   103#	   105	   284#	   286	   548#	   550
+FILNAM	   701	   702	   714	   840
+FILPPN	   705	   706	   846	   849
+FILSIZ	   108	   109	   110	   114	   119	   144	   210#	   289	   290	   291	   295	   300	   325	   442#
+	   554	   555	   556	   560	   565	   592	  1115#
+FILSPC	   607	   644	   654#
+FREFIL	   106	   120	   126	   209#	   287	   301	   307	   441#	   551	   566	   572	  1114#
+FSTDIR	   471	   529	   742	  1039
+FSTLOP	   533#	   538
+FTDBUG	   367	   368	   379	   600	   601	   689
+I1BYTE	   817
+IFILE	   723	   740	   822
+IPOPJ	   737	   740#
+LETTER	   371	   674
+LEXINT	   256	   510
+LEXTAB	   255	   367	   367#	   509	   600	   600#
+LGLSIX	   384	   856
+LNGDIR	   530	   543#
+LST	   479#
+LSTFOH	   694	  1091#
+LSTFOL	   513	   520	   693	   696	   702	   704	   706	   707	  1111#
+LSTOPN	   473	   512	   519	   692	   698	   732
+LZEFLG	    34	   176	   181	   358	   363	   904	   909
+MAXFIL	    75#	    99	   110	   127	   137	   139	   238#	   280	   291	   308	   318	   320	   484#	   528
+	   556	   573	   585	   587
+MONTAB	    15	    27	    48#	   165	   185#	   347	   399#	   893	  1007#
+N$ACAL	   644	   689
+N$CALL	   605	   608	   637	   655	   662	   689
+N$CCAL	   607	   689
+N$DCMD	   645	   689
+N$DEV	   656	   689
+N$DIRE	   613	   689
+N$FILI	   654	   689
+N$FINI	   604	   689
+N$NAME	   657	   689
+N$NAMX	   658	   659	   689
+N$OCTI	   668	   689
+N$OCTS	   669	   689
+N$OUTF	   611	   612	   689
+N$PAUS	   647	   689
+N$POPJ	   368#	   379	   601#	   689
+N$PROG	   665	   689
+N$PROJ	   663	   689
+N$RET	   374	   379	   623	   660	   676	   689
+N$SIXI	   370	   379	   673	   689
+N$SIXS	   371	   379	   674	   689
+N$SRET	   619	   635	   689
+N$STOR	   372	   379
+N$SWIT	   638	   689
+NEGBIT	   369	   370	   371	   372	   373	   374	   602	   603	   604	   605	   606	   607	   608	   609
+	   611	   612	   613	   615	   616	   617	   618	   619	   621	   622	   623	   635	   636	   637
+	   638	   642	   643	   644	   645	   647	   654	   655	   656	   657	   658	   659	   660	   662
+	   663	   664	   665	   667	   668	   669	   670	   672	   673	   674	   675	   676
+NULL	   369	   602
+NXTATM	   655#	   656	   657
+OCTSCN	   662	   663	   667#
+P	     4	     6	    83	    84	    91	    98	   118	   145	   148	   154	   155	   167	   182	   245
+	   246	   256	   265	   279	   299	   326	   330	   336	   337	   349	   364	   382	   393	   396
+	   491	   492	   510	   543	   564	   593	   597	   700	   708	   717	   723	   731	   740	   741
+	   743	   759	   767	   788	   817	   820	   829	   835	   841	   844	   850	   865	   869	   874
+	   882	   883	   895	   910	   935	   936	   948	   949	   953
+P1	   100	   112	   121	   131	   133	   135	   137	   139	   142	   143	   147	   281	   293	   302
+	   312	   314	   316	   318	   320	   323	   324	   328	   544	   558	   567	   579	   581	   583
+	   585	   587	   590	   591	   595	   937	   943	   947	   989	   998
+P2	   390	   392	   862	   864	   873	   987	   993	   995
+P3	   384	   856
+PAUSSW	   647#	  1042
+PDL	     4	    61#	    83	   211#	   245	   443#	   491	  1116#
+PDLLEN	    72#	    83	   211	   235#	   245	   443	   481#	   491	  1116
+PPNDON	   660#	   665
+PPNSCN	   658	   662#
+PRSDFL	   472	   833	   838
+PRTDIR	    91	    98#	   265	   279#	   528#	   731
+SAVE1	    98	   279	   543
+SAVE2	   935
+SEMI	   616
+SG	   370	   372	   374	   604	   605	   606	   607	   608	   609	   613	   623	   636	   637	   638
+	   643	   644	   645	   647	   654	   655	   659	   660	   662	   663	   665	   668	   670	   673
+	   676
+SHRTSW	   634#	  1042
+SIXAMB	   991	   998#	  1000
+SIXMA1	   984	   987#
+SIXMAT	   937	   984#
+SIXS1	   938#	   946
+SIXS2	   940	   948#
+SIXSCN	   637	   655	   672#
+SIXSRC	   759	   935#
+SIZLOP	   113#	   115	   294#	   296	   559#	   561
+SJBFF	   503	   505	  1113#
+SKPBLA	   670	   675#
+SWITBT	   761	  1038#
+SWITC1	   637#
+SWITCH	   605	   608	   635#
+SWITDP	   762	  1041#
+SWITER	   640#	   643	   763
+SWITMR	   634#	   645	   647
+SWITN	   758	  1035#
+SWITTB	   758	  1034#	  1035
+SWTBAD	   760	   763#	   810
+T1	     9	    10	    14	    17	    18	    22	    23	    28	    30	    31	    36	    90	    99	   100
+	   103	   105	   109	   110	   111	   115	   121	   123	   126	   127	   133	   136	   138	   140
+	   161	   162	   166	   172	   173	   178	   255	   261	   264	   280	   281	   284	   286	   290
+	   291	   292	   296	   302	   304	   307	   308	   314	   317	   319	   321	   343	   344	   348
+	   354	   355	   360	   376	   378	   380	   381	   395	   498	   499	   502	   503	   505	   506
+	   509	   528	   533	   535	   536	   538	   544	   548	   550	   555	   556	   557	   561	   567
+	   569	   572	   573	   581	   584	   586	   588	   678	   681	   695	   696	   697	   701	   702
+	   703	   704	   705	   706	   714	   715	   716	   718	   719	   728	   762	   763	   776	   777
+	   779	   785	   801	   803	   804	   805	   806	   808	   809	   826	   827	   828	   834	   840
+	   843	   846	   849	   867	   868	   872	   873	   889	   890	   894	   900	   901	   902	   906
+	   939	   942	   986	   992
+T2	    11	    12	    15	    24	    27	    32	    37	   102	   104	   106	   112	   113	   134	   135
+	   137	   139	   163	   165	   174	   179	   283	   285	   287	   293	   294	   315	   316	   318
+	   320	   345	   347	   356	   361	   380	   391	   392	   532	   537	   539	   547	   549	   551
+	   558	   559	   582	   583	   585	   587	   755	   756	   757	   863	   864	   867	   891	   893
+	   903	   907	   941
+T3	    26	    33	    38	   113	   114	   164	   175	   180	   294	   295	   346	   357	   362	   533
+	   537	   559	   560	   755	   757	   758	   761	   762	   892	   908	   936	   938	   946	   950
+	   987	   994	   995	  1001
+T4	    39	   129	   144	   146	   310	   325	   327	   367	   575	   592	   594	   600	   938	   939
+	   941	   942	   949	   950
+TAPLEN	    76#	   111	   239#	   292	   485#	   557
+TEMP%%	   698#	   698
+TIMPRT	   155	   172#	   337	   354#	   883	   900#
+TRYAGN	   253#	   268	   505#	   516
+TTY	   234#	   254	   478#	   500	   508	   733
+TTYEOF	   270#	   518#
+TTYFIH	   248	   419#	   494	  1059	  1075#
+TTYFIL	   250	   267	   270	   438#	   496	   514	   521	  1059	  1109#
+TTYFOH	   249	   427#	   495	  1083#
+TTYFOL	   251	   439#	   497	   498	   515	   699	  1110#
+TULIP1	     4#
+TULIP2	    82	    83#
+TULIP3	   244	   245#
+TULIP4	   490	   491#	  1119
+U1	   818	   819	   826	   828
+U2	   823	   824	   825
+UNLOAD	   475	   734	   742	  1039
+USTART	     6	    84	   246	   492
+VERMSG	   228#	   252	   461#	   501
+ZERDIR	   539	   574#
+ZZ	   370#	   370	   371#	   371	   372#	   372	   374#	   374	   376#	   376	   377	   377#	   378	   378#
+	   604#	   604	   605#	   605	   607#	   607	   611#	   611	   613#	   613	   619#	   619	   623#	   623
+	   638#	   638	   644#	   644	   645#	   645	   647#	   647	   654#	   654	   656#	   656	   657#	   657
+	   658#	   658	   663#	   663	   665#	   665	   668#	   668	   669#	   669	   673#	   673	   674#	   674
+	   678#	   678	   679	   679#	   680	   680#	   681	   681#	   682	   682#	   683	   683#	   684	   684#
+	   685	   685#	   686	   686#	   687	   687#	   688	   688#	   689	   689#
+$ACTN	   368#	   370	   370#	   371	   371#	   372	   372#	   374	   374#	   376	   601#	   604	   604#	   605
+	   605#	   607	   607#	   611	   611#	   613	   613#	   619	   619#	   623	   623#	   638	   638#	   644
+	   644#	   645	   645#	   647	   647#	   654	   654#	   656	   656#	   657	   657#	   658	   658#	   663
+	   663#	   665	   665#	   668	   668#	   669	   669#	   673	   673#	   674	   674#	   678
+$ANG	   369#	   369	   370#	   370	   371#	   371	   372#	   372	   373#	   373	   374#	   374	   602#	   602
+	   603#	   603	   604#	   604	   605#	   605	   606#	   606	   607#	   607	   608#	   608	   609#	   609
+	   611#	   611	   612#	   612	   613#	   613	   615#	   615	   616#	   616	   617#	   617	   618#	   618
+	   619#	   619	   621#	   621	   622#	   622	   623#	   623	   635#	   635	   636#	   636	   637#	   637
+	   638#	   638	   642#	   642	   643#	   643	   644#	   644	   645#	   645	   647#	   647	   654#	   654
+	   655#	   655	   656#	   656	   657#	   657	   658#	   658	   659#	   659	   660#	   660	   662#	   662
+	   663#	   663	   664#	   664	   665#	   665	   667#	   667	   668#	   668	   669#	   669	   670#	   670
+	   672#	   672	   673#	   673	   674#	   674	   675#	   675	   676#	   676
+$CHN	   467#	   477	   477#	   478	   478#	   479	   479#	   480	   480#	  1046	  1046#	  1047	  1047#
+$NEG	   369#	   369	   370#	   370	   371#	   371	   372#	   372	   373#	   373	   374#	   374	   602#	   602
+	   603#	   603	   604#	   604	   605#	   605	   606#	   606	   607#	   607	   608#	   608	   609#	   609
+	   611#	   611	   612#	   612	   613#	   613	   615#	   615	   616#	   616	   617#	   617	   618#	   618
+	   619#	   619	   621#	   621	   622#	   622	   623#	   623	   635#	   635	   636#	   636	   637#	   637
+	   638#	   638	   642#	   642	   643#	   643	   644#	   644	   645#	   645	   647#	   647	   654#	   654
+	   655#	   655	   656#	   656	   657#	   657	   658#	   658	   659#	   659	   660#	   660	   662#	   662
+	   663#	   663	   664#	   664	   665#	   665	   667#	   667	   668#	   668	   669#	   669	   670#	   670
+	   672#	   672	   673#	   673	   674#	   674	   675#	   675	   676#	   676
+$NEXT	   369#	   369	   370#	   370	   371#	   371	   372#	   372	   373#	   373	   374#	   374	   602#	   602
+	   603#	   603	   604#	   604	   605#	   605	   606#	   606	   607#	   607	   608#	   608	   609#	   609
+	   611#	   611	   612#	   612	   613#	   613	   615#	   615	   616#	   616	   617#	   617	   618#	   618
+	   619#	   619	   621#	   621	   622#	   622	   623#	   623	   635#	   635	   636#	   636	   637#	   637
+	   638#	   638	   642#	   642	   643#	   643	   644#	   644	   645#	   645	   647#	   647	   654#	   654
+	   655#	   655	   656#	   656	   657#	   657	   658#	   658	   659#	   659	   660#	   660	   662#	   662
+	   663#	   663	   664#	   664	   665#	   665	   667#	   667	   668#	   668	   669#	   669	   670#	   670
+	   672#	   672	   673#	   673	   674#	   674	   675#	   675	   676#	   676
+$TESTF	   369#	   369	   370#	   370	   371#	   371	   372#	   372	   373#	   373	   374#	   374	   602#	   602
+	   603#	   603	   604#	   604	   605#	   605	   606#	   606	   607#	   607	   608#	   608	   609#	   609
+	   611#	   611	   612#	   612	   613#	   613	   615#	   615	   616#	   616	   617#	   617	   618#	   618
+	   619#	   619	   621#	   621	   622#	   622	   623#	   623	   635#	   635	   636#	   636	   637#	   637
+	   638#	   638	   642#	   642	   643#	   643	   644#	   644	   645#	   645	   647#	   647	   654#	   654
+	   655#	   655	   656#	   656	   657#	   657	   658#	   658	   659#	   659	   660#	   660	   662#	   662
+	   663#	   663	   664#	   664	   665#	   665	   667#	   667	   668#	   668	   669#	   669	   670#	   670
+	   672#	   672	   673#	   673	   674#	   674	   675#	   675	   676#	   676
+%%%TLP	   220	   220#	   453	   453#
+%VEDIT	   219#	   452#
+%VUPDA	   219#	   452#
+%VVERS	   219#	   452#
+%VWHO	   219#	   452#
+%Z	  1044#	  1046	  1046#	  1061#	  1061	  1067#	  1067	  1107#	  1107
+.JBFF	   502	   506
+CCH	   827
+CMDGEN	  1049#	  1060	  1065	  1106
+CMDSUB	  1056#	  1061	  1062#	  1067	  1103#	  1107
+CONC	  1046
+DATE	     9	    22	   161	   343	   889
+DEVCHR	   718
+DISIX	    25	    35	   117	   122	   128	   141	   153	   177	   262	   298	   303	   309	   322	   335
+	   359	   534	   563	   568	   574	   589	   729	   881	   905
+EDISIX	   720	   778	   985	   991	  1000	  1002
+ERRIN	   263	   730
+ERRIOP	   274	   739	   800
+ERRLK	   790
+EWSIX	   511
+EXIT	    43	    94	   272	   523
+FICLOS	   270	   805	   822
+FIGET	    86	   257	   724
+FILE	   197	   411	   419	   427	  1067	  1068	  1075	  1083	  1091
+FIOPEN	   250	   496	   784
+FISEL	   267	   514	   809	   825
+FLAG	   471	   472	   473	   475
+FOCLOS	   513	   520	   521	   693
+FOOPEN	   251	   707
+FOSEL	   497	   515	   699
+FREL	    92	   266	   736
+FSETUP	    85	   247	   248	   249	   493	   494	   495	   694	   710	   780
+GETCHN	   465#	   477	   478	   479	   480	  1046	  1047
+GLOBAL	   376	   377	   378	   678	   679	   680	   681	   682	   683	   684	   685	   686	   687	   688
+HWDGEN	   376	   678
+IDIVX	    31	    32	    33	   173	   174	   175	   355	   356	   357
+IN	   259	   726
+INBUF	   500
+INPUT	    88
+MAKLST	    45#	    48	   183#	   185	   397#	   399	  1005#	  1007
+MONRT.	    42	    93	   271	   522	   766
+MOVX	   112	   293	   558
+MSTIME	    30	   172	   354	   900
+OP%%IN	    31	    32	    33	   173	   174	   175	   355	   356	   357
+OP%%TX	   512	   519	   529	   692	   698	   719	   732	   734	   833	   838
+OUTPUT	   254	   508	   733
+PJRST	   712	   737	   764	   782	   847
+PROD	   369	   370	   371	   372	   373	   374	   602	   603	   604	   605	   606	   607	   608	   609
+	   611	   612	   613	   615	   616	   617	   618	   619	   621	   622	   623	   635	   636	   637
+	   638	   642	   643	   644	   645	   647	   654	   655	   656	   657	   658	   659	   660	   662
+	   663	   664	   665	   667	   668	   669	   670	   672	   673	   674	   675	   676
+RCH	   785
+REDEF	   368	   370	   371	   372	   374	   601	   604	   605	   607	   611	   613	   619	   623	   638
+	   644	   645	   647	   654	   656	   657	   658	   663	   665	   668	   669	   673	   674
+START	     5	    84	   246	   492
+SWITCH	  1020#	  1034	  1038	  1041
+TBLBEG	   367	   600
+TBLEND	   376	   678
+TSTANG	   369	   370	   371	   372	   373	   374	   602	   603	   604	   605	   606	   607	   608	   609
+	   611	   612	   613	   615	   616	   617	   618	   619	   621	   622	   623	   635	   636	   637
+	   638	   642	   643	   644	   645	   647	   654	   655	   656	   657	   658	   659	   660	   662
+	   663	   664	   665	   667	   668	   669	   670	   672	   673	   674	   675	   676
+TXNE	   734
+TXNN	   529	   719	   732
+TXO	    34	   176	   358	   904
+TXOE	   692	   838
+TXZ	   181	   363	   698	   742	   909
+TXZA	   833
+TXZE	   512	   519
+USETI	    87	   258	   725
+VERSIO	   219	   452
+VERSTR	   219#	   228	   452#	   461
+W2CHI	    19	   124	   305	   570
+WCHI	    13	    16	   507
+WDEC	    12	    18	    36	    37	    38	    39	   119	   120	   144	   178	   179	   180	   300	   301
+	   325	   360	   361	   362	   565	   566	   592	   906	   907	   908
+WDECI	    26	    28	   164	   166	   346	   348	   892	   894
+WNAME	    15	    27	   123	   165	   304	   347	   569	   721	   893	   986	   992	   993	   994	  1001
+WSIX	   142	   143	   252	   253	   323	   324	   329	   501	   535	   536	   590	   591	   596
+XP	   220	   453
+XX	   220#	   228	   453#	   461	  1033#	  1035	  1037#	  1039	  1040#	  1042
+$ACT	   376#	   376	   377	   378	   379#	   379	   678#	   678	   679	   680	   681	   682	   683	   684
+	   685	   686	   687	   688	   689#	   689
+$HWD	   376#	   376	   377#	   377	   378#	   378	   678#	   678	   679#	   679	   680#	   680	   681#	   681
+	   682#	   682	   683#	   683	   684#	   684	   685#	   685	   686#	   686	   687#	   687	   688#	   688
+	   689#	   689
+$NWACT	   368#	   370	   370#	   371	   371#	   372	   372#	   374	   374#	   376	   379	   601#	   604	   604#
+	   605	   605#	   607	   607#	   611	   611#	   613	   613#	   619	   619#	   623	   623#	   638	   638#
+	   644	   644#	   645	   645#	   647	   647#	   654	   654#	   656	   656#	   657	   657#	   658	   658#
+	   663	   663#	   665	   665#	   668	   668#	   669	   669#	   673	   673#	   674	   674#	   678	   689
+$TBLFN	   368#	   376	   601#	   678

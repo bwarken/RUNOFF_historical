@@ -1,0 +1,833 @@
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           CHANGE
+
+                  CHARACTER SET CONVERTER
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                By:
+
+                                   David Richard Kiarsis
+
+                                   Date:  June 30,1973
+
+                                   Updated July 1982
+
+                                   By Peter J.Plourd II
+CHANGE -- Character set converter                      Page 0
+           Command syntax
+
+
+                        INTRODUCTION
+
+
+     CHANGE is  a  program  to  aid  in  the  conversion  of
+character  sets  foreign to the DECsystem-10.  It is capable
+of using any i/o device on the DECsystem-10, but  is  mainly
+designed  for  users  with magnetic tapes and disks.  CHANGE
+will   perform   blocking,   duplication,   character    set
+conversion,  unblocking,  and  reading  and  writing of tape
+labels.
+
+
+
+1.0       RUNNING CHANGE
+
+     CHANGE may be run by typing the following:
+
+          R PUB:CHANGE
+
+CHANGE will respond with the date and time of day.  An angle
+bracket indicates that CHANGE is ready for user input.
+
+1.1       COMMAND SYNTAX
+
+     CHANGE uses the traditional DECsystem-10 command string
+format.  It will accept one input file specification and one
+output file specification separated by a back arrow  (_)  or
+equal sign (=), Example:
+
+          output-file_input-file
+          output-file=input-file
+
+Each output  or  input  file  specification  consists  of  a
+device, file name, extension, and project-programmer number.
+The device is terminated by a colon (:), the file name by  a
+period (.), and the project-programmer number is enclosed in
+square brackets ([]).  Example:
+
+          device:filename.extension[p,pn]
+     or
+          DSKA:DATA.FIL[123,10]
+
+The complete file specification is optional and will take on
+default  values  if any part of it is omitted.  For example,
+the device will default to generic disk  (dsk:),  the  input
+file  name  to  INPUT,  the  output file name to OUTPUT, the
+extensions to DAT, and the project-programmer numbers to the
+current disk area.
+
+
+
+1.1.2     SWITCH SPECIFICATIONS
+CHANGE -- Character set converter                     Page 1
+           Command syntax
+
+
+     In addition to the file  specification  each  input  or
+output  file  specification includes switches.  Switches are
+descriptive in nature, and allow CHANGE  to  determine  more
+about the files being handled.  A switch begins with a slash
+and terminates on the next slash, if  the  switch  takes  no
+argument,  or  on  a  colon if the switch takes an argument.
+Note:  the return and altmode also  terminated  switches  as
+well as the input line.  Example:
+
+          /SWITCH
+     or
+          /SWITCH:ARG
+
+If a switch takes an argument the argument follows the colon
+as  in  the second example above.  In all cases switches may
+be abbreviated to the number of characters that  will  allow
+that switch to be unique.
+
+
+
+1.1.3     SWITCHES
+
+     The following is a list of switches  that  CHANGE  will
+accept.   In  the  following  descriptions  "x" represents a
+decimal number, and "arg" represents a key word that may  be
+abbreviated.
+
+
+/BUFFERS:x
+
+     Designates that CHANGE should set up x buffers for  the
+device.   This switch is used to speed up the i/o process at
+the expense of core.  The size of a buffer is calculated  by
+the following formula:
+
+   BUFSIZ = (RECORD SIZE*BLOCKING FACTOR)/BYTES PER WORD+1
+
+
+/ADVANCE:x
+
+     Designates that  CHANGE  should  advance  x  EOF  marks
+before  processing a file.  This switch has meaning only for
+magnetic tapes and is ignored for all other  devices.   Note
+that if a magnetic tape has labels, there may be several EOF
+marks per file, depending on the label type.
+
+
+/BACKSPACE:x
+
+     This switch is the opposite of the advance switch.   It
+tells  CHANGE to backspace the magnetic tape x EOF marks and
+then forward space one EOF mark if the tape is not  at  load
+point.   This switch is only used with magnetic tapes and is
+ignored for other devices.  CHANGE  resolves  BACKSPACE  and
+CHANGE -- Character set converter                     Page 2
+           Command syntax
+
+
+ADVANCE  for  the  same  device by subtracting the BACKSPACE
+counter from the ADVANCE counter;  if the result is positive
+CHANGE  moves  the  tape  forward, if negative, CHANGE moves
+that tape backwards.  /BLOCK:x    /BLKSIZE:x
+
+     This switch tells  CHANGE  that  there  are  x  logical
+records  in  a  logical block.  For variable ebcdic, this is
+the maximum number of records  in  the  block.   Note  IBM's
+blocking  factor  is  the  total number of characters in the
+block.
+
+
+/RECORD:x    /RECSIZE:x
+
+     This switch tells CHANGE that there are x characters in
+a logical record.
+
+
+/DENSITY:arg
+
+     This switch is use to set the density on magnetic tapes
+and  is  ignored  for other devices.  The argument is one of
+the following:  200, 556, 800.
+
+
+/RETAIN
+
+     This switch saves the current command string for  later
+editing.   See the RETAIN command for a complete description
+of the RETAIN function.
+
+
+/RUN
+
+     For this switch CHANGE performs a  RETAIN  command  and
+then  executes  the  current  command  string.   See the RUN
+command for a complete description.
+
+
+/HELP:arg
+
+     CHANGE prints a list of its commands and switches  with
+a  short  explanation of their function.  If the argument is
+present, CHANGE will attempt to print the help file for that
+program.
+
+
+/LABEL:arg
+
+     The LABEL switch informs CHANGE that  a  magnetic  tape
+has  labels  or  that labels should be written.  In any case
+the argument specifies the type of label as follows:
+
+     NONE      The magnetic tape has no labels.
+CHANGE -- Character set converter                     Page 3
+           Command syntax
+
+
+     MINE      The  magnetic  tape   has   special
+               DECsystem-10 labels.
+     DIGITAL   The magnetic tape has  DECsystem-10
+               COBOL labels.
+     BURROUGHS The  magnetic  tape  has   standard
+               BURROUGHS labels.
+     IBM       The  magnetic  tape  has  IBM   360
+               labels.
+     GE635     The  magnetic  tape   has   GENERAL
+               ELECTRIC 635 labels.
+
+Labels are written in the character set specified except for
+IBM  and  GE635  labels.   IBM labels are written in BCD for
+7-track drives and EBCDIC for 9-track drives.  GE635  labels
+are always written in GEBCD.
+
+
+/MODE:arg
+
+     SPECIFIES THE  CHARACTER  SET  MODE  FOR  THE  FILE  AS
+FOLLOWS:
+
+  ASCII   File character set is 7-bit ascii.
+  HPASCII File character set is 8-bit ascii.
+  GEASCII File character set is 9-bit ascii.
+  IMAGE   File  is  read  and  written  as  36-bit
+          words.
+  SIXBIT  File  character  set  is   sixbit   with
+          control words.
+  FIXSIX  File character set  is  sixbit  with  no
+          control words.
+  BCL     File character set is bcl.
+  BCD     File character set is bcd.
+  GEBCD   File character set is  GENERAL  ELECTRIC
+          bcd.
+  HONBCD  File character set is HONEYWELL bcd.
+  EBCDIC  File character set is ebcdic.
+  VEBCDIC File character set is variable ebcdic.
+
+The end of the input record is determined by the mode of the
+input file as described below:
+
+  ASCII     Terminated   by   a    carriage-return
+            character or record count.
+  SIXBIT    Determined by the header word in front
+            each record.
+  FIXSIX    Always  copies  the  number  of  bytes
+            specified by the record size.
+  BCL       Always  copies  the  number  of  bytes
+            specified by the record size.
+  BCD       Always  copies  the  number  of  bytes
+            specified by the record size.
+  EBCDIC    [fixed] Always copies  the  number  of
+            bytes specified by the record size.
+CHANGE -- Character set converter                     Page 4
+           Command syntax
+
+
+  EBCDIC    [variable] Determined  by  the  header
+            word in front of each record.
+
+
+/PARITY:arg
+
+     Sets the parity of a magnetic tape  file,  ignored  for
+other  devices.   The  argument  is either ODD or EVEN.  The
+default parity is ODD.
+
+
+/PASSWORD:arg
+
+     Sets the password for GE635  labels  to  the  argument.
+The  argument can be up to twelve characters.  This argument
+is never checked it is only written in the output  label  as
+specified.
+
+
+/REEL:arg
+
+     Sets the reel serial number in labels  that  have  this
+feature.   Note  for  some  labels the reel serial number is
+retained when writing  over  a  label.   For  instance,  for
+BURROUGHS  labels  the  output  tape is read to retrieve the
+serial number and then a new  label  is  written  with  this
+number.   To  override this feature the REEL switch is given
+and the output tape is not  read  first  (i.e.   the  output
+label is purged).
+
+
+/INDUSTRY:arg *
+
+     This switch initializes the magnetic tape for  industry
+compatible  mode.  Usually set for EBCDIC and HPASCII modes.
+In this mode 32-bit words are read or written.   The  32-bit
+word is broken down into four eight bit bytes and written in
+four frames on the tape.  The low-order 4-bits are not used.
+Note  this  mode  is  only  used for 9-track drives and will
+cause unexpected results on 7-track drives.
+
+
+/SCAN *
+
+     On labeled tapes, this switch  forces  CHANGE  to  skip
+down  the tape, in a forward direction, until the input file
+name is found or an end of tape condition is detected.  This
+switch is used only for labeled magnetic tapes.
+
+
+/ERROR *
+CHANGE -- Character set converter                     Page 5
+           Command syntax
+
+
+     Specifies that CHANGE should abort the current  job  on
+either an input or output parity error.
+
+
+/SPAN *
+
+     Specifies that records are  allowed  to  cross  logical
+block  boundaries.   The normal case is that a record always
+will terminate on a logical block boundary even if a partial
+word will be wasted.
+
+
+/REWIND:arg *
+
+     Specifies that the magnetic  tape  should  be  rewound.
+This  switch  is only used for magnetic tapes and is ignored
+for other devices.  The arguments are as follows:
+
+   BEFORE Rewind before the operation.
+   AFTER  Rewind after the operation.
+   ALWAYS Rewind always [default].
+   OMIT   Rewind neither before or after.
+
+
+/UNLOAD *
+
+     Specifies that the magnetic  tape  should  be  unloaded
+after the operation is completed.
+
+
+/TELL *
+
+     Specifies that  CHANGE,  during  a  wild  card  search,
+should type out the file names as they are found [default].
+
+
+/LIST *
+
+     Tells  CHANGE  to  perform  a  list  of  the  devices's
+directory.   This  switch  is  valid  for disk, DECtape, and
+magnetic tapes.  Note this  switch  will  alter  a  retained
+command and will transfer no data.
+
+
+/HEADER *
+
+     Specifies that headers should be printed if the  output
+device is a line printer [default].
+
+
+/CRLF *
+CHANGE -- Character set converter                     Page 6
+           Command syntax
+
+
+     Specifies that carriage-return line-feed sequences  are
+included in ASCII, HPASCII, and GEASCII files.
+
+
+
+     Switches flagged with an asterisk (*) can be turned off
+or  have the opposite effect noted, by concatenating NO with
+the switch.  Example:
+
+          NOLIST
+          NOCRLF
+
+
+
+1.1.4     EXTENDED COMMANDS
+
+
+DATA
+
+     The DATA command specifies  a  file  name  that  CHANGE
+should  use  to  find  the  conversion tables that it needs.
+Note this command is ignored  if  a  RETAIN  command  is  in
+effect.  Example of use:
+
+          DATA=dev:filename.ext[p,pn]
+
+The data command has only  been  tested  with  disk  as  the
+device.
+
+
+EXIT
+
+     The EXIT command informs CHANGE that the user wants  to
+return to monitor level.  CHANGE upon receiving this command
+will reset all I/O and return to the monitor.
+
+
+BYE
+
+     The BYE command is similar to the EXIT  command  except
+that  CHANGE  will logout the user off the system instead of
+returning the  user  to  monitor  level.   This  command  is
+equivalent to typing the following:
+
+          EXIT   typed to CHANGE
+          KJOB/F typed to the monitor
+
+
+
+2.1       SPECIAL COMMAND MODES
+
+
+RETAIN
+CHANGE -- Character set converter                     Page 7
+           Command syntax
+
+
+     This command is used to save subsequent commands  typed
+to  CHANGE.   In  this mode the commands are not immediately
+executed.  Instead, CHANGE saves the command line and allows
+the  user  to  edit it.  To edit the current command string,
+once RETAIN has been typed, the user need  only  retype  the
+part  of the command he wishes to change.  Items that follow
+the back arrow or equal sign will be  edited  to  the  input
+side of the command while things that precede the back arrow
+or equal sign will be edited  to  the  output  side  of  the
+command.
+
+
+ERASE
+
+     Once a command is retained the user may delete it  from
+memory  by  typing  ERASE.   CHANGE  will  erase the current
+command and return to its immediate mode of  interpretation;
+that is CHANGE will now execute commands as they are typed.
+
+
+PRINT
+
+     The  print  command  is  used  to  examine  a  retained
+command.   As  the user is editing the current command it is
+useful to print it out to see if the edits are correct.   To
+do  so  the  user  types  PRINT  and CHANGE will display the
+current command string
+
+
+RUN
+
+     To have CHANGE perform  a  retained  command  the  user
+types  RUN.  CHANGE will then execute the current command as
+if the user had typed it directly to CHANGE.   If  the  user
+finds  that  the  command is incorrect he may stop CHANGE by
+typing a control/c.  CHANGE will return to command level  to
+accept  another  command.   Note a retained command is never
+forgotten until the user types ERASE.
+
+
+DIALOG
+
+     The DIALOG command allows the user to carry on a dialog
+with  CHANGE.   CHANGE will ask the user questions about the
+input file specification and the output file  specification.
+When  CHANGE  feels  that  it has enough information it will
+execute the command it has compiled.  Note  the  command  is
+not  retained in this mode and any command that was retained
+is erased.  The DIALOG mode may also be  entered  by  typing
+only an altmode to CHANGE.
+
+
+
+3.0       TAPE FORMATS
+CHANGE -- Character set converter                     Page 8
+           Command syntax
+
+
+     There are  great  number  of  different  tape  formats,
+however,  there  are  some  rules to use when handling tapes
+from certain vendors.   IBM  tapes,  that  are  recorded  on
+9-track  drives,  usually  use  EBCDIC as the character set.
+9-track IBM EBCDIC  tapes  always  use  industry  compatible
+mode.   That  is, they always write 32-bit words on the tape
+in four frames.  Another  tape  format  that  uses  industry
+compatible  mode  is  HPASCII.  In addition, data written in
+this mode usually does not have  return-line-feed  sequences
+in  the text.  In other character sets, trial and error must
+be used to determine whether the tape is written in industry
+compatible mode.
+
+     Although some computers have the  capability  to  write
+words  shorter  than  36-bits (or 32-bits in industry mode),
+the DECsystem-10 can only read and write 36-bit words.  This
+creates  a problem for tapes written on the DECsystem-10 and
+read on another vendors machine.  Note that the  reverse  is
+not  true.   CHANGE  is written to handle short words if the
+record size and block factor are accurate.  Note this can be
+determined  by a trial and error procedure.  If records seem
+to be cut short try a larger record size, or if records seem
+to  be  completely  missed try a bigger blocking factor.  In
+any case, tapes written with CHANGE on the DECsystem-10, and
+read  on  another  computer may find extra characters in the
+record.  There is no way around  this,  unless  the  program
+that reads the tape on the other computer is smart enough to
+handle this condition.
+4.0       TAPE DATA STRUCTURES
+
+     Definition of terms:
+
+
+LOGICAL RECORD
+
+     The smallest unit of data  that  can  be  processed  by
+CHANGE.  In CHANGE this is also called a record.
+
+
+PHYSICAL RECORD
+
+     The smallest unit of data that can be processed by  the
+hardware  (e.g.   128  words  for  disk,  80 columns for the
+card-reader, the  data  between  record  gaps  for  magnetic
+tape).
+
+
+BUFFER
+
+     An area of core memory into which the monitor reads, or
+from which the monitor writes, a physical record.
+
+
+BLOCKING FACTOR
+CHANGE -- Character set converter                     Page 9
+           Command syntax
+
+
+     The number in the "/BLOCK:x" switch.  If  there  is  no
+blocking switch the blocking factor is said to be zero.
+
+
+LOGICAL BLOCK
+
+     Those  buffers  required  to  contain   a   number   of
+contiguous  records,  that number being the blocking factor.
+A logical block may extend over  many  buffers,  but  always
+uses  an  integral number of buffers;  any unused portion of
+the last buffer is wasted.  If the smallest record of a file
+is  much  smaller  than  the  largest record, there could be
+several wasted buffers, since the number of buffers required
+is  always  determined  by  the  size  of the largest record
+multiplied by the number of logical records contained in the
+logical block.
+
+
+FILE
+
+     An ordered collection of  contiguous  logical  records;
+the largest unit of data that can be processed by CHANGE.
+
+
+     A file is considered blocked if the blocking factor  is
+non-zero;  it is considered unblocked if the blocking factor
+is zero or if the SPAN switch is specified.
+
+
+DATA STRUCTURE
+
+
+ASCII     GEASCII   HPASCII
+
+     An ascii record  is  a  set  of  contiguous  characters
+terminated  by a return-line-feed sequence.  Word boundaries
+have no significance, and the last character of  the  record
+is  immediately  followed by the first character of the next
+record.  The amount of buffer space required is  the  number
+of  characters  in  the  record  plus two (cr-lf).  A record
+terminates with the  first  EOL  character  or  a  satisfied
+character  count.   If the record count was satisfied before
+the EOL character was detected, the next record starts  with
+the  next  character.  If the EOL character comes before the
+record count is satisfied then the record terminates with no
+space fill.  Ascii null characters are always discarded.
+
+
+HONBCD    BCL  BCD  GEBCD     FIXSIX    EBCDIC
+
+     These modes are a contiguous  set  of  characters  that
+terminate only on a record count.  They are similar to ascii
+in that they are independent of word boundaries (e.g.   when
+a  record  ends  the  next  starts  in  the  next  character
+CHANGE -- Character set converter                    Page 10
+           Command syntax
+
+
+position).  If a record ends before the  count  has  expired
+the  record  is  space filled to the character count.  In no
+case will the size of the record written be unequal  to  the
+record  size.   The  buffer  space required is the number of
+characters in the record.
+
+
+SIXBIT
+
+     A sixbit record is a  set  of  contiguous  words.   The
+first  word has, in the right half, the number of characters
+in the record.  The last word may be padded to  ensure  that
+the  record  boundary  coincides  with a word boundary.  The
+amount of buffer space required is the number of  characters
+in the record plus six characters for the character count in
+the first word plus the number of padding characters.
+
+
+EBCDIC [VARIABLE]
+
+     An ebcdic record is a  contiguous  set  of  characters.
+The  first  word of a logical block contains a block control
+word in the first two bytes, and  spaces  in  the  next  two
+bytes.  This block control word contains the number of bytes
+in the block.  The first word of each record is  the  record
+control  word.   The record count is stored in the first two
+bytes and  spaces  in  the  second  two.   The  record  then
+follows.  Unlike sixbit, the ebcdic block and record control
+words include the size of the  control  words.   The  buffer
+space require is the number of characters in the record plus
+four for the record control word,  and  plus  four  for  the
+block control word.
+
+
+LABELS
+
+     Only magnetic tapes have labels written  out  with  the
+data.   A  mag-tape  file may have 2 or more labels.  If the
+labeled file is a multi-reel-file, it has 2 labels for  each
+reel.   A  labeled  file  contained entirely on one reel has
+only two labels.  The  beginning  file  label  occupies  the
+first  block  on  the  tape, and is followed by an EOF mark.
+(if DIGITAL labels are used this tape mark is omitted.)  The
+data  follows  this tape mark and is terminated with another
+EOF mark.  The ending file label occupies the last block  of
+the file and is followed by another EOF mark.
+
+
+
+5.0       CONVERSION TABLES
+
+     CHANGE does not keep all of its  conversion  tables  in
+core.   It  reads  a data file, after the user has specified
+the  input  and  output  character  set,  to  retrieve   its
+CHANGE -- Character set converter                    Page 11
+           Command syntax
+
+
+conversion  tables.   CHANGE  will try to open a file called
+"SYS:CHANGE.DAT"   and   if   that   fails   it   will   try
+"DSK:CHANGE.DAT".   If  both  of  these attempts fail CHANGE
+will type out an error message an do no more.  The user  can
+alternately  tell  CHANGE  the name of the data file to use.
+To do this the user must first erase  any  retained  command
+through the use of the "ERASE" command.  Then he may use the
+"DATA" command to specify the file where CHANGE is  to  find
+the  conversion  tables.   Note the format of the conversion
+tables is defined in CHANGE at  assembly  time  and  is  not
+taken from the data file.
+
+     The conversion tables are really  two  tables  in  one.
+That  is,  each  table has one table in the left half of the
+word and one in the right half.  The left half table is  the
+table  that  converts  to  ascii, while the right half table
+converts to the output character set.  Note this means  that
+CHANGE  internally  converts  all  character  sets to ascii.
+Because CHANGE does this, character sets with more than  128
+characters  (such  as  EBCDIC)  cannot be fully handled, and
+some characters may be translated incorrectly.   The  manner
+that  CHANGE  accesses  these  tables  is as follows.  First
+CHANGE reads from the input file and extracts a byte of  the
+proper size.  It then takes this byte and indexes by it into
+the input conversion table.  From the left half of the input
+conversion   table   CHANGE   extracts  an  ascii  character
+equivalent to the input  character.   Then  with  the  ascii
+character  CHANGE  indexes  into the output conversion table
+and extracts a character from the right  half  table.   This
+character  is  then the converted character and is passed to
+the output file.  Note if a character can not be  translated
+CHANGE  places  a  back  slash  (\)  in that position of the
+record.
+
+     There is a program called  TABLE  which  generates  the
+conversion  file  for  CHANGE.   TABLE  contains  all of the
+conversion tables which  are  mapped  in  CHANGE  with  IOWD
+pointers.   Thus  to  modify  a table, the user need only to
+modify the program TABLE.  To do this, TABLE must be edited,
+reassembled, and then run again.
+
+
+
+6.0       EXAMPLES
+
+     The following are examples of commands to CHANGE:
+
+
+     A user has a magnetic-tape that was written on  an  IBM
+360  system.   He  knows  that  the  tape  is a 9-track tape
+written in IBM fixed ebcdic  and  wants  to  convert  it  to
+sixbit  for  a COBOL program he is working on.  In addition,
+the user knows that the input tape is blocked 1 and  has  80
+character records.  He wants the output to be blocked 20 and
+CHANGE -- Character set converter                    Page 12
+           Command syntax
+
+
+have 120 character records.  To solve this problem the  user
+types the following command to CHANGE:
+
+     RETAIN
+     DATA/MODE:SIXBIT/REC:120/BLK:20
+     _MTA0:IN/MODE:EBCDIC/REC:80/BLK:1/INDUSTRY
+     PRINT
+     RUN
+
+In the above example only user input was  shown.   He  first
+retained  the  following  commands  and  then  typed  in his
+command string.  Once having typed in the command string the
+user had CHANGE type it back to him.  Having decided all was
+o.k. the user had CHANGE do the command by typing  "RUN"  to
+CHANGE.  The complete output may look as follows:
+
+     .R PUB:CHANGE
+
+     CHANGE here at 12:21 02/02/73
+     > RETAIN
+     READY.
+
+     > DATA/MODE:SIXBIT/REC:120/BLK:20
+     READY.
+
+     > _MTA0:IN/MODE:EBCDIC/REC:80/BLK:1/INDUSTRY
+     READY.
+
+     > PRINT
+
+     OUT= DSK:DATA/BLOCK:20/RECORD:120/MODE:SIXBIT
+     IN=  MTA0:IN/BLOCK:1/RECORD:80/MODE:EBCDIC/INDUST
+     READY.
+
+     > RUN
+
+
+     CHANGE    12:25     02/02/73
+
+
+     12.021 secs. 1234 i/o units.
+     17777 octal locations used.
+     400 rec. 400 blk. read.
+     400 rec. 20 blk. written.
+     READY.
+
+     >
+
+     Another user has a sixbit file that his  COBOL  program
+just  generated.  He wants to convert it to ascii so that he
+may edited it.  To do this he types the following command to
+CHANGE:
+
+     ABC/MODE:ASCII/RECORD:80_DATA/MODE:SIXBIT
+CHANGE -- Character set converter                    Page 13
+           Command syntax
+
+
+Note in this example the input record size did not  need  to
+be specified because CHANGE will determine it from the data.
+In general if the device has a fixed  buffer  size  and  the
+character  set  has  control words or other control features
+than the record size may be omitted.
+CHANGE -- Character set converter                    Page 14
+         Index
+
+
+                           INDEX
+
+
+
+
+COMMAND SYNTAX . . . . . . . . 0
+CONVERSION TABLES  . . . . . . 10
+
+EXAMPLES . . . . . . . . . . . 11
+EXTENDED COMMANDS  . . . . . . 6
+
+SPECIAL COMMAND MODES  . . . . 6
+SWITCH SPECIFICATIONS  . . . . 0
+SWITCHES . . . . . . . . . . . 1
+
+TAPE DATA STRUCTURES . . . . . 8
+TAPE FORMATS . . . . . . . . . 7
+
+   

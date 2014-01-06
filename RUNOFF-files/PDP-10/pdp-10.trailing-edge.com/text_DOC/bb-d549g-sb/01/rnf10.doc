@@ -1,0 +1,1385 @@
+
+
+
+RUNOFF.DOC -- Changes from version 7B to 10
+January, 1975
+
+Copyright 1974,  1975,  Digital  Equipment  Corp.,  Maynard,
+Mass.
+
+
+
+
+
+
+1.0  SUMMARY
+
+1.1  The purpose of this release is to correct several  bugs
+     and  to  include  many  new features.  The old dialogue
+     command scanner has been replaced by SCAN and WILD,  so
+     full  wild-card  capabilities  have  been  implemented.
+     Text commands can now be abbreviated;   footnotes  have
+     been  cleaned  up;   and the indexing capabilities have
+     been improved.  Multiple commands can  be  included  in
+     one  line and comments may also be included.  All error
+     messages have  been  improved  substantially.   Command
+     switches    have   been   included   to   ensure   full
+     compatability (except in some footnote  handling),  but
+     should  not  normally be needed.  New capabilities have
+     been added to select documentation from  source  files,
+     to control the application and selection of the special
+     text flag characters,  to  enter  words  in  the  index
+     easily, and to fully capitalize a single word.  Options
+     have been added to list the input file sequence numbers
+     in  the  output  margin  and to handle underlining on a
+     separate  line  for  printers  without   an   underline
+     capability.   RUNOFF  now has the ability to number and
+     format sections and chapters.  The  user  now  has  the
+     capability  of  including conditional commands and text
+     and causing different variations of the document to  be
+     produced depending upon switches in the command string.
+
+1.2  This version of RUNOFF must be loaded with SCAN version
+     7 and WILD version 7.  There are no other dependencies.
+     It fully supersedes all previous versions  and  has  no
+     known   deficiencies.   This  release  fixes  all  bugs
+     reported in SPRs through  10-13,170  (May,  1974),  and
+     runs  on  all  monitors.   It  has been tested on 5.05,
+     5.06, and 5.07/6.01.  RUNOFF version 10 fully  supports
+     the DATE75 convention and the error message standard.
+
+1.3  RUNOFF is documented in the programming  specification,
+     "RUNOFF.RNO".
+RUNOFF.DOC -- Changes from version 7B to 10           Page 2
+
+
+2.0  EXTERNAL CHANGES
+
+2.1  (SPR 10-3950) :  ;  !  and ?   followed  by  space  are
+     treated  like  period.   This  means that they normally
+     precede a double space.  If this is not  desired,  then
+     the  :   ;   .  !  or ?  should be quoted by a _.  This
+     behaviour  of  all  five  characters  (:;!.?)  can   be
+     suppressed with the command .NOPERIOD and restored with
+     the command .PERIOD.
+
+2.2  (SPR 10-4826) All commands  can  be  abbreviated.   The
+     full  spelling  will  be  checked.   In  multiple  word
+     commands,  each  word  can   be   abbreviated.    Also,
+     introduce    unique,    permanent    one-three   letter
+     abbreviations for each command.  These are detailed  in
+     the   RUNOFF   input   format  help  file,  RUNINP.HLP.
+     Warning, except  for  the  permanent  one-three  letter
+     abbreviations,  it  is a bad idea to make extensive use
+     of the abbreviation facility because the  abbreviations
+     are  not  guaranteed unique for future versions.  These
+     abbreviations should be used to shorten extremely  long
+     commands  (e.g.,  AUTOTAB for AUTOTABLE), but not short
+     ones (e.g., JU for JUSTIFY).
+
+2.3  (SPR 10-7122) Add the following synonyms for  commands:
+     .PAGE SIZE for .PAPER SIZE and .SUBTTL for .SUBTITLE.
+
+2.4  (SPR 10-5999) Add command .SUBINDEX (with  synonym  .X)
+     which  is  the same as .INDEX except that ;  and !  are
+     multiple  commands  and   comments   respectively.    >
+     separates   sub-index  sections.   When  the  index  is
+     printed,  sub-index  sections  are  indented  and   not
+     repeated.    Thus,  for  example,  if  three  sub-index
+     entries have been made by the commands:
+          .X FOO>BAR
+          .X FOO>DOG
+          .X FOO>CAT
+     Then, when the index is printed, FOO will  be  indexed,
+     and  under  it  will  be  indexes of BAR, CAT, and DOG.
+     Thus,
+          FOO
+               BAR . . . . . PAGES
+               CAT . . . . . PAGES
+               DOG . . . . . PAGES
+
+2.5  (SPR 10-7122) Add a new message to warn of  indents  to
+     the left of 0.  the message is "?RNFNIA NEGATIVE INDENT
+     ATTEMPTED".
+
+2.6  Add defensive  code  to  footnote  routine  to  recover
+     instead of HALT.
+
+2.7  (SPR 10-4928) .PAGE SIZE now clears current line before
+     changing page width and counts as a break.
+RUNOFF.DOC -- Changes from version 7B to 10           Page 3
+
+
+2.8  (SPR 10-7122) In pause mode, the bell will be  rung  to
+     notify  the  user  that  the  paper should be advanced.
+     (SPRs 10-4818, 5172, 7122) Finish outputting the buffer
+     before  pausing.   (QAR  2493,  2494)  Clear  the  TTY:
+     buffer  before  pausing.   If  output  is  to  a  TTY:,
+     suppress echo of that terminal's input.
+
+2.9  Blank pages will be suppressed.  They can  be  included
+     when needed by giving a .FIGURE command.
+
+2.10 (SPR 10-6102) When printing  the  index,  many  entries
+     will  now  occupy  several lines instead of overflowing
+     the line width.
+
+2.11 (SPR 10-3018) Footnote within a footnote is illegal.  !
+     as  first  character  of  a  line outside a footnote is
+     treated as a valid text character.  Add a command, .END
+     FOOTNOTE,  which  has  the same effect as "!", i.e., it
+     ends a footnote definition.
+
+2.12 (SPRs  10-5896,  7630)   Around   footnotes,   preserve
+     indentation,  case lock, justify, margins, spacing, and
+     fill.   At  the   start   of   each   footnote,   clear
+     indentation, set justify and set fill.  Set spacing and
+     margins to the same as the start of the  file  and  the
+     page  width.  Initialize the case of the footnote to be
+     the same as the case  lock  at  the  time  of  footnote
+     definition.   Make commands which affect things such as
+     page formatting be illegal in a footnote.  The  message
+     is  "ILLEGAL  IN  FOOTNOTE".   Also,  make  .TAB  STOPS
+     illegal in a footnote because they are not preserved.
+
+2.13 Indicate core expansion  within  [  and  ]  unless  the
+     output  is  to  the  TTY:.   When the index is printed,
+     reclaim core.
+
+2.14 (SPR 10-5498) Report file name and the number of output
+     pages  at  end  of  each file.  In CCL mode, prefix the
+     message with "RUNOFF: ".
+
+2.15 Disregard strange control characters in the input file.
+     issue  a warning message "%RNFIIF "^x" IGNORED IN INPUT
+     FILE".  This behaviour can be overridden by quoting the
+     control  character  or  by use of the commands .CONTROL
+     CHARACTERS and .NO CONTROL CHARACTERS or  the  switches
+     /CONTROL and /NOCONTROL.
+
+2.16 Suppress the leading and trailing form-feed  except  in
+     pause mode or when the output is to the TTY:.
+
+2.17 Clear out any final footnotes at end-of-file.
+
+2.18 Convert command scanner to use  SCAN  and  WILD.   Full
+     input   and   output  wild-carding  is  now  supported.
+     Various options were made swtiches as follows:
+RUNOFF.DOC -- Changes from version 7B to 10           Page 4
+
+
+          L underscore   /UNDERLINE:LINE
+          C underscore   /UNDERLINE:CHARACTER
+          B underscore   /UNDERLINE:BACKSPACE
+          N underscore   /UNDERLINE:NONE or /NOUNDERLINE
+          Simulate FF    /SIMULATE
+          Pause          /PAUSE
+     Also add switches /NOSIMULATE and /NOPAUSE,  which  are
+     the  defaults,  for  completeness.  In addition, RUNOFF
+     would respond to the monitor command  RUNOFF  if  there
+     were one.  It will also support monitor commands of the
+     form:
+          R RUNOFF (command)
+     in which one command line is given  to  RUNOFF  and  it
+     returns to monitor mode after completing its work.
+
+2.19 Make default input file specification be DSK:   in  the
+     users's  default directory.  The extension will default
+     to the first of .RNO, .RNB,  .RNC,  .RND,  .RNE,  .RNH,
+     .RNL,  .RNM,  .RNP,  .RNS, and . which are seen for the
+     specified  file  name.    The   default   output   file
+     specification  is DSK:  in the user's default directory
+     with the file name matching the input  file's  and  the
+     output  extension  determined by the input extension as
+     follows:
+               .RNO      .MEM
+               .RNB      .BLB
+               .RNC      .CCO
+               .RND      .DOC
+               .RNE      .ERR
+               .RNH      .HLP
+               .RNL      .PLM
+               .RNM      .MAN
+               .RNP      .OPR
+               .RNS      .STD
+               .         .MEM
+
+2.20 Change the default spacing to be single spacing.   This
+     can  be  altered by the /SPACING:n switch.  This switch
+     affects the spacing from the start of  the  file  until
+     the first .SPACING command.
+
+2.21 (SPR  10-5354,  6102)  Add  a  switch  to  specify  the
+     character   used   for  underlining.   This  switch  is
+     /UNDERLINE:ooo where ooo is the octal representation of
+     the  ascii character to be used.  The value can also be
+     given as a quoted ascii  character  (e.g.,  "x").   The
+     default is 137 which is _.  In /UNDERLINE:SEPARATE mode
+     (see below), the default is -.
+
+2.22 Convert all messages to lower case.   Improve  most  of
+     them  in  the  process.  All error messages now specify
+     the output page number of the error.  They also include
+     the  input  page  and  line within page counts.  If the
+     input file is line-sequence numbered, then that  number
+     is included.
+RUNOFF.DOC -- Changes from version 7B to 10           Page 5
+
+
+2.23 (several  SPRs)  Use  line-feed,  vertical   tab,   and
+     form-feed as end of line characters instead of carriage
+     return.   This  affects  primarily  when  commands  are
+     recognized.  Strings of consecutive such characters are
+     considered as ending one line  unless  separated  by  a
+     carriage   return.   In  .CONTROL  CHARACTER  mode,  if
+     vertical tab, form feed, or carriage return are quoted,
+     they will be passed as data.
+
+2.24 Allow multiple commands on one line by separating  them
+     by  ;.   Comments must be preceded by !  except for the
+     comment command which  can  be  either  !   or  ;   for
+     compatability.   Disallow junk (unused arguments) after
+     all commands with the message "%RNFJEC JUNK AT  END  OF
+     COMMAND".   The only commands which cannot have another
+     command on the same line  are  .TITLE,  .SUBTITLE,  and
+     .INDEX  for  which  all  characters  may be part of the
+     text.  .SUBINDEX, however, can have following  multiple
+     commands.  In commands which take text strings as text,
+     "." and "!" are considered part  of  the  text.   These
+     commands can be terminated only by ";" and end of line.
+     In any case, following the semi-colon, either  text  or
+     another  command (starting with .) may be given.  Thus,
+     for example, the following changes the left margin  and
+     tab stops in one line:
+     .LEFT MARGIN 10 !comment;.TAB STOPS  15,20,30  !comment
+     For  convenience,  when  several commands are being run
+     together they can be separated by just a "." unless the
+     first  command  has  a  comment  or  takes  text as its
+     argument.
+
+2.25 Detect illegal negative arguments  in  all  appropriate
+     commands.   These are .NUMBER, .LEFT MARGIN, .TESTPAGE,
+     .SKIP, .BLANK, .TAB STOPS, .CENTER,  .FOOTNOTE.   Also,
+     detect  indents  and  paragraphs too far to the left as
+     errors.   If  a  left  margin  changes  such  that  the
+     paragraph indent causes a negative position, change the
+     indent to fit.
+
+2.26 Centered lines will now be kept within the  page  size.
+     Thus,  centering  can  not  be used to exceed the right
+     margin.
+
+2.27 (SPR 10-6912) Fix indexing of  items  of  various  case
+     combinations  but  the same spelling to work correctly.
+     Items  which  are  identical   except   for   case   or
+     underlining   will   appear  together  but  distinctly.
+     Underlined items come  first  with  upper  case  before
+     lower  case being less significant.  In particular, the
+     order of identically spelled entries is:
+          underlined caps
+          underlined lower case
+          caps
+          lower case
+RUNOFF.DOC -- Changes from version 7B to 10           Page 6
+
+
+2.28 Include the subpage letter in  error  messages.   Also,
+     include it in the index.
+
+2.29 Correct .SUBPAGE logic to allow .PAGE commands  between
+     .SUBPAGE and .END SUBPAGE.
+
+2.30 Issue a warning message  if  there  are  more  than  26
+     subpages.   The  message is "%RNFSPO SUBPAGE OVERFLOW".
+     It is assumed that this is an error and no  attempt  is
+     made to correct it.
+
+2.31 (SPR 10-6710) Put out series of pages in the index with
+     a  hyphen.   Thus,  if the index includes references on
+     page 4, 5, and 6, the entry will be 4-6.
+
+2.32 Add command .AUTOPARAGRAPH  and  switch  /AUTOPARAGRAPH
+     which  causes  any  blank line or any line which starts
+     with a space to be considered as the  start  of  a  new
+     paragraph.   This  allows  normally  typed  text  to be
+     justified without any special  commands.   Blank  lines
+     are  not  considered  to  start a paragraph if they are
+     followed by a command  instead  of  text.   The  switch
+     /NOAUTOPARAGRAPH  and command .NOAUTOPARAGRAPH have the
+     opposite effect, which is to have paragraphing  invoked
+     only  by  commands.   Also add command .AUTOTABLE which
+     causes each line  not  starting  with  a  blank  to  be
+     indented.   This normally would be used with a previous
+     .PARAGRAPH having set a negative indent.   Thus,  input
+     which  was  "back-dented" will continue to be.  This is
+     cancelled by .NOAUTOTABLE.  Neither mode  is  effective
+     in .NOFILL mode.
+
+2.33 Add two new commands to bracket a series of lines which
+     are  to  be taken literally.  If n lines are to be used
+     as a literal (e.g., an example), then  they  should  be
+     preceeded   by  ".LITERAL  n"  and  followed  by  ".END
+     LITERAL".  This redundancy guarantees that any lines of
+     text  may  be  inserted.   Note  that the "end" in "end
+     literal" can not be abbreviated.  If the "n" is omitted
+     from  the  .LITERAL  command, then the literal block is
+     terminated by a .END LITERAL command and the redundancy
+     of  the  count  is  lost.   For this purpose, each line
+     feed, vertical tab, and form feed ends one line.   This
+     is  similar  to  .NOFILL  except  that blank lines, and
+     lines starting with "." are reproduced as in the  input
+     file.   If  tabs  are  encountered and no tab stops are
+     currently set, e.g.  if the .LITERAL is preceeded by  a
+     .TAB  STOPS  with  no  arguments,  then  the  tabs  are
+     reproduced  literally  in  the  file.   Otherwise,  the
+     specified tab settings are used (i.e., each tab will be
+     expanded into the appropriate number of spaces).
+
+2.34 Initialize the case setting for the file to /CASE:UPPER
+     or /CASE:LOWER.  The default is /CASE:UPPER.  Note that
+     lower case is never altered, so the  default  means  to
+RUNOFF.DOC -- Changes from version 7B to 10           Page 7
+
+
+     leave  the  case  as  typed.  Note that this default is
+     changed from that of previous versions of RUNOFF-10.
+
+2.35 (SPR 10-6102) Add /HEADER:x and .HEADER x (where  x  is
+     UPPER,  LOWER,  or MIXED) to control the case of "page"
+     in the headers.  The default  is  MIXED.   The  command
+     .NOHEADER  suppresses the title, subtitle, page number,
+     and spacing at the  top  of  each  page.   The  command
+     .HEADER   restores   the   running  head.   Files  with
+     extension .RNH default to the mode .NOHEADER.
+
+2.36 Add a second .HLP file named  RUNINP  which  summarizes
+     the commands which can appear in the input file.
+
+2.37 Implement output wildcarding via the new routine .SCWLD
+     in  WILD version 5.  Thus, for each wild card character
+     on  the   output   side,   the   value   matching   the
+     corresponding  wild  character  from  the input side is
+     selected.  "Corresponding" is defined as the n-th  wild
+     character     in     the     canonical     format    of
+     file.ext[directory].  Thus, the following examples:
+
+     inp spec  inp file    out spec         out file
+
+     *.RNO     FOO.RNO     *.MEM            FOO.MEM
+     FOO.RN?   FOO.RND     FOO?.LST         FOOD.LST
+     *.RNO     FOO.RNO     XYZ.LST[5,6,*]   XYZ.LST[5,6,FOO]
+
+     In addition, .SCWLD implements the  standard  directory
+     defaults    (including    SFDs)   and   the   switches:
+     /PROTECTION (which  takes  an  octal  value),  /PARITY,
+     /DENSITY, and /PHYSICAL.  The defaults in 2.19 apply.
+
+2.38 Allow the _ construction to work in all contexts except
+     literals.   Thus,  _>  ,  _;   , and _!  can be used to
+     plant > ;  and !  in subindex lines.  This  also  works
+     to  allow  arbitrary  control  characters  to be passed
+     through  RUNOFF.   These  control  characters  will  be
+     assumed to be non-spacing.
+
+2.39 Add commands .UPPER CASE and .LOWER CASE which have the
+     same  effect  as  ^^  and  \\  respectively.   They are
+     stronger, however, in that they set  the  default  case
+     which is set at the start of chapters.
+
+2.40 (SPR 10-7442) Add "." as the ultimate abbreviation  for
+     .BREAK.  In particular, ". ;text" is a new line.
+
+2.41 Add new commands .PAGING and  .NOPAGING  which  control
+     whether  RUNOFF  forms  pages  or not.  The default for
+     .RNH files is .NOPAGING  because  .HLP  files  normally
+     don't have page breaks.  Also, for .RNH set the default
+     right margin at 72 instead of the normal 60.
+RUNOFF.DOC -- Changes from version 7B to 10           Page 8
+
+
+2.42 Add a command, .COMMENT which treats the  rest  of  the
+     line as a comment.
+
+2.43 Add an optional second  argument  to  .PARAGRAPH  which
+     specifies the vertical paragraph spacing.  Legal values
+     are 1-5 and -1 (which is the default of <spacing+1>/2).
+     Also add an optional third argument to .PARAGRAPH which
+     specifies that an automatic  .TEST  PAGE  be  performed
+     before   starting  the  paragraph.   This  argument  is
+     multiplied  by  the  spacing   and   used   after   the
+     inter-paragraph  spacing.  The initial value of this is
+     2, so that paragraphs will not normally have less  than
+     two  lines at the bottom of a page.  If this feature is
+     not desired, an argument of 0 should  be  given.   This
+     will result in no special test.
+
+2.44 Add switch /SEQUENCE to specify that the closest  input
+     file  line  and  page  number  should  be listed on the
+     output file in columns 1-16  (the  regular  listing  is
+     shifted right 16 positions).
+
+2.45 (SPR 10-7442) Allow the .TITLE and  .SUBTITLE  commands
+     to  appear  after the .PAGE to which they apply.  Add a
+     .FIRST TITLE command which causes the titling to appear
+     on  the first page as well.  These commands must be the
+     first command on the new page (i.e., before any text).
+
+2.46 Add .NO xxx commands for each .NOxxx command.
+
+2.47 (SPR 10-7442) Add an input selection mechanism to allow
+     documentation  to  be  imbedded  in  source files.  The
+     commands .SELECT (4 chars) and .NO SELECT control  this
+     mode  of  operation.   The switches /SELECT:"(4 chars)"
+     and /NOSELECT set the initial behaviour.  If the  input
+     file's  extension  is  a known source file (.ALG, .BAS,
+     .BLI, .B10, .B11, .FAI, .FOR, .F40, .MAC, .N, .PAL,  or
+     .P11),  then  the  default  output  extension  is  .PLM
+     (Program Logic  Manual)  and  a  default  selection  is
+     chosen  to match the language's commenting conventions.
+     The SELECT switch and command  take  a  four  character
+     argument string which are the comment character for the
+     language,  the  select  character,  the   start   block
+     character, and the end block character.  When RUNOFF is
+     in SELECTION mode, it ignores all  input  (discards  it
+     completely)  unless  it  meets one of the following two
+     patterns.  The  first  is  a  line  with  the  sequence
+     comment-selection  (typically  ";&"  or "!&"), then the
+     rest of the line is taken as input (to line feed).  The
+     other  pattern  is  for  a  block  of  documentation as
+     follows:  it  consists  of  all  data  from  the  first
+     comment  character  on each line through end of line as
+     long as these comment lines are within  a  sequence  of
+     comment-start  character  (typically ";+" or "!+") line
+     and a comment-end character (typically ";-"  or  "!-").
+     Thus,   for   example,  the  default  string  for  most
+RUNOFF.DOC -- Changes from version 7B to 10           Page 9
+
+
+     compilers is "!&+-" and for most assemblers is  ";&+-".
+     In  order  to  declare ";" or "!", they must be quoted.
+     If they are not, then they would be  taken  as  command
+     terminators (see 2.24).  Any assembler file can contain
+     its documentation as follows:
+          ;this is a normal comment
+          ;&this is RUNOFF input
+          ;
+               op   arg       ;+this starts a block
+               op   arg       ;this continues it
+               op   arg
+               op   arg       ;more
+               op   arg       ;-this ends the block
+     which, when processed, would result  in  the  following
+     output from RUNOFF:
+          this is RUNOFF input  this  starts  a  block  this
+          continues it more this ends the block
+
+2.48 Suppress trailing spaces on a line being centered.   In
+     centered  lines,  treat  tabs as spaces.  These changes
+     allow card input to work.  If the trailing  spaces  are
+     really  needed, they can be quoted.  Add commands .LEFT
+     and .RIGHT which left and right adjust  a  line.   They
+     have  an  optional  argument  which  specifies how many
+     columns in from the margin they are to be positioned.
+
+2.49 Convert all  messages  to  agree  with  the  new  error
+     message  standard.   Thus,  the ?  or % are followed by
+     "RNF" and a three letter  message  code.   These  codes
+     include:  
+
+     CJL  Can't Justify Line
+     ELD  End Literal Doesn't follow literal
+     FIF  Footnote Inside Footnote
+     IBO  Input Buffer Overflow
+     ICC  Insufficient Core for Command
+     IIF  Ignored in Input File
+     ILC  ILlegal Command
+     JEC  Junk at End of Command
+     KCF  K Core - Footnote
+     KCI  K Core - Index
+     LDE  Literal Doesn't End with end literal
+     NEC  Not Enough Core
+     NFS  No File Specified
+     NIA  Negative Indent Attempted
+     NID  No Input Device
+     ODE  Output Error
+     SPO  SubPage Overflow
+
+     Internally, all error messages have a label of the form
+     "E$$"  followed by the three letter code so they can be
+     identified easily.  See the end of this document for  a
+     listing of all error messages and their meaning.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 10
+
+
+2.50 Clean  up  the  logic  in  command  scanning  to  allow
+     multiple    tabs    and   spaces   between   arguments.
+     Consecutive  numeric  arguments  can  be  separated  by
+     spaces  or  one  comma.   If  comma, then any number of
+     spaces or tabs  can  be  on  either  side  of  it.   In
+     multiple  argument commands (.TAB STOPS and .PARAGRAPH)
+     allow  null  values  by   consecutive   commas;    null
+     arguments   cause   the   previous  value  to  be  left
+     unchanged.
+
+2.51 Allow  relative   specifications   on   the   commands:
+     .CENTER,  .NUMBER,  .LEFT  MARGIN,  .RIGHT  MARGIN, and
+     .PAGE SIZE.  When the argument is preceded by a + or -,
+     the  argument is taken as relative.  For .NUMBER, .LEFT
+     MARGIN, .RIGHT MARGIN, and .PAGE SIZE, this  raises  or
+     lowers  the  previous  setting by the specified amount.
+     For .CENTER, it specifies the  number  of  half  spaces
+     from  the  center to center on (i.e., if the page width
+     is 60, a .CENTER +6 will center on 33).
+
+2.52 Allow a negative  argument  on  the  .BLANK  and  .SKIP
+     commands.   This  specifies to move to n lines from the
+     bottom of the page.  Thus, a final  footnote  could  be
+     set by a command such as ".SKIP -5".
+
+2.53 On a line with tabs, consider any spaces preceeding the
+     tabs  on  the  line as quoted, so that they will not be
+     expanded during justification.
+
+2.54 Add switch /UNDERLINE:SEPARATE which defines a new mode
+     of  underlining  as  follows:   any line which includes
+     underlined text will be followed by an extra line which
+     has  the  underline character (default -) in it.  Thus,
+     for older TTYs and the LP10C and LP10D,  the  underline
+     facility is still available.
+
+2.55 When printing the index, use the same spacing which was
+     in effect at the time of the .PRINT INDEX command.
+
+2.56 When enterring text into the index, default the  casing
+     to   be  capital  first  letter,  lowercase  succeeding
+     letters, and no underlining.  Preserve  case  lock  and
+     underline lock across the .SUB/INDEX command.
+
+2.57 Preset tab stops to the standard -10 hardware  settings
+     of 9,17,25,...
+
+2.58 Add a defer option to the figure command.  If the  user
+     specifies  .FIGURE  DEFERRED n, then if the figure does
+     not fit, defer  it  to  the  next  page,  but  continue
+     filling  text  on this page.  If more than one such are
+     seen, the result is cummulative (i.e., enough space  is
+     reserved for all the deferred figures).
+RUNOFF.DOC -- Changes from version 7B to 10          Page 11
+
+
+2.59 Add the ability to control the  selection  of  and  the
+     meaning  of  the  special  flag characters which can be
+     imbedded  in  the  text.   The  command  ".NOFLAGS"  or
+     ".NOFLAGS  ALL"  will  suppress  the recognition of all
+     non-column one flag characters (i.e., all  but  .   and
+     !).   The command ".FLAGS" or ".FLAGS ALL" will restore
+     the previously active  flag  characters.   The  command
+     ".NOFLAG  x"  will  suppress  the  action of the x flag
+     character.  The command  ".FLAG  x"  will  restore  the
+     action  of  the x flag character.  The command ".FLAG x
+     c" will set c as the x flag character and  enable  that
+     flag.   To  specify  ";"  or  "!",  it  must be quoted.
+     Otherwise, it would be taken as  a  command  terminator
+     (see 2.24).  The various values of x are:
+
+     CONTROL   col. 1 command flag (.)
+     ENDFOOTNOTE col. 1 end of footnote (!)
+     LOWERCASE lower case and unlock (\)
+     QUOTE     quoting character (_)
+     SPACE     quoted space (#)
+     SUBINDEX  separator in subindex command (>)
+     UNDERLINE underlining (&)
+     UPPERCASE upper case and lock (^)
+
+     All further special flagging characters will be defined
+     with  new  words  and  will be initially turned off for
+     compatibility.  It is  recommended  to  stay  with  the
+     standard  characters  if possible because it will avoid
+     later editting confusion.
+
+2.60 Add a new flag character, INDEX, which defaults to ">".
+     When this is enabled and it is seen in the regular text
+     (not  titles,  .INDEX  commands,  etc.)  including   in
+     footnotes, the following word will be enterred into the
+     index at this point.  The index  entry  ends  with  the
+     first space, new line, or second occurance of the index
+     flag character.  Note that this flag  must  immediately
+     preceed the word (except for other flag characters) and
+     not be set off by spaces.  Thus, for example,
+          for >example this >par-3-Foo bar
+     would result in index entries  for  "Example"  and  for
+     "Par-3-Foo".   Note  that  the  default  case rules for
+     index entries applies.
+
+2.61 Add a new flag character, CAPITALIZE, which is normally
+     not  enabled but defaults to "<", which works just like
+     the index flag except  that  the  next  word  is  fully
+     capitalized.   It  is  just  like  "^^" except that the
+     original case lock is restored at the end of  the  word
+     or  the  next occurance of the capital flag.  It can be
+     used in combination with the indexing flag to  enter  a
+     fully capitalized word into the index.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 12
+
+
+2.62 Add  convenience  commands  which  perform  a  set   of
+     functions which recur frequently.  ".LIST n" will start
+     a text indent with  n  spacing  which  moves  the  left
+     margin  9  spaces  to  the  right  for  the first .LIST
+     command, and 4  more  spaces  to  the  right  for  each
+     subsequent  nested  .LIST command.  The normal fill and
+     justify modes remain in effect.  .LS is  an  acceptable
+     abbreviation for .LIST.
+     .LIST ELEMENT command will start an item  in  the  list
+     specified  by  the current .LIST command.  The elements
+     are  numbered  sequentially  and  the  number  given  a
+     negative  indent so the list text lines up.  The number
+     is followed by ".##", so typically the indent  will  be
+     -4.   The  list  elements are separated by the standard
+     paragraph spacing and test page.
+     ".NOTE text" will start a note which is indented.  This
+     command blanks 2, then reduces both margins by 15, then
+     centers the text on this command (if none,  it  centers
+     "NOTE"),  and  then  blanks 1.  It also sets up so that
+     the matching .END NOTE will do a blank 2.
+     ".END" or ".END NOTE" or ".END LIST"  ("EN"  and  "ELS"
+     are   acceptable  abbreviations)  have  the  effect  of
+     reverting  the  margins  and  spacing  modes  to  their
+     settings  before  the last .LS or .NOTE command.  These
+     can be nested up to 5 deep.   Three  new  messages  are
+     introduced by this change:
+
+          TFE Too Few End commands
+          TNN Too many Nested Notes
+          UME UnMatched End command
+
+2.63 Introduce the convenience setup command ".STANDARD  n".
+     This  can  be  abbreviated  ".SD  n".  This sets single
+     spacing, fill, justify, resets margins,  and  sets  the
+     paper size to a width of n.  This command also sets the
+     paragraph indent to 0.  #n is normally 60 (the  initial
+     setting)  or  70  (in  which  case  the  page length is
+     changed to 64 lines).  These are the two  standard  DEC
+     page formats for memos and for manuals.
+
+2.64 Introduce  the  switches  /DOWN:n  and  /RIGHT:n.   The
+     DOWN:n switch moves the text of each output page down n
+     lines on the page.  The /RIGHT:n switch moves the  text
+     of each output page to the right n spaces on the page.
+
+2.65 Correct a bug which caused  a  line  with  no  embedded
+     spaces  to  provoke an error message to the effect that
+     the line could not be  justified.   RUNOFF  now  checks
+     only  that  the  number  of  characters in the line fit
+     within the stated margins, whether  or  not  there  are
+     spaces in the line.
+
+2.66 Add commands which handle automatic chapter and section
+     numbering  and  formatting.   There  are  two  forms of
+     documents, those which are chapter numbered, and  those
+RUNOFF.DOC -- Changes from version 7B to 10          Page 13
+
+
+     which  are  not.   A  document  is  considered  to be a
+     chapter  oriented  document  if  there  is  a  .CHAPTER
+     command  in  it.   The command ".CHAPTER text" starts a
+     new chapter with text as its title.  This command  acts
+     as .BREAK.PAGE.BLANK 12.CENTER of the label "CHAPTER n"
+     (where  n  is  counted  automatically  by  1),   .BLANK
+     2.CENTER  text  .BLANK  3.   It  then  resets the case,
+     margins, spacing, and  the  justify/fill  modes.   This
+     command also clears out a subtitle and sets the chapter
+     name  as  the  title.   The  command   ".HL   n   text"
+     automatically  starts the next section at depth n where
+     n is in the range 1-5.  The text  becomes  the  heading
+     for   this   section.    The   sections   are   counted
+     automatically and the number  is  output  in  the  form
+     "i.j.k.l.m"  where  trailing 0s are discarded (the same
+     format as, for example, the monitor calls manual).   If
+     this  is  a  chapter  numbered  document,  the i is the
+     chapter number, otherwise it is the number of the .HL 1
+     level.  This command acts as .BREAK.TEST PAGE 9.BLANK 3
+     followed by the section number then ## then the section
+     name  (capitalized  if  .HL1).  If this is a .HL1 or 2,
+     then a .BLANK 1  is  simulated,  otherwise,  a  #-#  is
+     simulated so that the following contents will appear on
+     the same line.  Finally, the case is reset and  justify
+     and  fill  are resumed.  A .HL 1 also sets the subtitle
+     to the name of the section.  Note  that  this  subtitle
+     will   only  be  output  if  a  .SUBTITLE  command  has
+     appearred to enable subtitles.   Also,  add  a  command
+     ".APPENDIX  text"  which  is  just like .CHAPTER except
+     that  it  starts  an  appendix.   Appendix  pages   are
+     numbered  with the appendix letter followed by the page
+     number.  Also, add a command  ".DO  INDEX  text"  which
+     merges  the  above  idea (text is the index title) with
+     the  .PRINT  INDEX.   In  particular,  in   a   chapter
+     numberred  document, this forces a new page and centers
+     text.  The  index  pages  are  numbered  with  "INDEX-"
+     followed  by  the page number.  If this command appears
+     in a non-chapter document,  then  it  is  identical  to
+     .PRINT  INDEX.  Beware when enterring the text portions
+     of these commands that a "." will terminate the command
+     unless  it  is quoted.  This is not felt to be a normal
+     problem  since  section  and  chapter  headers  do  not
+     normally contain a dot.
+
+2.67 If the .RIGHT MARGIN command sets  the  margin  to  the
+     right  of the page width, up the page width to this new
+     value.  This will affect only .CENTER commands from old
+     files.   This  will  ensure that the various right side
+     protective tests work correctly.
+
+2.68 Add  the  ability  to  have  alternate  versions  of  a
+     document  generated  from  one  file.  Text which is to
+     appear in all versions should  be  entered  as  before.
+     Text  and  commands  which  are  to  appear in only one
+     variant  should  be  bracketted  by  .IF   and   .ENDIF
+RUNOFF.DOC -- Changes from version 7B to 10          Page 14
+
+
+     commands.   In  particular  the  following commands are
+     introduced:
+          .IF variable start text to be included if variable
+                    is true
+          .IFNOT variable  start  text  to  be  excluded  if
+                    variable  is  true (i.e., include if the
+                    variable is false)
+          .ELSE variable start text to be included  only  if
+                    the previous text was excluded
+          .ENDIF variable end of conditional text
+          .VARIABLE    name,flagon,flagoff    declare    the
+                    existence  of  a  variable named "name".
+                    Flagon and flagoff are single characters
+                    to  be  used  to  indicate  included and
+                    excluded text when a draft is printed
+     If the standard version of output is requested  by  not
+     specifying  a  /VARIANT  switch,  all the variables are
+     declared to be false.  Variables can be declared to  be
+     true  by  listing them as values of the /VARIANT switch
+     (e.g.,    /VARIANT:A    for     just     variant     a;
+     /VARIANT:A/VARIANT:B  or  /VARIANT:(A,B) for variants A
+     and  B  together).   Also,  add  switch  /DRAFT.   This
+     specifies  that all conditionals are to be processed in
+     both modes so that all versions of the  manual  can  be
+     reviewed.    It   implicitly   sets   /SEQUENCE  unless
+     /NOSEQUENCE was  specified.   If  sequences  are  being
+     output,  then  the  flag  characters from the .VARIABLE
+     command are used in the left  margin  to  indicate  all
+     conditional text.
+
+2.69 Add options to the .NUMBER command to allow the user to
+     specify  the  current  number  of  various  types.   In
+     particular:
+     .NUMBER APPENDIX n      sets the appendix
+     .NUMBER CHAPTER n       sets the chapter number
+     .NUMBER LEVEL a,b,c...  sets the number of the next .HL
+                             (section) to a.b.c...
+     .NUMBER LIST d,a        sets the list counter at  depth
+                             d to value a
+     .NUMBER INDEX           sets the chapter to "INDEX"
+     .NUMBER PAGE n          sets the page number
+     .NUMBER SUBPAGE n       sets the subpage letter
+     .NUMBER n               still sets the page number
+     Note that these set the number for the next appropriate
+     command.   Thus,  they  actually  set the number to one
+     less than specified.  Add  .NONUMBER  which  suppresses
+     the  page  numbers  from  the  document.   Any  .NUMBER
+     command will restore them.
+
+2.70 Add command .NOSUBTITLE.  Any  .SUBTITLE  command  will
+     restore   the   subtitle.    The   .NOSUBTITLE  command
+     suppresses  subtitles  and  is  primarily   useful   to
+     suppress the automatic subtitles generated by the .HL 1
+     commands.  Also, clean up the header logic so  that  if
+     there  is  no  subtitle, the line it would appear on is
+RUNOFF.DOC -- Changes from version 7B to 10          Page 15
+
+
+     eliminated.  If both the title is missing and .NONUMBER
+     has  been specified, then the line containing them will
+     also be omitted.  Eliminate the blank line  before  the
+     title.   The  effect  of  these changes is to make more
+     lines fit on the page:
+          if title & subtitle           1 more line
+          if no subtitle                2 more lines
+          if neither                    3 more lines
+     If compatibility with old documents is  desired,  start
+     with  a  .PAGE  SIZE  n where n is 58-the number of new
+     lines shown above.  Add  a  new  switch,  /LINES  which
+     specifies  the  initial  page  length.   Also add a new
+     switch, /WIDTH which specifies the initial page width.
+
+2.71 Add a new capability, to create  input  to  TYPESET-10.
+     Three  formats of typesetting device are available, the
+     TXT driven 6-points, the  CAT,  and  the  line  printer
+     driven  at  a  1:1  ratio.   This  is  invoked  by  the
+     following switches:
+          /TYPESET:CAT   copy to CAT
+          /TYPESET:LPT   copy to LPT:
+          /TYPESET:TXT   copy to TXT
+     Except when outputting  for  the  LPT,  all  horizontal
+     spacing  is  multiplied  by  36/page width.  Characters
+     which  are  not  normally  available  are  turned  into
+     macros,  so  they  can  be defined in the TXT6 setup to
+     produce the correct results.  All RUNOFF formatting  is
+     simulated.   All  page  controls are turned into macros
+     which will be implemented in  TYPESET  at  some  future
+     time.   The  footnotes are issued at the next break and
+     are set off  from  the  main-line  text  by  a  row  of
+     hyphens.   They  are  issued  in  a reduced point size.
+     Chapter and section headers are  issued  as  macros  to
+     allow   special  fonts  to  be  used.   Underlining  is
+     converted to italics.  Also  add  a  command,  .TYPESET
+     which  allows direct input to TYPESET-10.  This command
+     suppresses the implied space at end of line so  it  can
+     be  given in the middle of a word.  It is filled with a
+     series of one or more of the following objects:
+     [t-10 command]          TYPESET-10 command
+     <comment>               comment string
+     "string"                arbitrary  string  (quotes  get
+                             stripped;  quote is represented
+                             as a double quote)
+     /char                   TYPESET-10 command
+     +char                   PI character
+     SPACE                   space to output here
+     BOLD, ITALICS, SMALLCAP, SLANT switch to this font;  if
+                             followed  by something, regular
+                             face will be restored at end of
+                             this  command;   if  at  end of
+                             command, face sticks until next
+                             .TYPESET
+     REGULAR                 switch to regular face
+RUNOFF.DOC -- Changes from version 7B to 10          Page 16
+
+
+2.72 Add the user ability to extract only  portions  of  the
+     output.   This  can  be  done  by specifying either the
+     input or output ranges to be  included.   If  both  are
+     specified,  then  both  constraints  must  be satisfied
+     simultaneously.  The input and  output  ranges  can  be
+     given  as  several  ranges,  in which case, each of the
+     ranges will be produced (in the document  order).   The
+     new switches are /IRANGE to specify the input range and
+     /ORANGE to specify the output  range.   Each  takes  as
+     arguments the following:
+          "a/b:c/d" page b line a through page d line c
+          "/b:/d"   page b line 1 through page d last line
+          "a/b"     page b line a through the end
+          "/b"      page b line 1 through  the  end  of  the
+                    file
+          ":c/d"    start through page d line c
+          ":/d"     start through page d last line
+          "a/b:c"   page b lines a through c
+     The page numbers ("b" and "d") can be a simple  decimal
+     number   for   non-chapter   documents  or  a  compound
+     chapter-page  number  if  chapter  document.   Compound
+     numbers  are  two  decimal  numbers separated by "-" in
+     which the first number  is  the  chapter  number.   The
+     chapter   number   field   can  also  be  a  string  of
+     alphabetics (usually one) which is the  appendix.   The
+     chapter  number  field can also be "index" to represent
+     the index.  Page and line numbers can also  be  "^"  to
+     mean top (1) or "*" to mean bottom (infinity).  If more
+     than one range is needed,  they  can  be  separated  by
+     commas and the set enclosed in parentheses.
+
+2.73 Clear  any  hanging  indent   on   commands   such   as
+     .PARAGRAPH, .PAGE, and .HL.
+
+2.74 Detect illegal commands  inside  a  footnote.   Mostly,
+     these  are  ones  which  affect the paging behaviour of
+     RUNOFF.  However, there is  one  restriction,  the  tab
+     stops can not be changed inside a footnote.
+
+2.75 (SPR 10-13004)  If  there  is  a  string  of  the  flag
+     characters  which  control case (^ and \), use the last
+     one.   Also,  make  a  single  ^  force  a  lower  case
+     character to upper case.
+
+2.76 When underlining, include the  underline  under  spaces
+     which are quoted by "_".
+
+2.77 Speed up output slightly by removing the extra carriage
+     returns  (leave  just  line  feeds)  on the blank lines
+     introduced by .SKIP and similar commands.
+
+2.78 Clean up the processing of .NOFILL when the input  line
+     is  longer than the output.  Also clean up the handling
+     of .NOFILL .JUSTIFY to in fact work.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 17
+
+
+2.79 Add a new capability to produce change bars.   This  is
+     enabled  by the command .ENABLE BAR and can be disabled
+     again by .DISABLE BAR if needed.  These should probably
+     only be given at page breaks.  Whenever change bars are
+     enabled, the left edge of the printed page  is  shifted
+     right  three  columns  to  make  room for the potential
+     change bar.  The range of a change bar is bracketted by
+     .BEGIN BAR and .END BAR.  The default change bar is the
+     ASCII vertical bar (174).  This can be changed  by  the
+     switch  /BAR:ch  where  ch  is either octal or a single
+     character in quotes.  If the terminal does not  support
+     174, the most common alternate is 134 (backslash) which
+     can be obtained by just saying /BAR.   If  change  bars
+     are  to be suppressed, the switch /BAR:0 or /NOBAR will
+     do this.
+
+2.80 Add  command   .NO SPACE   which   is   equivalent   to
+     concatenating  two  lines  together  without  the space
+     which RUNOFF normally assumes for  the  carriage-return
+     line-feed.   This  is  useful  when  a  command must be
+     inserted where there is not blank in a line  (e.g.,  an
+     .IF or bar command).
+
+2.81 Add  switches  /NUMBER  to   enable   page   numberring
+     (default),  /PAGING  to  enable  splitting  into  pages
+     (default),  /PERIOD  to  initialize  to  .PERIOD   mode
+     (default)   and   complementary   switches   /NONUMBER,
+     /NOPAGING, and /NOPERIOD.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 18
+
+
+3.0  KNOWN WARNINGS, BUGS, AND DEFICIENCIES
+
+3.1  Since previous versions  of  RUNOFF  did  little  error
+     checking,  this  version  will frequently detect latent
+     errors in old RUNOFF files.  In particular, files which
+     indented  to  the left of the left margin such that the
+     left edge of the page is exceeded will now produce  the
+     warning RNFNIA.
+
+3.2  Since previous  versions  of  RUNOFF  allowed  junk  to
+     follow  the  valid arguments of a command, this version
+     will frequently produce the warning RNFJEC.
+
+3.3  Since this version fits more lines to a page  if  there
+     is  no  subtitle  the  page  breaks  occur at different
+     places.  In addition,  since  .PARAGRAPH  now  does  an
+     implied  .TEST  PAGE,  page  breaks  occur at different
+     places.
+
+3.4  WILD does not fully support the notation "+" as meaning
+     file  concatenation.   As  a result, this should not be
+     used  with  RUNOFF  since  it  will  produce  undesired
+     results.  Similarly, commands of the form:
+        *RS = R, S
+     will place R onto RS and then S  onto  RS,  superseding
+     the  R.  The command processor is designed to work best
+     on a string such as:
+        * = R, S
+     in which each input file name will  be  copied  to  the
+     output file name in turn.
+
+3.5  Avoid using the unguaranteed abbreviations to get short
+     commands since they may stop working in future versions
+     as additional commands are defined.  Instead, adopt the
+     guaranteed  one-three  letter abbreviations.  Thus, for
+     example,  it  is  ok  to  abbreviate  AUTOPARAGRAPH  as
+     AUTOPARAG  or  PARAGRAPH  as  PARAG or TAB STOPS as TAB
+     STOP since the abbreviation is still long, but it is  a
+     poor idea to abbreviate JUSTIFY as JU;  better would be
+     to use the guaranteed abbreviation of J.
+
+
+
+
+
+4.0  CHANGES IN INSTALLATION INSTRUCTIONS
+
+     RUNOFF  is  now  assembled  with  the  UNIVERSAL  files
+     JOBDAT,  C, and SCNMAC which are assumed to be on UNV:.
+     It is loaded with SCAN, HELPER,  and  WILD,  which  are
+     assumed to be on REL:.  The command is simply:
+          .LOAD RUNOFF
+     and these files are fetched automatically by SEARCH and
+     .REQUEST  pseudo-ops to MACRO.  Replace RUNOFF.SAV with
+     RUNOFF.SHR on  SYS:.   Add  the  files  RUNOFF.HLP  and
+RUNOFF.DOC -- Changes from version 7B to 10          Page 19
+
+
+     RUNINP.HLP to HLP:.  Other related files include RUNOFF
+     and RUNINP .RNH files which produce  these  .HLP  files
+     when  processed  through  RUNOFF version 10.  Since the
+     commands which  automatically  format  the  output  are
+     based   primarily   on  the  DEC  documentation  format
+     conventions, they are included here  in  a  file  named
+     RNFDOC.RNS  which  is  a  preliminary,  and  incomplete
+     draft.
+
+
+     INCOMPATIBILITIES WITH PREVIOUS VERSIONS:
+     1.  Default case is UPPER, used to be LOWER.   Can  use
+     /CASE:LOWER for compatibility.
+     2.  Default spacing is  1,  used  to  be  2.   Can  use
+     /SPACING:2 for compatibility.
+     3.  Number of lines per page is  changed  (see  section
+     2.70) for details.
+     4.   Control  characters  are  discarded,  used  to  be
+     accepted.  Can use /CONTROL for compatibility.
+     5.  Default underline character is  changed.   Can  use
+     /UNDERLINE:ch for compatibility.
+     6.  The word "PAGE" is no longer in  upper  case.   Can
+     use /HEADER:UPPER for compatibility.
+     7.  Double space is inserted after more than just  ".".
+     No specific compatibility switch.
+
+     All the above switches can be placed in SWITCH.INI,  as
+     can all other switches.
+
+
+
+
+
+5.0  INTERNAL CHANGES
+
+5.1  Change to use TWOSEG macro.
+
+5.2  Run through PGMFMT to tidy up the listing.  Change  the
+     names  of  the  characters  and  flags for consistency.
+     Move some of the flags to core to keep the flag AC  for
+     hi-speed ones.  Eliminate unnecessary flags.  Rearrange
+     most subroutines to bring the listing into  a  rational
+     order.   Add  a  REVISION  HISTORY section to track all
+     changes.  Clean up the  listings  to  produce  a  clean
+     program  logic  manual  using  the  .SELECTION feature.
+     Standardize the names of command subroutines.
+
+5.3  Fix error messages to print the first 30 characters  of
+     the command in error by saving the command in a special
+     buffer.
+
+5.4  Copy .RBVER from the input file to the output file.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 20
+
+
+5.5  Estimate the size of the output file  (.RBEST)  as  the
+     same as the input file.
+
+5.6  Change the internal end-of-file code to -1 to  simplify
+     the  tests  on it.  Add a macro so the JUMPLs appear in
+     the CREF.
+
+5.7  Add flag LCHPVT on the  character  AC  to  keep  quoted
+     characters  from  matching  any  of the logic.  Add the
+     internal code C.QUTI to store  the  quote  in  internal
+     strings.
+
+5.8  Add defensive code to all buffers to  prevent  overflow
+     with  the  resulting  error  message  "?   INPUT BUFFER
+     OVERFLOW".
+
+
+
+
+
+6.0  SUGGESTIONS
+
+     There are many suggestions including several SPRs which
+     have included code in the form of SOUP .COR files.  Not
+     all of these have yet been implemented.  Some of  these
+     suggestions are listed here:
+
+6.1  (SPR 10-6215) Allow the user to specify multiple copies
+     of the output (/COPIES:n).
+
+6.2  (SPR 10-6215) Turn RUNOFF into  an  MTST  simulator  by
+     adding  a  command  .INSERT which prompts the user with
+     the rest of this command and then takes input from  the
+     terminal.   The  insert  text  should probably continue
+     until ^Z is input.  Perhaps there should be  an  option
+     to  input  just one line.  There should be an option to
+     exclude commands for input.
+
+6.3  Add  a  command  .OUTLINE  which  causes  the   section
+     numbering logic to build an outline instead of numbered
+     sections.
+
+6.4  Implement hyphenation as an option.  Also recognize "-"
+     as  a  legitimate  break  within  a  word.   Add a flag
+     character which allows a line break but does not appear
+     in the output text.
+
+6.5  (SPR  10-4522)  Automatically  generate  a   table   of
+     contents   and   allow   cross-page  and  cross-section
+     references symbolically.
+
+6.6  Add a KWIC facility to automatically  include  specific
+     or most words in the index.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 21
+
+
+6.7  Add a mode to automatically capitalize the  first  word
+     of each sentence.
+
+6.8  Options should be added to take  advantage  of  special
+     terminals  (such  as  red/black  shift) and to generate
+     bold-face by overprinting.
+
+6.9  Add an option to list commands (on right?)  to  aid  in
+     reviewing  drafts.  Perhaps teach RUNOFF to eat its own
+     output.  Also, error messages should be included in the
+     output.
+
+6.10 Add a picture  building  option  for  things  like  the
+     FOROTS  design  spec,  the  LOKUUO  specification,  and
+     FILSER.FLO.
+
+6.11 (SPR 10-4164) Add a mechanism to tab to  the  right  of
+     the right margin.
+
+6.12 Add the ability to handle multiple columns and to carry
+     table headings across page breaks.
+
+6.13 Add a mechanism  for  formatting  examples  which  does
+     standardized indenting and uses the .LITERAL logic.
+
+6.14 If the words in the index entry are too long, go  to  a
+     second line and indent 4 spaces.
+
+6.15 In .STANDARD 70 mode, place the index in two columns.
+
+6.16 Add the ability to read  from  another  file  including
+     repeatedly selecting consecutive portions of the file.
+
+6.17 Add an option (default on .RNH) to output tabs.
+
+6.18 Modify FILCOM to produce  a  RUNOFF  input  file  which
+     indicates changes from a previous version.  Use this to
+     implement change bars, etc., in a reliable form.  Also,
+     add option to output only those pages with change bars.
+
+6.19 Give full control over the format and content  of  page
+     headers and trailers.
+
+6.20 Implement a multiple column  facility.   Include  table
+     headers at the top of pages having continuations of the
+     table.
+
+6.21 Introduce footnotes which  can  be  referenced  several
+     times  on  a  page  and  appear  only  on  pages  where
+     referenced.
+
+6.22 Add a switch (default if /DRAFT?) which indicates pages
+     with a row of ***** instead of a form feed.  This would
+     conserve paper.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 22
+
+
+6.23 Expand notion of  tab  to  allow  right  justified  and
+     center justified columns.
+
+6.24 Add an option to preserve the input but just  clean  up
+     line  breaks  and  capitalizations.  This would be nice
+     both for normal files and especially for PLMs that  are
+     imbedded in source files.
+
+6.25 Adopt a standard  (controllable)  identification  which
+     separates   footnotes  from  the  preceeding  text  and
+     indents and numbers them  according  to  some  standard
+     format.
+
+6.26 (QAR 2479) Add /UNDERLINE:PROOF to flag caps and always
+     double space.  Don't affect the page numbering by this.
+
+6.27 (QAR 2632) Use comma not hyphen for index entries which
+     range over only two pages.
+
+6.28 (QAR 2632) Handle overflows on .HL2.
+
+6.29 (QAR 2632) In .NOSELECT mode, when .SELECTION has  been
+     set, notice a .SELECT following the comment character.
+
+6.30 (QAR 2496) Add a mode (KEEP)  of  .NOFILL  which  keeps
+     blank  lines.   This  mode  would  continue  each  time
+     .nofill was set.
+
+6.31 (QAR 2497) Add switches to set the physical and default
+     logical  page  lengths.  Add a switch to allow printing
+     accross the line printer page fold.
+
+6.32 (QAR 2498) Add a capability to store text to be  output
+     later.  In particular, allow .FIGURE DEFER to have text
+     contents.
+
+6.33 (QAR  2500)  To  aid  conversion  for  SOS  users,  add
+     .JUSTIFY   RIGHT,  .JUSTIFY  LEFT  (=NOFILL),  .JUSTIFY
+     CENTER, .JUSTIFY WORD (=FILL+NOJUSTIFY),  and  .JUSTIFY
+     TEXT (=FILL+JUSTIFY).
+
+6.34 (QAR  2728)  Add  a  superscripting  and   subscripting
+     facility.
+
+6.35 (QAR 2728) Add a macro facility.
+
+6.36 Expand the TYPESET-10 facility to generate commands for
+     the following RUNOFF commands:  B-n, ELT, ES, FG DEFER,
+     HD, LE (use /G instead of /N), LT, NHD, NNM, NPA,  NST,
+     NM, PA, PS, PX, SPG, ST, T, and X.
+
+6.37 Do a larger .TP for HL2 than for HL3.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 23
+
+
+                 Summary of Error Messages
+
+
+
+
+?RNFCJL CAN'T JUSTIFY LINE
+     The string of input between spaces (and end of line) is
+     greater  than  the  separation  between  left and right
+     margins and therefore does not fit in the  output  even
+     before any attempt to expand spaces.
+
+?RNFDVN DUPLICATE VARIABLE NAME:  ".command"
+     This  variable  command  is  attempting  to  declare  a
+     variable   which   has  already  been  declared.   This
+     declaration will be ignored.
+
+?RNFEFD END FOOTNOTE DOESN'T FOLLOW FOOTNOTE:  ".command"
+     This end footnote command appears at  a  place  in  the
+     file  which  is  not  immediately  following a footnote
+     command and the corresponding footnote data.
+
+?RNFELD END LITERAL DOESN'T FOLLOW LITERAL:  ".command"
+     This end literal command appears at a place in the file
+     which  is  not  immediately following a literal command
+     and  the  corresponding  literal  text.   It   probably
+     reflects  that  the  count  on  the  literal command is
+     incorrect.
+
+?RNFEVL EXCEEDING VARIABLE LIST:  ".command"
+     Only a maximum of 20 variables can be  declared.   This
+     command  is  attempting  to declare the 21-st variable.
+     This and all  further  variable  declarations  will  be
+     ignored, although the message will not be repeated.
+
+?RNFFIF FOOTNOTE INSIDE FOOTNOTE:  ".command"
+     This  command  is  attempting  to  start   a   footnote
+     definition only it occurs within a footnote definition,
+     which is  illegal.   It  probably  indicates  that  the
+     previous footnote definition was never terminated.
+
+?RNFIBO INPUT BUFFER OVERFLOW
+     A string of characters has been input which is so  long
+     between  spaces  (or the right margin is so large) that
+     it has overflowed  the  internal  line  buffer  storage
+     area.
+
+?RNFIFT ILLEGAL IN FOOTNOTE:  ".command"
+     This command is illegal within a footnote.
+
+%RNFIIF ^x IGNORED IN INPUT FILE
+     Control characters are  not  normally  allowed  in  the
+     input  file.   This  character  was  input and is being
+     ignored.  If it should be input, then declare ".CONTROL
+     CHARACTERS" in order to make it legal.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 24
+
+
+?RNFILC ILLEGAL COMMAND:  ".command"
+     This command is illegal for some reason.  Most  reasons
+     are  that  a  key  word  was  not recognized or that an
+     argument was out of range.
+
+%RNFJEC JUNK AT END OF COMMAND:  ".command"
+     The command, after all its arguments,  still  has  some
+     other characters which are not blanks or comments.
+
+[RNFKCF nK CORE - FOOTNOTE]
+     Core was expanded because of  growth  in  the  footnote
+     storage area.  If this repeats indefinitely it probably
+     indicates that the footnote was improperly terminated.
+
+[RNFKCI nK CORE - INDEX]
+     Core was  expanded  because  of  growth  in  the  index
+     storage  area.  In a well indexed document this message
+     should be output occasionally as processing progresses.
+
+?RNFLDE LITERAL DOESN'T END WITH .END LITERAL:  ".command"
+     After a counted literal, the next line is  not  an  end
+     literal  command.   This  probably  indicates  that the
+     count is wrong.
+
+?RNFNEC NOT ENOUGH CORE nK
+     Core has been expanded to the limit of what the monitor
+     is  allowed  to  assign to this job.  The processing is
+     aborted at this point.
+
+?RNFNFS NO FILE SPECIFIED
+     The user has specified some switches or an output file,
+     but has not specified an input file.
+
+%RNFNIA NEGATIVE INDENT ATTEMPTED
+     The sum of the indent and the left margin is less  than
+     zero, meaning that the line should start to the left of
+     the left edge of the paper.  Either the left margin has
+     been  misset  or the indent is wrong.  The indent might
+     be implicit in a  paragraph  or  table  request.   This
+     message  is output only once until the next left margin
+     or SD command.
+
+%RNFNIC ANOTHER n NEGATIVE INDENTS COUNTED
+     This message indicates  how  many  additional  negative
+     indents were discovered since the last NIA message.
+
+?RNFNID NO INPUT DEVICE
+     The user has failed to specify either an  input  device
+     or file.
+
+?RNFODE OUTPUT ERROR xxxxxx
+     The output file has an I/O error whose  octal  code  is
+     included in the message.
+RUNOFF.DOC -- Changes from version 7B to 10          Page 25
+
+
+%RNFSPO SUBPAGE OVERFLOW
+     While incrementing the subpage counter, it  got  larger
+     than  26.  This probably indicates that the end subpage
+     command is missing.
+
+%RNFTFE TOO FEW END COMMANDS
+     When the end of the input was reached  there  were  not
+     the  same  number  of  end  (or  end  list or end note)
+     commands as there had  been  list  and  note  commands.
+     This probably indicates that an end command is missing.
+
+?RNFTMI INSUFFICIENT CORE FOR COMMAND
+     The   user   has   specified   so   many   input   file
+     specifications  that  RUNOFF  could  not  fit them into
+     core.   The  command  should  be  split  into   several
+     commands.
+
+?RNFTMR TOO MANY RANGES
+     The user has specified too many IRANGE or ORANGE  pairs
+     to  fit  in the storage space assigned (20 pairs each).
+     Fewer ranges should be specified.
+
+?RNFTMV TOO MANY /VARIANTS
+     The  user  has  specified  too  many  VARIANTS  in  the
+     command.   Only  20  variants  can  be specified in one
+     command.
+
+%RNFTNN TOO MANY NESTED NOTES
+     More than 6 nested notes and lists has  occured.   This
+     probably  indicates  that  one  or more end commands is
+     missing.
+
+?RNFUKV UNKNOWN VARIABLE:  ".command"
+     On an if, ifnot, else, or endif command a variable  was
+     referenced   which  was  not  declared  in  a  variable
+     command.  This usually indicates a spelling error or  a
+     missing variable command.
+
+%RNFUME UNMATCHED END COMMAND
+     More end  commands  have  occured  than  list  or  note
+     commands.
+
+?RNFVVZ /VARIANT VALUE ZERO
+     In a VARIANT  switch,  the  value  was  null  or  zero.
+     Variants always have names.
+
+
+[End of RNF10.DOC]

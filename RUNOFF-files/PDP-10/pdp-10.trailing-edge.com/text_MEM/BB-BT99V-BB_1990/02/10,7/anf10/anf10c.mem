@@ -1,0 +1,742 @@
+
+
+
+                          ANF10 - The Protocol
+
+                              Tom Wimberg
+
+                        University of Louisville
+
+                      Louisville, Kentucky  40206
+
+Presentation by Eric J.  Werme, Digital Equipment Corporation.   Writeup
+by  Scott  G.   Robinson, University of Arizona Computer Center, Tucson,
+Arizona 85721.
+
+                              Introduction                              ____________
+
+ANF-10 is a communication  protocol  that  allows  for  complex  network
+topologies   and  support  of  unit  record,  terminal,  and  task  data
+transfers.  ANF-10,  implemented  to  meet  needs  of  the  DECsystem-10
+environment,  was  available  before  the  DECNET  protocols  of similar
+functionality.  Although the bases for ANF and DECNET were the same, the
+protocols vary widely in message format and sequencing.
+
+
+          S*                      N*,S*                    S*
+     +--------+                 +--------+              +--------+
+     | DC72NP |                 |  DN81  |              | DC72NP |
+     |  DN92  |                 |  DN82  |              |  DN92  |
+     +--------+                 +--------+              +--------+
+               \               /          \            /
+                \             /            \          /
+                 \    N*     /              \   N*   /
+                 +----------+               +--------+
+                 |  DN87S   |               |  DN87  |
+                 |  DN85    |---------------| DC75NP |
+                 +----------+               +--------+
+                      |                          |
+                      |                          |
+                    N*|S*                      N*|S*
+                 +----------+               +--------+
+                 | DEC-10   |               | DEC-10 |
+                 | System   |               | System |
+                 +----------+               +--------+
+
+                     Example Network Configuration
+
+
+                   Legend: N* = Non-Sequential Nodes
+                           S* = Sequential Nodes
+
+
+ANF-10 has two kinds of node processing:  sequential and non-sequential,
+the  difference  being  whether  a  node  can  process numbered messages
+received out of sequence.  Non-sequential nodes hold  messages  received
+out  of  sequence  for  sequential  nodes  that  are  neighbors to them.
+Messages whose destination is the non-sequential node itself will be put
+in   sequence   before   processing   on  those  messages  begins.   The
+non-sequential nodes will issue messages to their neighboring sequential
+
+
+
+nodes   whenever   the   next   message   in   sequence   is  available.
+Non-sequential  message  processing  allows   for   complex   topologies
+consisting of alternate routing paths among nodes.
+
+Data transfer in ANF is supported  for  terminals,  card  readers,  line
+printers, and processes (task-to-task).  Virtual terminal facilities are
+available among hosts that support  an  MCR  (monitor  command  routine)
+device.   A  user from any network terminal can SET HOST to another node
+that has an MCR.  Protocol fields for other devices are defined but  not
+necessarily supported by Digital.
+
+
+
+                        Protocol Characteristics                        ________ _______________
+
+The ANF protocol consists of two parts:  the  Network  Command  Language
+(NCL),  similar  in  function  to NSP in DECNET;  and the Device Control
+Protocol (DCP), similar in function to DAP in DECNET.
+
+NCL messages consist  of  three  types:   Unnumbered  Control,  Numbered
+Control, and Numbered Data.  The formats are similar, as show below:
+
+        Unnumbered Control    ----> NCT (DNA SNA) NCA NCN OPD
+        Numbered Control      ----> NCT DNA SNA NCA NCN 0 CM
+        Numbered Data         ----> NCT DNA SNA NCN DLA DCP
+
+The  NCT  field  is  the  Network  Control  message  Type  and  contains
+information  used  to determine the kind of node processing and the type
+of message.  The DNA and SNA fields are the Destination Node Address  (a
+number)  and the Source Node Address (a number).  These fields determine
+where a message is routed within the network.   The  NCA  field  is  the
+Network  Control  Ack  number.   This  field  is the last message number
+received by the SNA from the DNA.  The NCN field is the Network  Control
+message  Number.   The  field  is  incremented for each numbered message
+transmitted from SNA to DNA.  This field is inserted into the NCA  field
+ACKing  a  numbered message.  The OPD field stands for Optional Data and
+depends on the NCT message type  subfield.   The  CM  field  is  an  NCL
+control  message  that  is  used to establish and control logical links,
+network topology, and nodal configuration.  The DCP field  is  dependent
+upon  the  destination  device  for  a  logical  link  identified by DLA
+(Destination Link Address) and is a Device Control Protocol message.
+
+
+Field Definitions_____ ___________
+
+The NCT extensible field appears as:
+
+Bits         B7    B6    B5    B4    B3    B2    B1    B0
+          +-----+-----+-----+-----+-----+-----+-----+-----+
+          | EXN | NSN |  I  |  TR |  RH |  Message type   |
+          +-----+-----+-----+-----+-----+-----------------+
+
+          Where  EXN is the extensible field bit
+                 
+                 NSN is a 1 for messages from a
+                         non-sequential node
+
+                 I   is a 1 to indicate this message
+                         is an interuupt message
+
+                 TR  is unused but is dedicated to
+                         indictae this is a traced
+                         message
+
+                 RH  is a 1 if the DNA and SNA fields
+                         are included (routing header)
+
+                 Message Type is a number indicating
+                         the type of message this is:
+
+
+
+
+                                   0 = Numbered Message
+                                   1 = NCL ACK
+                                   2 = NCL NAK
+                                   3 = NCL REP
+                                   4 = NCL START
+                                   5 = NCL STACK
+                                   6 = Node-ID
+                                   7 = Unused
+                                   Types 1-6 are Unnumbered Control
+                                   Messages.
+
+
+The DNA and SNA fields contain the extensible binary node  number.   The
+NCA and NCN fields are 3-bit message numbers.
+
+The OPD field for Unnumbered Control messages apply only to Node-ID, NCL
+START,  and  NCL  STACK.   For  other messages this field is empty.  The
+format of the field is NNM SNM SID.  NNM is the node number  (extensible
+binary)  for  the  SNA;   SNM  is the station name and is the extensible
+ASCII name for the SNA;  SID is the software identification field.   SID
+has  two  parts:  the extensible ASCII name and version of the operating
+system, and the extensible ASCII creation date.
+
+Formats of the DM and DCP fields will be presented later.
+
+Unnumbered Control Messages__________ _______ ________
+
+Processing of unnumbered control messages also differentiates sequential
+and  non-sequential  nodes.   Sequential  nodes  can  only  process  and
+generate Node-Id messages and always ignore the NCA and NCN fields.
+
+The functions of NCL ACK, NAK, REP,START, and STACK message are  similar
+to  DDCMP messages of the same name and will not be discussed here.  The
+Node-ID message is used to  initialize  communication  between  neighbor
+nodes.   The Node-ID is the first NCL message issued after DDCMP startup
+on a communication line and is always sent without a routing header  (no
+DNA  and  SNA).   Thus  it  can  only  be exchanged with neighbors.  The
+Node-ID  contains  two  important  pieces  of  information   about   the
+characteristics of a particular node:  1) the node number (and name) and
+2) whether a node  is  sequential  or  non-sequential.   If  a  node  is
+sequential  it  must  be connected to the network (terminated) through a
+non-sequential node.
+
+NCL Startup___ _______
+
+"NCL Startup" applies to what must be done to  bring  a  node  into  the
+network  and  begin  numbered  message exchange.  Startup for sequential
+nodes simply involves an exchange of  Node-ID  with  its  non-sequential
+neighbor.   When  the  exchange  is  complete,  numbered messages can be
+communicated.
+
+Startup for non-sequential  to  neighboring  sequential  nodes  involves
+exchanging  Node-IDs.  Startup for a non-sequential neighbor involves an
+exchange of Node-IDs followed by  an  NCL  START-STACK-REP-ACK  sequence
+similar  to  DDCMP.   The  message  numbering  (NCN  field) applies on a
+
+
+
+node-to-node basis as opposed to  the  numbering  on  logical  links  in
+DECNET.
+
+Sequential Node Startup
+  
+   Node-ID ----------------------------------------> (Received by Non-
+                                                      Sequential Node)
+          <----------------------------------------  Node-ID
+          <----------------------------------------  Numbered messages
+           -------------------------------------->
+   
+   
+Non-Sequential Node Startup
+  
+   Node -ID --------------------------------------->
+           <---------------------------------------- Node-ID
+   NCL START -------------------------------------->
+           <---------------------------------------  NCL STACK
+           <---------------------------------------  NCL REP
+   NCL ACK  --------------------------------------->
+           <---------------------------------------  Numbered Messages
+            --------------------------------------->
+
+
+Numbered Control Messages________ _______ ________
+
+Numbered control messages, the CM field in the NCL, formats  above,  are
+differentiated  from  numbered  data  messages  by a zero (0) DLA field.
+These messages  are  used  for  network  and  logical  link  management.
+Network    management    functions   are   associated   with   topology,
+configuration, and station control.  Logical link  management  functions
+are  for  logical  link origination, termination, and flow control.  The
+format of CM is:
+
+Network Management:
+
+   Neighbors             --> CNT 003 NNM0 LVL0 NNM1 ... LVLn
+   Request Config        --> CNT 004
+   Configuration         --> CNT 005 OBJ0 NDV0 PID0 OBJ1 ... PIDn
+   Station Control       --> CNT 007 STC
+  
+Logical Link Management:
+
+   Connect               --> CNT 001 DLA SLA DPN SPN MML FEA
+   Disconnect            --> CNT 002 DLA SLA RSN
+   Data Request          --> CNT 006 DLA DRQ
+    
+
+The CNT field is  an  extensible  binary  number  giving  the  count  of
+remainig  characters in this control message.  Because of the CNT field,
+control messages can be stacked in a numbered message.  DLA and SLA  are
+the  extensible  binary  logical link addresses, one for the Destination
+node and the other for the Source node.  OBJ is the object  type  for  a
+device.  NDV is the number of that object type at that node.  STC is the
+station control protocol message and will not be discussed here.   Other
+fields will be discussed as they are used.
+
+
+
+Network Management_______ __________
+
+After NCL Startup several network management functions must be performed
+to  enable  other  nodes in the network to know about the node that just
+came on-line.  This is accomplished by the non-sequential nodes  sending
+Neighbors   messages   to  all  known  nodes.   These  messages  contain
+information regarding the node number (NNM) and network level (LVL)  for
+all  nodes it currently knows.  This means that each non-sequential node
+must keep information about all nodes  in  the  network.   As  might  be
+surmised,  this  takes  a lot of storage in large networks.  This scheme
+also has the side effect of having  many  Neighbors  messages  exchanged
+whenever  a  node  comes on-line.  An interesting correctness proof that
+applies  to  the  ANF  scheme  of  topology   information   appears   in
+Communications  of  the  ACM, July 1977, titled A Correctness Proof of a______________  __  ___  ___                    _ ___________ _____ __ _
+Topology Information Maintenance Protocol  for  a  Distributed  Computer________ ___________ ___________ ________  ___  _  ___________  ________
+Network  by  William  D.  Tajibnapis of the MERIT Computer Network.  The_______
+MERIT scheme is a subset of the ANF scheme in  that  it  only  exchanges
+information  about  nodes that have changed status instead of the entire
+information base.
+
+The Neighbors message is used  in  non-neighbor  nodes  to  perform  NCL
+Startup, much like Node-ID message.  A START-STACK exchange must be done
+to obtain information such as node name.  It makes no  difference  to  a
+non-neighbor  node  whether a node is sequential.  The non-neighbor node
+always communicates with it non-sequentially  because  sequential  nodes
+terminate in non-sequential ones, i.e., terminating non-sequential nodes
+provide a non-sequential interface  for  their  sequential  nodes.   The
+START-STACK  also  establishes  a path by which numbered messages can be
+exchanged with the new node.
+
+Another aspect of Network Management consists of each node's features or
+devices  characterized  by  object  types  (OBJ).   A  node  wishing  to
+determine another node's configuration  sends  a  Request  Configuration
+message  to  it.   The  other  node  would  respond with a Configuraiton
+message reflecting its device and functional  characteristics  including
+the  count  (NDV)  of  each  object  type  available.  The Configuraiton
+information can be used to determine whether a device exists at  another
+node  without  an  attempt  to  establish a logical link to that device.
+Normally, a Configuration message is sent after NCL Startup  from  other
+nodes  in  the  network  to  a  node  that  has  just come on-line.  The
+Process-ID (PIP) field in a Configuration message is a zero byte.
+
+
+    Object types:
+   
+             0 - MCR   Monitor Commands Routine
+             1 - TTY   Async Terminals
+             2 - CDR   Card Reader
+             3 - LPT   Line Printer
+             4 - PTR   Papertape Reader
+             5 - PTP   Papertape Punch
+             6 - PLT   Plotter
+             7 - MTA   Magnetic Tape
+            10 - DTA   DECtape
+            11 - TSK   Process (Task)
+            12 - RDE   Remote Data Entry
+
+
+
+
+
+Logical Link Management_______ ____ __________
+
+A logical link is a data path from a  source  object  to  a  destination
+object on the network.  Multiple logical links are multiplexed into each
+physical link with each logical link having a source link address  (SLA)
+and  a  Destination  Link Address (DLA) associated with it.  The SLA and
+DLA are established by a Connect procedure.  In general, the source node
+initiating the connection issues a Connect Message with no DLA specified
+(zero) and the SLA field set to a number that it will associate with the
+link.   The  destination  node will either confirm or reject the connect
+request.  To confirm  the  connection,  the  destination  node  sends  a
+Connect Message with the DLA field set to the received SLA and supplying
+a number in the SLA field that it will  associate  with  the  link.   To
+reject the connection, a Disconnect Message is sent with a DLA being the
+SLA of the Connect message and a zero SLA field.  The RSN byte  contains
+the reason for the disconnect.
+
+DPN stands for Destination Process Name and SPN for Source Process Name.
+Each  consists  of two parts:  1) Object type and 2) Process-ID (Unit or
+Task Identifier).  The Process-ID for  TSK  objects  is  the  extensible
+ASCII  Identifier  (similar  to  a  fielname)  and PPN (UIC).  For other
+object types this field is the unit number of that object on that  node.
+The  DPN  is used in a Connect Initiate to determine which device is the
+destination of the logical link.  The DPN and SPN fields in the  Connect
+Message  provide  enough  information  about  the source and destination
+objects so that some validity checking can be performed.
+
+The ANF flow control scheme allows the destination of data on a  logical
+link  to determine the rate at which data messages (DCP) are transmitted
+to it.  This is accomplished by the Data Request message.  The DRQ field
+specifies  the  number  of  free  buffers  available  for  a destination
+transfer.  This number is  added  to  any  data  request  count  already
+associated  with  the  DLA.  This mechanism can be overridden by sending
+the DCP message as an Interrupt message (NCT subfield I set to 1).   All
+input from TTY objects is sent as interrupt messages.  There are no data
+requests from the host to the TTY object.
+
+Logical link termination is accomplished by a disconnect procedure.  The
+node  terminating  the logical link issues a Disconnect with the DLA and
+SLA filled with the numbers for this link and the  RSN  byte  set  to  0
+(Normal Disconnection).  The destination node responds with a Disconnect
+Confirm which is a Disconnect  message  with  the  SLA  being  0.   Upon
+receipt of the Disconnect Confirm the logical link is terminated.  Other
+RSN codes are:  1) object type not available;  2) too many connects;  3)
+too  many  connects to process;  4) proccess (OBJ, Task Identifier) does
+not exist;  10) reassign this link to  another  node,  NNM  follows  RSN
+byte.  An RSN of 10 is how SET HOST is effected.  The current host sends
+a Disconnect message on a TTY object's DLA with RSN of  10  and  a  node
+number  from  the SET HOST.  The node issues a Disconnect Confirm to the
+original host and attempts a Connect Initiate  to  the  new  host's  MCR
+object.   If  this  is successful the terminal is now on the other host.
+If it is unsuccessful DN92 and DN8x software attempts a reconnect to the
+previous host.  If all this fails the user gets TTY NOT CONNECTED.
+
+
+
+Termination of logical links can occur when a  node  goes  off-line  and
+there  are  logical  links  to  it.   This  condition  is  determined by
+receiving a Neighbors message without  that  node  listed  in  it.   The
+Neighbors message processor removes all logical links to that node.
+
+Example of Logical Link Creation
+
+  Connect Confirm
+
+  CI(0,7)  ------------------------->
+          <--------------------------  CC(7,1)
+          <--------------------------  DRQ(7,2)
+
+  Connect Reject
+
+  CI(0,7)  ------------------------->
+          <--------------------------  CR(7,0) or DC(7,0)
+
+
+Logical Link Termination
+
+  DI(1,7)  ------------------------->
+          <--------------------------  DC(7,0)
+
+  CI(DLA,SLA)   - Connect Initiate
+  CC(DLA,SLA)   - Connect Confirm
+  CR(DLA,SLA)   - Connect Reject
+  DC(DLA,SLA)   - Disconnect Confirm
+  DI(DLA,SLA)   - Disconnect Initiate
+  DRQ(DLA,SLA)  - Data Request
+
+
+                         Numbered Data Messages                         ________ ____ ________
+
+
+Numbered data messages are distinguished from numbered control  messages
+by  the specification of the DLA (not 0) with which they are associated.
+The numbered data messages contain the Device Control  Protocol  message
+that is used in data transfer and device characteristic control.
+
+
+
+Device Control Protocol______ _______ ________
+
+The Device Control Protocol is the DCP field in numbered data  messages.
+Its format is:
+
+  Supported Messages:
+
+            Data          -- CNT <001> (DATA)
+            Data W/ EOR   -- CNT <002> (DATA)
+            Status        -- CNT <003>  STC STD
+            Control       -- CNT <004>  DCT CDT
+ 
+  Unused Messages:
+
+            User ID       -- CNT <005>  PPN PSWD UNAME ACCT GROUP
+            File Spec     -- CNT <006>  FST FEA FDES
+
+
+
+Data is transferred on a logical link with the  Data  and  Data  W/  EOR
+messages.   Both  forms of data messages are processed identically.  The
+CNT field is the number of characters excluding the CNT  field  in  this
+DCP  message.   The  CNT  field allows for stacking DCP message for each
+DLA.
+
+The Status message contains two fields, STC and STD.  STC is called  the
+Status  Code  and STD is called the Status Data.  The STC specifies what
+is to be done with the STD.  STC can be 0  for  STD  being  the  current
+device  status;   1 for STD containing bits to get in the device status;
+2 for STD containing bits to clear in the device status;   3  for  fatal
+error  (transfer  abort).   STD bit definitions are device dependent and
+will be discussed as each device is presented.
+
+The Control message contains two device dependent fields, DCT  and  CDT.
+DCT  is  called  Device  Control  and  CDT  is called Control Data.  The
+Control message is used primarily on TTY objects.
+
+
+                          Device Dependencies                          ______ ____________
+
+CDR Objects___ _______
+
+Card reader objects use a compressed data  format  and  allow  for  very
+little  device  control.   The data consists of bytes with the following
+format:
+
+       Bytes                           Meaning
+    --------------------+-------------------------------------------
+  
+      lccccccc            Seven-bit coded character
+
+      0ldddddd            Blank compression
+
+      00leeeee            Repetition of next byte
+
+      0000ffff            Unencoded format
+
+
+
+      gggggggg
+
+         ccccccc is the following code:
+                 Number          Punches in Rows 1-0
+                   0             None
+                   1             1
+                   2             2
+                   3             3
+                   4             4
+                   5             5
+                   6             6
+                   7             7
+                  10             8
+                  11             9
+                  12             8-2
+                  13             8-3
+                  14             8-4
+                  15             8-5
+                  16             8-6
+                  17             8-7
+
+                 Number          Zone Punches
+                   100           12
+                    40           11
+                    20           0
+
+      dddddd is count of blanks
+
+      eeeee is count of repetitions (0-31)
+
+      ffffgggggggg is twelve-bit unencoded character
+
+The Status bits (STD) are:
+
+         +-------------------------------+
+ Byte 0  |EXN| P | J | F | E | R | H |MER|
+         +-------------------------------+
+
+         +-------------------------------+
+ Byte 1  |   |   |   |STP|OFL| 0 |HEF|EOF|
+         +-------------------------------+
+
+         EXN = Extensible bit
+           P = Pick fail
+           J = Jam
+           F = Stacker full
+           E = Bad Punch
+           R = Registration error
+           H = Hopper empty
+         MER = Master error bit
+
+         STP = Reader has stopped
+         OFL = Off-line
+           O = Overrun
+         HEF = Hardware EOF
+         EOF = End-of-file card detected
+
+
+
+
+There are no DCT and CDT fields defined for the CDR object.
+
+
+LPT Objects___ _______
+
+Line Printers use a compressed data format similar to  the  CDR  object.
+Very  limited  control over the line printer can be performed.  The data
+format is:
+
+                Data                   Meaning
+           ---------------+------------------------------
+
+                lccccccc       Non-repeated ASCII character
+                0ldddddd       Number of repeated blanks
+                00leeeee       Number of repetitions for next character
+
+
+The Status bits (STD) are:
+
+         +-------------------------------+
+ Byte 0  |EXN|HMR|SLW|OFL|PAJ|OUT|MER|FTL|
+         +-------------------------------+
+
+ Byte 1  +-------------------------------+
+         |   |   |   |   |PQU|NIN|PSF|PLO|
+         +-------------------------------+
+
+                  EXN - Extensible field bit
+                  HMR - Hammer jam
+                  SLW - Paper slew
+                  OFL - Off-line
+                  PAJ - Paper jam
+                  OUT - Paper out
+                  MER - Set on any error
+                  FTL - Fatal error (?)
+
+                  PQU - Bad print quality
+                  NIN - No ink
+                  PSF - Paper stacker full
+                  PLO - Paper low
+
+There are no DCT and CDT fields defined for the LPT object.
+
+TTY Objects___ _______
+
+
+TTY data is sent as 8-bit ASCII characters.  There is  extensive  device
+control available.
+
+The status bits (STD) are:
+
+        +-------------------------------+
+ Byte 0 |EXN|TAP|PAG|IMO|IMI|XOF|ULC|DEC|
+        +-------------------------------+
+
+
+
+
+ Byte 1 +-------------------------------+
+        |EXN|CAR|DTR|NCR|LIM|TIW|FF |HT |
+        +-------------------------------+
+
+ Byte 2 +-------------------------------+
+        |   |   |   |   |   |   |   |DSR|
+        +-------------------------------+
+
+                EXN - Extensible field bit
+                TAP - TTY TAPE mode
+                PAG - TTY PAGE MODE
+                IMO - Image output
+                IMI - Image input
+                XOF - X-OFF typed
+                ULC - Lower-to-uppercase conversion
+                DEC - Deferred echo
+
+                CAR - If DTR not set means ring, else carrier
+                DTR - Data terminal ready
+                NCR - No CRLF
+                LIM - Line input mode
+                TIW - TTY input wait
+                 FF - Hardware form fead
+                 HT - Hardware tabs
+
+                DSR - Data Set Ready
+
+The DCT and CDT fields are:
+
+        DCT             CDT
+  -----------------------------
+        0               EPL     Echo Pipeline Marker
+        1                       Character Gobbler
+        2               CHR     TTY Characteristics
+        3               D1G     Dial-out
+
+        EPL is the Echo Pipeline Marker number  MOD(256)
+
+        CHR is the extensible binary characteristics:
+                (one field for each of the following)
+                # of milliseconds after backspace <010>
+                # of millilseconds after horizontal tab <011>
+                # of milliseconds after line feed <012>
+                # of milliseconds after vertical <013>
+                # of milliseconds after form feed <014>
+                # of milliseconds after carriage return <015>
+                Receive speed
+                Transmit speed
+                Width of TTY carraige
+                Auto CRLF position
+                Element number
+                2741 bits
+
+
+         DIG is the extensible ASCII string of digits to dial.
+
+
+
+                             DCP Operation                             ___ _________
+
+
+CDR Objects___ _______
+
+The card reader object returns card images as long  as  there  are  data
+requests  outstanding and the STP status bit is not set.  The STP status
+bit becomes set on an error such as reader off-line or when an EOF  card
+(12-11-0-1-6-7-8-9)  is  read.  The STP bit must be cleared by an STC of
+"clear bits" and the STD set to the STP bit.  If it is not  cleared  the
+card  reader  object  will not send any data regardless of data requests
+outstanding.  When an error occurs a status message (STC=0,  STD=status)
+is  sent  with  MER  (master  error) and STP set.  When an EOF is read a
+status message is sent with MER cleared and STP set.  The  EOF  card  is
+transmitted before this status.
+
+LPT Ojbects___ _______
+
+Data is transmitted to LPT Objects as data requests  become  outstanding
+from  it.   The only error indication is if the LPT goes off-line.  This
+is indicated by the MER status bit.
+
+TTY Objects___ _______
+
+After the logical link is established an exchange of characteristics  is
+performed.   The  node having the TTY object sends a TTY characteristics
+message followed by a  status  message.   Then  the  host  will  send  a
+characteristics message followed by a status message.  The TTY object is
+now ready for data transfer.
+
+Input character processing involves sending the character  to  the  host
+and  processing  protocol  break  characters.   To do this there are two
+operating modes:  local echo and deferred echo.  Local  echo  refers  to
+the  TTY  object  node  echoing  input  characters  instead of the host.
+Deferred echo is the  mode  under  which  the  host  echoes  characters.
+Whenever  a  control  character (other than TAB) is typed the TTY object
+send a status message indicating that the object  is  in  deferred  echo
+mode,  the  data  character  that  caused  the  mode change, and an Echo
+Pipeline Marker.  EPL is incremented for each character  sent  from  the
+TTY  object  to  the host.  In deferred echo, all characters are sent to
+the host with no echoing performed, and all have an Echo Pipeline Marker
+appended  to  them.   When  the  host  wants to return to local echo, it
+issues a Echo Pipeline Marker with the last EPL field it  has  received.
+If  the  EPL  sent matches the one at the TTY object then the TTY object
+goes into local echo and  a  status  message  is  sent  reflecting  this
+change.   In general, a status message is always sent to the host on any
+change in status regardless of reason.  The host can force a  line  into
+deferred  echo by sending a status message setting the deferred echo bit
+(DEC).  The host can remove deferred echo by clearing that bit.
+
+Output  character  processing  involves  formatting   those   characters
+according  to  the  status  and  TTY  characteristics.   This  makes the
+terminal appear to have SCNSER handling  of  width  and  no  CRLF.   The
+Character  Gobbler  message  causes all output to the TTY object at that
+node to be thrown away.  This is used to handle ^O.
+
+
+
+Session Attendees_______ _________
+
+Ed Jordan - Goodyear Atomic             Richard Hilmer - E.I. DuPont
+Richard Ruszkay - DuPont                Heidi Wmburn - Sambos
+Frank Ivan - Compuserve                 Paul Malquist - Brigham Young Univ
+Howard Wactlar - Carnegie Mellon        Richard Kann - On-line Systems
+P Usdanandan - TIER Bombay              Colin Strutt - British Airways
+A.R. Lis - SDRL                         Chuck Knopf - E MU
+Jim McBride - York Ryerson              R. Imossi - Brookhaven National Labs
+George Lucas - Pfizer                   Daniel Grim - Univ. of Deleware
+Jim Pope - Gallaudet College            Buster Hale - Univ. of Miss.
+H. Prindle - DEC                        Becky Wilson - Univ. of Ark.
+Howard Merritt - INTEL                  Marty Palmieri - DEC - IPS
+Wayne Wall - C.S.M.                     James Smith - First Church
+Deny Crugnola - DEC                     Ben Timmerman - Univ. of Tenn.
+Frank Kyle - Vanderbilt Univ.           Tom Lobb - Interprovincial Pipe Line
+Julia King - Ledule Lab                 McCann - Rapida Inc.
+Marty Shuttleworth - Livermore Labs     Edward Mulrean - Catholic University
+Harold Stout - UT Health Sci Ctr        Marilee Thompson - Princeton Plasma
+Brent Sterner - U of W. Ontario         Lori McHardy - UWO
+J. G. McHardy - UWO                     C E Burgart - SAI
+Casey Henderson - Fed Judicial Ctr      Edward Aiken - Naval Research Lab
+Ed Smolsky - Western Michigan Univ.     Paul Bennett - Harvard Business Schl
+Gary Koenig - Coordinated Mgmt Sys      Barbara Rudolph - Western Electric
+C.J. Welsch - Western Electric          Robert McQueen - Stevens Institute
+Dick Schofield - Univ. of New Hamp.     Rich Feghu - DEC
+Roy Rezac - TELEMED                     Jim Thomas - Univ. of New Orleans
+Duane Winkler - Union Carbide           Dou Hanley - Syracuse Univ.
+Robert Duncan - Sycor                   Barry Howard - MFE Computer Ctr
+James Wilson - Hughes Aircraft          Gene Autrey - Hunley - SRI
+Bob Reardon - Schlumberger              Don Dossa - DEC
+T.M. Loomis - Tx. Board of Ctl.         R R Rodriguez - Southwest Tx. State
+Peter Chiu - U of Miss                  Rich Melberg - Raytheon Co.
+Kirk Topits - CH2M Hi11                 Nicholas Alter - U. of New Hamp.;
+Roger Uphoff - DEC St. Louis            Larry Jasper - Monsanto
+John Schaefer - Monsanto                Dennis Jogensa - DEC St. Louis
+Donald Brandt - EG+G                    Eric Werme - DEC
+Scott Robinson - U. of Az.

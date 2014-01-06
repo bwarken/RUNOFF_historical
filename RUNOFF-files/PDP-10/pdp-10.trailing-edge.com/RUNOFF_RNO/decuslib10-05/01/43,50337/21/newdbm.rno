@@ -1,0 +1,1379 @@
+.left margin 10
+.NOFILL
+.skip 6
+.nojustify
+.paper size 60 76
+.center
+Data base handling in SIMULA 67
+.center
+===============================
+.skip 3
+Kalle M{kil{
+.skip
+National Central Bureau of Statistics
+Fack
+S-102 50 Stockholm 27, SWEDEN
+.skip 4
+Contents.
+=========
+.skip 2
+1.  Introduction.
+.SKIP
+2.  Specifying the structure of a data base.
+.SKIP
+3.  FETCH - a simple selfcontained DBMS.
+.SKIP
+4.  Input and updating.
+.SKIP
+5.  Retrieval operations.
+.SKIP
+6.  Summary of commands in FETCH.
+.SKIP
+7.  GEMIC - a program for statistical output.
+.SKIP
+8.  Some other utility programs.
+.SKIP
+9.  References.
+.PAGE
+1.  Introduction.
+    =============
+.skip 2
+.fill
+    SIMDBM is a data base system to be used by SIMULA programs,
+itself written entirely in SIMULA.  It is a typical "host language
+system" with SIMULA as the host language and is described in the
+report (1).
+    SIMDBM has been in use for about two years and several
+general purpose programs have been written on top of it.  A few of
+those are documented in this report.
+    In some cases those programs may be used in their present
+form, but usually it is preferable to develop one's own programs in a
+similar way.  We hope that this report will be useful as a guide
+when doing so.  It is more to be regarded as tutorial to the use
+of the basic system SIMDBM than a presentation of a ready-made
+DBH system.
+.SKIP
+    Most of this report (chapters 3-6) deals with an updating and
+retrieval program called FETCH.
+    It can be used on any database following the SIMDBM
+conventions.  FETCH makes it possible to manipulate the data
+bases through a simple interactive command language.
+.SKIP
+    In chapter 7 there is a short summary of GEMIC, a system
+based on SIMDBM for producing statistical output, either from
+SIMDBM databases or from ordinary sequential files.  The kernel
+of that system is a meta-database describing the primary data,
+the various aggregration operations to be performed and the
+layout of the statistical tables to be presented.  GEMIC is
+documented more fully in another report (3).
+.SKIP
+    In chapter 8 a few smaller SIMDBM utility programs are
+treated e.g. for loading a sequential file into a data base or for
+making a partial copy from one data base to another.
+.PAGE
+.nofill
+2.  Specifying the structure of a data base.
+    =======================================
+.skip 2
+.fill
+The first thing one must do is to create a description of all the
+record types in the data base.  In SIMDBM data bases these
+descriptions are themselves records of the particular type RSPEC.
+.SKIP
+The description of RSPEC is itself not stored but is generated in
+the class SIMDBM.
+.SKIP
+An RSPEC record has the following fields:
+.SKIP
+.nofill
+    RNAME   the name of the record type
+    KEY     the name of the key field
+    BASE    the start location of the area reserved
+    SIZE    the size of the area reserved in the data base
+    KEYPOS  the position of the key field
+    ADIM    the number of fields
+    ANAMES  the names of the fields
+    ATYPES  the data types of the fields
+.fill
+.SKIP
+All record types must have an RSPEC record describing it stored
+in the data base.  When that data base then is opened for
+processing by a program prefixed with the class SIMDBM, the
+procedure LOADSPEC, which is part of SIMDBM, is called.  This is
+done in the code of the prefix.  LOADSPEC will read all records
+of the type RSPEC and represent them internally as objects of the
+class RSPEC.  Pointers to them are saved in a global array, and a
+description of a particular record type can then be retrieved by
+a simple call to the procedure GETRECORDSPEC.
+.SKIP
+To initially create record specifications, the program SPEC can
+be used.  It is driven by a simple command language.
+.SKIP
+First the user is prompted to give the name of the data base file
+and its image size (which is the physical record length in the
+SIMULA directfile which constitutes the data base).
+.SKIP
+There are two characters having a special function as delimiters
+in SIMBM: between fields in records and between array
+elements.  These characters may not occur in text fields stored,
+so normally some unprintable ascii characters should be used.
+The codes (in decimal) for these are given to SPEC.
+.SKIP
+Then a few record types required internally in SIMDBM and in the
+program FETCH (described in chapters 3-6 below) are defined
+automatically by SPEC.  The user just has to estimate suitable
+sizes for the areas to be reserved for these record types.
+.SKIP
+Default values are assumed if the user answers with return on
+these questions, and help information is typed if the answer is a
+question mark.
+.skip
+Then there is a loop where the user is prompted by an asterisk to
+give commands.
+.SKIP
+The commands have all the format:
+.SKIP
+    COMMAND,op1,op2,op3, ...
+.SKIP
+where COMMAND is the name of the command and op1,op2 ...  are the
+operands.  The following commands are available:
+.SKIP
+.nofill
+    NAME,recordtypename
+           to specify the name of the record type
+    KEY,fieldname
+            to specify which of the fields
+            is the key (=unique identifier)
+    SIZE,nn
+            the size of the area reserved
+            in the data base for records
+            of this type
+    <TYPE>,field1,field2 ...
+            type and names of data fields
+    RECORD
+            to finish one record declaration
+    EXIT
+            to exit from the SPEC program
+    SET,setname,ownertype,membertype
+            to define a set. The record types for
+            owner and member must have been
+            defined in an earlier run with SPEC.
+.SKIP
+.fill
+<TYPE> can be either INTEGER, REAL, TEXT, INTEGER ARRAY, REAL ARRAY
+or TEXT ARRAY.  Short hand notations for these types are
+I,R,T,IA,RA and TA.  Also the other commands NAME,KEY,SIZE,RECORD
+and EXIT can be shortened to N,K,S,REC and EX, respectively.
+.SKIP
+The fields will occur in the record in the same order as they are
+specified through the TYPE commands when running SPEC.
+.SKIP
+SPEC can also be used to modify an existing data base
+specification.  In this case a question is issued whether an old file
+is to be edited, to protect the user from inadvertently
+destroying an existing file.  No questions about system areas and
+delimiters are issued; they cannot be changed in an existing
+base.
+.SKIP
+For existing records, just the commands NAME and TYPE are
+relevant; KEY and SIZE are ignored if given.  But if NAME
+specifies a new record type an entire new specification of a
+record is to be created -  so then all commands are relevant.  For
+existing record types only fields can be added, or the types of
+fields can be changed.
+.SKIP
+An example of a dialogue with SPEC can be found in the report (1)
+appendix I.
+.skip
+.page
+.nofill
+Help information for FETCH.
+--------------------------
+.skip
+.fill
+When that program is used, a question mark as answer to
+a question will type help information for that situation.
+However, that help information must first be stored in
+the data base as records of the type HELPMESS. This is
+done in the following way:
+.skip
+.nofill
+When running SPEC, the seventh of the
+parameters SYSTEM AREA SIZES:  is set to 45
+(at least).
+.skip
+Data is loaded from the file HMESS.DMP using the
+utility program DBLOAD. The conversation for this
+is as follows: (also in the file HMESS.MIC)
+.skip
+_.run dbload
+Data base file: ownfil.bas
+Input file: HMESS.DMP
+Image size: 1600
+.skip
+.fill
+Whenever you want to process a file with FETCH and want
+to have help information available, you should load
+it into the file as specified above. There is also
+a command HELP in FETCH which will type help
+information for every command available.
+.PAGE
+.nofill
+3.  FETCH  -  a simple self-contained data base handler.
+    ===================================================
+.skip 2
+.fill
+FETCH is a program which can be applied to an arbitrary SIMDBM
+data base.  It is used through a simple command language which
+allows a number of updating and retrieval operations.  Most of
+these are described in the next four chapters, which are intended
+not only as a user's manual for FETCH, but also as a collection of
+examples of how reasonably general data base handling programs
+can be written on top of SIMDBM.
+The use of FETCH does not require knowledge of SIMULA.  It has
+mainly been used to make models of data bases, and for teaching
+data base technique.  In a few hours with the programs SPEC and
+FETCH the novice can get a quite good feeling for some basic
+concepts in data base handling.  FETCH has also been used in
+production in combination with special purpose programs written
+in SIMULA.
+.SKIP
+.nofill
+The command language in FETCH.
+-----------------------------
+.fill
+.SKIP
+In the top loop the user is prompted to give a command with the
+character "_>".  Here one can answer either with a command, which
+always begins with a period, or with the key of a single record
+to be retrieved.
+.SKIP
+The commands have a very simple syntax:
+.SKIP
+    .COMMAND,op1,op2,op3, ...
+.SKIP
+Mostly the operations are fully specified through the command,
+only in a few cases the user is prompted to give further
+information.
+.SKIP
+Only the first three characters in the command keyword are
+significant.  The arguments are separated by commas and no extra
+spaces are allowed within the command string.
+.SKIP
+The following convention is used to allow continuation lines (for
+commands, and for other information which might be prompted for):
+.SKIP
+.nofill
+      If a line is ended with an ampersand (_&), then a
+      continuation line is expected.  Such ampersands are not
+      taken as part of the input.  Spaces at either ends of the
+      lines are ignored, the rest of the lines are concatenated
+      to one single string.
+.skip
+EXAMPLE:
+=======
+.SKIP
+      this is an ex_&
+      tra long strin_&
+      g inputted on sever_&
+      al very short lines
+.page
+Help information.
+------------------
+.fill
+.SKIP
+In most cases when the user is prompted, the user can answer with
+a question mark to obtain help information.  On the top level a
+table of the commands is given.  Then the user can use the
+command HELP to get information for particular commands. The help
+texts are not part of the program, but are loaded from the data
+base when they are needed. They must be loaded on initial creation
+of the data base as described in section 2.
+.skip
+It is always possible to get back to command level by typing
+two periods. Then the conversation from the previous command is
+ignored.
+.nofill
+.PAGE
+4.  Input and updating.
+    ==================
+.skip 2
+a. Input of individual records.
+   ---------------------------
+.SKIP
+There is just one command for this in FETCH:
+.SKIP
+    .STORE[,recordtype]
+.SKIP
+.fill
+The specification for the record type is used to prompt the user
+to give a value to each of the fields.  The fields are checked to
+be of the correct type.  When all the fields have been specified,
+the record is stored.  If there is a previous record with the
+same key in the data base it is simply overwritten.
+.SKIP
+If RECORDTYPE is omitted in the command string, then the current
+record type (that given by the latest .TYPE command) is assumed.
+.SKIP
+To type in many records in this way can be very cumbersome.  In
+such cases it is better to use some of the loading programs
+described in chapter 8.
+.SKIP
+.nofill
+b. Updating of individual records.
+   ------------------------------
+.fill
+.SKIP
+The command  .TYPE,recordtype must be used first to specify which
+record type is to be processed.
+.SKIP
+If then an individual record of that type is to be retrieved, its
+key is simply given.  If it isn't found the user is told so,
+otherwise the question   TERM:  appears.
+.SKIP
+.nofill
+Three types of answers are possible here:
+.SKIP
+    (a)  .
+         will display all field names and values
+.SKIP
+    (b)  FIELDNAME
+         will display the value of that field only
+.SKIP
+    (c)  FIELDNAME=newvalue
+         will change the value of that field
+.skip
+    (d)  FIELDNAME oldstring=newstring
+         will change one substring
+         to another within that field
+.SKIP
+.fill
+If the key field of a record is changed, then a new record with
+that identity is stored, and the old one remains unchanged.  All
+the other fields are copied from the old record.
+.SKIP
+If the names and types of a record type are unknown, they can be
+typed using the command:
+.SKIP
+    .FIELDS,recordtype.
+.skip
+c. Defining relations between records (sets).
+###-----------------------------------------
+.SKIP
+First the sets must be declared using the command:
+.SKIP
+    .DEFINE,setname,ownertype,membertype
+.SKIP
+Only one type of record is allowed for owner and for members.
+When a set has been defined, records can be connected using the
+command:
+.SKIP
+    .INSERT,setname,owner,member1,member2, ...
+.SKIP
+Records can also be removed using the command:
+.SKIP
+    .REMOVE,setname,owner,member1,member2, ...
+.SKIP
+The definitions of sets are just ordinary records of the type
+SETSPEC, which are created and stored by FETCH when the .DEFINE
+command is used.  This means that the ordinary retrieval commands
+can be used to obtain information of which sets are defined and
+how they connect records.
+.SKIP
+There are two different methods to represent sets internally.  It
+is of no importance to know which method is used when running
+FETCH, but when the data base is initially specified using SPEC,
+a choice must be made when specifying the data fields:
+.SKIP
+.left margin 15
+      (1)
+      A text field with the same name as the relation is declared
+      for both owner and member record types. Then these fields
+      are used to represent the sets within SIMDBM.  For the
+      owners a pointer array to all the members is stored, and
+      for each member a pointer back to the owner is stored.
+      What is actually stored is the keys of the records, never
+      physical pointers.
+.SKIP
+      (2)
+      No special fields are defined in the records.  In this case
+      SIMDBM will create a special record of the type STRUKTUR
+      for all the records which are involved in sets.  The unique
+      identity of those records is the record type concatenated with
+      record key.
+      This method is more flexible (the records themselves
+      contain no relational information at all), but also
+      somewhat wasteful of space.
+.left margin 10
+.SKIP
+There is one danger with the method (1).  When records are
+deleted they are not automatically removed from the sets where
+they are involved.  With method (2) this is easy to take care of,
+because all relational information is stored in a separate
+record.
+When the .DELETE command is used on records with set
+representation of type (1), then the .REMOVE command must be used
+first to remove them from sets where they are members.  If they
+are owners in sets, all their members must be removed first.  All
+this is done automatically with sets represented with the method
+(2).
+.nofill
+.PAGE
+5.  Retrieval operations.
+    ====================
+.skip 2
+a.  Individual records.
+    ------------------
+.fill
+.SKIP
+A command string always starts with a period followed by the
+command key word.  All strings not starting with a period are
+taken as keys for single records to be retrieved.  Then fields
+within that record can be both displayed and updated as described
+in Section 4b.
+.SKIP
+b.  Searches over entire record types.
+####---------------------------------
+.SKIP
+There are two commands .AND and .OR for this.  they can
+optionally have an argument which is a file name where data from
+the records found are written.  Normally all fields of the
+records found are typed on the terminal in a standard format.
+When the commands .AND or .OR are given the user is prompted to
+give search conditions of the form:
+.SKIP
+    FIELDNAME OP VALUE
+.SKIP
+Here FIELDNAME is a data field within the current record type (as
+specified by a previous .TYPE command).  OP is a binary
+relational operator, either = /= _< _> _>= or _<= .  VALUE is a value
+of the field.
+.SKIP
+The sequence of conditions is ended with an empty line, which
+starts the retrieval operation.
+.SKIP
+The commands .AND and .OR have two optional parameters.  The
+first of them is a filename to direct output to an external file.
+This is further described in section (f) below.
+The second parameter is a set name, and can be used if search
+conditions are to be put on one record type, but one wants to
+type out data for the owners of the records found.
+.SKIP
+Combinations of AND-OR-conditions can be defined.  Instead of a
+simple condition a sub-sequence of conditions can be given,
+starting with a line containing .AND or .OR and closed by an
+empty line.
+.nofill
+.SKIP
+EXAMPLE:
+=========
+.SKIP
+Persons with AGE _> 30 and either INCOME _> 50 or INCOME _< 20
+.SKIP
+   .AND                  ------_!
+   *AGE_>30                     _!
+   *.OR            -----_!      _!
+   *INCOME_>50           _!      _!
+   *INCOME_<20           _!      _!
+   *               -----_!      _!
+   *                 ----------_!
+.SKIP
+If records are members in sets, then conditions can also be
+expressed in terms of the data fields for the owner records.
+.SKIP
+EXAMPLE:
+-------
+.SKIP
+Suppose we have the structure:
+.SKIP
+             EMP
+   COMPANY ---------_> PERSON
+.SKIP
+.fill
+and that we want to retrieve persons with age_>30 and employed in
+companies with more than 2000 employees.  This can be expressed
+as follows if the basic search is made over persons:
+.SKIP
+.nofill
+   .AND
+   *AGE_>30
+   *:EMP.NROFEMPLOYEES_>2000
+   *
+.fill
+.SKIP
+The colon indicates that what follows is a set name and field name
+separated by a period.  There is also another way of expressing
+this search with the basic search made over companies analogouos
+to the example in section 5d below.
+.skip 2
+.nofill
+c.  How to save results of search operations.
+    ----------------------------------------
+.SKIP
+.fill
+Normally the records hit by a search operation are typed on the
+terminal in a standard format.  But there are also other forms of
+output.
+.nofill
+.SKIP
+Index records.
+-------------
+.fill
+.SKIP
+If the command .INVERT is given prior to the search, no result is
+typed directly.  Instead, when the search is completed, the
+number of hits is typed, and then the question Next action:  is
+given.
+.nofill
+Then there are four alternatives to proceed:
+.SKIP
+  1.  .DISPLAY will type the records found in
+      the usual standard format.
+.SKIP
+  2.  .NAMES will type just the keys of the
+      records found.
+.skip
+  3.  .EXIT will abandon the search operation without
+      any action.
+.SKIP
+  4.  .INDEX,irecordname  will save pointers to the
+      records found in the data base in the form of
+      a record of the type INDEXFILE. Then they can be
+      used via the commands .INDEX and .DISPLAY (see below).
+.fill
+.SKIP
+Normal mode of output from searches can be reset by the command
+_.TTY, which cancels an earlier .INVERT command.
+.nofill
+.SKIP
+Formatted tables.
+----------------
+.fill
+.SKIP
+There is a special command .TABLE to specify a format for the
+output from search operations.  The result will then be output to
+a sequential file if the name of that file is given as an extra
+parameter to the search commands.  The details of this are given
+in section (f) of this chapter.
+.nofill
+.SKIP
+d.  Searches via sets.
+    ------------------
+.SKIP
+There are three commands for this:
+.SKIP
+_.SET, .OWNER and .SELECT.
+.SKIP
+_.SET,setname,owner[,filename]
+.SKIP
+will type the members in the set SETNAME for the owner OWNER.
+FILENAME is either the string "NAMES" which signifies that only
+the names (keys) are to be typed; normally all data are printed
+in the standard format.  Or it is a name of a file where the
+output shall be made as specified in an earlier .TABLE command.
+.SKIP
+_.OWNER,setname,member[,filename]
+.SKIP
+is analogous to .SET, but the data for the owner in the set
+occurrence is printed.
+.SKIP
+_.SELECT[,filename,setname]
+.SKIP
+In this command the user is prompted to give information which
+will guide the search downwards through a hierarchy of records.
+On each level ordninary search conditions for the records on that
+level are given, and also a set to be followed down to the next
+level.
+.SKIP
+EXAMPLE:
+-------
+.SKIP
+Suppose we have the following structure:
+.skip
+                LOC                EMP
+      CITY    -------_>  COMPANY  -------_> PERSON
+.SKIP
+and that we want to find all persons older than 50 , employed by
+companies owned by the government in cities with more than 100000
+inhabitants.
+.SKIP
+This question can be answered by a search over all cities, and
+following the relations downwards.  To this, SELECT can be used
+as follows:
+.SKIP
+_.select
+SET:LOC
+Conditions:
+*NROFINH_>100000
+*
+SET:EMP
+Conditions:
+*OWNER=GOVERNMENT
+*
+SET:.INDEX
+Final conditions:
+*AGE_>50
+*
+.SKIP
+If the question SET:  is answered with either .TYPE or .INDEX,
+then the search is finished on that level.
+With .TYPE the records found are typed in the usual standard
+format, with .INDEX the question:  Next action:  is given and can
+be answered as described above for the .INVERT command.
+.SKIP
+e.  Special operations on index records.
+    ------------------------------------
+.SKIP
+There are four commands working on such stored sets of records:
+_.DISPLAY, .INDEX, .APPEND, and .MAKEINDEX.
+.SKIP
+_.DISPLAY,iname[,filename]
+will type the records in the indexfile in the usual standard
+format.
+.SKIP
+_.INDEX,iname
+will activate this set of records to be treated by subsequent
+search operations (.AND-, .OR-commands).
+.SKIP
+_.APPEND,newname,iname1,iname2[,intersection]
+will make a union of the sets named iname1 and iname2 and store
+the result as a new index record with the name newname.  If the
+fourth parameter is given, the intersection is taken instead of
+the union. If the fourth parameter starts with N (as in NOT), then
+the new set created will contain all records contained in INAME1
+but not contained in INAME2. All other strings as fourth parameter
+will give the records contained in both INAME1 and INAME2.
+
+.SKIP
+_.MAKEINDEX,iname
+will create a new index record with the name iname.  The
+question KEYS:  is issued, and as answer the keys of the records
+to be included are given, separated by commas.
+.skip 2
+.nofill
+f.  Formatted output on files.
+    -------------------------
+.SKIP
+.fill
+The result of search via the commands .AND, .OR, .SET, .OWNER ,
+_.SELECT and .DISPLAY can be directed to an external file by
+giving the name of that file as an extra parameter to those
+commands.  In this case it is not a standard output of all the
+data fields, but instead a formatted output of selected fields.
+However, if the filename given is SYSOUT, the output
+will still be done on the terminal, but formatted.
+The format must first have been given using the command .TABLE.
+.skip
+TABLE layouts can either be specified interactively and/or
+stored in the database or retrieved from the data base.
+.SKIP
+A table specification contains four parts:
+.SKIP
+1.  Field names (valid for the current record type) with commas
+between them.
+.SKIP
+2.  Columns where the fields are to be put on the output line.
+Texts are then left-adjusted, numbers right-adjusted.  The last
+column (an extra one) gives the length of the outfile image.
+.SKIP
+3.  Names of fields to be computed sums for.  Can be omitted.
+.SKIP
+4.  Remark;  comment for the convenience of the user for
+documentation.
+.skip 2
+.nofill
+Extra spaces
+------------
+.SKIP
+.fill
+Extra blank fields can be interpolated by giving blank fields
+among the field names and corresponding columns.  Can be useful
+to separate numbers, which are right-adjusted, from texts, which
+are left-adjusted.
+.nofill
+.SKIP
+Change of context for output data
+---------------------------------
+.fill
+.SKIP
+To make it possible to include in a table data from the owner in
+a particular set, the following conventions have been introduced:
+.SKIP
+.nofill
+   (1)   Instead of a field name the name of the
+         set to be followed upwards is given.
+.SKIP
+   (2)   In the vector of columns, -1 is given to
+         indicate that this is a set name, not a
+         field name.
+.skip
+EXAMPLE:
+-------
+.SKIP
+Suppose we have the relation
+.SKIP
+                EMP
+   COMPANY   --------_>   PERSON
+.fill
+.SKIP
+and that we want to print for persons their name, their address and
+the name of the company where they are employed.  This can be
+done through the following table:
+.nofill
+.SKIP
+FIELDS:   NAME,ADDRESS,EMP,NAME
+COLUMNS:  1,30,-1,50,70
+SUMS:
+REMARK:
+.fill
+.SKIP
+It is possible to follow more than one set relation upwards in
+this way by giving more set names among the fields and minus ones
+among the columns.  However, there is no way to get back to the
+original context, so data for these owners must always come
+towards the end of the output record.
+.SKIP
+The .TABLE command has the following forms, depending on the
+permanence of the layout defined:
+.SKIP
+.nofill
+_.TABLE           a table is defined temporarily,
+                  not stored.
+.SKIP
+_.TABLE,name       a table is retrieved from the
+                   data base.
+.SKIP
+_.TABLE,name,store a table is defined and then stored
+                   in the data base for later reference.
+g.##Command procedures.
+####------------------
+.fill
+.skip
+This is a simple but very useful feature, which we demonstrate
+with a small example.
+.skip
+Suppose you often do the following type of sequence of
+commands (to list the telephone number and adress of a person):
+.skip
+.nofill
+>.type,PERSON
+>CHARLIE
+Term: NUMBER
+                  595758
+term: ADRESS
+                  Stockholm 80
+term: 
+
+.skip
+.fill
+Using the command .COMMAND , this can be summarized in the
+following way:
+.skip
+.nofill
+>.COMMAND,SHOW
+Description: Procedure to show data for person.
+Procedure:
+: .type,PERSON
+: %1
+: NUMBER
+: ADRESS
+:
+: END
+.skip
+.fill
+This procedure is then stored in the data base and can be used exactly
+as there were a new command SHOW with one parameter. Thus
+.skip
+.nofill
+_.SHOW,CHARLIE
+.skip
+will reproduce the dialogue above, and
+.skip
+_.SHOW,JOHN
+.skip
+will show the corresponding data for JOHN.
+.fill
+.skip
+Thus %1, %2 ...  up to %9 are formal parameters, which are replaced
+by actual parameters from the command string when the command is
+used. Any lines in the FETCH conversation can be contained in a
+procedure, and any text string can be taken as a parameter
+(maximum 9 parameters). However, if the actual parameters contain
+commas they must be surrounded by quotes (').
+.PAGE
+6. Summary of commands available.
+.break
+###==============================
+.SKIP
+.fill
+All the commands have been treated somewhere in the previous
+chapters. This chapter only contains a short summary of all
+commands in alphabetic order.
+References to other parts of the report for a particular
+command can be found via the index at the end of this report.
+.skip 2
+.nofill
+_.and[,filename,setname]
+     Starts input of and-connected conditions.
+     If filename="NAMES" then only the names are typed
+     on the terminal. If filename is a string other than
+     "NAMES" it is taken to be a file name for output as
+     specified by an earlier .TABLE command. Otherwise if no
+     filename is given data are typed on the terminal
+     in standard format.
+     Setname is given if the data to be typed are
+     not those of the records found, but those of the
+     owners in that set for the records found.
+.SKIP
+_.append,newreg,reg1,reg2[,intersection]
+     Makes the union (or intersection) of two sets of records
+     Stores the result as a new index record.
+.skip
+_.command,cprocname
+     The user is prompted to give a description of the
+     procedure, and then its lines one per line,
+     possibly containing %1, %2,  etc to stand for
+     parameters. The sequence is terminated with END.
+.SKIP
+_.define,setname,ownertype,membertype[,remark]
+     Defines a set before it is used in either of the commands
+     .INSERT, .OWNER, .SET or .SELECT. The specification is
+     stored as a record of type SETSPEC. REMARK is an optional
+     comment which is stored as a field in that record.
+.SKIP
+_.delete,r1,r1,....
+     The records enumerated are deleted. Before that they are
+     removed from all sets where they are members (except when
+     the relationships are expressed by an explicit field in
+     the record; in that case the user must be careful to
+     use the .REMOVE command first).
+     .DELETE always works on the record type specified in the
+     latest previous .TYPE command.
+.SKIP
+_.display,indexname[,filename]
+     Type the records in the index-record specified.
+     The parameter filename has the same meaning as in the
+     .AND command.
+.SKIP
+_.exit
+     Finish the FETCH execution, close the data base. Never exit
+     with control C from FETCH - the data base might be left
+     in an uncomplete state.
+.PAGE
+_.fields,recordtype
+     Type all data field names and their types for a particular
+     record type.
+.skip
+_.help,helptextname
+     A help text under the given name is typed. Help texts for
+     FETCH must then have been loaded when the data base
+     was initialized (see chapter 2). There are help texts
+     for each command in FETCH, and for each question
+     that can be issued during a FETCH conversation.
+.SKIP
+_.index,indexname
+     Activate an index record to be processed by subsequent
+     searches with the commands .AND or .OR.
+.SKIP
+_.insert,setname,owner,member1,member2,....
+     Insert members into a set.
+.SKIP
+_.invert
+     Causes the result of searches with .AND and .OR to be
+     collected as pointer arrays rather than being typed
+     directly.
+     When the search is completed the user is notified of the
+     number of hits. Then the records found can be displayed,
+     saved in an index record, or a new search operation can be
+     performed to decrease the number of hits.
+.SKIP
+_.makeindex,iname
+     An index record is created through direct input of the
+     keys for the records in it.
+.SKIP
+_.open,filename
+     Opens a data base file with the given name. Must be done
+     before any other command to FETCH. More than one file
+     can be treated in the same run, the previously opened
+     file will then be closed.
+.skip
+_.or[,filename,setname]
+     Starts a sequence of OR-connected conditions.
+     The parameters filename and setname have the
+     same meaning as in the .AND command.
+.SKIP
+_.owner,setname,member[,filename]
+     Type the data for the member in the set SETNAME where
+     MEMBER is a member.
+     The parameter filename has the same meaning as in the
+     .AND command.
+.SKIP
+_.remove,setname,record1,record2,....
+     If the records are members in some set of the given type
+     they are removed.
+.SKIP
+_.reset
+     Resets some control parameters to the value they had on
+     entry to FETCH.
+.page
+_.select[,filename,setname]
+     Starts a search down through a hierarchy of records
+     connected via sets. On each level a sequence of
+     selection conditions can be given and also the set
+     to be followed to the next level.
+     The parameters filename and setname have the
+     same meaning as in the .AND command.
+.skip
+_.set,setname,owner[,filename]
+     Output all the members in a set.
+     The parameter filename has the same meaning as in the
+     .AND command.
+.SKIP
+_.store[,recordtype]
+     New records of the given type are to be input via the
+     terminal. FETCH will prompt the user by the field names,
+     and the type of each value given is checked.
+     If recordtype is omitted, it is assumed to be that
+     given by the latest .TYPE command.
+.SKIP
+_.table[,name,store,overwrite]
+     On search with .AND, .OR, .SET, .OWNER, .SELECT or .DISPLAY,
+     write the result on a file given as an extra parameter
+     to those commands. For details, see section 5f.
+.SKIP
+_.tty
+     Cancels an earlier .INVERT command, which means that records
+     found in searches will be written directly on the
+     terminal in the standard format.
+.SKIP
+_.type,recordtype
+     There is a current recordtype which most of the search
+     commands works on. This is set by the .TYPE command.
+.PAGE
+.nofill
+7.  GEMIC - a program for statistical output.
+    ========================================
+.fill
+.SKIP
+At the National Bureau of Statistics (SCB) some experiments have
+been done to develop general software for production of
+statistics.  In one such experiment SIMDBM has been used as a
+basic tool.  That system is called GEMIC (GEneral MICro base
+handler), and is more fully documented elsewhere (3).
+.SKIP
+GEMIC is based on some theoretical concepts outlined in (2).  It
+is still a prototype system, used for research and small scale
+production.
+.SKIP
+Our intention in this chapter is just to outline the general
+ideas in GEMIC, and to discuss how data base handling facilities
+can be used in such a system.
+.SKIP
+.nofill
+How GEMIC is used.
+-----------------
+.SKIP
+.fill
+A statistical micro data base contains information on single
+objects e.g. persons or companies.  What is to be produced from
+that are statistical tables, which comprise information on groups of
+objects.
+In our approach the tables are produced in a number of steps:
+.SKIP
+.nofill
+   (a) from micro data to multidimensional arrays or boxes
+.SKIP
+   (b) box transformations. Other boxes can be created from
+       those obtained in step (a).
+.SKIP
+   (c) from box to table. Many different tables can be produced
+       from the same box. Partial summations can be
+       done over selected columns or rows. Subsets of
+       the values in each dimension can be selected for
+       presentation.
+.fill
+.SKIP
+In GEMIC a SIMDBM data base is used to store control information
+(or meta information).  The various entities on all three levels
+.break
+a - c are represented as records externally, and as SIMULA class
+objects internally.  A few examples of records in the data base:
+.nofill
+.SKIP
+     Object types and their connections to files of individual
+     records with information on the individual objects.
+.SKIP
+     Variables in the micro files, their definition, location
+     length and type.
+.SKIP
+     Descriptions of boxes, especially to control the mapping
+     from micro data to box (the aggregation).
+.SKIP
+     Descriptions of tabulations, which are mappings from
+     boxes, which are multidimensional arrays, to
+     two-dimensional representations (of some parts) of them
+     suitable to display on a paper.
+.SKIP
+.fill
+All these data structures can be created and updated with GEMIC
+via a simple interactive command language.  Sequences of commands
+in that language can be stored as procedures in the data base and
+be used later as a sort of higher level commands.
+.PAGE
+.nofill
+8.  Some other utility programs.
+    ===========================
+.SKIP
+.fill
+LOAD
+.SKIP
+This program can be used to load data from a sequential file with
+fixed format.  First the user is prompted to give the name and image
+size for the data base and for the input file.
+Then the user gives the name of the record type to be loaded.  (A
+specification of that type must have been created earlier with
+the program SPEC.) Using that specification LOAD prompts the user
+to give start position and length for all the data fields as they
+appear in the input file.
+.SKIP
+Example:
+.break
+-------
+.SKIP
+A record type COMPANY is to be loaded from a file.  The fields
+have the names NAME, TRADE, EMP, PROD and start in columns
+1,25,40 and 50 respectively.  A dialogue with LOAD to do this
+looks like the following:
+.nofill
+.SKIP
+Give name of data base file: DATA.BAS
+Input file: DATA.DAT
+Image size: 120
+Record type: COMPANY
+Give startpos and length for the following fields:
+NAME 1,24
+TRADE 25,15
+EMP 40,10
+PROD 50,10
+.SKIP
+OK, loading started
+.SKIP
+.fill
+Observe that loading can be a relatively timeconsuming activity,
+especially if the records contain many data fields and are spread
+over a large address space.  Usually it is economic to sort the
+input file in key order before loading.
+.SKIP
+LOAD gives a message on the terminal for every 200 records loaded,
+and also a final message with the number of records found on
+input.  After that the user is prompted again for a new
+infile and possibly record type.  Here a return as an answer causes
+exit from LOAD.
+.skip 2
+DBDUMP
+.SKIP
+With this program a sequential file in free format can be
+produced from selected parts of the data base.  The output from
+DBDUMP can then be given as input to the program DBLOAD described
+below.  This can be useful if parts of one data base are to be
+copied into another, or if a data base is to be reorganized.  A
+complete reorganization then is done by dumping all the record
+types to a sequential file using DBDUMP, and then using DBLOAD to
+load them into a new one.
+.SKIP
+DBDUMP starts by asking for data base name.  Then
+it asks for record types.  Several names separated by commas can
+be given on one line, then DBDUMP starts outputting them, and
+when this is ready asks for more record types.  If the user
+answers with return here the processing is finished.
+.SKIP
+For every record type processed DBDUMP types the number of
+records found.  This can be used as a guideline for optimal
+choice of area sizes when the new data base version is specified.
+.skip 2
+DBLOAD
+.SKIP
+This program can either be used (combined with DBDUMP) to make
+selective copies or complete reorganizations of data bases, or to
+load data defined manually e.g. by an ordinary text editor.
+.SKIP
+The format of the input file to DBLOAD is as follows:
+.nofill
+.SKIP
+    line 1    contains just one character = the
+              character used to separate fields
+              within records.
+.SKIP
+    line 2    _!_!_!recordtypename
+.SKIP
+    line 3     One line per record with the fields
+    and        separated by the character specified
+    fol-       in line 1. Continues until a line starting
+    lowing     with three exclamation marks signals
+               start of data for a new record type.
+.SKIP
+Example:
+-------
+.SKIP
+.fill
+Data with the same layout as in the example for LOAD above is to
+be loaded.  For three companies it would look like the following if a
+semicolon is used as the delimiter between fields:
+.nofill
+.SKIP
+;
+_!_!_!COMPANY
+IBM;comp;30000;7000
+VOLVO;cars;7000;1950
+BP;petrol;300;710
+.SKIP
+Reorganizing a data base.
+--------------------------
+.SKIP
+This is not fully automated, but can be done with a moderate
+effort by combining the programs DBDUMP and DBLOAD:
+.SKIP
+    (a)  Run DBDUMP on all the record types
+         that are to be preserved in the new version.
+         If structured information is to be kept, then
+         the records of type STRUKTUR should be included.
+.SKIP
+    (b)  Create a clean specification of the data base
+         by running SPEC creating a new file. Usually
+         some minor adjustments, e.g. of field names and area
+         sizes, are to be done. If there exists a log file
+         from the occasion when the original base was
+         specified, this can be edited and used as input
+         to SPEC.
+.SKIP
+    (c)  Run DBLOAD on the new base with the file created
+         by DBDUMP as input.
+.fill
+.SKIP
+This processing can be used to make a selective copy of a data
+base, and to adjust parameters such as image and area sizes to
+the current contents.
+But if more sophisticated reorganizations are to be done, e.g.
+adding or deleting of fields and records, then the user is
+recommended to write his own version of DBDUMP.
+.SKIP
+The existing program is quite small and can still be used as a
+skeleton; usually very small changes and additions will be
+sufficient.  But the output produced should always be in the
+normal format as required by DBLOAD, and must be consistent with
+the new specification, as done with SPEC.
+.skip 2
+DBSORT
+.SKIP
+In SIMDBM data bases no order is maintained among the records
+within an area or within a set.
+.SKIP
+If there are not too many records involved, an in-core sort of
+the record objects might be done instead.  The class DBSORT (with
+DBMSET as prefix) contains procedures to create and scan sorted
+arrays of records.  It can be used as prefix to programs that
+need such facilities.  The following procedures are available:
+.SKIP
+procedure recsort(arr,n,key);
+ref (record) array arr;  integer n,key;
+.SKIP
+The array arr contains n records which are sorted (in ascending
+order) on the values of field number key, alphabetically.  KEY
+can be derived from the record type and field name through the
+following expression:
+.SKIP
+KEY:=loctext("FIELDNAME",getrecordspec("RECORDTYPE").anames);
+.skip
+The procedures LOCTEXT and GETRECORDSPEC, etc., are described in
+the original report on SIMDBM (1).
+.SKIP
+procedure scan(ra,p);
+ref (record) array ra;  procedure p;
+.SKIP
+This is a very simple scanning procedure similar to DOFOREACH and
+MAPSET.  It just scans through all the records in the array ra
+(an element == none signals the end of the records to be scanned).
+For each record the procedure p is called.  P is a userdefined
+procedure with one parameter which is ref (record).
+.SKIP
+Often it is more efficient and equally readable to code the
+scanning done by SCAN openly, for instance as a simple while
+expression containing also the instructions contained in p.  But
+sometimes the use of SCAN facilitates a recursive search through
+a hierarchy of records.
+.SKIP
+integer procedure rec__array(rtyp,sortfield,ra,owner,setname);
+text rtyp,sortfield,setname;  ref (record) array ra;  ref
+(record) owner;
+.SKIP
+This procedure can be used to collect sets of records in the
+array ra, sorted on the field with name sortfield.  The value
+returned is the number of records found.  There are two different
+cases:
+.SKIP
+.nofill
+    (a)  All the records of the type RTYP are to be
+         collected. In this case the parameters OWNER
+         and SETNAME are irrelevant.
+.SKIP
+    (b)  All the records in the set SETNAME owned by the
+         record OWNER are to be collected. In this case
+         the parameter RTYP is irrelevant.
+.SKIP
+.fill
+In a typical application of the procedures in DBSORT arrays are
+allocated large enough to contain all the records to be
+processed.  These arrays are filled through calls to REC__ARRAY
+and then processed through calls to SCAN.  If a sorting is to be
+done on more than one field, then RECSORT can be used after the
+call to REC__ARRAY.
+.skip 2
+Programs for mapping records on SIMULA classes.
+------------------------------------------------
+.fill
+.SKIP
+Such mappings can be done in two ways, and there are two program
+generators PREP and PREP2 which generate SIMULA source code from
+the record specifications stored in the data base.  These are
+described in another report (1), and there examples of the code
+generated are also given.  Here we just give a short summary to
+indicate in which situations these tools might be used.
+.skip
+.skip
+PREP
+.SKIP
+This program generates a complete SIMULA class to be used as
+prefix to the user program.  That class contains one subclass to
+RECORD for each record type to be used.  This makes it easy to
+write specific, problem-oriented programs.  The field names in the
+data base are mapped onto class attributes.  Thus the field names
+used must also be valid SIMULA variable names; e.g. reserved words
+such as NAME, VALUE, BEGIN, etc., must not be used as field names.
+.SKIP
+PREP2
+.SKIP
+This program generates
+procedures to load data from the data base records
+into attributes of user defined class objects.  The user
+specifies interactively which internal classes are to be
+connected to which records, and then a list of attributes and
+fields to be coupled.
+.SKIP
+The code generated by PREP and PREP2 could equally well be
+written manually by the user.  Often it can be generated and then
+modified, either by additions or deletions.  For instance some
+application might need just to read records and to process only a
+few of the fields.  In the code generated by PREP the procedures
+for storing can then be deleted as well as the statements loading
+fields which are not to be processed.
+.SKIP
+Perhaps later if the technique with program generators turns out
+to be very useful, these programs will be improved so that they
+can accept a more detailed specification of the code to be
+generated.  Probably it would then be attractive to store these
+specifications in the data base for later reference.  They would
+then constitute a counterpart to the concept of sub-schema as
+outlined in the CODASYL proposal.
+.skip 2
+Other utility programs.
+.break
+----------------------
+.skip
+DIRED
+.SKIP
+This program is independent from SIMDBM; it is a simple editor
+which can be used on any SIMULA direct file.  In the case of
+serious errors it can be used to examine the contents of a data
+base file.  It can also be used for updating, but great care
+should be exercised on such occasions.  At least some knowledge
+of the internal structures is required to do this.
+.SKIP
+DIRED can be used interactively, and is designed to be reasonably
+self-documenting.  On each level in the dialogue a question mark
+can be typed to obtain help information.
+.SKIP
+There are just a few commands, one letter followed by line number
+intervals.  Records can be listed, replaced, or deleted and
+strings can be be replaced by other strings over a particular
+interval of records.
+.SKIP
+Observe that records for DIRED are the lines manipulated by
+INIMAGE and OUTIMAGE in the basic SIMULA direct file handling;
+they do not in general correspond to records in the sense of
+SIMDBM.
+.skip 2
+TRANSF
+.SKIP
+This program is a kind of source code editor used to define
+reduced versions of a particular program.  This device can be
+used to avoid keeping separate versions of almost the same code.
+Instead, the differences are stored as comments in the original
+version.  To obtain a reduced version TRANSF is applied, and will
+then treat these comments as editing commands.  For example, the
+class SIMDBM has a reduced version DBMMIN which is obtained by
+applying TRANSF.
+.SKIP
+The commands all have the following general format in order to
+make them invisible as comments:
+.SKIP
+_!.nKEYWORD
+.SKIP
+where KEYWORD stands for the particular editing command where
+just one letter is significant.  n stands for a version number;
+only commands with a specific version number are treated in a
+particular run with TRANSF.  When starting TRANSF the user first
+specifies input file, output file and version number.
+.SKIP
+The following commands are recognized:
+.SKIP
+;.nDELETE;
+.SKIP
+Deletes the following lines up to the first line starting with
+the string _!.;
+.SKIP
+_!.nCHANGE /oldstring/newstring/;
+.SKIP
+Replaces oldstring with newstring on the next line.  Ampersands
+within the strings are first replaced with semicolons.
+.SKIP
+_!.nINSERT
+.SKIP
+The following lines up to the first line beginning with _!.;  will
+be inserted, thereby all ampersands being replaced with
+semicolons.
+.PAGE
+.nofill
+9.   References.
+     ==========
+.SKIP
+.fill
+Most of the present documentation on applications of SIMDBM is
+written i Swedish.  We include them here for the convenience of
+the readers who happen to know that language.  (4) is essentially
+a subset of this report, chapters 3-6.  (1) has appeared in a
+first edition as FOA Report 10043-M3(E5), and has also been
+printed in Management Datamatics.  That version is now partly
+obsolete.The current version exists in machine-readable form and
+can be ordered from the author.  The new version of that report
+will soon be distributed.  If there is interest, the report (3)
+on GEMIC will be translated to English.
+.SKIP
+(2) has no direct connection to SIMDBM, but could be of some
+interest as a background to (3).
+.skip 2
+.nofill
+1.  M{kil{:  A Codasyl type Data Base System written i SIMULA.
+.SKIP
+2.  Sundgren:  An infological approach to data bases.
+.SKIP
+3.  Andersson,Pappila,M{kil{:  Anv{ndarhandledning f`r GEMIC.
+    (GEMIC Users Manual.)
+.SKIP
+4.  FETCH - ett program f`r laddning av och s`kning i en databas.
+    (FETCH - a program for loading and retrieval from a
+    data base.)
+.fill
+.skip 2
+All the reports except (2) exist in machine-readable form and are
+distributed with the DEC-10 SIMULA-67 system as are all the
+programs described in this report.

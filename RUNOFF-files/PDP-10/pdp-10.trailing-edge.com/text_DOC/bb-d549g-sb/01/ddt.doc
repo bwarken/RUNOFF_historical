@@ -1,0 +1,1276 @@
+
+
+
+DDT.DOC -- Changes from V37(201)/40A(220) to V41(252)
+March 1979
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1970,1979 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+DDT41.DOC                                                       Page 2
+
+
+DDT.DOC -- Changes from V37(201)/40A(220) to V41(252)
+March 1979
+
+
+
+1.0  SUMMARY
+
+DDT is a symbolic assembly language debugger for the DECsystem-10  and
+DECSYSTEM-20.   DDT  provides  many  debugging  facilities,  including
+breakpoints, program single-stepping, and the ability  to  examine  or
+deposit  programs  or  data  symbolically.   The  source  file DDT.MAC
+assembles into different versions of DDT  suitable  for  debugging  in
+user  or  exec mode, or for manipulating data on disk.  DDT version 41
+is a significant development release with many new features, including
+KL10  model  B  extended addressing support, 2020 support, native mode
+FILDDT on TOPS-20, and many minor enhancements to make  the  debugging
+process easier.
+
+
+                               WARNING
+
+               A FEW OF THE NEW FEATURES IN DDT 41  ARE
+               NOT COMPATABLE WITH PREVIOUS VERSIONS OF
+               DDT.  SOME  COMMANDS  THAT  WORKED  WITH
+               PREVIOUS VERSIONS OF DDT MAY NOT WORK OR
+               DO DIFFERENT THINGS WITH  DDT  41.   SEE
+               SECTION 2 FOR MORE INFORMATION.
+
+
+DDT 41 supercedes all previous versions.  It runs under all  supported
+monitors,  and  has been tested under TOPS-10 6.03A, and under TOPS-20
+releases 3A and 4.  All patches published through 31-Dec-78 have  been
+incorporated  into  DDT 41.  For DECsystem-10 sites, DDT is documented
+in the DDT manual, which is part of volume 9 of the  TOPS-10  Software
+Notebooks.   The manual can also be ordered separately as order number
+DEC-10-UDDTA-A-D.  For DECSYSTEM-20 sites, DDT is  documented  in  the
+TOPS-20  User's  Guide,  which  is  part  of  volume  1 of the TOPS-20
+Software Notebooks.  The User's Guide can also be  ordered  separately
+as order number AA-4179B-TM.
+DDT41.DOC                                                       Page 3
+
+
+2.0  EXTERNAL CHANGES
+
+Most of the external changes in DDT 41 are new features that make  the
+debugging  process easier.  Refer to the file DDT41.MAN for a detailed
+description of all new features.
+
+
+                         INCOMPATABLE CHANGES
+
+               SOME OF THE CHANGES  TO  DDT  MAY  CAUSE
+               COMMANDS   THAT  WORKED  UNDER  PREVIOUS
+               VERSIONS  OF  DDT  TO  NOT  WORK  OR  DO
+               DIFFERENT   THINGS  WITH  DDT  41.   THE
+               FOLLOWING  LIST   DESCRIBES   ALL   SUCH
+               CHANGES.   PLEASE BE SURE YOU UNDERSTAND
+               THIS LIST BEFORE ATTEMPTING TO  USE  DDT
+               41.
+
+
+
+
+
+2.1  36-Bit Addresses
+
+All addresses used by  DDT  are  now  36-bit  numbers,  including  the
+current  location  counter ".".  Commands like "/" that take addresses
+as arguments will now take all 36 bits of the argument as the  address
+to  be  used.   This  change can cause DDT to type "?" unexpectedly on
+some  commands  that  worked  with  previous  versions  of  DDT.   The
+following  typescript  illustrates  a  typical  sequence that performs
+differently with DDT 41:
+
+        FOO/   <old contents>   -1,,TEXT<tab>
+        777777,,TEXT/   ?
+        777777,,TEXT+1/   ?
+
+The  user  obviously  expected  to  open  location  TEXT,  but  DDT 41
+interpreted the entire expression as an  address  and  opened  a  very
+large nonexistent address.  Another example is:
+
+        DISP/   10327,,17346   $$Q/   ?   .=17346,,10327
+
+In  this  case, the user wanted to follow the address in the left half
+of location DISP, but ended up looking at a huge address instead.  The
+$$Q means "the last quantity typed out with the halves swapped", which
+has non-zero bits in the left half.  The  .=  verifies  that  this  is
+indeed what has happened.
+DDT41.DOC                                                       Page 4
+
+
+If DDT types "?" when it should have typed real data, and you  suspect
+that  you  may  have  ended  up  at a huge address, you can type .= or
+linefeed to verify whether or not this has  indeed  happened.   If  it
+has,  the  command  ,./  (three  adjacent keys on most terminals) will
+quickly get you to the corresponding address with a  zero  left  half.
+You  can get DDT to ignore the left half of the argument to a location
+opening command such as / or tab by including a space somewhere in the
+argument.  Space means to retain the left half of the current location
+when opening a new location.  For instance, the  first  example  above
+could have been done as follows:
+
+        FOO/   <old contents>   -1,,TEXT<space><tab>
+        TEXT/   ANDI 360732(16)
+        TEXT+1/   CONSZ 30,500000(14)
+
+This command sequence would deposit -1,,TEXT in location FOO, but open
+location 0,,TEXT, since the left half of the current address "." is 0.
+Another example is:
+
+        LOOP1+3/   PUSHJ P,ERROR   JRST PAT..<tab>
+        PAT../   0
+
+In this example, the user wanted to deposit a JRST PAT..  at  LOOP1+3,
+and  then open location PAT.. to write a patch.  However, the user did
+not have to include an  explicit  space  before  the  tab,  since  the
+argument  to  the tab already contained the space between the JRST and
+the PAT...  In fact, this kind of example is  exactly  why  space  has
+been  implemented  as  a  "retain  the  current section" command.  The
+ramifications of  36-bit  addresses  are  more  complex  than  can  be
+described  in  this  short  summary.   Refer to the file DDT41.MAN for
+complete documentation.
+
+
+
+2.2  Auto-typeout On Breakpoints
+
+The command  to  set  a  location  to  type  out  automatically  on  a
+breakpoint has changed, as follows:
+
+Old way:
+
+                A,,B$B  or  B(A)$B
+
+New way:
+
+                A<B$B
+
+This  command  means  to  set a breakpoint at location B, and type out
+location A symbolically every time the program  hits  the  breakpoint.
+If the old-style command is typed to DDT 41, it will be interpreted as
+a command to set a breakpoint at the full-word address A,,B, which  is
+usually illegal.
+DDT41.DOC                                                       Page 5
+
+
+2.3  Address (Page) Mapping - The $U Command.
+
+The $U command syntax has changed drastically in DDT 41  in  order  to
+allow  for  the expansion of the command to handle many new functions,
+as well as to make those new functions a little "cleaner" syntax-wise.
+Basically  the  old  DDT  command  "user$execU"  for  KI-style  paging
+(TOPS-10) is now "user<exec$U".  As with address mapping  above  there
+are many ramifications to the new format of the $U command, the reader
+should very carefully read the users guide DDT41.MAN before attempting
+to use the $U command.
+DDT41.DOC                                                       Page 6
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+The following list is currently incomplete.  It will be updated before
+DDT  41  is finally released.  The following is a complete list of all
+known bugs and deficiencies in DDT 41 as of 1-Mar-79.
+
+     1.  DDT does not detect many illegal commands,  for  example,  18
+         octal  is  accepted  and  treated  as 20 octal.  DDT does not
+         detect arguments to commands which are ignored, e.g., $23Q is
+         the same as $Q.
+
+     2.  The commands $<CR>, and $<LF> do not detect  the  attempt  to
+         recall more than was saved.
+
+     3.  When looking at user rather than exec memory  (e.g.   m<n$U),
+         the AC's still come from CRSHAC rather than the user pages.
+
+     4.  Rubout, CTRL/U, and CTRL/W  are  not  handled  properly  when
+         ASCII  or  SIXBIT  text  is typed in (the " and $" commands).
+         Text may be stored in memory even if it is rubbed out  later.
+         Under  certain  circumstances  the  wrong  locations  may get
+         written into.
+
+     5.  The text command ""$H$J gives an error indication.
+
+     6.  Sometimes expressions of the form symbol(val) will  cause  an
+         "M"   error  to  occur.   Inserting  an  explicit  arithmetic
+         operator such as "+"  or  " "  between  the  symbol  and  the
+         parenthesized   val   seems   to  make  the  expression  work
+         correctly.
+
+DDT41.DOC                                                       Page 7
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+4.1  TOPS-10
+
+To install DDT version 41 on your  system,  copy  the  files  DDT.EXE,
+VMDDT.EXE,  FILDDT.EXE,  DDT.REL,  EDDT.REL,  and  DDT41.MAN  from the
+distribution tape to SYS:.  The batch control  file  DDT.CTL  contains
+all necessary instructions to assemble and load DDT.  It will normally
+have to  be  modified  slightly  to  correspond  to  the  installation
+configuration.
+
+
+
+4.2  TOPS-20
+
+To install DDT version 41 on your system,  copy  the  files  UDDT.EXE,
+SDDT.EXE, FILDDT.EXE, RDDT.REL, EDDT.REL, MDDT.REL, and DDT41.MAN from
+the distribution tape to SYS:.  This can be done by mounting the  tape
+labelled  Distribution  Tape  on  MTA0:,  then  typing  the  following
+commands:
+
+     R DUMPER
+     TAPE MTA0:
+     REWIND
+     DENSITY 1600-BPI
+     SKIP 2
+     RESTORE DSK*:<*>*DDT.EXE (TO) SYS:*.*.-1, -
+     DSK*:<*>*DDT.REL (TO) SYS:*.*.-1, -
+     DSK*:<*>DDT41.MAN (TO) SYS:*.*.-1
+     REWIND
+To rebuild DDT from sources, mount the tape labelled Distribution Tape
+on MTA0:, then type the following commands:
+
+     R DUMPER
+     TAPE MTA0:
+     REWIND
+     DENSITY 1600-BPI
+     SKIP 3
+     RESTORE DSK*:<*>*.*.* (TO) <self>*.*.*
+     REWIND
+     CTRL/C
+     !At this point, you should TYPE DDT.CTL to see what it does.
+     SUBMIT DDT.CTL/TIME/RESTART
+The batch control file DDT.CTL contains the  procedures  necessary  to
+rebuild  DDT from sources.  It may have to be modified slightly to run
+at your installation, so you should type it to see what it does before
+typing the SUBMIT command above.
+DDT41.DOC                                                       Page 8
+
+
+5.0  INTERNAL CHANGES
+
+5.1  Changes From DDT 37(201) To DDT 40A(250)
+
+
+200     RDH     14-NOV-76       SPR 10-17714
+        VALIDITY-CHECK THE SYMBOL POINTER FOR THE HIGH-SEG SYMBOL
+        TABLE (.JBHSM) RATHER THAN ARBITRARILY BELIEVING IT (AND
+        SUBSEQUENTLY ILL MEM REF'ING, ETC.).
+
+201     RDH     14-NOV-76       SPR 10-18806
+        MORE OF EDIT 200, AT DEF1:
+
+202     RDH     14-NOV-76       SPR 10-19661
+        TREAT THE MAP INSTRUCTION "E" FIELD AS AN IMMEDIATE QUANTITY
+        RATHER THAN AS A MEMORY REFERENCE.
+
+203     RDH     14-NOV-76
+        EXPAND FILDDT TO HANDLE FULL 22-BIT ADDRESSING IN EXE-FORMAT
+        FILES (SPECIFICALLY CRASH.EXE).
+
+204     RDH     14-NOV-76       SPR 10-20165
+        IMPLEMENT SPECIAL BYTE-FORMAT TYPEOUT FOR THE VARIOUS
+        BYTE MANIPULATION INSTRUCTIONS. CODE COURTESY OF THE
+        UNIVERSITY OF ARIZONA.
+
+205     RDH     15-NOV-76
+        PUT TAG PTDFLG: UNDER FTYANK RATHER THAN FTEXEC!FTFILE FOR
+        THOSE SITES THAT WISH TO TAKE THEIR CHANCES WITH $Y IN EITHER
+        UDDT OR VMDDT (NOTE: $Y USES I/O CHANNEL 17 - BE WARNED)
+
+206     RDH     4-DEC-76
+        REWRITTEN CODE IN CHKADR (TO BETTER HANDLE KL'S) FORGOT HOW
+        KA'S WORKED AND LOST THE APR PI ASSIGNMENT.
+
+207     RDH     4-DEC-76
+        IMPLEMENT "/D" FOR FILDDT  --  TREAT FILE SPECIFIED AS PURE
+        DATA FILE - DON'T CRUMP ON FIRST 20 LOCATIONS (THE "ACS"),
+        DON'T LOOK FOR SYMBOL TABLE. IF NOT .EXE FORMAT AND NOT .XPN
+        FORMAT THEN "/D" IS ASSUMED.
+
+210     RDH     6-DEC-76
+        EXTEND THE $M COMMAND  --  <M>$<N>M  --  WHERE <N> IS THE
+        MASK NUMBER AND <M> IS THE ASSOCIATED MASK.
+
+        <N> =  0 OR NOT-SPECIFIED THEN <M> IS THE SEARCH MASK
+        <N> = 1 THEN <M> IS TTY CONTROL MASK:
+                1B35 = 1 THEN "ECHO" <DEL>'S AS <BS><SP><BS>
+
+211     RDH     6-DEC-76
+        NEW ASSEMBLY PARAMETER "SKPMAX" TO SET MAXIMUM NUMBER OF
+        LOCATIONS SKIPPED FOR $X LOGIC. IF <INSTR>$X THEN TYPE
+        <SKP> FOR EACH LOCATION SKIPPED. IF $$X THEN DO INDEFINITE
+        $X UNTIL OLD-PC .LT. NEW-PC .LE. OLD-PC+SKPMAX
+
+DDT41.DOC                                                       Page 9
+
+
+212     RDH     7-DEC-76
+[214]   MATCH ANGLE BRACKETTS  --  <<
+        WHEN PATCHING ($>) DON'T INSERT A 0 WORD UNLESS USER EXPLICITLY
+        TYPED IT - I.E., ALLOW THE $> TO APPEAR BY ITSELF - THE WAY MOST
+        PEOPLE TEND TO USE IT.
+
+213     RDH     9-DEC-76
+        CHANGE SKIPN'S TO SKIPE'S IN [207] AND CAILE TO CAIL IN [210]
+
+214     RDH     18-DEC-76
+        MATCH ANGLE BRACKETTS IN EDIT [212] COMMENTS TO KEEP VARIOUS
+        AND SUNDRY PEOPLE HAPPY.
+
+215     RDH     19-DEC-76
+        IF SPYSEG THEN NO HISEG SYMBOL TABLE.
+
+216     RDH     19-DEC-76
+        CHKHSM ROUTINE ([200],[201]) IS TOO RESTRICTIVE, WON'T ALLOW
+        .JBHSM TO POINT TO LOW SEG; CHKADR ROUTINE WON'T ALLOW RANDOM
+        NON-CONTIGUOUS PAGES.
+
+217     RDH     19-DEC-76
+        NAMSET ROUTINE (TO HANDLE MODULE$:) ASSUMES HIGH SEGMENT ALWAYS
+        STARTS AT 400000, LEADING TO SUBSEQUENT ILL MEM REF'S.
+
+220     JNG     28-JAN-77
+        PREVENT ILL MEM REF ON PATCH CLOSE WHEN USING A WRITE-LOCKED
+        (E.G. HISEG) SYMBOL TABLE.
+
+DDT %40(220) MARCH, 1977
+
+221     TAH     13-MAR-77
+        ADD COMMAND FRONT END TO INTERFACE FILDDT TO TOPS-20 SYSTEM.
+        ADD KL PAGING CODE TO CVTADR, ALL UNDER FTFD20 CONDITIONAL
+        (FTFILE MUST STILL BE ON ALSO).
+
+222     ASM     13-MAR-77
+        IN EXEC DDT DETERMINE EXEC VIRTUAL ADDRESS OF EPT BY SCANNING
+        EXEC VIRT ADR SPACE IF PAGING IS ON.
+
+223     TAH     13-MAR-77
+        MAKE LPDL LARGER FOR TOPS-20 MDDT
+
+224     RDH     13-MAR-77
+        MAKE SEARCHES HANDLE NON-CONTIGUOUS CORE/FILE IMAGES, ADD
+        TWO NEW ASSEMBLY PARAMETERS:
+
+            INDPTH      ;MAX INDIRECT NESTING FOR $E SEARCHES
+            LISCNT      ;NUM OF <PUSHJ P,LISTEN>'S TWEEN INCHRS'S
+
+225     RDH     13-MAR-77
+        HANDLE TYPEOUT RADIX .GE. 10 (E.G., HEX) MORE GRACEFULLY
+
+226     RDH     13-MAR-77
+        EDIT 215 IS WRONG, .GTSGN == 14
+DDT41.DOC                                                      Page 10
+
+
+
+227     JNG     13-MAR-77
+        ADD CODE TO DDT TO WRITE-ENABLE PAGES ON TOPS-20 BEFORE
+        ATTEMPTING TO WRITE THEM - E.G., FOR BREAKPOINTS, PATCHS,
+        AND SO FORTH. IF PAGE NOT WRITE-ENABLED, SET COPY-ON-WRITE
+        SO AS NOT TO ZAP OTHER USERS "SHARING" THE PAGE.
+
+230     RDH     13-MAR-77
+        WHEN IN A COMMAND FILE ($Y) THEN DO NOT CHECK THE COMMAND
+        FILE FOR INPUT ON CALLS TO LISTEN - ONLY ACCEPT PHYSICAL
+        TTY INPUT.
+
+231     RDH     14-MAR-77
+        CLEAR $U POINTERS IN FILDDT ON ^Z, START SEQUENCE
+
+232     RDH     14-MAR-77
+        UPDATE LH(.JBSA) ON PATCH END IF .JBFF WAS DEFAULTED TO
+        ON PATCH BEGIN. THIS WAY THE PATCH IS AT LEAST SAVED ON
+        SAVE'S, RESET'S, AD NAUSEUM.
+
+233     RDH     14-MAR-77
+        REVAMP PATCH LOGIC ($< AND $>) TO DISPLAY LOCATION BEFORE
+        MODIFYING SAME LOCATION SO THAT FILDDT CAN PATCH RUNNING
+        MONITOR (ALSO LOOKS NEATER).
+
+234     RDH     23-MAR-77
+        ADD NEW "MASK" COMMAND <N>$2M TO SET THE SYMBOL OFFSET RANGE
+        (I.E. THE RANGE IN WHICH VALUES WILL BE TYPED IN THE FORM
+        SYMBOL+<OFFSET>) TO <N>. ADD ASSEMBLY PARAMETER "ADRNGE"
+        AS THE DEFAULT VALUE. ALSO MAKE $1M/ ETC. WORK.
+
+235     RDH     24-MAR-77
+        REVAMP BYTE TYPEOUT LOGIC: ADD <N>$3M AS BYTE TYPEOUT MASK
+        (EACH "1" BIT IN THE MASK MARKS THE END OF A BYTE, BIT 35
+        IS ALWAYS CONSIDERED THE END OF A BYTE). FOR VALUES OF <N>
+        SUCH THAT 1 .LE. <N> .LE. 36(10) THE COMMANDS $<N>O & $$<N>O
+        WORK AS USUAL BY SETTING AN INTERNAL BYTE MASK. FOR <N> = 0
+        THE $3M BYTE MASK WILL BE USED. FOR <N> = <NULL> (I.E. THE
+        $O COMMAND) THE CURRENTLY PREVAILING $O OR $$O MASK WILL
+        BE USED IF NON-BLANK, ELSE THE $3M MASK WILL BE USED.
+        $$O MAKES PERMANENT THE CURRENTLY PREVAILING $O (OR $$O)
+        BYTE MASK.
+
+236     RDH     14-APR-77
+        ADD IFN FTYANK CONDITIONALS SO THAT FILDDT CAN BE ASSEMBLED
+        WITH FTYANK TURNED OFF
+
+237     RDH     17-APR-77
+        GENERAL CLEANUP AND REARRANGEMENT. MAKE TOPS-10 DDT SEARCH
+        THE "C" UNIVERSAL FILE. TYPE OUT "DDT" WHEN USER MODE DDT
+        IS ENTERED. PUT TOPS-10-SPECIFIC CODE UNDER "IFN FTDEC10"
+        RATHER THAN "IFE FTDEC20".
+
+240     RDH     15-JUN-77
+        ADD CODE TO TYPE OUT SYMBOLIC WORDS WITH USER-DEFINED SYMBOLS
+DDT41.DOC                                                      Page 11
+
+
+        SUCH AS THE CALLI OR JSYS MNEMONICS. ORDER OF SEARCH IS:
+           1)   OPCODE & AC & I & X & Y FIELDS
+           2)   OPCODE & I & X & Y FIELDS (E.G. CALLI OR JSYS)
+           3)   OPCODE & AC FIELDS (E.G. TTCALLS)
+           4)   OPCODE ONLY
+           5)   HARDWARE-KNOWN OPCODE (JRST, ETC.)
+        PUT CODE UNDER FTOPX .NE. 0 CONDITIONAL SINCE UNTIL SORTED
+        SYMBOL TABLES AVAILABLE THIS CODE TAKES MUCH RUN TIME.
+        ALSO MAKE TRXX AND TLXX TYPE OUT ADDRESS AS OCTAL RATHER
+        THAN SYMBOL+OFFSET.
+
+241     RDH     15-SEP-77       SPR # 10-22011
+        "777777" COULD GET TYPED OUT AS "-1" WHEN $X'ING IF THE
+        AC BEING TYPED OUT WAS TYPED OUT IN XWD FORMAT.
+
+242     RDH     16-SEP-77       SPR # 10-22616
+        "AOS UND#(AC)" LOST BOTH THE UND SYMBOL AND THE AC IN
+        THE WORD BEING BUILT (I.E., LEFT ONLY THE AOS).
+
+243     RDH     16-SEP-77       SPR # 10-22788
+        PATCHING WITH FILDDT WRONG IF NONE OF THE USUAL PATCHING
+        SYMBOLS (PAT.., PAT, PATCH) ARE PRESENT AND THUS PATCHING
+        DEFAULTS TO C(.JBFF) - THE .JBFF USED WAS FILDDT'S, NOT
+        THE FILE'S.
+
+244     RDH     16-SEP-77       SPR # 10-22894
+        SOME RUBOUT'S STILL GET TYPED OUT.
+
+245     RDH     17-SEP-77       SPR # 10-23013
+        AFTER REFERENCING AN UNDEFINED SYMBOL, THE UNDEFINED SYMBOL
+        IS LEFT IN THE SYMBOL CACHE WITH ITS BOGUS VALUE (E.G., THE
+        ADDRESS TO FIX UP).
+
+246     RDH     25-SEP-77
+        BE MORE CHOOSEY ABOUT TYPE-IN INVOLVING UNDEFINEDS - CATCH ERRORS
+        SUCH AS "PUSHJ UND#,FOO" OR "MOVE 4,(UND#)"
+
+250     JNG     15-Aug-78
+        Search UUOSYM, MACTEN instead of C.
+
+DDT %40A(250)   October, 1978
+DDT41.DOC                                                      Page 12
+
+
+5.2  Changes From DDT 40A(250) To DDT 41(252)
+
+
+247     RDH/JNG 16-OCT-77 TO 28-JUN-78
+        MASSIVE DEVELOPMENT AND REVAMPING: EXTENDED ADDRESSING; JSYSIZE FILDDT;
+        REMOVE SYMBOL CACHE; ADD $0W AND $1W; DISK SUPER I/O (FILDDT);
+        PHYSICAL MEMORY ADDRESSING; KS-10 SUPPORT; KI/KL PAGING SUPPORT;
+        $Z; $8T AND $9T; $.; $U ENHANCEMENTS; $B ENHANCEMENTS; $X EN-
+        HANCEMENTS; DECOMMIT EXEC PAPER TAPE STUFF; SYMBOLIC TYPEOUT
+        ENHANCEMENTS; $Y ENHANCEMENTS (TOPS-10 ONLY); NUMEROUS RANDOM
+        BUG FIXES. CALL VERSION 41.
+
+251     JNG/RDH 15-Aug-78 to 26-Jan-79
+        Continuing and fixing bugs in 247: Implement hiseg symbol tables
+        in FILDDT; Allow the symbol table to be in another address space
+        for EDDT and MDDT; Add $: with no argument; Add "M" error.
+
+252     JNG     4-Feb-79
+        Change hidden symbol logic to do exec virtual BLT's instead
+        of switching the EPT base address.
+
+253     DIB     8-MAR-79
+        INSERT A NEW SYMBOL TABLE CACHE FOR OUTPUT ONLY.  ALSO MOVE
+        DATA PAGES BELOW CODE PAGES SO SYMBOL CACHE WILL FIT IN UDDT.
+
+254     JNG/RDH 8-MAR-79
+        GET FAKEAC LOGIC RIGHT IN $U COMMANDS.  BROKEN BY 251. ONLY
+        SETUP .JBVER IF FILDDT. ADD /A (ABORT ON COMMAND ERROR) FOR
+        $Y. MAKE ^W WORK MORE REASONABLY ON -10. MAKE FANCY RUBOUT
+        HANDLING AUTOMATIC ON -10 (7.01 ONLY). ADD $$. AS PREVIOUS
+        $. (USEFUL FOR $$.<$$X ETC.).
+        (MATCH ANGLE BRACKETS:>)
+
+255     RDH     31-MAR-79
+        LOST INSTRUCTION IN EDDT FOR KI-10'S. SUPPRESS ADDRESS BREAKS
+        IN FETCH AND STORE LOGIC. IF $$X'ING (OR $W'ING (SEARCHING)
+        OR $Z'ING (DEPOSITING)) AND USER TYPES A ? THEN GIVE A QUICKIE
+        TYPEOUT STATUS. SECOND FIELD TEST FOR TOPS-10 7.00.
+
+256     RDH     17-APR-79
+        RANDOM VERSION 41 BUGS (IN PARTICULAR $P OF A BREAKPOINT CAUSED
+        BY XCT'ING A BREAKPOINT LOCATION FAILED). HANDLE ERCAL/JMP ON
+        $P. HANDLE INIT UUO.
+
+257     JNG     21-APR-79
+        CONVERT $U COMMAND TO FUNCTION CODES.
+
+260     RDH     13-MAY-79
+        ADD ADR$V COMMAND TO "WATCH" A LOCATION AND REPORT ANY CHANGE IN
+        ITS CONTENTS (ADR DEFAULTS TO LAST LOCATION OPENED).
+
+261     RDH     22-MAY-79
+        STUPID LITTLE BUGS
+DDT41.DOC                                                      Page 13
+
+
+6.0  SUGGESTIONS
+
+The following  suggestion  list  has  been  accumulated  from  various
+sources,  including  SPRs  and  DECUS  sessions.   The appearance of a
+suggestion on this list does not necessarily mean  that  DIGITAL  ever
+intends to implement it.
+
+     1.  Implement a byte typein and typeout facility.
+
+     2.  Implement sorted and block-structured symbol tables.
+
+     3.  Add error messages.
+
+
+[End of DDT41.DOC]
+
+[DDT40A.DOC is appended as an integral part of DDT41.DOC]
+DDT41.DOC                                                      Page 14
+
+
+DDT.DOC -- Changes from V40(220) to V40A(250)
+July 1978
+
+
+
+1.0  SUMMARY
+
+DDT version 40A is a maintenence  release  intended  to  increase  the
+reliablity of DDT in the field.  Several minor features have also been
+added.
+
+This version of DDT has not been tested under  the  TOPS-20  operating
+system,  but  there  are  no  known problems that will prevent it from
+working under TOPS-20.
+
+This version of DDT supersedes all previous versions.  It  runs  under
+all  supported  TOPS-10  monitors  and  EDDT runs stand-alone on KA10,
+KI10, and KL10 (including 1088) systems.
+
+DDT is documented in Software Notebook vol.  2, 8, and 12.
+
+
+
+2.0  EXTERNAL CHANGES
+
+The maximum offset at which DDT is willing to  type  a  value  in  the
+"symbol plus offset" form is now user-settable.  The command format is
+n$2M, where n is the maximum offset to use.   The  default  value  has
+also been changed to 1000 octal in all flavors of DDT.
+
+The $O command has been enhanced to allow  typeout  of  variable-sized
+bytes.   To  do  this, the user should set a byte mask via n$3M, where
+each bit set in n indicates the rightmost bit of a byte (bit 35 should
+always  be set).  To use the byte mask, the user should specify a byte
+size of zero ($0O).  In addition, a blank byte size (just $O) will use
+the prevailing byte size if any, or the $3M byte mask if not.
+
+Radices greater than 10 now work correctly in  the  $nR  command.   In
+particular,  $16R will now correctly type out hexadecimal.  All digits
+greater than 9 are mapped onto the alphabet for typeout.
+
+The $< patching feature puts the patch at .JBFF if it cannot find  any
+of  the  standard  patching  symbols (PAT.., PAT, or PATCH).  With DDT
+V40A, the $> command will now update the left half of .JBSA,  so  that
+the patch will not be overwritten by a RESET UUO.
+
+Word  searches  ($W,  $N,  and  $E)  now  correctly   search   through
+non-contiguous pages.
+
+Several typeout bugs relating to the symbol cache have been fixed.
+
+Code has been added to make DDT smarter when typing out UUOs, TTCALLs,
+user  LUUOs,  and  OPDEFs.  This code is under the FTOPX feature test,
+which is normally off in released DDT.  Sites  wishing  to  turn  this
+feature  test  on  are warned that it slows down typeout a great deal,
+DDT41.DOC                                                      Page 15
+
+
+and will continue to do so until sorted symbol tables are available.
+
+Several other minor bugs from  user  complaints  and  SPRs  have  been
+fixed.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+DDT does not detect many illegal commands, for example,  18  octal  is
+accepted  and  treated  as 20 octal.  DDT does not detect arguments to
+commands which are ignored, e.g., $23Q is the same as $Q.
+
+The commands $<CR>, and $<LF> do not detect the attempt to recall more
+than was saved.
+
+When looking at user rather than exec memory (e.g.   n$mU),  the  AC's
+still come from CRSHAC rather than the user pages.
+
+Users may experience some problems with high  segment  symbol  tables,
+especially if the high segment starts at an address other than 400000.
+
+Some problems relating to the symbol cache are known  to  remain.   In
+particular,  typing  a  value  out  as "symbol plus offset" may select
+different symbols at different times.
+
+$X cannot handle the INIT MUUO in user mode.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+Copy the following files from the distribution tape onto SYS:
+
+          DDT.REL
+          DDT.EXE
+          EDDT.REL
+          FILDDT.EXE
+          DDT.VMX  (VM systems only)
+
+
+
+5.0  INTERNAL CHANGES
+
+Edit #
+
+221    TAH    13-MAR-77
+       ADD COMMAND FRONT END TO INTERFACE FILDDT TO TOPS-20 SYSTEM.
+       ADD KL PAGING CODE TO CVTADR, ALL UNDER FTFD20 CONDITIONAL
+       (FTFILE MUST STILL BE ON ALSO).
+
+222    ASM    13-MAR-77
+       IN EXEC DDT DETERMINE EXEC VIRTUAL ADDRESS OF EPT BY SCANNING
+       EXEC VIRT ADR SPACE IF PAGING IS ON.
+
+DDT41.DOC                                                      Page 16
+
+
+223    TAH    13-MAR-77
+       MAKE LPDL LARGER FOR TOPS-20 MDDT
+
+224    RDH    13-MAR-77
+       MAKE SEARCHES HANDLE NON-CONTIGUOUS CORE/FILE IMAGES, ADD
+       TWO NEW ASSEMBLY PARAMETERS:
+
+           INDPTH           ;MAX INDIRECT NESTING FOR $E SEARCHES
+           LISCNT           ;NUM OF <PUSHJ P,LISTEN>'S TWEEN INCHRS'S
+
+225    RDH    13-MAR-77
+       HANDLE TYPEOUT RADIX .GE. 10 (E.G., HEX) MORE GRACEFULLY
+
+226    RDH    13-MAR-77
+       EDIT 215 IS WRONG, .GTSGN == 14
+
+227    JNG    13-MAR-77
+       ADD CODE TO DDT TO WRITE-ENABLE PAGES ON TOPS-20 BEFORE
+       ATTEMPTING TO WRITE THEM - E.G., FOR BREAKPOINTS, PATCHS,
+       AND SO FORTH. IF PAGE NOT WRITE-ENABLED, SET COPY-ON-WRITE
+       SO AS NOT TO ZAP OTHER USERS "SHARING" THE PAGE.
+
+230    RDH    13-MAR-77
+       WHEN IN A COMMAND FILE ($Y) THEN DO NOT CHECK THE COMMAND
+       FILE FOR INPUT ON CALLS TO LISTEN - ONLY ACCEPT PHYSICAL
+       TTY INPUT.
+
+231    RDH    14-MAR-77
+       CLEAR $U POINTERS IN FILDDT ON ^Z, START SEQUENCE
+
+232    RDH    14-MAR-77
+       UPDATE LH(.JBSA) ON PATCH END IF .JBFF WAS DEFAULTED TO
+       ON PATCH BEGIN. THIS WAY THE PATCH IS AT LEAST SAVED ON
+       SAVE'S, RESET'S, AD NAUSEUM.
+
+233    RDH    14-MAR-77
+       REVAMP PATCH LOGIC ($< AND $>) TO DISPLAY LOCATION BEFORE
+       MODIFYING SAME LOCATION SO THAT FILDDT CAN PATCH RUNNING
+       MONITOR (ALSO LOOKS NEATER).
+
+234    RDH    23-MAR-77
+       ADD NEW "MASK" COMMAND <N>$2M TO SET THE SYMBOL OFFSET RANGE
+       (I.E. THE RANGE IN WHICH VALUES WILL BE TYPED IN THE FORM
+       SYMBOL+<OFFSET>) TO <N>. ADD ASSEMBLY PARAMETER "ADRNGE"
+       AS THE DEFAULT VALUE. ALSO MAKE $1M/ ETC. WORK.
+
+235    RDH    24-MAR-77
+       REVAMP BYTE TYPEOUT LOGIC: ADD <N>$3M AS BYTE TYPEOUT MASK
+       (EACH "1" BIT IN THE MASK MARKS THE END OF A BYTE, BIT 35
+       IS ALWAYS CONSIDERED THE END OF A BYTE). FOR VALUES OF <N>
+       SUCH THAT 1 .LE. <N> .LE. 36(10) THE COMMANDS $<N>O & $$<N>O
+       WORK AS USUAL BY SETTING AN INTERNAL BYTE MASK. FOR <N> = 0
+       THE $3M BYTE MASK WILL BE USED. FOR <N> = <NULL> (I.E. THE
+       $O COMMAND) THE CURRENTLY PREVAILING $O OR $$O MASK WILL
+       BE USED IF NON-BLANK, ELSE THE $3M MASK WILL BE USED.
+DDT41.DOC                                                      Page 17
+
+
+       $$O MAKES PERMANENT THE CURRENTLY PREVAILING $O (OR $$O)
+       BYTE MASK.
+
+236    RDH    14-APR-77
+       ADD IFN FTYANK CONDITIONALS SO THAT FILDDT CAN BE ASSEMBLED
+       WITH FTYANK TURNED OFF
+
+237    RDH    17-APR-77
+       GENERAL CLEANUP AND REARRANGEMENT. MAKE TOPS-10 DDT SEARCH
+       THE "C" UNIVERSAL FILE. TYPE OUT "DDT" WHEN USER MODE DDT
+       IS ENTERED. PUT TOPS-10-SPECIFIC CODE UNDER "IFN FTDEC10"
+       RATHER THAN "IFE FTDEC20".
+
+240    RDH    15-JUN-77
+       ADD CODE TO TYPE OUT SYMBOLIC WORDS WITH USER-DEFINED SYMBOLS
+       SUCH AS THE CALLI OR JSYS MNEMONICS. ORDER OF SEARCH IS:
+
+          1)  OPCODE & AC & I & X & Y FIELDS
+          2)  OPCODE & I & X & Y FIELDS (E.G. CALLI OR JSYS)
+          3)  OPCODE & AC FIELDS (E.G. TTCALLS)
+          4)  OPCODE ONLY
+          5)  HARDWARE-KNOWN OPCODE (JRST, ETC.)
+
+       PUT CODE UNDER FTOPX .NE. 0 CONDITIONAL SINCE UNTIL SORTED
+       SYMBOL TABLES AVAILABLE THIS CODE TAKES MUCH RUN TIME.
+       ALSO MAKE TRXX AND TLXX TYPE OUT ADDRESS AS OCTAL RATHER
+       THAN SYMBOL+OFFSET.
+
+241    RDH    15-SEP-77     SPR # 10-22011
+       "777777" COULD GET TYPED OUT AS "-1" WHEN $X'ING IF THE
+       AC BEING TYPED OUT WAS TYPED OUT IN XWD FORMAT.
+
+242    RDH    16-SEP-77     SPR # 10-22616
+       "AOS UND#(AC)" LOST BOTH THE UND SYMBOL AND THE AC IN
+       THE WORD BEING BUILT (I.E., LEFT ONLY THE AOS).
+
+243    RDH    16-SEP-77     SPR # 10-22788
+       PATCHING WITH FILDDT WRONG IF NONE OF THE USUAL PATCHING
+       SYMBOLS (PAT.., PAT, PATCH) ARE PRESENT AND THUS PATCHING
+       DEFAULTS TO C(.JBFF) - THE .JBFF USED WAS FILDDT'S, NOT
+       THE FILE'S.
+
+244    RDH    16-SEP-77     SPR # 10-22894
+       SOME RUBOUT'S STILL GET TYPED OUT.
+
+245    RDH    17-SEP-77     SPR # 10-23013
+       AFTER REFERENCING AN UNDEFINED SYMBOL, THE UNDEFINED SYMBOL
+       IS LEFT IN THE SYMBOL CACHE WITH ITS BOGUS VALUE (E.G., THE
+       ADDRESS TO FIX UP).
+
+246    RDH    25-SEP-77
+       BE MORE CHOOSEY ABOUT TYPE-IN INVOLVING UNDEFINEDS - CATCH ERRORS
+       SUCH AS "PUSHJ UND#,FOO" OR "MOVE 4,(UND#)"
+
+247    Reserved for development.
+DDT41.DOC                                                      Page 18
+
+
+
+250    JNG    15-Aug-78
+       Search UUOSYM, MACTEN instead of C.
+
+
+
+6.0  SUGGESTIONS
+
+Many, on file at DIGITAL.
+
+
+
+[End of DDT40A.DOC]
+
+[DDT40.DOC is appended as an integral part of DDT40A.DOC]
+DDT40.DOC                                                      Page 19
+
+
+DDT.DOC -- Changes from V36(152) to V40(220)
+January 1977
+
+
+
+1.0    SUMMARY
+
+This version of DDT includes a number  of  new  features,  input  text
+editing  (rubout,  control-U, control-R, etc.), improved KL10 support,
+patch  command,  effective  address  calculation  and  several   minor
+features.
+
+DDT version 40 also fully supports the TOPS-20 operating system.
+
+This version of DDT supersedes all previous versions.  It  runs  under
+all  supported  TOPS-10 and TOPS-20 monitors and EDDT runs stand-alone
+on KA10, KI10, and KL10 (including 1088) systems.
+
+DDT is documented in Software Notebook vol.  2B, 5, and 7.
+
+
+
+2.0    EXTERNAL CHANGES
+
+Full input text editing.  This means you can delete the last character
+with rubout, delete the last field with ^W.  ^U deletes the whole line
+and is generally equivalent to rubout in previous versions of DDT.
+
+Stack of previous sequences.  Each time a new sequence  is  explicitly
+begun,  the  current location is saved in a ring buffer.  The commands
+$<LF>,$<CR>, and $^ remove the last item from  this  ring  buffer  and
+make  it  the current location.  Previous DDTs had only one such saved
+location.
+
+The command $<CR> pops the saved location  stack  as  above,  then  it
+opens and types out that location.  Previously, the saved location was
+made current, but the register was not opened.
+
+During $W, $N, and $E searches, each location found is  added  to  the
+saved  location  stack.   Thus, successive $<CR> commands will let you
+scan through the set of locations found, making any changes necessary.
+
+Text typing (" and $") allows you to type multiple words of text.   As
+each  word  is filled, it is stored in the next successive location at
+or following the current open  register.   If  no  register  is  open,
+characters after the first word are ignored.
+
+
+                            ***WARNING***
+
+
+Words are stored in memory as they are assembled.  If ^U  or  repeated
+rubouts  are  used to cancel the command, memory may have been altered
+anyway.  The value of the location counter (.) will always be correct.
+DDT40.DOC                                                      Page 20
+
+
+The effective address of the typed quantity will be computed and  used
+to  open a register if any register opening command is preceeded by $,
+i.e., 1(P)$/ will open the location following the one pointed to by P.
+
+The patch command has been added.  This consists of:
+
+          $< - patch before
+          $$< - patch after
+          $> - end patch
+
+$ or $$ inserts a patch into the currently  open  register.   'Before'
+means  before  the  instruction at that location;  'after' means after
+it.  When you begin a patch, DDT will open the first location  in  the
+patch area.  The patch area is defined by the symbol PAT..  (or PAT or
+PATCH whichever is found first).  Alternately, you can type  a  single
+symbol preceeding the patch begin command (e.g., FF$<), and it will be
+taken as the beginning of the patch area.  If you are  doing  a  patch
+'after',  DDT  will insert your original instruction and then open the
+next location.  You may now proceed to enter your patch.
+
+When you have finished the patch, type $> and DDT will:
+
+     1.  Close the current register if any.
+
+     2.  If a patch 'before' was originally given, DDT will insert the
+         instruction from the original location.
+
+     3.  DDT will insert JUMPA 1,LOC+1 and JUMPA 2,LOC+2, where LOC is
+         the  original patch location.  Thus skipping instructions may
+         be patched.
+
+     4.  DDT will now replace your original instruction with  a  JUMPA
+         to  the  start  of  the  patch  and  will redefine PAT..  (or
+         wherever the patch location came from) to be the  first  free
+         cell after your patch.
+
+     Note that the original location is not changed  until  the  patch
+     completion  command  is  given.  Thus, you can give up or restart
+     the patch at any time.  DDT remembers the parameters of the  most
+     recent  patch begin command and uses them at the patch completion
+     whereupon they are forgotten.  A second patch completion  command
+     given will produce an error indication.
+
+
+DDT was modified to run under the TOPS-20 operating system.
+
+All impure storage has been collected and is located  at  the  end  of
+DDT.
+
+A bug in FILDDT has been  corrected.   In  previous  versions,  FILDDT
+would  not  produce  the  message "%PATCHING NOT ENABLED BY /P" in all
+cases.
+DDT40.DOC                                                      Page 21
+
+
+$V is now illegal, $$Q should be used instead.  Version 36 generated a
+warning message.
+
+DDT no longer outputs rubouts in user mode.
+
+Several bugs related to write protected symbol tables  with  undefined
+symbols have been corrected.
+
+When using $X under TOPS-20 DDT  will  print  either  $,  $$,  or  $$$
+depending if the instruction does not skip, skips or double skips.
+
+EDDT will now print ?  if an exec node reference would  cause  a  page
+failure on a KI10, KL10 or 2040.
+
+On a KL10 or 2040 EDDT  preserves  the  contents  of  the  performance
+meter, time base and interval timer.
+
+On a KL10 or 2040 EDDT will allow the exec page  table  to  be  moved.
+This is required for 1088.
+
+"/D" to FILDDT edits file in data mode, not as .EXE  or  .XPN  format.
+Useful  for  .REL  files etc., or to look at .EXE directories.  The /D
+switch is assumed if the file is not .XPN or .EXE format.
+
+FILDDT will handle a file up to 8192 pages (4 mega-words) in length.
+
+"1$1M" causes <DEL> to  echo  as  backspace  space  backspace,  "0$1M"
+returns  to  "echoing"  the  deleted character (this is useful only on
+TOPS-10 or in EXEC mode, on certain video terminals).
+
+The "$Y" command is now available in user mode  DDT.   Channel  17  is
+used to read in the command file.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+DDT does not detect many illegal commands, for example,  18  octal  is
+accepted  and  treated  as 20 octal.  DDT does not detect arguments to
+commands which are ignored, e.g., $23Q is the same as $Q.
+
+The commands $<CR>, and $<LF> do not detect the attempt to recall more
+than was saved.
+
+A control-Z, start sequence does not clear the $U pointers.
+
+When looking at user rather than exec memory (e.g.   n$mU),  the  AC's
+still come from CRSHAC rather than the user pages.
+
+Word searches do not correctly search all existing pages if some pages
+are non-contiguous.
+
+Users may experience some problems with high  segment  symbol  tables,
+especially if the high segment starts at an address other than 400000.
+DDT40.DOC                                                      Page 22
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+Full details of the assembly procedure are given in  the  DDT  control
+file.
+
+
+
+5.0  INTERNAL CHANGES
+
+None.
+
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+[End of DDT40.DOC]
+
+[DDT36.DOC is appended as an integral part of DDT40.DOC]
+DDT36.DOC                                                      Page 23
+
+
+DDT.DOC -- Changes from V35 to V36
+January, 1975
+
+
+
+1.0  SUMMARY
+
+This version of DDT includes a number of new features,  KL10  support,
+support  for  .EXE  files in FILDDT, speedup of FILDDT and support for
+page maps in exec and file DDT.
+
+This version of DDT supersedes all previous versions.  It  runs  under
+all  monitors  and  EDDT  runs  stand-alone  on  KA10,  KI10, and KL10
+systems.  This version corrects the DATE75 bug in version 35.
+
+DDT is documented in Software Notebook vol.  2B, 5, and 7.
+
+
+
+2.0  EXTERNAL CHANGES
+
+Redefine device code 200 from UTC to DTE for the  DTE-20.   (EDDT  and
+FILDDT only).
+
+Print "VMDDT" when VMDDT is started.  (VMDDT only)
+
+Modify FILDDT to handle .EXE files produced  by  6.02.   If  the  file
+begins  with  a word with 1776 in the left half it is assumed to be in
+.EXE format.  If word zero is zero it is assumed to be an .XPN  format
+file.   If  word  zero is neither 1776,,N or zero a warning message is
+printed and the file is assumed to be in  .XPN  format  except  FILDDT
+will not look for symbols.  (FILDDT only)
+
+FILDDT now uses multiple buffers to hold the file it  is  using.   The
+number  of  buffers  is  controlled  by  the  symbol  CT.RES  which is
+currently 5.  The buffer size has been increased from 400 words  to  1
+page.  This edit makes FILDDT much faster.  (FILDDT only).
+
+FILDDT now handles AC differently.  If the  file  being  read  is  not
+being patched, FILDDT will copy the AC's from CRSHAC to DDT's internal
+AC save area.  This allows crash AC's to  be  examined  by  typing  5/
+instead  of  CRSHAC+5.   Any  attempt  to modify 0-17 will only change
+DDT's internal AC save area and never modify the  running  monitor  or
+the  file.   This  is  handy  for doing effective address searchs on a
+crashed or running monitor.  (FILDDT only)
+
+EXEC DDT now runs on a KL10.  (EDDT only).
+
+Any attempt to use $V will generate the message "%USE $$Q".  There  is
+no other change to $V.  (all DDT's)
+
+If an instruction is executed with $X and it skips "<SKP>" is printed.
+In single instruction mode "<JMP>" is printed after a successful jump.
+A successful jump is one which the  PC  is  other  than  .+1  or  .+2.
+(EDDT, UDDT, and VMDDT only).
+DDT36.DOC                                                      Page 24
+
+
+There is a new FILDDT feature for use on KI10s and KL10s in KI  PAGING
+mode.  The feature works as follows:
+
+     $U sets absolute addressing
+
+     k$U sets user paging with UPT at page k
+
+     k$nU sets exec paging with UPT at page k and EPT at n
+
+Thus "502$U 500/" would display  user  500  not  exec  500.   This  is
+especially  nice  because  tab,  $$Q  and  other neat DDT commands are
+useable.
+
+If the undefined symbol table points to a hiseg which has been deleted
+with  a  CORE UUO or GETSEG previous versions of DDT would halt on any
+attempt to deposit.  This has been changed so that DDT will not  halt,
+however, DDT may not be able to fix up undefined symbols while in this
+state.
+
+If a location is opened with a square bracket ([) and a  line-feed  is
+typed DDT will open the next location with a square bracket instead of
+a slash (/).
+
+DDT now operates correctly  with  hisegs  that  begin  at  other  than
+400000.
+
+The following KL10 opcodes have been added to  DDT's  built-in  table:
+JSYS, EXTEND, DADD, DSUB, DMUL, DDIV, and ADJSP.
+
+OPDEFS have been added for KL10 "funny instructions".   These  opcodes
+are:   APRID, WRFIL, RDERA, SBDIAG, CLRPT, SWPIA, SWPVA, SWPUA, SWPIO,
+SWPVO, SWPUO, RDPERF, RDTIME, WRPAE, RDMACT, and RDEACT.
+
+DDT has been changed to perserve $R or $S  mode  around  $O  commands.
+Also  if  the  permanant  mode  is  $O  (e.g.  $$4O) and $O is used to
+generate a temproary mode ($$18O), DDT  now  remembers  the  permanant
+byte size not the temporary.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+DDT does not detect many illegal commands.  for example, 18  octal  is
+accepted  and  treated  as 20 octal.  DDT does not detect arguments to
+commands which are ignored, e.g., $23M is the same as $M.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+None.
+DDT36.DOC                                                      Page 25
+
+
+5.0  INTERNAL CHANGES
+
+None.
+
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+[End of DDT36.DOC]
+
+[DDT35.DOC is appended as an integral part of DDT36.DOC]
+DDT35.DOC                                                      Page 26
+
+
+DDT.DOC -- Changes from V34 to V35
+April 1974
+
+
+
+1.0  SUMMARY
+
+This release of DDT supports several new features.  First, is a single
+instruction  procede  feature.   This  allows  the user to single step
+through his program 1 instruction at a time (subroutines may be traced
+or  executed  as  a block).  There is also support for virtual memory.
+Under 6.01 DDT will use the PAGE.  UUO to determine if a page  may  be
+accessed.   There  is  also  a  new assembly option for DDT to produce
+DDT.VMX (DDT.VMX is a special version of DDT loaded on the DDT command
+if .JBDDT is zero).
+
+This  version  supersedes  all  previous  versions  and  has  no   new
+deficiencies.   It's  only  dependence  is  that  5.04  (or  later) is
+required if patching the running monitor is desired.  If DDT.VMX is to
+be used the 6.01 monitor is required.
+
+DDT is documented  in  the  software  notebook  vol.   6.   FILDDT  is
+described in PATMON, located in software notebook vol.  9.
+
+
+
+2.0  EXTERNAL CHANGES
+
+A feature has been added to DDT to allow a single  step  execute.   It
+operates as follows:
+
+$X   (without an argument) executes the next instruction.  This is the
+     instrction  about  to be executed either when the last breakpoint
+     was hit or after the last $X was executed.  After the instruction
+     is  executed  the  PC  is updated (however, the breakpoint is not
+     moved).  $P will always do the right thing after  any  number  of
+     $x's.   AFTER  executing  the  instruction,  DDT  prints  out the
+     contents of referenced locations.  These are printed in  floating
+     point where appropriate.  The modified flags are also printed out
+     for JRSTF and JFCL.  Then the next  instruction  is  printed  out
+     (always  in  symbolic  despite temporary or permanent output mode
+     settings).  A blank line is between the  operands  and  the  next
+     instruction if the instruction executed was a skip or a jump that
+     actually skiped or jumped.
+
+n$X  where n2**27:  performs $X n times, as above.
+
+n$$X where n2**27:  same as n$X except that printout is suppressed for
+     all but the last instruction executed.
+
+$$X  (without an argument) performs $X indefinately, without  printing
+     anything, until the PC reaches either .+1 or .+2.  This is useful
+     if one wants to execute a debbuged subroutine.
+
+n$X  (where n is a instruction) functions as it always has.
+DDT35.DOC                                                      Page 27
+
+
+Notes:
+
+1.   DDT looks for typein after each  instruction  in  an  n$X  cycle.
+     This is the same as done by the search logic.
+
+2.   Breakpoints are not in place during a $X.
+
+3.   In exec mode, DDT does not restore the PI system during $X.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+There are 2 minor problems in exec mode on a KI10.  First,  if  single
+instruction  procede  ($X) is used to execute an executive execute the
+memory operand displayed is shown in exec  rather  than  user  address
+space,  however,  the instruction did execute correctly.  Second, if a
+break point is placed on an  MUUO  exec  mode  DDT  will  not  procede
+correctly.
+
+
+
+4.0  CHANGES IN INSTALLATION INSTRUCTIONS
+
+All are represented in DDT.CTL file.
+
+
+
+5.0 INTERNAL CHANGES.
+
+The breakpoint logic was improved to work correctly on a KI10 in  exec
+mode  (except  for  the  cases  noted in section 3).  In particular, a
+breakpoint on a XCT will always operate correctly.
+
+DDT will no longer fail on a KI10 if one of the sense switches is set.
+
+DDT will use the PAGE.  UUO (in 6.01 monitors) to determine if a  page
+may  be  read  or  written.  This allows non-contiguous core images to
+work correctly.
+
+FILDDT patching logic was corrected to work properly.
+
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+[End of DDT35.DOC]

@@ -1,0 +1,279 @@
+
+
+
+GALAXY.DOC -- Changes from V2 to V3
+January 1978
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1976,1977,1978 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+GAL3.DOC                                                        Page 2
+
+
+GALAXY.DOC -- Changes from V2 to V3
+January 1978
+
+
+
+1.0  SUMMARY
+
+GALAXY is the Batch and Spooling subsystem for  the  DECsystem-10  and
+DECSYSTEM-20.   GALAXY comprises all the software (excluding operating
+systems software) necessary to  do  batch  processing  and  input  and
+output  spooling and all queue management and task scheduling required
+for those functions.
+
+GALAXY Release 3 consists of the following programs:
+
+Program      Version     What it does
+-------      -------     ------------
+
+QUASAR          3      Central  queue  manager,  task  scheduler,  and
+                       GALAXY system controller.
+
+BATCON         103     Batch job processor.
+
+LPTSPL         103     Lineprinter output spooler (unspooler).
+
+SPRINT         103     Card reader input stacker/spooler.
+
+QUENCH          3      Timesharing  users'  interface  to  the  GALAXY
+                       system.
+
+QMANGR         103     Interface module for FOROTS, BASIC, etc.
+
+Release 3 has two primary goals:
+
+     1.  Support  USAGE  file  accounting  for  printer   and   reader
+         spooling.
+
+     2.  Provide some hooks for the DN64 project.
+
+In  addition  a  number  of  maintainance  edits  were  merged  in  to
+development versions which resolved a number of problems.
+
+
+1.1  Monitor Dependence
+
+Release 3 of GALAXY will run under the following monitors:
+
+     1.  TOPS20 Release 3 and later
+GAL3.DOC                                                        Page 3
+
+
+2.0  EXTERNAL CHANGES
+
+There are two major external  changes  in  Release  3  of  the  GALAXY
+system.   The  first  is  that the queue manipulation commands (PRINT,
+SUBMIT etc.) are now  processed  by  the  EXEC.   This  provides  full
+compatibility   with   the  TOPS20  command  language  as  well  as  a
+significant improvement  in  response  time  for  these  commands.   A
+complete  description  is  provided  in the EXEC DOC file.  The QUENCH
+program is still being shipped with GALAXY primarily for compatibility
+purposes.  The EXEC also has the
+
+     @SET OLD-QUEUE-COMMANDS
+     @SET NEW-QUEUE-COMMANDS
+
+commands added.  Typing the first of the above commands will cause the
+PRINT and SUBMIT commands to work as in previous versions.
+
+The other major external change in Release 3 is the  addition  of  the
+/ACCOUNT switch on the $JOB card.  The format of this switch is:
+
+                       /ACCOUNT:account-string
+
+During $JOB card processing, SPRINT will  verify  the  user's  account
+specification.   If  a  /ACCOUNT switch is not found on the $JOB card,
+SPRINT  will  look  for  a   default   account   for   the   directory
+PS:<user-name>.  If there is no default account for the directory, the
+account under which SPRINT itself is running will be used.   The  last
+option  is  included  in  order  to let installations phase into using
+account strings.  Initially, the system administrator can cause SPRINT
+to  be  logged-in  under  a  universally  allowed  account and after a
+specific date cause SPRINT to be logged in under a universally illegal
+account.
+
+In all cases, SPRINT will verify the account string it decides to  use
+(from   any   of  the  three  sources  described  above)  and  if  the
+verification fails will produce the following error and abort the job:
+
+     ?SPTIAS Illegal Account Specified
+
+One additional implication of  this  change  to  SPRINT  is  that  the
+specified  account  is  now passed on to BATCON and is used to log the
+batch job in.
+GAL3.DOC                                                        Page 4
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+     1.  Any file created by SPRINT or  BATCON  is  created  with  the
+         account  string  of  SPRINT  or  BATCON (e.g.  LOG files from
+         BATCON, or $CREATE in SPRINT).
+
+     2.  The message %Problem on device PCDR0:  is typed  on  the  CTY
+         whenever the hopper goes empty on the card-reader.  It can be
+         ignored.
+
+     3.  There is no mechanism for putting parameters (e.g.   /COPIES)
+         on spooled files.
+
+     4.  If a batch job does a  "@OPERATOR  $"  (the  dollar  sign  is
+         default)  and  the  batch  job  then  enables  itself (or was
+         enabled already) then any time the EXEC prompts the job (i.e.
+         with a $) the job is put into OPERATOR wait.
+
+     5.  There are two problems which will causes a  job  to  get  the
+         error message:
+
+             ?SPTIDP Incorrect Directory or Password
+
+         a)  If the previous job forgets a $EOJ card
+         b)  If there is no space following the user name on the $JOB
+             card
+
+                                 NOTE
+
+               There are a number of valid reasons  for
+               receiving  this  message.   The two most
+               common are a  misspelled  user  name  or
+               password  and  specifying  a  files-only
+               directory instead of a user name.
+
+     6.  If a $JOB card contains a  /JOBNAME  switch  which  does  not
+         include  a value (e.g.  $JOB user /JOBNAME) SPRINT will crash
+         with the error message
+
+             ?SPTCCC Can't create CTL or LOG File - File Not Found
+             ?SPTCCC Can't create CTL or LOG File - File Not Found
+             ?PA1050:  ERROR IN JOB
+             Invalid source/destination designator
+             COMPATIBILITY LOCATION = xxxxxx
+             USER LOCATION xxxxxxx
+             INSTRUCTION = 57100,,633
+GAL3.DOC                                                        Page 5
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+The simplest way of building a GALAXY system is to place all necessary
+files  on  an  empty  disk  area,  run  the GALGEN program, and submit
+GALAXY.CTL.  There are a number of universal files which are  depended
+upon  by  the  various  programs,  and  therefore  attempting to build
+individual programs may be difficult.
+
+The System Manager's Guide on the -20 and  the  GALAXY  Operation  and
+System  Programming  Procedures  Manual  on the -10 (notebook #3) have
+more information on building GALAXY.
+
+Note that the GALAXY "package" contains (and builds) all the necessary
+"-20 based" software needed to run the DN64.  See the appropriate DN64
+documentation for more information.
+
+Release 3 includes default .EXE files for all GALAXY components.
+
+
+
+5.0  INTERNAL CHANGES
+
+The following internal changes were made to LPTSPL:
+
+     1.  A bug was fixed which caused LPTSPL to prematurely abort jobs
+         with the message
+
+             ?LPTPLE Page Limit Exceeded
+
+         if LPFORM.INI was not found on SYS.
+
+     2.  LPTSPL now makes USAGE file accounting entries.
+
+     3.  A number of maintenance edits were merged in.
+
+The following internal changes were made to SPRINT:
+
+     1.  The account switch was added to the $JOB card.
+
+     2.  SPRINT now makes USAGE file accounting entries.
+
+     3.  SPRINT no longer reads 81 columns per card  if  /SUPPRESS  is
+         off
+
+The following changes were made to QUENCH
+
+     1.  The /TAPE switch was re-instated for the PC-20
+
+     2.  Support for the DN64 was added
+GAL3.DOC                                                        Page 6
+
+
+The following changes were made to QUASAR
+
+     1.  A bug was fixed which caused QUASAR to die with the message
+             JSYS error -- Invalid access requested 
+         if the master queue file became too large.
+
+     2.  Support was added for the DN64
+
+The following change was made to QUENCH
+
+     1.  Support was added for the DN64
+
+The following change was made to BATCON
+
+     1.  If a batch job doesn't logout in a reasonable amount of  time
+         after  BATCON  send  the  LOGOUT  command,  BATCON just keeps
+         waiting rather than asking the operator for assistance.
+
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+[End of GAL3.DOC]

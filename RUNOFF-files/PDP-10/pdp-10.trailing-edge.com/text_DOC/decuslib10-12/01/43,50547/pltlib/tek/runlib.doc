@@ -1,0 +1,637 @@
+	RUNLIB.DOC - Description of routines in FOR:RUNLIB.REL
+
+This library of routines was started in 1976 for use by the DRAW package.
+The DRAW package is a set of FORTRAN programs which require some monitor calls
+not available in FORLIB.  RUNLIB fills this requirement by including subroutines
+to read and write TMPCOR files, get the user's name and job number, and execute
+the RUN UUO.  The subroutines originally used by DRAW were:
+
+  EXITGO  Exit to the monitor unless a /RUN: switch was specified.
+  HELPER  Type the help file.
+  INCHWL  Read in one line from the terminal, or from an indirect file.
+  JBINFO  Job info, such as job number and user name.
+  MATCH   Check if a word matches a list of commands.
+  RESCAN  Read TMPCOR, or the monitor command line.
+  RUNUUO  Run the next .EXE file in the package.
+  SAVRUN  Check for /RUN:, /RUNOFF, /HELP, or /EXIT in command line.
+  TMPCOR  Write files in TMPCOR, giving commands to the next program.
+
+Later on, more routines were added to increase functionality.  These are:
+
+  EXIT0   Return to monitor level, type "EXIT".
+  EXIT1   Return to monitor level quietly, the "CONTINUE" command will work.
+  OUTSTR  Type a string on the terminal, complement of INCHWL.
+
+
+
+
+SUBTTL	Calling sequence -- Quick summary
+
+	CALL EXIT0
+	CALL EXIT1
+	CALL EXITGO
+	CALL HELPER (0)
+	CALL INCHWL (NAME, BUFFER, KOUNT, LENGTH, LASTC)
+	CALL MATCH ('LIST,OF,COMMANDS,ETC',BUFFER,KOUNT,LENGTH,INDEX,DNAME)
+	      GOTO (100, 200,  300,   400) INDEX
+	CALL OUTSTR (ICC,  BUFFER, KOUNT)
+	CALL RESCAN (NAME, BUFFER, KOUNT, LENGTH, LASTC)
+	CALL RUNUUO (IERR, PRGNAM, KOUNT, ICCL)
+	CALL SAVRUN (IOPT, BUFFER, KOUNT, LENGTH, LASTC)
+	CALL TMPCOR (NAME, BUFFER, KOUNT)
+
+	IVALUE = JBINFO(ITABLE)
+SUBTTL	Calling sequence -- Introduction
+
+    These routines are provided to allow FORTRAN programs  to  act  like
+CUSP's  (Commonly  Used System Programs).  In particular, these routines
+can be used  to  check  for  command-input,  exit  to  the  monitor,  or
+chain-off to another program.
+
+===============  Introduction to TMPCOR and RESCAN  ====================
+
+    Commonly Used System Programs have many ways to  pick  up  commands.
+Let's  take  DIRECT  for  example.  You can give commands to DIRECT in 5
+different ways.  1) Monitor command;  ".DIRECT TEST.FOR".  2) The  R  or
+RUN  command;   ".R  DIRECT  (TEST.FOR)".   3) The temp-core file 'DIR';
+"TEST.FOR".  4) Temp disk file 'nnnDIR.TMP';  "TEST.FOR".  5)  When  the
+program prompts;  "*TEST.FOR".
+
+    1) The monitor recognizes the word  "DIRECT"  and  runs  SYS:DIRECT.
+DIRECT  does a RESCAN to re-read the same command that the monitor read.
+It skips over the first word, and takes  the  rest  of  the  line  as  a
+command.
+
+    2) The monitor recognizes the "R" command to run a  program  off  of
+SYS:.   It  ignores  anything  in  parentheses.   DIRECT  does a RESCAN,
+recognizes  the  "R",  and  expects  its  command  to  be  enclosed   in
+parentheses.
+
+    3) The  monitor  has space  for  short  files in temp-core (TMPCOR).
+Each file goes by a three letter name,  such as 'DIR' for  DIRECT, 'FOR'
+for  FORTRAN,  'LNK'  for LINK, 'MCR' for MACRO, etc.  When your program
+writes the words "TEST.FOR" into  the  'DIR'  temp-file.   DIRECT  reads
+'TMP:DIR' and uses it as a command.
+
+    4) If TMPCOR is full, the temp-file can be put on DSK:.  If your job
+is  number  12,  then  the name of the file is 'DSK:012DIR.TMP'.  DIRECT
+searches for this file if it cannot find anything in TMPCOR.
+
+    5) If DIRECT connot find a command anywhere, it prints a prompt  and
+waits  for  you  to  type a command.  DIRECT uses an asterisk "*" as its
+prompt.  Only in case 5 will DIRECT expect more commands.  As soon as it
+is  dones  with  the first command, it will give another prompt and wait
+for another one, it does not return to the monitor.  Typing a  Control-Z
+or "/EXIT" will get you to the monitor.  If you type "TEST.FOR^Z", DIRECT
+will give a listing for the file TEST.FOR and then return to the monitor.
+
+    The temp files in steps 3 and 4 are often referred to as CCL files.
+CCL stands for Concise Command Language, and were first used by the
+COMPIL program.
+
+    The  RESCAN  routine  handles cases 1 through 4.  For case 5, RESCAN
+will report that it could not find anything, and your program will  have
+to call INCHWL to give a prompt and pick up a command.
+==============  Common Switches (Commands to SAVRUN)  ==================
+
+    Most  system  programs  understand  comments  and  at  least   three
+switches.  The routine SAVRUN scans an array (buffer) and interprets the
+standard switches and comments.  A comment is anything after a semicolon
+or an exclaimation point, ";" and "!".  SAVRUN will remove comments,
+remove leading spaces, convert tabs to spaces, reduce multiple
+spaces to a single  space, and  convert  lowercase  to  upper.
+
+  SAVRUN recognizes four switches; /HELP, /EXIT, /RUN:, and /RUNOFF.
+When SAVRUN sees "/H" or "/HELP", it will type the  help  file  for  the
+program.  "/EXIT" and "/RUN:PROGRAM" cause LASTC to be set to 26, as a signal
+to call the EXITGO routine.
+SUBTTL	Calling sequence -- RESCAN
+
+    RESCAN checks for command input.  The commands may come from monitor
+level, from a TMPCOR file, or from the temp file on disk.
+
+	CALL RESCAN (NAME, BUFFER, KOUNT, LENGTH, LASTC)
+
+NAME	= (INPUT) Three letter name of the temp-core file.
+	-1 means to use the name of the program, 0 to not check CCL files.
+
+BUFFER	= (OUTPUT) Array receiving the command, 5 characters per word.
+
+KOUNT	= (OUTPUT) Number of characters read in.  Zero if nothing was found,
+	negative if a CCL file was input, to be read by INCHWL.
+
+LENGTH	= (INPUT) Size that BUFFER is dimensioned for.  RESCAN will read
+	binary data if LENGTH is negative.
+
+LASTC	= (OUTPUT) ASCII code for the last character read in.
+
+    RESCAN  first  trys  checking  for the monitor command which started
+your program.  Then it checks temp-core, and finally the disk  file  for
+commands.  Because the CCL files in temp-core and disk can have more than
+one line of commands, RESCAN will only check for the existance of such files
+if LENGTH is positive.  When this occurs, your program should call INCHWL to
+get lines from the command file.  Each call to INCHWL will read one line from
+the CCL file, your program should continue reading until LASTC=26 (End of File).
+
+    In order to make it possible to read arbitrary binary data from TMPCOR
+files, RESCAN will do input differently if you specify a negative number for
+LENGTH.  In this case, the entire file is read in all at once, KOUNT is 5
+times the number of words read in, and LASTC is set to zero.  RESCAN will not
+check the monitor command line when LENGTH is negative.
+
+KOUNT = 0 means that no command was found.  This is the usual case.
+KOUNT positive means that RESCAN has read the command into BUFFER.
+KOUNT negative means that RESCAN found a CCL file for INCHWL to read.
+SUBTTL	Calling sequence -- INCHWL
+
+   INCHWL gets a line of input from the terminal (or command file).	<<
+
+	CALL INCHWL (NAME, BUFFER, KOUNT, LENGTH, LASTC)
+
+NAME	= (INPUT) Three letter prompt, such as 'ABC' for "ABC>".
+	A value of zero or all blanks will suppress the prompt.
+	If NAME = -1, INCHWL will use the first three letters of the
+	name of your program.
+
+BUFFER	= (OUTPUT) Array receiving the command, 5 characters per word.
+
+KOUNT	= (OUTPUT) Number of characters read in.  0 for a blank line,
+	-1 (and LASTC=26) at end of CCL file read in by RESCAN.
+
+LENGTH	= (INPUT) Size that BUFFER is dimensioned for.
+
+LASTC	= (OUTPUT) ASCII code for the last character read in.
+	Your program should call EXITGO if LASTC=26 (End-Of-File).
+
+    INCHWL reads commands from the terminal, or from  the  CCL  file  if
+RESCAN  found  one.   When reading from the terminal, INCHWL prompts the
+user if NAME is not zero or blanks, and then waits for the user to  type
+in a line.  If NAME='ABC', then INCHWL would type "ABC>" on the terminal
+to signify that it is waiting for input.  If the user types in  a  blank
+line  (just  hits  the  RETURN  key),  then INCHWL will return BUFFER as
+blanks, KOUNT=0, and LASTC=13 (the code  for  RETURN).   The  only  time
+INCHWL  returns  with KOUNT negative is if it was reading from a command
+file, and hit the end of file.
+
+    The end-of-line character gets stored in LASTC, right  justified  in
+an  (R1)  format.  Usually the user will type a carriage return so LASTC
+will be 13.  Other characters often  used  is  the  'ESCape'  to  signal
+special processing and Control-Z to exit when done.
+
+Character	 Code  Decimal Octal
+--------        ------ ------- -----
+Bell		CTRL-G	  7	"07
+Linefeed	CTRL-J	 10	"12
+Vertical Tab	CTRL-K	 11	"13
+Formfeed	CTRL-L	 12	"14
+Return		CTRL-M	 13	"15
+End-of-file	CTRL-Z	 26*	"32	*Control-Z means "/EXIT"
+Escape $	CTRL-[	 27	"33
+SUBTTL	Calling sequence -- TMPCOR and RUNUUO
+
+   TMPCOR can be used to leave temporary messages for other programs.
+
+	CALL TMPCOR (NAME, BUFFER, KOUNT)
+
+NAME	= (INPUT) Three letter name of the temp-core file.
+
+BUFFER	= (INPUT) Array or literal containing the message.
+
+KOUNT	= (INPUT) Number of characters in the message.
+
+    In the 6.03A and previous  monitors,  temp-core  was  limited  to  8
+blocks of 20 characters each.  TMPCOR was easily filled by medium length
+messages.  In the 7.01 monitor, the maximum size of  any  single  TMPCOR
+file  is  2550 characters, and there is no limit to the number of TMPCOR
+files.
+
+
+-----------------------------------------------------------
+
+
+   RUNUUO will start the execution of another program.
+
+	CALL RUNUUO (IERR, PRGNAM, KOUNT)
+	CALL RUNUUO (IERR, PRGNAM, KOUNT, ICCL)
+
+IERR	= (OUTPUT) Error code if the next program cannot be run.
+	Error codes are 0=No such program,  1=No such PPN,  2=Protection
+	failure, 12 octal (10 decimal)=No such device.
+
+PRGNAM	= (INPUT) Array or literal containing the name of the program to
+	run.  Must be in the form of 'DEV:PROG.EXT[ppn]'.  EXT is
+	usually left off.  If a PPN is given, it must be last.  DEV is
+	optional and defaults to 'DSK:', so you may run your programs.
+	You must specify 'SYS:' for system programs.  Examples:
+	'SYS:FORTRA', 'DSK:TEST.SAV[60,60]'.
+
+KOUNT	= (INPUT) Number of characters in the program name.
+
+ICCL	= (Optional INPUT) RUN-offset.  If you leave a TMPCOR file for a
+	system program, ICCL must be 1 or else the program will not even
+	look for the TMPCOR file.
+
+    All  files  must be explicitly closed befor calling RUNUUO.  Another
+way to run a new program is by calling EXITGO.  See the descriptions  of
+SAVRUN and EXITGO.
+SUBTTL	Calling sequence -- OUTSTR
+
+    OUTSTR  outputs  the  buffer, with or without a <CR><LF> at the end.
+This routine is not intended to replace FORTRAN  formatted  output,  but
+provides a simple way of typing character strings to the TTY.
+
+	CALL OUTSTR (ICRLF, BUFFER, KOUNT)
+
+ICRLF	= (INPUT) Carriage control.  ICRLF=0 works like $ format.
+	-2 = Output a formfeed before BUFFER, but no CRLF after.
+	-1 = Output a formfeed before BUFFER, and a CRLF after.
+	 0 = Do not output CRLF after BUFFER, used as a prompt.
+	 1 = Output a CRLF after BUFFER, this is the normal case.
+	 N = Output N CRLFs, creating N-1 blank lines after BUFFER.
+
+BUFFER	= (INPUT) Literal or array of characters to be output
+
+KOUNT	= (INPUT) Number of characters in BUFFER.  If the characters to
+	  be output are in a literal, KOUNT can be zero.  Example:
+		CALL OUTSTR (0, 'What is your answer? ', 0)
+SUBTTL	Calling sequence -- SAVRUN
+
+    The primary function of SAVRUN is to look for a /RUN: command.  It also
+does general clean-up on the BUFFER.
+
+	CALL SAVRUN (IOPT, BUFFER, KOUNT, LENGTH, LASTC)
+
+IOPT	= (INPUT) Options.  These may be added, ie, IOPT=2+4+8+16
+	  0 or -1 = Do everything
+	  1 = Act upon /RUN, /RUNOFFSET, /EXIT, or /HELP switches and start
+	      reading an indirect file if the first character is "@".
+	  2 = Remove comments which start with ";" or "!".
+	  4 = Remove all control characters except tab.
+	  8 = Remove leading spaces and/or tabs.
+	 16 = Change tabs or multiple spaces to a single space.
+	 32 = Convert lowercase to upper.
+	 64 = Convert <> to [] (for APPLEs and 2741 terminals).
+	128 = Convert tabs to multiple spaces, if option 16 is not included.
+
+BUFFER	= (INPUT) The array of characters to be searched.
+	  (OUTPUT) The cleaned-up array.
+
+KOUNT	= (INPUT) The number of characters to search.
+	  (OUTPUT) The number of character left in BUFFER.
+
+LENGTH	= (INPUT) Number for the size of BUFFER in words.
+
+LASTC	= (INPUT) The last character in the BUFFER.  If the user typed
+	Control-Z or if /EXIT was seen for IOPT=32, LASTC will be 26.
+		IF (LASTC.EQ.26) CALL EXITGO	! Time to exit
+
+    This routine will allow your FORTRAN programs to respond to commands
+much like the system CUSPS.  After SAVRUN  gets  done,  the  significant
+characters  in  the  BUFFER  will  be  shifted to the left and all extra
+characters removed.  You can then check what's left and let your program
+decide  what to do.  Note that you will not have to worry about checking
+for lowercase or tabs since SAVRUN has converted these characters.
+
+    The /HELP switch can be abbreviated to /H.   SAVRUN uses the name of
+your program in finding help, which can be in your disk area or on HLP:.
+
+    The  /RUN  switch must be followed by the name of a program, such as
+"/RUN:SYS:FORTRA".  The device  defaults  to  SYS:  since  that  is  the
+behavior  of  the  system  CUSPS.   The  /RUN  command  is  not executed
+immediately, but sets LASTC to 26.
+
+   For all you RSTS/E users, you can call SAVRUN with "PUSHJ P,CVT$$".
+Options 4, 8, 16, 32, and 64 work like RSTS, but trailing spaces are
+always suppressed and characters in quotes are never changed.
+
+   If you want to output a message but without trailing blanks, use
+option 4 to set KOUNT, the number of words to output is (KOUNT+4)/5.
+
+	KOUNT = LENGTH * 5		! Set to max, scan entire BUFFER
+	CALL SAVRUN (4,BUFFER,KOUNT,LENGTH,LASTC) ! Throw away control chars
+	IWORDS = (KOUNT + 4) / 5	! Get number of A5 words in message
+	TYPE 10,(BUFFER(I),I=1,IWORDS)	! Suppress all but last 4 spaces
+
+
+
+
+SUBTTL	Calling sequence -- JBINFO
+
+
+   JBINFO will return information about your job.
+
+	IVALUE = JBINFO(ICODE)
+
+IVALUE	= (OUTPUT) The information returned.
+
+ICODE	= (INPUT) The code for what piece of information to return.
+
+  "0 =  0 = The value in the KA or KI CPU console switches (0 for KL or KS)
+  "1 =  1 = Your job number
+  "2 =  2 = Your PPN (octal in both halves)
+  "3 =  3 = Name of your program (in SIXBIT)
+  "4 =  4 = The runtime accumulated (in ticks) since LOGIN
+		(Divide by 60.0 to get runtime in seconds)
+  "5 =  5 = The kilo-core ticks charged to your job
+		(Divide by 60.0 to get kilo-core seconds)
+  "6 =  6 = Your privilege bits (octal)
+  "7 =  7 = Causes your job to sleep for one second
+ "10 =  8 = Get line characteristics and number, ITTY=(JBINFO(8).AND."777)
+ "11 =  9 = The date as (((year-1964)*12 + month-1)*31 + day-1
+ "12 = 10 = Time of day, in integer milliseconds since midnight
+ "13 = 11 = Universal date/time, divide by 262144 to get days since 17-Nov-1858
+ "14 = 12 = The day of the week (Sunday=1, Saturday=7)
+		ICODE 13-18 return meaningless data from GETTAB tables.
+ "23 = 19 = Check typeahead, 0=none, 1=some characters, 2=complete line ready
+ "24 = 20 = Input a single character (for 'Y' or 'N' answer) in an A1 format
+ "25 = 21 = Input a single character, right justified in an R1 format (1-127)
+ "26 = 22 = Node number.  At CSM, KL1091 = 1 and KS2020 = 2
+ "30 = 24 = Get first 5 letters of user name, in an A5 format
+ "31 = 25 = Get next 5 letters of user name
+ "32 = 26 = Get last 2 letters of user name and 3 blanks
+
+	Other codes match those for the GETTAB TOPS10 Monitor Call.
+SUBTTL	Calling sequence -- EXIT0, EXIT1, and EXITGO
+
+All files must be explicitly closed before calling these routines.
+
+	CALL EXIT0
+	CALL EXIT1
+	CALL EXITGO
+
+EXIT0	Returns to the monitor and types the message "EXIT".  Cannot be
+	continued.  The standard FORTRAN routine "CALL EXIT" is the one
+	that closed all files and types  "END OF EXECUTION ...".  EXIT0
+	is a little quieter.  NOTE: RANDOM and BINARY output files must
+	be closed by CLOSE(UNIT=n).
+
+EXIT1	Returns to the monitor by typing a dot.  Can be continued. EXIT1
+	does not check for open files.   If you type anything other than
+	".CONTINUE", any open files may be lost.
+
+EXITGO	Stops execution of the program.  Returns to the monitor if there
+	is not another program to run.   The program to run is set up by
+	SAVRUN if it receives a command like "/RUN:FORTRA".  EXITGO will
+	complain if it finds any files open, and close them for you.
+
+	EXITGO is the suggested way of to stop your program.
+SUBTTL	Calling sequence -- HELPER
+
+    HELPER types the help file for your program.
+
+	CALL HELPER (0)
+	CALL HELPER (IARG)
+
+IARG	= (INPUT) Octal number representing the name in SIXBIT, or zero
+	to use the name of your program.
+
+    Ask a MACRO programmer if you need to  know  the  translation  of  a
+particular name.  For example, 'DIRECT' is 445162454364 so you could use
+
+	CALL HELPER ("445162454364)
+
+Usually you want to use zero.   This means that if your program has been
+saved as TEST01, HELPER will look for DSK:TEST01.HLP
+SUBTTL	Calling sequence -- MATCH
+
+    MATCH checks to see if the command typed in by the user matches a
+list of commands.  It accepts valid abbreviations to commands.
+
+	CALL MATCH ('LIST,OF,COMMANDS,ETC',BUFFER,KOUNT,LENGTH,INDEX)
+	      GOTO (100, 200,   300,  400) INDEX
+	CALL MATCH ('ONE111,TWO222',BUFFER,KOUNT,LENGTH,INDEX,DNAME)
+	      GOTO (  1000,  2000) INDEX
+
+LIST	= (INPUT) A list of commands in quotes, separated by commas.  The
+	commands can be up to 6 letters and numbers each, no spaces.
+
+BUFFER	= (INPUT) The array with the command, usually read in by INCHWL.
+	= (OUTPUT) The array with the command removed, if there is a match.
+
+KOUNT	= (INPUT) The number of characters in BUFFER.
+	= (OUTPUT) The number of characters left in BUFFER.
+
+LENGTH	= (INPUT) The size of BUFFER.
+
+INDEX	= (OUTPUT) Small positive number if a match was found.
+
+DNAME	= (optional OUTPUT) The matched command is stored in this
+	DOUBLE PRECISION variable in an (A6) format.
+
+    If INDEX is returned as +1, it means that the command matched the 1st
+    one on the list, +2 for the second, etc.  DNAME gets the full command,
+    even if it was abbreviated in the BUFFER.
+INDEX= 0 means that BUFFER is all blanks.
+INDEX=-1 means that the command in BUFFER does not match any on the list.
+INDEX=-2 means that the command is ambiguous.
+
+    The MATCH routine always removes any leading spaces or tabs from BUFFER.
+If a match was found, the command and the first space or tab is removed from
+BUFFER.  This is so that MATCH can be called with a second list to decode
+any sub-commands.
+SUBTTL	Calling sequence -- Examples
+
+CC  This shows how to use SAVRUN
+100	CALL INCHWL ('*',  BUFFER, KOUNT, LENGHT, LASTC) ! Get command
+	CALL SAVRUN (-1, BUFFER, KOUNT, LENGTH, LASTC)	! Look at it
+	CALL MYPROG (BUFFER)		! Do your processing
+	IF (LASTC.EQ.26) CALL EXITGO	! Stop if we should
+	GOTO 100			! Else loop
+	END
+
+---------------------------------------------------------------------
+
+CC  This shows a complete program using the RUNLIB routines
+CC  This program understands only "STOP" and "CHAIN" (and /EXIT/HELP/RUN)
+	DIMENSION BUFFER(27)			!135 characters
+	LENGTH=27				!Size of buffer in words
+	CCLNAM='ABC'				!Prompt and name of file
+
+	CALL RESCAN (CCLNAM, BUFFER, KOUNT, LENGTH, LASTC)	!Fill buffer
+	IF (KOUNT .GT. 0) GOTO 110		!Skip INCHWL if have command
+
+100	CALL INCHWL (CCLNAM, BUFFER, KOUNT, LENGTH, LASTC) !Get another command
+CC  Here with a command, process it
+110	CALL SAVRUN (-1, BUFFER, KOUNT, LENGTH, LASTC)
+	LEN = (KOUNT + 4) / 5			!Round up to next full word
+	TYPE 120, (BUFFER(JJ), JJ=1,LEN)	!No trailing spaces
+120	FORMAT (' You typed:  ', 27A5)
+	CALL MATCH ('CHAIN,STOP',BUFFER,KOUNT,LENGTH,INDEX,DNAME)
+	IF (INDEX.GT.0) TYPE 130, DNAME
+130	FORMAT (' The command was ', A6)
+	GOTO       (  200,  300 ) INDEX		!Go of INDEX=1 or 2
+	IF (LASTC.EQ.26) CALL EXITGO		!Stop on Control-Z or /EXIT
+	GOTO 100				!Loop until done
+
+CC  Here if we get a "CHAIN" command
+200	CALL RUNUUO (IERR, BUFFER, KOUNT)	!Run next program
+	TYPE 210, IERR, (BUFFER(JJ), JJ=1, LEN)	!Type error message
+210	FORMAT (' ?Error code ', O2, 3X, 27A5)
+	CALL EXIT0		!Return to the monitor, never to continue
+
+CC  Here if we get a "STOP" command
+300	CALL EXITGO				!Give /RUN a chance
+	END
+SUBTTL	Calling sequence -- Writing a FORTRAN program that compiles itself
+
+	PROGRAM TESTER
+CC To run this program, do the following:
+CC  	.COPY = FOR:TESTER.REL, F.FOR, RUNLIB.REL
+CC	.EXECUTE TESTER.REL, F.FOR, RUNLIB.REL
+CC If you type in an illegal function, you must start over by:
+CC	.COPY = FOR:F.FOR
+CC	.EXECUTE
+
+	DIMENSION BUFFER(27)				!135 characters
+
+	LENGTH=27					!Size of BUFFER
+	CALL RESCAN ('TST', BUFFER, KOUNT, -LENGTH, LASTC) !Check for F(X)
+	IF (KOUNT .GE. 0) GOTO 2000			!If first time thru
+	IWORDS = (KOUNT + 4) / 5			!Number of words
+1000	TYPE 1010, (BUFFER(I), I=1,IWORDS)		!Type the function
+1010	FORMAT ('0The function is F(X) = ', 27A5)
+	TYPE 1015					!Ask for values
+1015	FORMAT ('0What are XMIN, XMAX, and XINC? ',$)
+	ACCEPT 1020, XMIN, XMAX, XINC			!Get parameters
+1020	FORMAT (3G)
+	IF (XINC .EQ. 0.0) XINC = 1.0			!Default increment
+	TYPE 1030, (BUFFER(I), I=1,IWORDS)		!Print heading
+1030	FORMAT ('0    X', 14X, 27A5)
+
+	DO 1040 XX = XMIN, XMAX, XINC			!Set up loop
+		X = XX	!Prevents "Possible modification of index in loop"
+		Y = F(X)				!Evaluate function
+1040		TYPE 1020, X, Y				!Show the values
+
+	CALL OUTSTR (0,Do you want more values? ',0)
+	IANS = JBINFO(20)				! Get single letter ans
+	IF (IANS .EQ. 'Y' .OR. IANS .EQ. 'y') GOTO 1000	!Lowercase too
+	CALL OUTSTR (0,' Do you want to try another function? ',0)
+	IANS = JBINFO(20)				!Get answer
+	IF (IANS .EQ. 'Y' .OR. IANS .EQ. 'y') GOTO 2000	!Lowercase too
+	CALL EXITGO					!Return to monitor
+
+Continued on next page
+Compiler program continued
+
+CC  Here to get a new function
+CC  Note that this section does not use any FORTRAN I/O to the TTY
+
+2000	CALL OUTSTR (0, 'Type in the function; F(X) = ', 0) !Give prompt
+	CALL INCHWL ('   ', BUFFER, KOUNT, LENGTH, LASTC) !Get reply
+	CALL SAVRUN (-1,BUFFER, KOUNT, LENGTH, LASTC)	!Clean it up
+	IF (KOUNT .LE. 0) GOTO 2000			!Ask again
+	IF (LASCT.EQ.26) CALL EXITGO			!Stop if /EXIT
+	IWORDS = (KOUNT + 4) / 5			!Number of words
+	OPEN (UNIT=1, DEVICE='DSK', FILE='F.FOR', ACCESS='SEQOUT')
+	WRITE (1,2010) (BUFFER(I), I=1,IWORDS)		!Write the function
+2010	FORMAT ('        FUNCTION F(X)', /, '        F = ', 27A5)
+	WRITE (1,2030)					!Finish it up
+2030	FORMAT ('        RETURN', /, '        END')
+	CLOSE (UNIT=1)					!Finish the file
+	CALL TMPCOR ('TST', BUFFER, KOUNT)		!Remember the function
+	CALL TMPCOR ('LNK', 'TESTER,F,RUNLIB/E/G', 19)	!Message for LINK
+	CALL TMPCOR ('FOR', 'F=F/RUN:LINK/RUNOFF', 19)	!Message for FORTRA
+	CALL RUNUUO (IERR,  'SYS:FORTRA', 10, 1)	!Run the compiler
+	STOP '?Cannot run SYS:FORTRA'
+
+	END						!Of TESTER
+SUBTTL	Appendix - Calling RUNLIB from MACRO programs
+
+
+These routines preserve all accumulators.
+
+    Most routines have alternate entry names, so that MACRO programs can
+avoid  using  names of monitor calls when referring to subroutines.  The
+alternate names start  with  a  dollar-sign  and  have  the  first  five
+characters  of  the  FORTRAN entry names.  For instance, "$INCHW" is the
+alternate name for "INCHWL" - a subroutine which does TTCALL's and more.
+
+The MACRO calling sequences are:
+	L=16			;Link to arg list
+	P=17			;Push-down-list pointer
+
+	MOVEI	L,TMPARG	;Args for TMPCOR
+	PUSHJ	P,$TMPCO	;Call TMPCOR
+
+	MOVEI	L,RUNARG	;Args for RUNUUO
+	PUSHJ	P,$RUNUU	;Call RUNUUO
+
+	MOVEI	L,CMDARG	;Args for RESCAN
+	PUSHJ	P,$RESCA	;Call RESCAN
+
+	MOVEI	L,CMDARG	;Same args for INCHWL
+	PUSHJ	P,$INCHW	;Call INCHWL
+
+	MOVEI	L,SAVARG	;Args for SAVRUN
+	PUSHJ	P,$SAVRU	;Call SAVRUN (also known as CVT$$)
+
+	PUSHJ	P,EXITGO	;No args for EXITGO
+
+	PUSHJ	P,EXIT0		;No args for EXIT0
+
+	PUSHJ	P,EXIT1		;No args for EXIT1
+
+	MOVE	1,[SIXBIT /NAME/] ;Put name in AC1
+	PUSHJ	P,.HELPR	;Call HELPER
+
+	MOVEI	L,OUTARG	;Args for OUTSTR
+	PUSHJ	P,$OUTST	;Call OUTSTR
+
+	MOVEI	L,MATARG	;Args for MATCH
+	PUSHJ	P,$MATCH	;Call MATCH
+;Example of argument blocks for MACRO routines
+
+	-3,,0			;3 args for TMPCOR
+TMPARG:	NAME			;Addr of name of TMP file
+	BUFFER			;Starting addr of array for buffer
+	KOUNT			;Addr of integer for count
+
+	-3,,0	;Or -4,,0	;3 or 4 args for RUNUUO
+RUNARG:	IERR			;Addr to put error code
+	PRGNAM			;Start of program name in ASCII
+	KOUNT1			;Addr of number of chars in PRGNAM
+	ICCL			;Optional addr of the run offset
+
+	-5,,0			;5 args for RESCAN and INCHWL
+CMDARG:	NAME			;Addr of prompt text
+	BUFFER			;Start addr of array
+	KOUNT			;Addr of integer
+	LENGTH			;Addr of word containing size of BUFFER
+	LASTC			;Addr to store last character
+
+	-5,,0			;5 args for SAVRUN
+SAVARG:	FLAG			;Addr of flag, bit 0 gets set (negative=.TRUE.)
+	BUFFER			;Starting addr of array
+	KOUNT			;Addr of integer, count of characters
+	LENGTH			;Addr of word containing size of BUFFER
+	LASTC			;Addr to store last character
+
+	-3,,0			;3 args for OUTSTR
+OUTARG:	ICC			;Addr of carriage control
+	BUFFER			;Starting addr of array
+	KOUNT			;Addr of number of chars
+
+	-6,,0			;6 args for MATCH (the last 1 is optional)
+MATARG:	[ASCIZ /LIST,OF,COMMANDS,SEPARATED,BY,COMMAS/]
+	BUFFER			;Array with command to be processed
+	KOUNT			;Addr of integer
+	LENGTH			;Addr of word containing size of BUFFER
+	INDEX			;Addr of integer for match
+	DNAME			;(optional) Addr of double-precision variable
+
+NAME:	ASCII	/ABC  /		;Prompt or name of TMP file
+BUFFER:	BLOCK	BUFSIZ		;Array
+KOUNT:	BLOCK	1		;Integer character count
+LENGTH:	BUFSIZ			;Word containing size of BUFFER
+LASTC:	BLOCK	1		;Integer for last char, right justified
+FLAG:	-1			;-1 to do everything
+PRGNAM:	ASCII	/DSKB:TESTER.EXE[10,10]/	;Name of program in ASCII
+KOUNT1:	^D22			;Number of characters in PRGNAM
+IERR:	BLOCK	1		;Gets error code if RUNUUO fails
+ICC:	0			;0 for CRLF, -1 to suppress CRLF
+ICCL:	1			;Run-offset, 0 or 1
+INDEX:	BLOCK	1		;Number denoting match
+DNAME:	BLOCK	2		;Command name stored in A6 format
+
+[End of RUNLIB.DOC]

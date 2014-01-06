@@ -1,0 +1,312 @@
+TECO-10 has the following extensions to DEC standard TECO:
+
+Long q-register names:	Q-register names may be up to 6 characters long
+			The traditional single-character q-register names
+			may be used, or up to six characters in parentheses
+			or ESCAPES.
+			i.e.	Qq or Q(FOOBAR) or Q$FOOBAR$
+			Legal characters in q-register names are:
+			A-Z, 0-9, space and underline.
+			A q-register name consisting entirely of
+			zero or more spaces is the same as q-register (),
+			which is special and discussed below.
+			Lower case is identical to upper case,
+			qA and q(A) (where A here represents any of the
+			above characters) are the same q-register,
+			Q-registers containing any printing characters
+			other than those listed above are legal, but reserved.
+			Note that longer q-register names are planned for the
+			next release (version 4).  Trailing spaces are now
+			ignored, as are characters after the 6th, but this
+			may change in the next release.
+
+EWfilespec/APPEND$	Appends to the output file if it exists,
+			create it otherwise
+
+EQ(q-reg)filespec$	Read a file directly into a q-register.
+			Nulls are not removed as the file is read in.
+
+E%(q-reg)filespec$	Write a q-register out to a file. Nulls are
+			not removed as the file is written out
+
+The q-register with the null name: () is the text buffer.  The numeric
+part of this q-register is the value of "." .
+
+Q-registers may share their text with each other and with the text buffer
+as a result of "[" and "]" commands.  When a q-register is pushed onto
+the q-register pushdown list, all that is pushed is the numeric value
+of the q-register and a pointer to the text, if any.  Thus, a command
+such as: [A ]B would cause q-registers A and B to share the same text.
+The commands: X, ^U, and EQ could be applied to either q-register
+without modifying the other, since the q-register is un-bound from
+its previous text first.  However, the colon-modified forms of
+X and ^U append to the existing text, so a :X or :^U command for
+either of them would affect the other.
+Furthermore, the sequence:  [A ]()  causes the q-register to share
+with the main text buffer.  The old main text buffer is lost unless
+it is also sharing with a q-register or is saved on the q-register
+pushdown list.  The text in q-register A becomes the text buffer
+and the numeric value of A is used for "." if it is in range,
+otherwise "." is set to 0.  Now any modifications made to the
+text buffer will also affect q-register A, because they both have
+the same text.  Some examples follow
+
+	[() [A]() J@I"FOO" ]()	!This inserts "FOO" at the beginning
+				 of q-register A. The original text
+				 buffer is unaffected, the pointer
+				 position in the original buffer is
+				 preserved, as is the numeric value
+				 of q-register A!
+
+	[() zj-5t  ]()		!The last 5 lines of the text buffer
+				 are typed, and "." is restored!
+
+Other commands:		(Some of these may not work on TOPS-20)
+
+m,n:^T	This does an arbitrary TTCALL (with a few exceptions):
+
+0:^T	(INCHRW)	Read a character in character mode. Stall if necessary.
+
+m,1:^T	(OUTCHR)	Type (m) as a character.
+
+2:^T	(INCHRS)	Read a character in character mode. NEVER stall.
+			Return -1 if no character
+4:^T	(INCHWL)	Read a character in line mode. Stall if necessary.
+
+5:^T	(INCHSL)	Read a character in line mode. NEVER stall.
+
+m,6:^T	(GETLCH)	Get line characteristics for line m (-1 = yours).
+
+m,7:^T	(SETLCH)	Set line characteristics:
+			Bits returned by m,6:^T :
+			^O400000000000:		Pseudo-TTY
+			^O200000000000:		CTY
+			^O100000000000:		Display
+			 ^O40000000000:		Dataset
+			 ^O10000000000:		Half-duplex
+			  ^O4000000000:		Remote TTY
+			  ^O2000000000:		Remote batch (??)
+			   ^O100000000:		A line has been typed in
+			    ^O20000000:*	Lower case input accepted 
+			    ^O10000000:*	Hardware TABS
+			     ^O4000000:*	Local Copy
+			     ^O2000000:*	Paper TAPE mode
+
+			The argument to m,7:^T is the desired state of
+			the above bits added to the line number (or
+			^O777777 for your line.
+			Only the starred (*) bits can be set by m,7:^T.
+
+8:^T	(RESCAN)	Attempt to re-scan the command line that invoked
+			TECO10.  Return -1 if successful, in which case
+			subsequent terminal input commands of any type
+			will read the command line.
+1,8:^T	---		Return -1 if TECO10 was run at the "CCL entry point",
+			i.e. chained to by another program such as COMPIL.
+
+9:^T	(CLRBFI)	Clear type-ahead.  Useful if macro detects an error.
+
+10:^T	(CLRBFO)	Clear pending typeout. Equivalent to user typing ^O.
+
+11:^T	(SKPINC)	Return -1 if a character has been typed, else 0.
+
+12:^T	(SKPINL)	Return -1 if a line has been typed, else 0.
+
+m,13:^T	(IONEOU)	Type (m) as a character without discarding parity bits.
+
+m,16:^T			the character with the ASCII code m will be read
+			in by the next ^T (not :^T) command.
+
+m,17:^T			The TTY: is opened in mode m.
+			NO CHECK FOR LEGALITY OF THE MODE IS DONE.
+			If an illegal mode is specified, you will lose!
+			To supress echoing, 8ET or 0,8ET is preferred.
+			Not available on TOPS-20.
+
+E&dev:program-to-run$	Run this program when we exit. Can take a numeric
+			argument which is the run-offset. 0 is the default.
+			This command was "ED" in XTEC.
+
+m,nE*	(TRMOP.)	Does any arbitrary TRMOP. to your terminal.
+			Not available on TOPS-20.
+			m is used as the new value for setting functions
+			and is ignored if not needed.  See the TOPS-10
+			Monitor calls documentation for an up-to-date
+			list of functions.  A few are listed below.
+
+1E*			Return non-zero if terminal input buffer is non-empty,
+			else return 0.
+2E*			Return non-zero if terminal output buffer is non-empty,
+			else return 0.
+^O1003E*		Return non-zero if terminal is using lower case.
+1,^O2003E*		Set terminal to use lower case.
+0,^O2003E*		Set terminal to not use lower case.
+
+^O1005E*		Return non-zero if terminal is using hardware TABS.
+1,^O2005E*		Set terminal to use hardware TABS.
+0,^O2005E*		Set terminal to not use hardware TABS.
+
+^O1006E*		Return non-zero if terminal is using hardware FORMfeed.
+1,^O2006E*		Set terminal to use hardware FORMfeed.
+0,^O2006E*		Set terminal to not use hardware FORMfeed.
+
+^O1007E*		Return non-zero if terminal is set for local copy.
+1,^O2007E*		Set terminal to use local copy.
+0,^O2007E*		Set terminal to not use local copy.
+
+^O1010E*		Return non-zero if terminal is doing free CR/LF's.
+1,^O2010E*		Set terminal to do free CR/LF's.
+0,^O2010E*		Set terminal to not do free CR/LF's.
+
+^O1011E*		Return the horizontal carriage position.
+			The monitor is usually confused about this,
+			as it does not know of the behavior of display
+			terminals.  Perhaps you want the FX command.
+
+^O1012E*		Read the terminal WIDTH. Same as 1:W unless you
+			did something behind TECO10's back.
+m,^O2012E*		You probably want to use m,1:W.
+			That way the display code knows about what you did.
+
+^O1021E*		Return non-zero if terminal has PAGE set.
+1,^O2021E*		Set terminal to PAGE.
+0,^O2021E*		Set terminal to NO PAGE.
+
+^O1021E*		Return non-zero if terminal has PAGE set.
+1,^O2021E*		Set terminal to PAGE.
+0,^O2021E*		Set terminal to NO PAGE.
+
+^O1022E*		Return non-zero if output frozen (i.e. by ^S)
+
+^O1023E*		Return the page length (as in TTY PAGE m).
+m,^O2023E*		Set the page length to m.
+			Note that some monitors use this value to
+			automatically freeze output after every n
+			lines.  This is probably not the behavior
+			you want.  It can be supressed by 0,^O2023E* .
+
+^O1026E*		Return non-zero if terminal has ALTMODE set.
+1,^O2026E*		Set terminal to ALTMODE.
+0,^O2026E*		Set terminal to NO ALTMODE.
+			This feature, if set, converts old altmodes to ESC.
+
+^O1036E*		Return non-zero if terminal has RTCOMPATABILITY set.
+1,^O2036E*		Set terminal to RTCOMPATABILITY.
+0,^O2036E*		Set terminal to NO RTCOMPATABILITY.
+			If set, this allows ^R and ^T to be passed to the
+			program, rather than being intercepted by the
+			operating system. ^R is normally passed to TECO10
+			anyway, because of the way the terminal is opened.
+
+nE#			does USETI on input file (Like ^U in XTEC)
+
+E?q			Read a command string into q-register q.
+
+m,nE!			Set the end-of-command sequence to the characters
+			with ASCII codes m and n.  The initial setting
+			is 27,27 for 2 escapes.  This command may change
+			in a later release.  It is mostly useful in
+			conjunction with E?.
+
+::Mq			Compile (but do not execute) q register q.
+
+::Gq			Type out contents of q-register q in literal mode.
+			(regardless of seting of ET)
+
+
+
+The following commands are compatable with TECO-11, TECO-8 and TECO-VAX.
+
+
+^Uqtext$		Put TEXT in Q-register q.
+:^Uqtext$		Append text to q-register q.
+n^Uq$			Put character with ASCII code n (as text) in q.
+n:^Uq$			as above, but append.
+			Note that if the text in q is shared (see above),
+			the other q-registers pointing to that text will
+			be appended to also.
+
+n:Xq			Like nXq but append. (see above note).
+m,n:Xq			Like m,nXq ...
+
+ET			Return value of ET word.
+nET			Set ET word to n
+m,nET			ET=(ET OR n) AND NOT(m)
+
+	ET is bit-encoded as below:
+
+1.......................Literal typeout (traditional use of ET)
+2.......................Scope mode for rubouts, etc.
+4.......................Lower case input is really lower case.
+8.......................Supress echoing
+16......................Cancel ^O
+32......................^T does not block (return -1 if no character)
+64......................"Detached" flag. (Set it & you will detach you job)
+128.....................Return to monitor on error.
+256.....................Truncate output rather than wrapping around
+			(not really supported by display stuff yet)
+32768...................^C intercept: On ^C, this will be cleared,
+			and next ^T will read ^C as character.
+
+
+ED
+nED
+m,nED			Similar to ET in syntax, bits encoded as follows:
+
+1......................."^" in searches is really up-arrow.
+			If cleared, it turns next character to control.
+2.......................Y and _ always legal. Otherwise only legal
+			if no output file or buffer empty.
+16......................Do not 0J on search failure. Otherwise do so.
+131072..................Do not generate tracing code.  This is intended
+			for TECO macros that already have been debugged.
+			"?" for trace mode or error printout will not
+			print commands in macros compiled with this set.
+
+n^T			Type out character with ASCII code n
+			(in arrow mode unless 1ET set)
+
+:Gq			Type out contents of q-register q.
+			(in arrow mode unless 1ET set)
+
+|			Else (use with " and ') 
+			i.e.:  qn"E ^AZero^A | ^ANon-zero^A '
+
+nFBtext$		Bounded search (arguments like T)
+m,nFBtext$
+			Note: m,nStext$ works as in XTEC, not TECO-11.
+			      m,nStext$ is identical to m,nFBtext$
+
+nFCtext$text$
+m,nFCtext$text$		Bounded replace (arguments like T)
+			Note: m,nFStext$text$ works as in XTEC, not TECO-11.
+			      m,nFStext$text$ is identical to m,nFCtext$text$
+
+FDtext$			Find and delete text. Like FStext$$.
+			The old XTEC FD is now FK (see below)
+
+FKtext$			Delete from . to text.  XTEC called this FD.
+
+
+Window support: The macros in TECO10.TEC must be loaded for these to work:
+
+W or -1W		Update the window now.
+
+nW (for n>0)		Set cursor to nth line of screen
+   (for n<-1)		"Forget" top -n-1 lines of screen
+
+n:W			Return display parameter n
+m,n:W			Set display parameter n to value m
+
+Display parameters:
+
+0	Terminal type: 0-VT52 1-VT61 2-VT100 6-VT05
+1	Width of screen
+2	Length of screen
+3	Display-all mode (VT52 only)
+4	Value of the "Mark"
+6	Start of window
+
+Several other :W commands exist, but are not documented because they
+are certain to change in the next release.  They are used to set up
+terminal characteristics.

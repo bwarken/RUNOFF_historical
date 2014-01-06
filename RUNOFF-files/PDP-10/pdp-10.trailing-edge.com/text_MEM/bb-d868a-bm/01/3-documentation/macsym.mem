@@ -1,0 +1,767 @@
+
+
+
++---------------+
+! d i g i t a l !   I N T E R O F F I C E  M E M O R A N D U M
++---------------+
+
+TO:  DECsystem-10 S.E., TOPS20 Documentation Group
+                                       DATE:  20 Feb 76
+
+                                       FROM:  D. Murphy
+
+                                       DEPT:  DEC10 S. E. Dept.
+
+                                       LOC:   MB-2   EXT:  
+
+                                       FILE:  [DOC-SPECS]
+                                               MACSYM.SPC
+
+                                       PDM #: 200-003-005-00
+
+                                       DISTRIBUTED:  
+
+                                       REVIEWED:  
+
+SUBJ:  MACSYM
+
+
+
+                                      First Printing, July 1976
+
+The information in this document is subject to  change  without
+notice  and  should not be construed as a commitment by Digital
+Equipment Corporation.  Digital Equipment  Corporation  assumes
+no  responsibility  for  any  errors  that  may  appear in this
+document.
+
+The software described in this document is  furnished  under  a
+license  and  may be used or copied only in accordance with the
+terms of such license.
+
+Digital Equipment Corporation assumes no responsbility for  the
+use  or  reliability  of  its software on equipment that is not
+supplied by DIGITAL.
+
+
+     Copyright  (C)  1976 by Digital Equipment Corporation
+
+
+The following are trademarks of Digital Equipment Corporation:
+
+        DIGITAL            DECsystem-10         MASSBUS
+        DEC                DECtape              OMNIBUS
+        PDP                DIBOL                OS/8
+        DECUS              EDUSYSTEM            PHA
+        UNIBUS             FLIP CHIP            RSTS
+        COMPUTER LABS      FOCAL                RSX
+        COMTEX             INDAC                TYPESET-8
+To:  DECsystem-10 S.E., TOPS20 Documentation Group       Page 2
+Subj:  MACSYM
+
+
+        DDT                LAB-8                TYPESET-10
+        DECCOM             DECsystem-20         TYPESET-11
+
+
+
+MACSYM is a file of standard macro and symbol  definitions  for
+use  with  TOPS20  machine  language  programs.   Use  of these
+definitions  is  recommended  as  a  means  of  producing  more
+consistent and readable MACRO sources.  Some of the definitions
+were obtained from C.MAC;  others will be  added  if  they  are
+generally useful.
+
+MACSYM is available on  SYS:   in  two  forms,  MACSYM.UNV  and
+MACREL.REL.   The  first  is  the  universal  file of macro and
+symbol definitions;  the second is  a  file  of  small  support
+routines  used  by  certain  of  the  facilities  (e.g.,  stack
+variables).   The  universal  file  is  normally  obtained   at
+assembly time by the source statement
+
+        SEARCH MACSYM
+
+The object file, if necessary, may be obtained  by  the  source
+statement
+
+        .REQUIRE SYS:MACREL
+
+This instructs LINK to load the object file along with the main
+program.   The  file  is  loaded only once even if the .REQUIRE
+appears in several source modules, and no explicit LINK command
+need be given.
+
+Certain conventions are observed regarding the construction  of
+symbols as follows:  ("x" represents any alphanumeric)
+
+        xxxxx.  an opdef or macro defininition
+
+        .xxxxx  a constant value
+
+        xx%xxx  a mask, i.e., a bit or  bits  which  specify  a
+                field
+
+        Symbols containing  multiple  periods   may   be   used
+                internally by some macros.
+
+        Symbols containing "$" are not used or defined  by  DEC
+                and are reserved for customer use.
+
+The following definitions  are  available  in  MACSYM  and  are
+arranged into groups as shown.
+
+
+1.  STANDARD PROGRAM VERSION
+
+This macro assembles the standard contents of .JBVER.
+To:  DECsystem-10 S.E., TOPS20 Documentation Group       Page 3
+Subj:  MACSYM
+
+
+        PGVER.  VERS,UPDAT,EDIT,CUST
+
+where   VERS    is the major version number
+
+        UPDAT   is the update or minor version number
+
+                     (1=A, 2=B, ...)
+
+        EDIT    is the edit number
+
+        CUST    is the customer/SWS edit code (1=SWS,
+
+                     2-7= customer)
+
+A word constructed from  these  quantities  is  assembled  into
+absolute  location .JBVER (137);  the current assembly location
+is restored.
+
+
+2.  MISCELLANEOUS CONSTANTS (SYMBOLS)
+
+        .INFIN = 377777,,777777         ;plus infinity
+
+        .MINFI = 400000,,0              ;minus infinity
+
+        .LHALF = 777777,,0              ;left half
+
+        .RHALF =      0,,777777         ;right half
+
+        .FWORD = 777777,,777777         ;full word
+
+
+3.  CONTROL CHARACTERS (SYMBOLS)
+
+Symbols are defined for all control character codes 0 to 37 and
+175-177.   The following are the commonly used characters;  see
+source listing for others.
+
+        .CHBEL = 07     ;bell
+
+        .CHBSP = 10     ;backspace
+
+        .CHTAB = 11     ;tab
+
+        .CHLFD = 12     ;linefeed
+
+        .CHFFD = 14     ;formfeed
+
+        .CHCRT = 15     ;carriage return
+
+        .CHESC = 33     ;escape
+
+        .CHDEL = 177    ;delete (rubout)
+To:  DECsystem-10 S.E., TOPS20 Documentation Group       Page 4
+Subj:  MACSYM
+
+
+4.  PC FLAGS (MASK SMBOLS)
+
+        PC%OVF = 1B0    ;overflow
+
+        PC%CYO = 1B1    ;carry 0
+
+        PC%CY1 = 1B2    ;carry 1
+
+        PC%FOV = 1B3    ;floating overflow
+
+        PC%BIS = 1B4    ;first  part   done   (byte   increment
+                         suppress)
+
+        PC%USR = 1B5    ;user mode
+
+        PC%UIO = 1B6    ;user IO mode
+
+        PC%LIP = 1B7    ;last instruction public
+
+        PC%AFI = 1B9    ;ADDRESS FAILURE INHIBIT
+
+        PC%ATN = 1B10   ;apr trap number
+
+        PC%FUF = 1B11   ;floating underflow
+
+        PC%NDV = 1B12   ;no divide
+
+
+5.  MACROS TO MANIPULATE FIELD MASKS
+
+Many of the symbols in MACSYM and MONSYM define flag  bits  and
+fields.   A  field  mask  is  a  full-word  value with a single
+contiguous group of 1's in  the  field.   E.g.,  000000,,777000
+defines a field consisting of bits 18-26.  The following macros
+may be used in expressions to deal with these masks.
+
+  WID(MASK)
+
+Width - computes the width of the field defined  by  the  mask,
+i.e., the number of contiguous 1-bits.  Value is not defined if
+mask contains non-contiguous 1-bits.
+
+  POS(MASK)
+
+Position - computes the position of the field  defined  by  the
+mask.  The position of a field is always represented by the bit
+number of the rightmost bit of  the  field  regardless  of  the
+width  of  the field.  This is sufficient to specify the entire
+field in the case of flags (1-bit fields).
+
+  POINTR(LOC,MASK)
+
+Byte pointer - constructs a byte pointer to location LOC  which
+references the byte defined by MASK.  E.G.,
+To:  DECsystem-10 S.E., TOPS20 Documentation Group       Page 5
+Subj:  MACSYM
+
+
+        POINTR(100,77) = POINT 6,100,35 = 000600,,100
+
+  FLD(VAL,MASK)
+
+Field value - Places the value VAL into the  field  defined  by
+MASK.  E.g., FLD(3,700) = 0,,000300
+
+  .RTJST(VAL,MASK)
+
+Right-justify - Shift VAL right such that the field defined  by
+MASK  is  moved  to  the  low-order  bits  of  the word.  E.g.,
+.RTJST(300,700) = 3
+
+  MASKB(LBIT,RBIT)
+
+Mask - construct a mask word which defines  a  field  from  bit
+LBIT to bit RBIT inclusive.  E.g., MASKB(18,26) = 0,,777000.
+
+
+6.  INSTRUCTIONS USING FIELD MASKS (MACROS)
+
+The  following  mnemonics  are  similar  to   certain   machine
+instructions  used  to  move  and  test bits and fields.  These
+macros select the most efficient instruction for the mask being
+used.
+
+  MOVX AC,MASK
+
+Load AC  with  constant.   MASK  may  be  any  constant;   this
+assembles  one  of  the  following instructions:  MOVEI, MOVSI,
+HRROI, HRLOI, or MOVE literal.
+
+  TXmn AC,MASK
+
+where m is:  N, Z, O, C
+
+      n is:  E, N, A, null
+
+There are 16 definitions of this form which include all of  the
+modification and testing combinations fo the test instructions,
+i.e., TXNN, TXNE, TXO, TXON, etc.  A TL, TR, or TD  literal  is
+assembled as appropriate.
+
+  IORX AC,MASK
+
+  ANDX AC,MASK
+
+  XORX AC,MASK
+
+These are equivalent to certain of the  TX  functions  but  are
+provided for mnemonic value.
+
+  JXm AC,MASK,ADDRESS
+To:  DECsystem-10 S.E., TOPS20 Documentation Group       Page 6
+Subj:  MACSYM
+
+
+This is a set of four definitions which jump to ADDRESS if  the
+field  specified  by  MASK  meets  a  certain  condition.   The
+condition (m) may be:
+
+        E - jump if all masked bits are 0
+
+        N - jump if not all masked bits are 0
+
+        O - jump if all masked bits are 1
+
+        F - jump if not al masked bits are 1 (false)
+
+These macros will assemble into one, two, or three instructions
+as necessary to effect the specified result.
+
+E.g.,   JXN T1,1B0,FOO  = JUMPL T1,FOO
+
+        JXE T1,770,FOO  = TRNN T1,770
+                         JRST FOO
+
+
+7.  DATA STRUCTURE FACILITY (MACROS)
+
+This set of macros provides a comprehensive  facility  for  the
+definition  and  use of data structures.  It is an extension of
+some of the techniques represented by the field mask facilities
+above.   Typically,  a  data  structure definition will include
+some information about the location of the data  in  memory  as
+well  as  its  position  within  a  word.  These facilities are
+intended to provide the following advantages:
+
+    1.  Data items may be referenced more  mnemonically,  e.g.,
+        two  data  items  in  the  same  word  would  be  given
+        different names rather than merely being known  as  the
+        left half or right half of the word.
+
+    2.  Should the need arise, storage formats may  be  changed
+        without  incurring  the expense of a search of the code
+        to change each reference.
+
+  DEFSTR NAME,LOCATION,POSITION,SIZE
+
+  MSKSTR NAME,LOCATION,MASK
+
+These  macros  both  define  a  data  structure  called   NAME.
+LOCATION  specifies the memory location of the desired word and
+consists of address, index, and indirect fields  in  the  usual
+form,  i.e., @address(index).  Any of the fields may be omitted
+if not needed, and the entire location argument may be null  in
+some circumstances.  The remaining arguments define the desired
+field.  DEFSTR specifies the field in  terms  of  its  position
+(right-most bit number) and size (number of bits), while MSKSTR
+specifies the field by a full-word mask as  described  earlier.
+Normally, the actual storage to be used is declared separately,
+To:  DECsystem-10 S.E., TOPS20 Documentation Group       Page 7
+Subj:  MACSYM
+
+
+e.g., by a BLOCK statement.
+
+As a simple example, consider an array of full-word data items.
+We  wish to use the name FOO for the data itself, so we declare
+the actual storage by some other name, e.g.,
+
+        FOO1:   BLOCK n
+
+Then we declare the structure by
+
+                DEFSTR FOO,FOO1(FOOX),35,36
+
+This says that we declare a data  item  called  FOO,  that  the
+items  are  addressed by FOO1(FOOX) (assuming that the index is
+kept in register FOOX), that the items  are  36-bit  quantities
+with  the  rightmost  bit  in  bit  35  (i.e., full words).  If
+instead, we wish to declare that each word of FOO1 consists  of
+an item in the left half and two 9-bit items in the right half,
+we could write:
+
+                DEFSTR FIRSTD,FOO1(FOOX),17,18  ;LH item
+
+                DEFSTR SECOND,FOO1(FOOX),26,9   ;one 9-bit item
+
+                DEFSTR THIRDD,FOO1(FOOX),35,9   ;another 9-bit 
+                                                ;  item
+
+Data items defined with DEFSTR or MSKSTR may be referenced in a
+general way.  At each instance, additional location information
+may be given  if  necessary.   A  set  of  reference  functions
+(macros)  is defined for most common operations, some affecting
+AC and memory, others  only  memory.   For  example,  the  LOAD
+function loads a data item into an AC and is written as
+
+                LOAD AC,NAME,LOCATION
+
+where   AC      is the AC to be loaded
+
+        NAME    is the structure name as defined with DEFSTR
+
+        LOC     is location specification in addition  to  that
+                declared  in  the  structure  definition.  This
+                field may be null in some cases.
+
+Taking the example definitions above, we may write
+
+                LOAD T1,FOO
+
+which would assemble into
+
+                MOVE T1,FOO1(FOOX)
+
+or
+To:  DECsystem-10 S.E., TOPS20 Documentation Group       Page 8
+Subj:  MACSYM
+
+
+        LOAD T1,SECOND   = LDB T1,[POINT 9,FOO1(FOOX),26]
+
+        LOAD T1,FIRSTD   = HLRZ T1,FOO1(FOOX)
+
+Note that the macro compiles  the  most  efficient  instruction
+available to reference the specified field.
+
+The optional third argument is provided to allow  some  of  the
+location  information  to  be  specified at each instance.  For
+example, if the definition is
+
+        DEFSTR FOO,FOO1,35,36
+
+Then the index may be specified at each instance, e.g.,
+
+        LOAD T1,FOO,(XX)
+
+        LOAD T2,FOO,(T1)
+
+The specification given in the definition is concatentated with
+the specification given in the reference.
+
+The following reference functions are presently defined:
+
+        LOAD AC,NAME,LOC        load data item into AC
+
+        STOR AC,NAME,LOC        store data item  from  AC  into
+                                 memory
+
+             The data item is right justified in the AC.
+
+        SETZRO NAME,LOC         set the data item to zero
+
+        SETONE NAME,LOC         set the data item to all ones
+
+        SETCMP NAME,LOC         complement the data item
+
+        INCR NAME,LOC           increment the data item
+
+        DECR NAME,LOC           decrement the data item
+
+For functions not specifically provided, the following  may  be
+used
+
+        OPSTR OP,NAME,LOC
+
+        OPSTRM OP,NAME,LOC
+
+OP is any machine instruction written without an address field.
+It  will  be  assembled such as to reference the specified data
+structure.  OPSTR is used if memory is not modified, OPSTRM  is
+used if memory is modified.  E.g.,
+
+        OPSTRM <ADDM T1,>,FOO
+To:  DECsystem-10 S.E., TOPS20 Documentation Group       Page 9
+Subj:  MACSYM
+
+
+to add the quantity in T1 to the data item FOO.
+
+The  following  test  and  transfer  functions  are   presently
+defined:
+
+        JE NAME,LOC,ADDR        jump to ADDR if data is 0
+
+        JN NAME,LOC,ADDR        jump to ADDR if data is not 0
+
+The following test  and  transfer  functions  take  a  list  of
+structure  names  (surrounded  by  angle-brackets)  or a single
+structure name.  They compile code to test each  data  item  in
+the  order  given,  and  will stop as soon as the result of the
+function is known (e.g., AND encounters a false term).
+
+  JOR NAMLST,LOC,ADDR   jump to ADDR if any data item is true 
+                          (non-0)
+
+  JAND NAMLST,LOC,ADDR  jump to ADDR if all data items true 
+                          (non-0)
+
+  JNOR NAMLST,LOC,ADDR  jump to ADDR if all data items false 
+                          (0)
+
+  JNAND NAMLST,LOC,ADDR jump to ADDR if any data item is false 
+                          (0)
+
+These functions optimize multiple fields in the  same  word  if
+they are adjacent in the structure list.  If the final location
+is an accumulator, further optimiZation is done.
+
+As a final example of the data structure facility, consider the
+typical  case  of data organized into unit blocks with pointers
+to other blocks.  Such a block may appear as
+To:  DECsystem-10 S.E., TOPS20 Documentation Group      Page 10
+Subj:  MACSYM
+
+
+
+
+
+      Flag 1   Flag 2           Code            List pointer
+          !    !                 !                   !
+          V    V                 v                   V
+        +---+---+---------+---------+-------------------------+
+        !   !   !/////////!         !                         !
+        +---+---+---------+---------+-------------------------+
+        !       additional  node  data                        !
+        +-----------------------------------------------------+
+        !                       ''''''''                      !
+
+We assume that n-word blocks will be allocated from a free pool
+at  execution  time.  The structure of the block is declared as
+follows:
+
+        MSKSTR FLAG1,0,1B0
+
+        MSKSTR FLAG2,0,1B1
+
+        DEFSTR CODE,0,17,9
+
+        DEFSTR LINK,0,35,18
+
+        DEFSTR NODDAT,1,35,36
+
+Note that the location field contains only the  offset  address
+of the word within the block;  the address of the block will be
+specified in an index  at  each  reference.   References  would
+appear as follows:
+
+        LOAD T1,LINK,(T1)       ;step to next node in list
+
+        STOR T2,CODE,(T1)       ;set new block code
+
+        JE FLAG1,(T1),FLOFF     ;jump if flag1 is off
+
+        JAND <FLAG1,FLAG2>,(T1),FLGSON  ;jump if flag1 and 
+                                        ; flag2 are both on
+
+
+8.  SUBROUTINE CONVENTIONS (MACROS/OPDEFs)
+
+The following definitions are used to make subroutine mechanics
+more   mnemonic.    Reference  is  made  to  these  conventions
+elsewhere in this document.
+
+  CALL address
+
+Call subroutine at address;  equivalent to PUSHJ P,address
+
+  RET
+To:  DECsystem-10 S.E., TOPS20 Documentation Group      Page 11
+Subj:  MACSYM
+
+
+Return from subroutine;  equivalent to POPJ P,
+
+  RETSKP
+
+Return from subroutine and skip;  equivalent to
+
+        JRST [AOS 0(P)
+              RET]
+
+  CALLRET address
+
+Call  the  subroutine  at  address   and   return   immediately
+thereafter;  equivalent to
+
+        CALL address
+         RET
+        RETSKP
+
+CALLRET assembles as JRST  but  should  be  treated  as  if  it
+assembles into several instructions and cannot be skipped over.
+
+  AC Conventions
+
+The  facilities  described  here  assume  in  some  cases   the
+following AC conventions:
+
+  AC1-AC4               temporary, may  be  used  to  pass  and
+                        return values
+
+  AC0,AC5-AC15          preserved, i.e., saved and restored  if
+                        used by subroutine
+
+  AC16                  temporary,  used  as  scratch  by  some
+                        MACSYM facilities
+
+  AC17                  stack pointer
+
+
+9.  NAMED VARIABLE FACILITIES (macros and runtime code)
+
+A   traditional   deficiency   of   machine   language   coding
+environments   is   facilities   for  named  transient  storage
+("automatic", etc.).  Sometimes, permanent storage is  assigned
+(e.g.,  by  BLOCK  statements)  when  no recursion is expected.
+More often, ACs are used for a small number of local variables.
+In  this case, the previous contents must usually be saved, and
+a general mnemonic (e.g., T1, A, X) is usually used.   In  some
+cases, data on the stack is referenced, e.g.,
+
+        MOVE T1,-2(P)
+
+but this is completely  non-mnemonic  and  likely  to  fail  if
+addition storage is added to or removed from the stack.
+To:  DECsystem-10 S.E., TOPS20 Documentation Group      Page 12
+Subj:  MACSYM
+
+
+The facilities described  here  provide  local  named  variable
+storage.   Two of these allocate the storage on the stack;  the
+third allocates it in the ACs.
+
+  STKVAR namelist
+
+This statement allocates space on the stack and  assigns  local
+names.   The  list consists of one or more symbols separated by
+commas.  Each symbol is assigned to one stack  word.   If  more
+than  one word is needed for a particular variable, then a size
+parameter  may  be  given   enclosed   with   the   symbol   in
+angle-brackets.  E.g.,
+
+        STKVAR <AA,BB>
+
+        STKVAR <AA,<BB,3>>
+
+Variables declared in this way may be  referenced  as  ordinary
+memory operands, e.g.,
+
+        MOVE T1,AA
+
+        DPB T1,[POINT 6,BB,5]
+
+Each variable is  assembled  as  a  negative  offset  from  the
+current stack location, e.g.,
+
+        MOVE T1,AA      =       MOVE T1,-2(P)
+
+Hence, no other index  may  be  given  in  the  address  field.
+Indirection may be used if desired.
+
+There is no explicit  limit  to  the  scope  of  the  variables
+defined  by  STKVAR, but the following logical constraints must
+be observed:
+
+    1.  The stack  pointer  must  not  be  changed  within  the
+        logical  scope of the variables, e.g., by PUSH or PUSHJ
+        instructions.  This also implies that the variables may
+        not be referenced within a local subroutine called from
+        the declaring routine.
+
+    2.  The declaring routine must return with a RET or RETSKP.
+        This  will  cause the stack storage to be automatically
+        deallocated.
+
+STKVAR assumes that the stack pointer is in P, and it uses .A16
+(AC16) as a temporary.
+
+  TRVAR namelist
+
+This statement allocates stack space and assigns  local  names.
+It  is  equivalent to STKVAR except that it uses one additional
+preserved AC and eliminates some of the scope  restrictions  of
+To:  DECsystem-10 S.E., TOPS20 Documentation Group      Page 13
+Subj:  MACSYM
+
+
+STKVAR.   In particular, it uses .FP (AC15) as a frame pointer.
+.FP is setup (and the previous contents saved) at the same time
+as  the  stack  space  is  allocated,  and  references  to  the
+variables use .FP as the index  rather  than  P.   This  allows
+additional  storage to be allocated on the stack and allows the
+variables to be referenced from local subroutines.   Note  that
+all  such  subroutines  (i.e.,  all  variable  references) must
+appear after the declaration in the source.  STKVAR may be used
+within TRVAR, e.g., by a local subroutine.
+
+STKVAR and  TRVAR  declarations  are  normally  placed  at  the
+beginning  of a routine.  They need not be the first statement.
+If a routine has two or more entry points, a single declaration
+may  be  placed  in  the  common  path,  or  several  identical
+declarations may be used in each of the separate  paths.   Care
+must   be   taken  that  control  passes  through  exactly  one
+declaration before any variables are referenced.  E.g.,
+
+        ;MAIN ROUTINE
+
+        ENT1:   TXO F,FLAG      ;entry 1, set flag
+                JRST ENT0       ;join common code
+
+        ENT2:   TXZ F,FLAG      ;entry 2, clear flag
+        ENT0:   TRVAR <AA,BB>   ;common code, declare locals
+                ..
+                CALL LSUBR      ;call local subroutine
+                ..
+                RET
+
+        ;LOCAL SUBROUTINE
+
+        LSUBR:  STKVAR <CC>     ;local subroutine, declare 
+                                ; locals
+                MOVE T1,AA      ;reference outer routine 
+                                ; variable
+                MOVEM T1,CC     ;reference local variable
+                ..
+                RETSKP          ;skip return
+
+  ASUBR namelist
+
+This statement is used to declare  formals  for  a  subroutine.
+The  namelist consists of from one to four variable names.  The
+arguments are passed to the subroutine in ACs  T1  to  T4,  and
+values  may  be returned in these same ACs.  ASUBR causes these
+four ACs to be stored on the  stack  (regardless  of  how  many
+formals  are  declared),  and defines the variable names as the
+corresponding stack locations.  The  return  does  not  restore
+T1-T4.   The  same frame pointer AC is used by ASUBR and TRVAR,
+hence these declarations  may  not  be  used  within  the  same
+routine.  Scope rules are the same as for TRVAR.
+
+  ACVAR namelist
+To:  DECsystem-10 S.E., TOPS20 Documentation Group      Page 14
+Subj:  MACSYM
+
+
+This statement declares local storage which is  allocated  from
+the  set  of  preserved ACs.  An optional size parameter may be
+given for each variable.  The previous contents of the ACs  are
+saved  on  the  stack  and  automatically  restored on the next
+return.  Variables declared  by  ACVAR  may  be  referenced  as
+ordinary AC operands.
+
+
+10.  MISCELLANEOUS
+
+  TMSG string
+
+Type literal string;  uses  AC1,  outputs  to  primary  output.
+E.g.,
+
+        TMSG <TYPE THIS TEXT>
+
+  JSERR
+
+Handle unexpected JSYS error;  type  "?JSYS  ERROR:   message".
+This  is  a single instruction subroutine call which returns +1
+always.
+
+  JSHLT
+
+Handle unexpected fatal JSYS error;  same as JSERR except  does
+HALTF instead of returning.
+
+  MOD.(DEND,DSOR)
+
+Modulo - In assembly-time expression, gives remainder  of  DEND
+divided by DSOR;  e.g., MOD.  10,3 = 1.
+
+[end of MACSYM]

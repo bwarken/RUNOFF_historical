@@ -1,0 +1,426 @@
+
+
+
+                                CRSCPY
+
+
+              Program For Automatically Copying Crashes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        Date:       May 1980
+                        File:       CRSCPY.RNO
+                        Version:    1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a commitment by Digital Equipment
+Corporation.  Digital Equipment Corporation assumes no  responsibility
+for any errors that may appear in this document.
+
+The software described in this document is furnished under  a  license
+and  may  be used and copied only in accordance with the terms of such
+license.
+
+Digital Equipment Corporation assumes no responsibility  for  the  use
+and  reliability  of its software on equipment that is not supplied by
+Digital.
+
+
+
+
+Copyright (C) 1979,1980 Digital Equipment Corp., Maynard, Mass.
+CRSCPY - Program For Automatically Copying Crashes              Page 2
+INTRODUCTION
+
+
+1.0  INTRODUCTION
+
+
+The 7.01 monitor includes a fast monitor resident  bootstrap  (MONBTS)
+which  has  the  capability  of very fast dump/reload, and continuable
+STOPCD dump.   In  addition,  the  monitor  provides  a  mechanism  to
+automatically  start  up  a  program  which will copy the dump(s) just
+taken.  CRSCPY is an example of a program which can be run to do this.
+CRSCPY,  as  described  in  this  document,  is  a  prototype  that an
+installation may use to help in understanding  the  monitor  interface
+and  the  tasks  that  must be performed by such a program.  CRSCPY is
+being  supplied  to  serve  as  a  basis  for  the  program  that   an
+installation  may  wish to write to tailor the copy mechanism to local
+procedures.  Every installation will have varying needs and procedures
+with regard to crash copying, and may indeed already have some form of
+semi-automatic mechanism  to  copy  crashes.   Therefore,  it  is  not
+expected   that   CRSCPY   will   be   used   without   change.    The
+Digital-supplied prototype supports automatic crash  copy  of  crashes
+when  invoked  by  the  monitor, manual copy of crashes when run by an
+operator, and a log and report feature of the crashes that it copied.
+
+
+
+
+
+2.0  RUNNING THE PROGRAM
+
+
+The monitor automatically runs the crash copy program from device SYS:
+when  a  continuable  STOPCD  dump  is  taken  or  when the monitor is
+reloaded.  By default the name of the crash copy  program  is  CRSCPY.
+This  default  may  be changed by defining the symbol CPYNAM to be the
+SIXBIT name of the program to run in the SIXBIT symbol definitions  in
+the HDWCNF MONGEN dialog.
+
+CRSCPY may also be run manually to copy crashes or to perform  one  of
+its  other  functions.   To perform most functions, CRSCPY must be run
+while logged into [1,2].
+
+
+
+
+
+3.0  COMMAND SYNTAX
+
+
+Commands to CRSCPY are of the general form:
+
+        COMMAND argument
+
+and are  of  three  types,  Action,  Status  setting,  and  Report  or
+Disposition  selection.   Action  commands  cause  something to happen
+immediately as opposed to storing a value or setting a flag for  later
+processing.   Action commands include CLEAR, COPY, DISPOSITION, PURGE,
+CRSCPY - Program For Automatically Copying Crashes              Page 3
+COMMAND SYNTAX
+
+
+and REPORT.   Status  setting  commands  set  flags  or  store  values
+directing  the  action  of one of the action commands.  Status setting
+commands  include  INFORM  and  STRUCTURE.   Report   or   disposition
+selection  commands  restrict  the  entries processed by the REPORT or
+DISPOSITION commands to the  subset  of  the  crashes  that  meet  all
+criteria  and  restrictions.   The  report  or  disposition  selection
+commands only have effect on the REPORT and DISPOSITION  commands  and
+include  BEGIN,  CBEGIN,  CEND,  DELETE,  DETAIL, END, HEADER, MONVER,
+PRIMETIME,  SEQUENCE,  STOPCD,  and  UNDISPOSED.   Each   command   is
+described separately below.
+
+
+
+
+
+4.0  ACTION COMMANDS
+
+
+The action commands are:
+
+CLEAR filespec          Mark  the  specified  file  as   having   been
+                        processed  so  that  MONBTS  can  dump  on  it
+                        without operator  intervention.   The  use  of
+                        this command is not usually required since the
+                        COPY command marks the crash  file  as  having
+                        been copied when it finishes the copy.  It may
+                        be  useful   after   stand   alone   time   or
+                        preventative  maintenance  to  insure  that no
+                        stale dumps are present.
+
+COPY filespec=filespec  Copy input filespec to output filespec, make a
+                        log  entry  in  SYS:CRASH.SYS,  and  clear the
+                        unprocessed dump bit in the file being  copied
+                        so that MONBTS can dump on it without operator
+                        intervention.  If only one filespec is  typed,
+                        it  is  used  as  the  filespec of the file to
+                        copy.
+
+DISPOSITION filespec    Give a disposition for the  crash  or  crashes
+                        specified  by  filespec.  Filespec is the name
+                        of the crash file or  files  as  specified  in
+                        SYS:CRASH.SYS.   Both  filename  and extension
+                        may be wildcarded and DSK:,  ALL:,  and  XPN:,
+                        when  specified  as  a  device in the command,
+                        will  match  any  device  in  an  entry.   The
+                        disposition  is a one line description of what
+                        caused the crash and is given after the  crash
+                        is  analyzed.   The disposition may be printed
+                        with   the   REPORT    command    using    the
+                        DETAIL:DISPOSITION  switch  or  command.   The
+                        crashes  disposed  by  this  command  may   be
+                        further  restriced by using one or more of the
+                        report  or  disposition   commands   described
+                        below.  Note that it is much more efficient to
+CRSCPY - Program For Automatically Copying Crashes              Page 4
+ACTION COMMANDS
+
+
+                        dispose a  crash  by  sequence  number  via  a
+                        DISPOSITION/SEQUENCE:nn   command  since  this
+                        allows   CRSCPY   to   directly   index   into
+                        CRASH.SYS.    If   no   /SEQUENCE   switch  is
+                        specified, CRSCPY must make a linear  scan  of
+                        the file.
+
+PURGE FILE              Delete  the  contents  of  SYS:CRASH.SYS   but
+                        retain  the  header so that the crash sequence
+                        numbers do not start at 1.  The  use  of  this
+                        command  is  prefered  to  simply deleting the
+                        file for this reason.  The argument "FILE"  is
+                        required to insure that the user does not type
+                        the command by accident.
+
+REPORT filespec         Generate a report on the specified file of the
+                        contents  of  SYS:CRASH.SYS.   The contents of
+                        this report may be restricted by using one  or
+                        more  of  the  report or disposition selection
+                        commands described below.
+
+
+
+
+
+5.0  STATUS SETTING COMMANDS
+
+
+The status setting commands are:
+
+INFORM name             Select  destination  of  all  output.    Legal
+                        values  of name are USER and OPR.  USER is the
+                        default if CRSCPY is run manually  and  causes
+                        output  to  go  to the users terminal.  OPR is
+                        the default if CRSCPY is run by the system and
+                        causes  output  to  go  to  device OPR:.  This
+                        command  should  not   be   used   in   normal
+                        operation.
+
+STRUCTURE <str:blk,str:blk,...>,<str:blk,str:blk,...>,...
+
+                        Select the structure to which CRSCPY will copy
+                        crashes if no output structure is specified in
+                        the COPY command  or  if  it  is  run  by  the
+                        system.   str  is  the name of a structure and
+                        blk is the number of blocks which must  remain
+                        on that structure after the copy is completed.
+                        CRSCPY will not copy a crash  to  a  structure
+                        unless    it    meets   this   minimum   block
+                        restriction.    The   angle   brackets   group
+                        structures  into  sets.  CRSCPY scans the sets
+                        from left to right and will select a structure
+                        from   the   first   set   which   meets   all
+                        restrictions.  Within each  set,  CRSCPY  will
+CRSCPY - Program For Automatically Copying Crashes              Page 5
+STATUS SETTING COMMANDS
+
+
+                        select  the  structure which meets the minimum
+                        block restrictions and will contain  the  most
+                        space  after  the  copy.  This command usually
+                        appears in SWITCH.INI with a line of the form:
+
+     CRSCPY/STRUCTURE:(<str:blk,str:blk,...>,<str:blk,...>,...)
+
+                        and allows the system administrator to specify
+                        to  which  structures crashes may be copied if
+                        not explicitly  overridden  by  the  operator.
+                        Note that since CRSCPY runs logged out ([2,5])
+                        when  run  by  the  system,   the   SWITCH.INI
+                        containing   the  STRUCTURE  command  must  be
+                        placed in [2,5].
+
+
+
+
+
+6.0  REPORT OR DISPOSITION SELECTION COMMANDS
+
+
+The report or disposition selection commands are:
+
+BEGIN date:time         Process only those crashes which  were  dumped
+                        after the specified date and time.
+
+CBEGIN date:time        Process only those crashes which  were  copied
+                        after the specified date and time.
+
+CEND date:time          Process only those crashes which  were  copied
+                        before the specified date and time.
+
+DELETE                  Delete  the  crash  file  after  it  has  been
+                        disposed.   NODELETE is the complement and the
+                        default if no switch is specified.
+
+DETAIL value            Give more detail than that given by the normal
+                        report.  Legal arguments are ALL which gives a
+                        full report, and DISPOSITION which gives  only
+                        the disposition, if any.
+
+END date:time           Process only those crashes which  were  dumped
+                        before the specified date and time.
+
+HEADER                  Give a header  line  on  the  REPORT  command.
+                        NOHEADER  is  the  complement  and  causes the
+                        header to be suppressed.
+
+MONVER n                Process only those crashes which were  running
+                        the  specified  monitor version.  The argument
+                        to this command is the version number from the
+                        monitor location MONVER, not that contained in
+                        .JBVER.
+CRSCPY - Program For Automatically Copying Crashes              Page 6
+REPORT OR DISPOSITION SELECTION COMMANDS
+
+
+PRIMETIME               Process  only  those  crashes  which  occurred
+                        during prime time (0800-1700).
+
+SEQUENCE m:n            Process  only  those  crashes  with   sequence
+                        numbers  between  m and n, inclusive.  If only
+                        one number is specified it is taken to be both
+                        the lower and upper bound.
+
+STOPCD xxx              Process  only  those  crashes  which  occurred
+                        because of the specified STOPCD.
+
+UNDISPOSED              Process only those crashes which have not  yet
+                        been disposed.  NOUNDISPOSED is the complement
+                        and  restricts  processing  to  those  crashes
+                        which have been disposed.
+
+The report or  disposition  selection  commands  may  also  appear  as
+switches on the REPORT or DISPOSITION command line, e.g.,
+
+     CRSCPY>REPORT/BEGIN:TODAY
+     CRSCPY>DISPOSITION/SEQUENCE:14:20
+
+If used in this manner,  the  value  applies  only  to  this  command.
+Subsequent commands will continue to use any sticky defaults specified
+by report or disposition selection commands.  Local switches  override
+any sticky defaults.
+
+
+
+
+
+7.0  MONITOR INTERFACE
+
+
+When the monitor takes a continuable STOPCD dump or  is  reloaded,  it
+starts  the  crash  copy  program using the FRCLIN mechanism (see MCOs
+8546, 8809, 8845, 8852, and 8868).  The program which is to  copy  the
+crash(es)  is  run  logged  out but with the JACCT privilege.  It must
+determine that is was run on FRCLIN (see MCO 8852 and  GETTAB  %CNFLN)
+and  detach  itself  as  soon  as  possible so that FRCLIN may be used
+again.  It must determine which,  if  any,  structures  contain  dumps
+which  have  not been copied, copy then, and then clear the bit in the
+RIB (RIPDMP in RIBSTS) which tells MONBTS that the  file  contains  an
+unprocessed dump.  When all dumps have been copied, it must then issue
+a LOGOUT UUO.
+
+
+CRSCPY - Program For Automatically Copying Crashes              Page 7
+ALGORITHMS USED BY CRSCPY
+
+
+8.0  ALGORITHMS USED BY CRSCPY
+
+
+CRSCPY determines whether or not it was run on FRCLIN by comparing the
+results of a GETLCH for its line with the result of doing a GETTAB for
+%CNFLN.  If it is running on FRCLIN, it  detaches  itself  immediatly.
+If it is not running on FRCLIN, CRSCPY will conditionally clear JACCT.
+If the symbol DFTPPN is defined, FILDAE is not running, and CRSCPY  is
+running  under  the  PPN  given  by DFTPPN, JACCT will not be cleared.
+This is used during field test to allow  DEC  to  dispose  crashes  in
+CRASH.SYS from the PPN assigned to DEC by the field test site (usually
+[10,1]).  DFTPPN should be set to zero if the site  is  not  in  field
+test or if they run FILDAE.
+
+When processing the DISPOSITION command, CRSCPY starts with the  entry
+specified  by  the  lower  bound  to  the /SEQUENCE switch by indexing
+directly into the file with USETI and USETO.  If no  /SEQUENCE  switch
+was specified, CRSCPY must start at the beginning of the file and do a
+linear scan until it finds an entry matching the restrictions.  It  is
+much  more  efficient  to specify at least a ball-park lower bound via
+/SEQUENCE to  avoid  having  to  search  the  entire  file.   This  is
+especially important if CRASH.SYS is large.
+
+CRSCPY finds unprocessed dumps to copy by finding  the  name  of  each
+structure  in the system with SYSSTR, doing a DSKCHR on that structure
+to determine if it is in the system dump  list  and  then  looking  up
+CRASH.EXE[1,4]  to  see  if  RIBDMP  is  set  in  RIBSTS.  It will not
+automatically copy crashes which are dumped on  structures  which  are
+not in the system dump list.
+
+When CRSCPY copies a crash file, it copies the lesser of the file size
+as  specified  by  .RBSIZ or the size of the crash as specified by the
+.EXE directory.  This means that no space is wasted in copying  blocks
+that  do  not contain dumped information.  CRSCPY does this by reading
+in the .EXE directory and computing the size of the dump from the last
+pointer.  Note that this computed size is used in the selection of the
+output structure as described below.
+
+CRSCPY selects an output structure by finding a structure  in  one  of
+the  sets  specified  in  the STRUCTURE command/switch which meets the
+minimum block restrictions and which will contain the  most  space  of
+any  structure  in the set after the copy is done.  If no structure is
+found in a set which meets the block restrictions, CRSCPY goes  on  to
+the  next  set.   If  effect,  CRSCPY will load balance copied crashes
+across structures in the same set and will go to the next set  if  and
+only  if  it  rejects  all structures in the current set.  This scheme
+allows great flexibility in specifying where crashes are to be copied.
+If no STRUCTURE command/switch was specified, device XPN is used.  The
+STRUCTURE  command/switch  is  usually  specified  with  a   line   in
+SWITCH.INI of the form:
+
+     CRSCPY/STRUCTURE:(<str:blk,str:blk,...>,<str:blk,...>,...)
+
+CRSCPY is assembled to accept up  to  four  sets  with  up  to  twenty
+CRSCPY - Program For Automatically Copying Crashes              Page 8
+ALGORITHMS USED BY CRSCPY
+
+
+structures  in  all  sets.  These defaults may be adjusted by changing
+parameters .MXSET, and .MXSTR.
+
+When run on FRCLIN, CRSCPY sets its job search list to  be  the  first
+two  (assembly  parameter, see .SLSTR) structures in the system search
+list.  Therefore, the SWITCH.INI should be  placed  on  one  of  these
+structures  in [2,5] since it runs logged out.  This will be necessary
+until SCAN can  be  taught  to  read  the  system  wide  options  file
+(INI:SWITCH.INI) with some future release.
+
+CRSCPY selects an output filename by appending the 3 character  STOPCD
+name  with  a  3 digit sequence number obtained from the header of the
+log file, SYS:CRASH.SYS, e.g., EUE123.  If no STOPCD occurred, SER  is
+used.
+
+CRSCPY clears the unprocessed dump bit in the RIB by  calling  CLRBIT.
+Installations  that  have their own crash copy programs should install
+this routine in their programs and call it when  a  crash  is  copied.
+CLRBIT  works  by  doing a USETI 0 and reading in the RIB of the crash
+file, doing a DSKCHR on the channel on which the crash file is open to
+get  the physical unit name containing the RIB, opening that unit, and
+doing a super USETO and OUTPUT to rewrite the RIB.  If this routine is
+not  called,  MONBTS  will  not  dump  on  this  file without operator
+intervention.

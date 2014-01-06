@@ -1,0 +1,692 @@
+
+
+
+DAEMON.DOC -- Changes from V21(772) to 22(1012)
+May 1985
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT       (c)        DIGITAL        EQUIPMENT        CORPORATION
+1971,1974,1978,1979,1980,1981,1982,1983,1986.
+ALL RIGHTS RESERVED.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+DAEMON.DOC                                                      Page 2
+
+
+DAEMON.DOC -- Changes from V21(772) to 22(1012)
+May 1985
+
+
+
+1.0  SUMMARY
+
+DAEMON version 22 is primarily a maintenance release  to  support  the
+7.03 monitor.
+
+2.0  EXTERNAL CHANGES
+
+DAEMON V22(1012) has a slightly different naming scheme  for  renaming
+AVAIL  files at the end of a week.  At the end of the week, DAEMON now
+renames AVAIL.SYS to AVAIL.LWK (Last-WeeK) and  renames  any  existing
+AVAIL.LWK  to AVAIL.ANN where "NN" is the next highest version number.
+If AVAIL.A77 already exists, DAEMON will complain about  it  and  will
+not rename any files.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+None
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+DAEMON searches JOBDAT, MACTEN, and UUOSYM.  To build DAEMON, type the
+monitor commands:
+
+        .LOAD DAEMON
+        .SAVE DAEMON
+
+Be sure to rename your previous version of  DAEMON  to  DAExxx.EXE  on
+SYS:  and then copy the new .EXE file to SYS:.
+
+
+
+5.0  INTERNAL CHANGES
+
+Edit #
+
+773    AVAIL.SYS gets bad entries in  it  switching  from  7.01(A)  to
+       7.02.   This  is  because we think the header for the AVAIL.SYS
+       working entry  is  the  same  length  as  the  header  for  the
+       ERROR.SYS/AVAIL.SYS data entries.  This changed with 7.02.  Use
+       new symbol AWELEN where appropriate for dealing with  the  AWE.
+       Also, don't store EL.HED in working entry header.
+
+774    Fix PEKDI6, where reading a KI paging crash would retrieve  bad
+       addresses from crash file through PEKDSK.
+
+775    Move CLRBFI from initialization code to right before the HIBER.
+DAEMON.DOC                                                      Page 3
+
+
+       Helps avoid loops while debugging DAEMON on a terminal.
+
+776    While  we're  in  the  code,  combine  the  binary  and  source
+       copyright statements.  Have them be on the first page.
+
+777    Add system error block support as part of CI disk project.
+
+Start version 22 here.
+
+1000   Up the monitor version to 703
+
+1001   MCO 11194, six character stopcode names.  Stopcode name is  now
+       in %SYSCD instead of %SYSPC.
+
+1002   Bad range check at DSPERR, fixed.
+
+1003   Do ORION messages when KLINIK events are logged
+
+1004   In  routine  ERRFIN  make  DAEMON  do  multi-block  output   to
+       ERROR/AVAIL  file  so  we  don't  write  a partial entry if the
+       system crashes.
+
+1005   In routine AVLAGE, rename LAST-WEEK'S AVAIL file  to  .Ann  and
+       rename  AVAIL.SYS  to  AVAIL.LWK  (to make it the new LAST-WEEK
+       file).  Complain if we already used AVAIL.A77.
+
+1006   Since edit 1004, we get some entries in ERROR.SYS which are not
+       reflected  in  RIBSIZE.   Perhaps  the data was written but the
+       system crashed before the RIB was  updated.   Try  to  preserve
+       these entries when looking for EOF.
+
+1007   Fix QUEUE.  UUO argument block so WTO's aren't so messy.
+
+1010   Do copyrights.
+
+1011   First attempt to flag software-detected disk errors positively.
+       left  half  of  4  word  ERRPT.   block  will contain a code to
+       indicate which of the several software-detected  errors  occur.
+       These  include SAT errors, RIB errors, recovered transfer hung,
+       etc.  all of these errors are detected in FILIO.  this enlarges
+       the massbus-disk entry (11) by one word.
+
+1012   Create new entry (code 74) for FILIO-detected  CI  disk  error.
+       Similar  to massbuss disk (code 11) entry, but without a lot of
+       useless information about controller status.
+
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+[End of DAEMON.DOC]
+DAEMON.DOC                                                      Page 4
+
+
+[DMN21.DOC is appended as an integral part of DAEMON.DOC]
+DMN21.DOC                                                       Page 5
+
+
+DAEMON.DOC -- Changes from V20(757) to 21(772)
+Jan 1983
+
+
+
+1.0  SUMMARY
+
+DAEMON version 21 contains major  changes,  both  in  content  and  in
+philosophy,  from  version 20 which was shipped with the 7.01 monitor.
+The significant changes are as follows:
+
+It has become  nearly  impossible  to  continue  supporting  both  the
+current  and  previous  versions  of  the monitor with each release of
+DAEMON.  The complexity of the code required  and  the  difficulty  of
+complete  testing  has  caused us to rethink the way we provide DAEMON
+support for each monitor.
+
+With this release, DAEMON will only provide support  for  the  monitor
+version  with  which  it  is released.  We must obviously provide some
+mechanism to support old monitors and this and all subsequent versions
+of  DAEMON  will  do  so  by  invoking the previous version of DAEMON.
+Since the previous version of DAEMON  clearly  supports  the  previous
+version  of the monitor, this seems like the idea solution to the "old
+monitor" problem.
+
+DAEMON determines if it is able to  support  the  running  monitor  by
+GETTABing   %CNDAE  and  comparing  the  monitor  version  against  an
+assembled-in parameter.   If  the  versions  match,  DAEMON  continues
+normally.  if the monitor version is less than that expected by DAEMON
+(or if the GETTAB fails), DAEMON  assumes  that  the  old  version  of
+DAEMON is on SYS:  as DAExxx.EXE, where "xxx" is the version number of
+the old monitor.  For example, if the 7.02 version of DAEMON  was  run
+on  a  7.01  monitor,  it  would  invoke  SYS:DAE701.EXE as the system
+DAEMON.  Therefore, each site must rename their 7.01 version of DAEMON
+to DAE701 before installing the new 7.02 version.
+
+Since the monitor and DAEMON find the system DAEMON by  checking  both
+the  name  and  the  JACCT  bit, DAEMON can't invoke the old DAEMON by
+doing a RUN UUO.  Instead, DAEMON opens the file by  hand,  interprets
+the .EXE directory and reads the file into core.  When the entire file
+has been read in, DAEMON jumps into the ACs, BLTs the old DAEMON  into
+the  locations in which it will run, returns unused memory, and starts
+it at  the  normal  starting  address.   This  technique,  while  more
+difficult  than  the  RUN UUO, preserves both the program name and the
+JACCT privilege.
+
+If DAEMON invokes an old version, the  following  message  appears  on
+device OPR:
+
+    [DAEMON: %DAEMON started on old monitor version]
+    [DAEMON: %Invoking SYS:DAE701.EXE as system DAEMON]
+
+and indicates that DAEMON is invoking the old version.
+
+Since this version of DAEMON doesn't support old monitors, it  is  not
+DMN21.DOC                                                       Page 6
+
+
+able  to  analyze  crash  dumps of old monitors.  If it detects that a
+crash dump is from an old monitor, DAEMON will issue a message to that
+effect and abort the analysis of the crash file.
+
+One of the largest advantages of not having to support old versions of
+the monitor is that DAEMON can now take full advantage of new features
+in the current version of the monitor.  This version  of  DAEMON  does
+exactly  that.   We have placed all code that is not necessary for the
+support of the 7.02  monitor  under  the  FTUNSUPPORTED  feature  test
+switch  which is turned off.  We chose to do this rather than deleting
+the code from the source for reference purposes  only.   We  have  not
+attempted  to  assemble  DAEMON  with  the  FTUNSUPPORTED feature test
+switch turned on and we expressly  do  not  support  DAEMON  with  the
+switch  turned  on.  If you choose to turn the switch on, you do so at
+your own risk.   This  feature  test  switch  and  the  code  that  it
+surrounds will be removed for the next release of the monitor.
+
+This version of DAEMON no longer supports the DUMP or  DCORE  commands
+(they  have  been  removed from the monitor) or the .DCORE function of
+the DAEMON UUO.  The DCORE functionality doesn't lend itself  well  to
+the  virtual  memory  environment  and  the move to KL-PAGING made the
+problems even worse.
+
+All other monitor commands that used to invoke DAEMON have either been
+removed  or  fully implemented in the monitor.  This means that DAEMON
+need not attach itself to  users  terminals  and  open  itself  up  to
+possible security violations.  All code to do so has been placed under
+the FTUNSUPPORTED feature test switch  and  thereby  removed.   DAEMON
+will now detach itself at startup and remain detached.
+
+DAEMON now takes full advantage of the monitor code to read and  write
+the  swapping  space if a JOBPEK is done on a swapped-out job.  DAEMON
+does not expect the JOBPEK UUO to fail (with the possible exception of
+an  address  check) and will report such a condition if it occurs.  No
+attempt is made to read or write the  swapping  space  if  the  JOBPEK
+fails  and  all  such  code  has  been  placed under the FTUNSUPPORTED
+feature test switch.
+
+If DAEMON detects a condition that  it  decides  someone  should  know
+about,  it  will  output  a  message  on  device OPR and send the same
+message to the GALAXY system using the  WTO  function  of  the  QUEUE.
+UUO.   Every  attempt  has been made to provide as much information as
+possible with the message to allow problems to be debugged.
+
+This version of DAEMON supports both the KI-PAGING and KL-PAGING modes
+for the running monitor and crash file analysis.
+
+DAEMON support for FACT accounting has been placed  under  one  master
+feature  test  switch,  FTFACT,  in  preparation for the move to usage
+accounting.  The feature test switch is turned on by default, but  may
+be turned off if FACT accounting is not desired.  FACT accounting will
+be turned off by default for the next monitor release.
+
+This version of DAEMON has been  tested  under  7.02  on  KL,  and  KS
+processors  and  supersedes  all  previous  versions.  It will not run
+DMN21.DOC                                                       Page 7
+
+
+correctly on KI processors.
+
+
+
+2.0  EXTERNAL CHANGES
+
+See above
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+None
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+DAEMON searches JOBDAT, MACTEN, and UUOSYM.  To build DAEMON, type the
+monitor commands:
+
+        .LOAD DAEMON
+        .SAVE DAEMON
+
+Be sure to rename your previous version of  DAEMON  to  DAExxx.EXE  on
+SYS:  and then copy the new .EXE file to SYS:.
+
+
+
+5.0  INTERNAL CHANGES
+
+Edit #
+
+760    Clean up the  RP20  error  reporting  logic  to  make  it  less
+       dependent on assembled-in parameters.
+
+761    Update edit number for 7.02, remove the FT603  conditional  and
+       make some cosmetic changes.
+
+762    Unconditionally link the state of FTCHKPNT to that  of  FTFACT.
+       You  can no longer assemble DAEMON with FTFACT off and FTCHKPNT
+       on.  This will allow us to turn off  the  FTFACT  feature  test
+       switch in preparation for the move to usage accounting.
+
+763    Add the FT701 feature test switch that will surround code  that
+       must exist for pre-702 monitors.  The default value will be on.
+       The feature test switch and the code that it surrounds will  be
+       removed on 703 ship.
+
+764    Do some more general code cleanup.
+
+765    Remove support for the SAVE and SSAVE commands.  These commands
+       were only invoked by .SAV file writes for virtual programs.
+
+766    Support KL-paging monitors;  desupport E,  D,  VERSION,  DCORE,
+DMN21.DOC                                                       Page 8
+
+
+       and DUMP commands for 7.02 monitors.
+
+767    SPR #32036    BCM    26-Mar-82
+       Increase the maximum number  of  CPUs  we  can  report  to  the
+       current supported operating system maximum.
+
+770    It has become nearly impossible to continue supporting both the
+       current  and previous versions of the monitor with DAEMON.  Fix
+       DAEMON to determine if it is running with a previous version of
+       the  monitor  and  run the old version of DAEMON if it is.  The
+       previous version  is  assumed  to  have  a  name  of  the  form
+       DAExxx.EXE,  where xxx is the monitor version, e.g., DAE701 for
+       the 701 monitor.  We can also remove a great deal of code  that
+       was necessary to support pre-702 monitors as a result.  Instead
+       of removing this code completely from the source, it  has  been
+       placed  under  the  FTUNSUPPORTED  feature  test  switch.  This
+       version of DAEMON has only been tested with that switch  turned
+       off  and  we  expressly  do  not support DAEMON with the switch
+       turned on.  The switch is there strictly for reference purposes
+       and  all  code  contained  within the scope of the feature test
+       switch will be removed for the next release of the monitor.
+
+771    Increase the size of the ERROR.SYS header to 5 words and add  a
+       monotonically  increasing  sequence  number  in  the  new word.
+       DAEMON also writes the sequence number into the EOF word at the
+       end  of  the file when it writes an entry.  Everytime it starts
+       up, DAEMON finds the EOF word in the file and uses that  number
+       as the start for the new run.  If it can't find the EOF mark in
+       the file for some reason, DAEMON will try  to  find  the  first
+       sequence number in the file.  It then adds the size of the file
+       divided by the size of the smallest error entry to that  number
+       and  uses that as the sequence number.  As part of this change,
+       DAEMON will continue to use ERROR.Xnn instead of  ERROR.SYS  if
+       it finds an .Xnn file.  This means that the sequence numbers in
+       the  files  should  start  in  ERROR.SYS  and   increase   thru
+       ERROR.Xnn.  note that this means that all ERROR.* files must be
+       processed as a  unit.   See  the  7.02  beware  file  for  more
+       information.
+
+772    Symptom:  The first entry in ERROR.Xnn is wrong size,  and  may
+       contain  pieces  of  DAEMON  code.  Also, many re-sync pointers
+       generated.
+
+       Diagnosis:  If you get an I/O error in ERRFIN while writing  an
+       entry  into  the  file, we create an ERROR.Xnn+1 file, and then
+       restart ERRFIN.  unfortunately P4 (which should  point  to  the
+       last  word  written  into ERABUF), may have been changed into a
+       word count by ERFILL.  When we get to ERFILL again, it tries to
+       convert  P4  into  a  word count (again!).  Things go down hill
+       from there.
+
+       Fix:  Restore old value of P4 before restarting ERRFIN.
+DMN21.DOC                                                       Page 9
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+[End of DMN21.DOC]
+
+[DMN20.DOC is appended as an integral part of DAEMON.DOC]
+DMN20.DOC                                                      Page 10
+
+
+DAEMON.DOC -- Changes from V17(732) to 20(757)
+June 1980
+
+
+
+1.0  SUMMARY
+
+DAEMON version 20 is primarily a maintenance release  to  DAEMON  with
+fixes  to  version  17  which  was released with the 7.00 monitor.  It
+contains some significant changes from the 6.03A version as  described
+in DMN17.DOC.
+
+This version of DAEMON has been tested under 6.03A, 7.00, and 7.01  on
+KI, KL, and KS processors and supersedes all previous versions.
+
+
+
+2.0  EXTERNAL CHANGES
+
+Save files may now be written into SFDs.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+Save files can only be written on a disk type device.
+
+DAEMON files written by SAVE, DCORE, DUMP, and the  like  may  not  be
+written to device LIB:  or to a Logical Name device.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+DAEMON searches UUOSYM and loads with no other files.
+
+
+
+5.0  INTERNAL CHANGES
+
+Edit #
+
+733    Fix KLERR routine to correctly process entries  on  cpus  other
+       than the boot CPU
+
+734    Change the format of the ERPTBK table to use 4 word entries  so
+       that  the CPU number can be included in the error data returned
+       by the monitor.
+
+735    Add support for new syserr entries for 7.01 monitor.  these are
+       error types 51,52,54,55,56 and 57.
+
+736    Fix data gathering problem in entry type 56.
+
+737    Fix SBDIAG pointer in entry type 52
+DMN20.DOC                                                      Page 11
+
+
+740    Make another attempt at fixing the KLERR report.
+
+741    FIX Ill Mem Ref in massbus error routine.
+
+742    MONBTS now writes dumps that are not a contiguous physical core
+       image.   Change  PEKSPY  to  read and follow the .EXE directory
+       when reading words from the disk.
+
+743    If a user ^C's DAEMON while it  is  writing  a  DUMP/DCORE/SAVE
+       file,  DAEMON doesn't release the channel which causes the user
+       to get an FBM error when he trys to delete the TMP file.
+
+744    Device OPR0 doesn't exist if FTNET is turned off or if  a  site
+       hacks  their  monitor.  make DAEMON try harder to find a TTY to
+       TRMOP.  to.
+
+745    AVAIL has trouble figuring out when AVAIL.SYS started and  when
+       it  ended.  Define 2 new entries, 46 and 47 which are the first
+       and  last  entries  in  AVAIL.SYS.    These   entries   provide
+       timestamps for AVAIL.
+
+746    Make processing of errors durring initialization cleaner.
+
+747    Limit the number of entries made in the disk  statistics  entry
+       to avoid infinite error files if the UDB chains get screwed up.
+
+750    Change DAEMON to use %CNSUP as the uptime instead of %NSUPT  so
+       that it gets clock requests right if CPU0 isn't running.
+
+751    Fix bug that caused error  code  2  from  JOBPEK  when  reading
+       fragmented core.
+
+752    Add code to log RP20 disk device errors.
+
+753    Fix  routine  "CHECK"  to  force  a  FACT.SYS  update  at  each
+       checkpoint.  This helps preserve more accounting data.
+
+754    AVAIL.SYS update routines don't use ERRDEV  and  ERRPPN  to  do
+       their updates.
+
+755    Fix routine "COMPRS" to avoid creating IOWDs over 128K.
+
+756    Allow a user  having  POKE  privileges  to  do  the  append  to
+       ERROR.SYS DAEMON UUO function.
+
+757    Look for crash files to process on  the  union  of  the  system
+       search list and the system dump list.
+
+
+
+6.0  SUGGESTIONS
+
+None.
+DMN20.DOC                                                      Page 12
+
+
+[End of DAEMON.DOC]
+
+[DMN17.DOC is appended as an integral part of DAEMON.DOC]
+DMN17.DOC                                                      Page 13
+
+
+DAEMON.DOC -- Changes from V16(612) to 17(732)
+November 1979
+
+
+
+1.0  SUMMARY
+
+DAEMON version 17 is a major code rewrite from version 16.  All of the
+code  specific  to  pre-6.03  monitors  has  been removed and all 6.03
+specific code has been placed under a  conditional.   In  addition,  a
+great  deal  of  the  code  has been rewritten to fix bugs, remove bad
+code, and update the code to 7.00.
+
+This version of DAEMON has been tested under 6.03A and 7.00 on KI, KL,
+and KS processors and supersedes all previous versions.
+
+
+
+2.0  EXTERNAL CHANGES
+
+Save files may now be written into SFDs.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+Save files can only be written on a disk type device.
+
+DAEMON files written by SAVE, DCORE, DUMP, and the  like  may  not  be
+written to device LIB:  or to a Logical Name device.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+See DAEMON.CTL, and DAEMON.DOC
+
+
+
+5.0  INTERNAL CHANGES
+
+Edit #
+
+700    Add support for KS10 system error entries
+
+701    Change the references to word 36 to .JBSYM (word  116).   (Used
+       as  the  flag  word  for  determining  if a crash file has been
+       processed by DAEMON or not)
+
+702    Fix magtape stats entry routine
+
+703    (SPR 10-26436)  Allow  controller  number  to  be  reported  to
+       SYSERR.  Area affected:  MBDVDN
+
+704    Add code to log DX20 device errors.  At present this means TU7x
+DMN17.DOC                                                      Page 14
+
+
+       tape errors reported by TAPSER.
+
+705    Remove all code specific to  pre-603  monitors.   This  is  the
+       first step in updating DAEMON for 701.
+
+706    Add code to dump  the  CPU  Status  Block  via  error  code  63
+       (.ESCSB)
+
+707    Add code to dump the Device Status  Block  via  error  code  64
+       (.ESDSB)
+
+710    Add code to send the date/time incremental change to %SIACT  if
+       the  system  date/time  changes.   Invoked  by subfunction 3 of
+       error code 15.
+
+711    Bring all the code up to 7.00 level.  Also fix a  large  number
+       of bugs in the error reporting code.
+
+712    Add code to log software events of interest via code 14.
+
+713    Rewrite miscelaneous parts of the code to clean it up and fix a
+       lot of bugs.
+
+714    To be able to measure some sort of generic "availability" for a
+       system,  make DAEMON wake up every 6 minutes and look around to
+       see what the system state is.  Log this information  to  a  new
+       file, SYS:AVAIL.SYS.
+
+715    For systems with JOBN+SEGN-1 .GT.   511  (7.00  remember),  the
+       GETTAB  simulation  fails  for tables indexed by job or segment
+       number if the index is larger than 511.  NUMTAB only has 9 bits
+       for   the   maximum  tables  size.   the  monitor  uses  JBTMXL
+       explicitly for such tables.
+
+716    For systems with a  large  number  of  (possibly  dual  ported)
+       disks,  error  code  5,  information extracted from a crash may
+       overflow while writing the entries for each disk.   Remove  the
+       disk  stuff  from error code 5 and write a new entry (45) which
+       contains the information.
+
+717    Log node  on  and  off-line  via  sub-codes  6  and  7  of  the
+       configuration status change entry.
+
+720    If the ERPTBK table in a crashed monitor is full and EPKIDX  is
+       0,  DAEMON  will loop processing the entries.  Redo the code at
+       READCR to avoid this problem.
+
+721    DAEMON  may  reattach  the  wrong  job  to  a  terminal   after
+       processing  a request if the user attaches and logs out the job
+       doing the request and another user logs in and detaches  before
+       the  request  is completed.  Don't reattach a job to a terminal
+       if the job's login time doesn't match that saved at  the  start
+       of the request
+
+722    Fix problem where DAEMON was returning a UUO error  code  while
+DMN17.DOC                                                      Page 15
+
+
+       processing hardware errors.
+
+723    If an error occurs when DAEMON is detached, the error  message,
+       if any, is thrown on the floor.  Use TRMOP.  function .TODSP to
+       print the error message on device OPR.
+
+724    Avoid problems with users getting a [1,2] job by always setting
+       DSKFUL ERROR when DAEMON starts up.
+
+725    Since the  700  monitor  is  capable  of  changing  the  active
+       swapping  list  on  the  fly, we can no longer read SWPTAB when
+       DAEMON starts up.  Read the information  from  SWPTAB  on  each
+       request to read/write the swapping space.
+
+726    TC10C tape errors are reported by SYSERR as DX10  errors.   the
+       device  code  for  TC10Cs  is  724  and DAEMON assumed that any
+       device code larger that 540 was an RH20.  A  complementing  bug
+       in SYSERR then turned that into a DX10 error report.
+
+727    Fix bug in PEKUSR  that  caused  swap  pointer  inconsistencies
+       while reading funny space addresses.
+
+730    Fix random error code 3 failures in DAEMON  UUO  fact  function
+       caused by releasing the job without processing it if JS.DPM was
+       set.
+
+731    Yet another security fix to prevent a user getting a [1,2] job.
+
+732    Fix routine to dump KS10 halt status block.
+
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+[End of DMN17.DOC]

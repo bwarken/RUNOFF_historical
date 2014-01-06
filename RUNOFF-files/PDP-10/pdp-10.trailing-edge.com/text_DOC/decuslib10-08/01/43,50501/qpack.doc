@@ -1,0 +1,181 @@
+	QPACK	Byte processing in queue structures with LUUO's
+	Written by Ernie Petrides, Wesleyan University, August, 1978
+
+
+				FORWARD
+	LUUO's (local unimplemented user operations) provide the programmer
+with a means of calling special subroutines while taking advantage of the
+accumulator assignment and the complete effective address calculation (done
+automatically by the central processor) to use as subroutine arguments.  The
+LUUO can behave much the same way as a normal instruction, with a data fetch
+from the effective address and an action done to the specified AC, but it is
+a software routine as opposed to a hardware routine.  The operation codes of
+octal 1-37 cause the instruction in the user's location .JB41 (see job data
+area) to be executed out of sequence after the op-code, AC, and E fields are
+loaded into user's location .JBUUO.  Since the instruction in .JB41 can do a
+standard subroutine call (PUSHJ, JSR, etc.; must save PC) to a routine that
+dispatches according to the LUUO executed (op-field), the normal burdens of
+a subroutine call are already accounted for without tying up the AC or E
+fields of the original intruction.  And since an LUUO is a single instruction
+(as opposed to a macro call), it can be easily skipped over, jumped around,
+stored in literals, and XCT'ed.
+
+	The contents of .JBUUO are not normally preserved by QPACK LUUO's.
+	Abstract
+
+	QPACK is a software package designed to handle the storage & retrieval
+of bytes in first-in/first-out queue data structures.  The actual routines are
+executed with LUUO's and are therefore transparent to the user's program.  The
+dispatcher transfers control to the routine corresponding to the LUUO op-code.
+There are seventeen instructions contained in QPACK: "PULL", "PUSHI", and fif-
+teen queue instructions all beginning with the letter "Q".
+
+	To use QPACK, the user needs only to put a "SEARCH QPACK" statement at
+the beginning of his/her MACRO program to look up the necessary op-codes (plus
+other symbols and macros used with queue instructions) and to include QPACK in
+the .LOAD or .EXECUTE command strings.
+	Using the queue instructions
+
+	The queue instructions were intentionally designed to be simple to use
+for basic requirements.  They are much like monitor calls, with error returns
+and normal (skip) returns.  Queue processing is done through a four-word queue
+header, which must be in the user's program.  The "MAKEQ" macro is provided to
+facilitate its creation:
+
+	QNAME:	MAKEQ (SIZE)	;MAKE A HEADER SETTING THE DEFAULT QUEUE SIZE
+
+	Normally the program just needs data stored for itself; the header
+is put in the low segment.  Each time a queue is initialized, QPACK reserves
+the specified (or default) number of words following the user's low segment
+(expanding core if necessary) just like the monitor when it reserves buffer
+space, and a pointer to the data area is put in the header.  If the queue is
+killed, the pointer is preserved and the current size becomes the new default
+size.  If the queue is reinitialized, an attempt is made to use the same data
+space.  Thus the actual queue area is not the responsibility of the user's
+program.  Note that a "RESET" UUO should not be done after using a queue!
+
+	If a sharable queue is needed, the queue header must be made in the
+high segment (which must be un-write-protected during run time).  When the
+"MAKEQ" macro is used in the high segment, it reserves the queue data area
+immediately after the queue header.  The "SIZE" argument specifies how many
+words to reserve and is the only permissible queue size.  High segment queues
+are not dynamically allocated, as are low segment queues, and are not affected
+by a "RESET" UUO.  Note that it is the segment in which the queue header is
+assembled that defines the type of queue.
+
+CAUTION: Some of the queue instruction routines test for a -1 with an "AOJE",
+   causing an overflow for an argument of octal 377777,,777777 (or 2**35-1).
+	Details on how queue instructions work
+
+Following is a picture of a queue header:
+		-------------------------------------------------
+	QNAME:	!	    i  n  t  e  r  l  o  c  k		!
+		-------------------------------------------------
+		! stats	! owner	!retries! bsize	!  queue  size	!
+		-------------------------------------------------
+		! last byte pulled (bt)	! last byte pushed (tp)	!
+		-------------------------------------------------
+		!   data area address	!  queue byte capacity	!
+		-------------------------------------------------
+
+Status bits (second word):
+	QS.SLP	bit 0		sleep a jiffy before retrying interlock
+	QS.INI	bit 1		queue is initialized (currently owned)
+	QS.FRZ	bit 2		queue is frozen (most instructions won't work)
+	QS.SEN	bit 3		non-owners may check status/position of queue
+	QS.REN	bit 4		queue is read-enabled for non-owners
+	QS.WEN	bit 5		queue is write-enabled for non-owners
+
+	The first word is an interlock set to -1 each time a queue instruction
+finishes.  If the interlock is not -1, an instruction is not allowed to start,
+thus preventing two jobs from using the queue at once.  The "retries" byte
+specifies the number of times to retry the interlock before giving up, first
+sleeping a jiffy if bit 0 is set in status byte.
+	The owner is the job number that initializes the queue.  Instructions
+have associated privileges, or status bit settings, that must match if the
+instruction is to be performed.  In place of QS.SLP, an owner bit is used to
+mark the instruction as being requested by the owner job.  A different set of
+privileges is used for non-owners, and certain instructions are owner priv-
+ileged.  If the required status setting is not matched, the 'QNP' error is
+returned with the number of the unmatched bit (plus one) as the error code
+number.  Freezing the queue disables all instructions except "QKILL" (for
+preserved kills), "QFRZE" (to unfreeze queue), and  "QSAVE".
+	The byte size is specified in bits 18-23 of the AC on a "QINIT" or
+"QREIN".  If it is not given or is greater than 36, then full-word bytes
+are assumed.  Symbols for standard byte sizes in the appropriate field are
+provided in the QPACK universal file (along with the status bit symbols).
+	.QZSXB=60000	.QZASC=70000	.QZXWD=220000	.QZWRD=440000
+	Synopsis of instructions in QPACK
+
+**ALL INSTRUCTIONS USE AN ACCUMULATOR AND FULL EFFECTIVE ADDRESS CALCULATION**
+
+PULL AC,E	Increment both halves of AC (error if left reaches 0) and put
+			the contents of the word pointed to by AC(R) in E.
+PUSHI AC,E	Just like a regular PUSH, except that the word 0,,E is what
+			gets pushed.
+
+QINIT AC,E	Initialize a queue.  AC optionally contains any information
+			kept in 2nd header word and is SET UP*.
+QKILL AC,E	Terminate a queue.  AC = -1 preserves queue for QREIN by this
+			job only.  AC always cleared.  Owner-privileged.
+QRSET AC,E	Reset queue pointers as if queue were empty.  AC is always
+			ignored and is SET UP*.  Owner-privileged.
+QFRZE AC,E	AC /= 0 freezes queue (AC cleared); AC = 0 unfreezes queue (AC
+			SET UP*).  Owner-privileged.
+
+**QGIVE AC,E	Give ownership of queue to job number in AC.  AC cleared (or
+			SET UP* if specified self or no one).  Owner-privileged.
+**QOTHR AC,E	Set privilege level for non-owners: 0-none, 1-status, 2-read,
+			3-write.  Previous level returned.  Owner-privileged.
+**QRTYL AC,E	Set retry level.  Bits 18-35 give number of retries; bit 0 on
+			to sleep.  Previous level returned.  Owner-privileged.
+**QREIN AC,E	Same as QINIT, but allowed only after a preserved kill.  Allows
+			owner to retain queue for new init.  Owner-privileged.
+**QSAVE AC,E	Save the queue.  AC = -1 to break interlock (cleared); AC = 0
+			to attempt a steal from owner (set to previous owner).
+
+QSTAT AC,E	AC specifies and set to positive byte number or negative word
+			number of header.  AC = 0 returns no. of bytes used.
+QWHRE AC,E	Locate front or back of queue.  AC /= 0 for pushing (top);
+			AC = 0 for pulling or reading (bottom).  AC is SET UP*.
+
+In all above queue instructions, E specifies the queue header address, and
+  * means AC is set up for one of the four work instructions that follow, where
+	AC(L) specifies the header address and AC(R) specifies a byte position.
+  ** means that this instruction is only needed for sharable queues.
+
+The following four work instructions all leave AC SET UP as explained above.
+
+QREAD AC,E	Read a byte from the queue following the position specified in
+			AC(R) and deposit in E if E is non-zero.  AC is SET UP.
+QPULL AC,E	Pull the bottom byte from the queue and deposit in E if E is
+			non-zero.  AC(R) is ignored.  AC is SET UP.
+QPUSH AC,E	Push onto top of queue the right-justified byte in E.  AC(R)
+			is ignored.  AC is SET UP.
+QPUSHI AC,E	Same as QPUSH, but take the byte from the word 0,,E.
+	Error handling in queue instructions
+
+	All queue instructions give two returns: normal (skip) returns
+and error (non-skip) returns.  On error returns, the AC used in the LUUO
+is given a three-letter SIXBIT error prefix starting with 'Q' in the left
+half and an error code number in the right half.  If the queue is full on
+a push, empty on a pull, or empty in the specified read position, then the
+AC is simply cleared.  The error codes are listed below.
+
+QNP	1	owner-privileged instruction attempted by non-owner
+ "	2	queue is not initialized (or is already initialized)
+ "	3	queue is frozen
+ "	4-6	privilege not granted because non-owner
+QHA	7	illegal header address (no interlock)
+QWP	10	header in write-protected high segment (no interlock)
+QIF	11	queue interlock failure (no interlock)
+QAR	12	argument out of range
+QCE	13	can't expand core for low segment init.
+QBJ	14	bad job number in attempting to give away queue
+QCS	15	can't steal queue because current owner is legit.
+QRP	16	illegal read position (only if not within queue bounds)
+QWS	17	queue in wrong segment for requested operation
+QSL	20	segment limitations because of assembly switch
+
+
+	End of QPACK.DOC

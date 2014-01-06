@@ -1,0 +1,339 @@
+NETLDR.DOC -- Changes from %3(135) to %4(146)                   Page 1
+January, 1986
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (c) DIGITAL EQUIPMENT CORPORATION 1976,1979,1986.  
+ALL RIGHTS RESERVED.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+NETLDR.DOC -- Changes from %3(135) to %4(146)                   Page 2
+SUMMARY
+
+
+1.0  SUMMARY
+
+NETLDR is the DECsystem-10 bootstrap  program  that  dumps  and  loads
+network remote stations such as the DN82.  For NETLDR to run properly,
+there must be a bootstrap program running in the remote station  being
+loaded.   In  the  case  of the DC72, this bootstrap is read in from a
+deck of cards by the remote station operator.   In  the  case  of  the
+DN82,  either  the  BM873  or  M9301  ROM  must  be running.  The DN82
+generally jumps to the ROM when it crashes, which allows it to  reload
+itself without operator intervention.
+
+
+
+2.0  EXTERNAL CHANGES
+
+2.1  Running On FRCLIN
+
+NETLDR automatically DETACHes if it is running on FRCLIN.
+
+
+
+2.2  GALAXY And OPR
+
+NETLDR now does "WTOR"  QUEUE.   UUOs  in  order  to  "log"  automatic
+operation  with  the  system operator.  If GALAXY is not running, then
+NETLDR "falls back" to TRMOP.ing directly to the system CTY.
+
+
+
+2.3  NETLDR Booting Messages
+
+NETLDR now includes the host system node name in the bootstrap message
+text logged with the system and sent to the remote stations.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+NETLDR has no known bugs.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+To load NETLDR, the JOBDAT, MACTEN, and UUOSYM universal files  should
+be  on  UNV:,  and  HELPER.REL  should  be  on REL:.  Then just ".LOAD
+NETLDR" and save it.  NETLDR.EXE should be shareably-saved on SYS:.
+
+NETLDR.INI  is  not  distributed  as   it   contains   site   specific
+information.   Each  site should create an appropriate NETLDR.INI file
+and put it on SYS: for "automatic" NETLDR remote station  dumping  and
+loading operations.
+NETLDR.DOC -- Changes from %3(135) to %4(146)                   Page 3
+INSTALLATION INSTRUCTIONS
+
+
+The automatic reload feature can be disabled by typing:
+
+     .SET SCHED 1000
+
+
+
+5.0  INTERNAL CHANGES
+
+The internal changes are available in the source file NETLDR.MAC  near
+the begining of the file under the subtitle "Edit History".
+
+
+
+6.0  SUGGESTIONS
+
+None.
+
+
+
+7.0  NETLDR OPERATION
+
+NETLDR  may  be  run  either  automatically  or  explicitly   by   the
+DECsystem-10 operator.
+
+
+
+7.1  Automatic Execution Of NETLDR
+
+A network node which wishes to be loaded may  send  a  "REQUEST  LOAD"
+message  over  its  synchronous  line.   The  node  which receives the
+request will transmit the message to the  DECsystem-10  as  a  station
+control  message.   The  monitor will automatically run NETLDR when it
+receives such a request.
+
+A request may include sufficient information for NETLDR  to  dump  and
+load  as  requested.   If  insufficient  information is present in the
+request, NETLDR will search SYS:NETLDR.INI for a  line  which  matches
+the  request.   Lines  in NETLDR.INI contain two parts separated by an
+equal sign.  The left half of each line is of the form:
+
+
+     /NODE:name/LINE:lnum/TYPE:type/SERIAL:snum
+
+Where "name" is the name or number of the node adjacent to the node to
+be  booted;   "lnum"  is  the  synchronous line number on the adjacent
+node;  "type" is the type of node in which the  bootstrap  is  running
+(one  of  DC71, DC72, DN82, DAS82, DN92, DAS92, or DN200);  and "snum"
+is the serial number supplied by the  bootstrap  in  the  node  to  be
+booted.  Whatever is on the left of the equals sign must match exactly
+with the information supplied with the request load message.
+NETLDR.DOC -- Changes from %3(135) to %4(146)                   Page 4
+NETLDR OPERATION
+
+
+The right half of each line must be in the form of:
+
+     = cmd(1), cmd(2),. . ., cmd(N)
+
+Where "cmd" is a filespec and/or switches as described in section 7.2.
+The default device is SYS: for loading and XPN: for dumping.
+
+Example:
+
+     /NODE:ZOT/LINE:1/TYPE:DN82/SERIAL:7=/D,DN82 !Comment
+
+This dumps the node connected to line  1  of  node  ZOT  onto  XPN  as
+ZOT.LSD and then loads the node with SYS:DN82.BIN.
+
+Switches /NODE, /LINE, and /PDP8 or /PDP11 need not  be  specified  on
+the right of the equals sign in NETLDR.INI as the request load message
+supplies this information to NETLDR.
+
+
+
+7.2  Operator Use Of NETLDR.
+
+The NETLDR program performs system operations on  remote  nodes.   The
+type  of  remote  node  and the desired operations are specified using
+switches in the file specification.
+
+NETLDR can be used to clear, dump  and  load  a  remote  node  and  to
+execute software on remote nodes.
+
+Command format:
+
+     .R NETLDR
+
+NETLDR then issues the prompt:
+
+     File:
+
+The user must then enter a command string of the form:
+
+     filespec/M-switch/N-switch/CH-switch/OPT-switch/OPT-switch
+
+Where filespec is of the form:
+
+     dev:filename.ext[proj,prog]
+
+The filespec argument is optional.  If ext is omitted for a load,  the
+default extension is .BIN.  If the filespec is omitted for a dump, the
+file written is nodename.LSD on the user's disk area.
+
+M-switch is a required switch  specifying  that  the  remote  node  is
+either a PDP-8 or PDP-11.  For example:
+
+     /PDP8 or /8
+NETLDR.DOC -- Changes from %3(135) to %4(146)                   Page 5
+NETLDR OPERATION
+
+
+     /PDP11 or /11
+
+N-switch is a required  switch  identifying  the  remote  node.   This
+switch may take one of the following forms:
+
+     /NODE:num           specifying the number of the remote node
+
+     /NODE:nam           specifying the name of the remote node
+
+CH-switch is a required switch specifying the number of  the  line  to
+which  is  attached  the  node  to be used.  The /SELF argument may be
+entered if the remote node specified by the  /NODE  switch  is  to  be
+used.
+
+     /LINE:num           specifying the hardware line  number  in  the
+                         range 0 through 17 (octal).  "Num" identifies
+                         the  node  that  the  operation  is  for   by
+                         specifying  the  line number connecting to it
+                         from the remote node.
+
+     /SELF               specifying that the operation is for the node
+                         itself.
+
+OPT-switch is one of the following:
+
+     /CLEAR              clears the memory of the remote node.
+
+                         Default 0 - 17777 for a PDP8.
+
+                         Default 0 - 77776 for a PDP11.
+
+     /CLEAR:x-y          clears memory location x through  location  y
+                         inclusive.
+
+     /CLEAR:x-*          clears memory location x through 17777 for  a
+                         PDP-8;  77776 for a PDP-11.
+
+     /DUMP               creates an octal dump of  the  remote  node's
+                         memory into the specified file (0-17777 for a
+                         PDP-8;  0-77776 for a PDP-11).  If no file is
+                         specified  the  default  is nodename.LSD.  If
+                         the  filename  has  question  marks  in   it,
+                         numbers  will  be  supplied  for the question
+                         marks starting with 0 if the index  file  has
+                         not been created, or with the filename in the
+                         index file +1 if it has  been  created.   The
+                         index file contains the name of the last file
+                         dumped and has the filename given by the user
+                         in the dump command.
+
+     /DUMP:x-y           dumps memory locations x through y inclusive.
+
+     /DUMP:x-*           dumps memory location x through the machine's
+                         upper  limit (17777 for a PDP-8;  77776 for a
+NETLDR.DOC -- Changes from %3(135) to %4(146)                   Page 6
+NETLDR OPERATION
+
+
+                         PDP-11).
+
+     /HELP               prints a list of the switches available.
+
+     /HPQ:x              run NETLDR in HPQ x.
+
+     /IMAGE              the file to be read is in image mode.
+
+     /LOAD               load the file into the remote node's  memory,
+                         but do not start the program.
+
+     /PACKED             the file is a binary file in MACDLX format.
+
+     /START:adr          load the file into the remote  node's  memory
+                         and  start  it  at the specified address.  If
+                         the filespec  is  omitted  and  the  /START:X
+                         switch  is in the command string, the node is
+                         started at address x.
+
+Defaults:
+
+     1.  Specifying PTR as the device implies image mode.
+
+     2.  The default upper memory location for a PDP-8 is 17777.
+
+     3.  The default upper memory location for a PDP-11 is 77776.
+
+     4.  The default extension for a load is .BIN.
+
+     5.  The default dump file is nodename.LSD.
+
+     6.  The default device for /DUMP and /LOAD is DSK.
+
+     7.  The default load format is /IMAGE for a PDP-8.
+
+     8.  The default load format is /PACKED for a PDP-11.
+
+Examples:
+
+File:  DSKN:NYC[14,16]/NODE:BOSTON/LINE:0/PDP11/START:1000
+
+          Load the file NYC.BIN from DSKN area  [14,16]  on  the  host
+          node  into  the  node connected to line 0 of node BOSTON and
+          start the program at address 1000.
+
+File:  /DUMP/NODE:BOSTON/SELF/PDP11
+
+          dump locations 0-77776 of node BOSTON onto  DSK  as  a  file
+          named BOSTON.LSD.
+
+File:  /CLEAR:10-74/PDP11/NODE:2/LINE:1
+
+          Clear locations 10 through 74 of the node connected to  line
+          1 of node number 2.
+NETLDR.DOC -- Changes from %3(135) to %4(146)                   Page 7
+NETLDR OPERATION
+
+
+[End of NETLDR.DOC]

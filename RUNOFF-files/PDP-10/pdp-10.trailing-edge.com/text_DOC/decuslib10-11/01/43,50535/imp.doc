@@ -1,0 +1,147 @@
+PHI - IMPLEMENTATION DETAILS
+   1 Compilation
+   2 Loading and saving
+   3 Files required
+   4 Usage logging
+   5 Monitor mods to implement PHI command
+   6 Special facilities
+PHI - IMPLEMENTATION DETAILS
+----------------------------
+
+
+   1 Compilation
+     -----------
+
+   To compile the program leaving all assembly parameters as defaults just type
+   .COMP PHI
+   This will produce a version which is suitable for using to examine individual
+   .PHI files, and which will also form the basis of a PHI Help System.
+   Note that the universal files MACS.UNV and UUOSYM.UNV are required for
+   compilation.
+   PHI is written in 'structured Macro' using the structuring macros defined
+   in MACS.UNV. Because of this it is not advisable to obtain a CREF listing
+   of the program as it can be rather confusing to read.
+   
+   To compile PHI altering any of the assembly parameters:
+   .R MACRO
+   PHI=TTY:,DSK:PHI
+   parameter=value
+   parameter=value
+   .....
+   ^Z
+   ^Z
+   ^Z
+   
+   Some of the assembly parameters that may need to be changed are as follows:
+   
+   (i) SUBJ0 is the name (in SIXBIT) of the top level file when PHI is being
+       used as the basis of a Help System. This is the file (with extension
+       .PHI) that will be read in when no subject name is typed when running
+       PHI. The default value is SIXBIT/0/, i.e. a file DOC:0.PHI is expected.
+       If you are not using PHI as the basis of a Help System then it is
+       best to set SUBJ0=0 (i.e. SIXBIT/ /).
+   
+   (ii) LOG is a parameter which determines whether the special logging
+       facility (based on IPCF messages) is to be used. Its default value
+       is 0 which means that the facility is not required. It should
+       be set to 1 if the facility is required. For further details see
+       the section on 'Usage logging'.
+   
+   For details of the other assembly parameters see the source code, but
+   it is unlikely that these will need to be changed.
+
+
+   2 Loading and saving
+     ------------------
+
+   If the logging facility is not being used just type
+   .LOAD PHI
+   .SSAVE
+   
+   If the logging facilty is required however, it will be necessary to
+   link in further routines from the file IPSUBS.REL. To do this:
+   .R LINK
+   *PHI
+   *IPSUBS
+   */GO
+   .SSAVE
+
+
+   3 Files required
+     --------------
+
+   PHI can be used to read .PHI files from any area. Any files that are
+   to be generally available should be put onto DOC:. For details of how
+   PHI looks for files given a certain subject name, see the full documentation
+   file, PHI.PHI.
+   If PHI is to form the basis of an online Help System, a file DOC:0.PHI
+   should be set up, which contains 'indirect file references' to
+   all the other DOC:*.PHI and HLP:*.HLP files available. This file will
+   itself have a tree structure and this structure should be carefully
+   designed to reflect the logical structure of the whole Help System
+   information. An example of a 0.PHI file is included with the program tape.
+
+
+   4 Usage logging
+     -------------
+
+   There is a special facilty to log the usage of PHI based on sending
+   IPCF messages to a program 'IPCFR' which will be running detached.
+   If the assembly switch LOG has been set to 1 on compilation, then
+   when PHI is used it will first see if the program 'IPCFR' is running
+   (by sending a message to SYSINF). If the program
+   is running, then PHI will send messages to IPCFR containing details
+   of subject name typed, all commands typed, and all files read in.
+   IPCFR will then write these to a logging file IPCFR.OUT on the
+   area in which it is running.
+   In this way a check can be made of which subjects users are requesting
+   information on, and which PHI commands they are using.
+   Note that including logging facilities in PHI may slightly slow down
+   the response time at the start of each PHI run, as the program has to
+   send a message to SYSINF and wait for a reply.
+   
+   The program IPCFR is included with the program tape. To compile
+   and link it:
+   .COMP IPCFR
+   .R LINK
+   *IPCFR
+   *IPSUBS
+   */GO
+   .SAVE
+
+
+   5 Monitor mods to implement PHI command
+     -------------------------------------
+
+   To create a command 'PHI' in the monitor it is necessary to insert the following
+   line into the command table in COMCON:
+         C      PHI,RUNAMC,RUNFLG
+
+
+   6 Special facilities
+     ------------------
+
+   The following PHI commands are not described in the user documentation
+   as they were intended mainly for testing the program:
+     -  after subject name switches on printing of messages every time the
+        core taken by the program is changed.
+     += defines a sub-tree with the current node as its root within which +
+        and +> commands will operate.
+     +> move to next root node (i.e. next file)
+   
+   Global printing.
+   Normally when doing a P command, indirect file references in virtual
+   nodes are not resolved, i.e. the files are not read in, instead just the
+   file spec is printed as it stands.
+   However by recompiling the program and setting the assembly parameter
+   PVAL, PHI can be made to print out not only the current file but also
+   files which are linked through indirect file references.
+   Each indirect file spec can be followed by /Pn where n is an integer
+   0, 1, 2, etc. The default if /Pn does not appear is n=0. An indirect file
+   will then be printed if its P value is not greater than PVAL.
+   Thus very long files could have higher P values enabling these to be
+   ommitted from a global printout. e.g. if PVAL=1 on compilation then
+   only nodes with a P value of 0 or 1 will be printed.
+   This facilty can be used to obtain a printout of the whole
+   Help System (and so is obviously too dangerous to make generally
+   available to users as it can result in vast quantities of output).

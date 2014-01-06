@@ -1,0 +1,145 @@
+	OUTLIB	Common output routines needed by MACRO programs
+	Written by Ernie Petrides, Wesleyan University, January, 1979
+
+
+	Abstract
+
+	OUTLIB is a support library of typical output routines commonly
+needed by MACRO programs.  It includes standard integer typing, file
+specification output, SIXBIT type-out, ASCIZ string output, character
+output, and the like.  Since all output ultimately goes through one
+routine, multiple output devices can be initialized to automatically
+receive all output.  The default option is to force out all buffers on
+standard break characters including device TTY, which is by default
+internally buffered and then sent via OUTSTR.  There is also an action
+character handler which substitutes special output functions in place
+of key characters.  As with most libraries, the user should use a /SEARCH
+switch in the .LOAD or .EXECUTE command string so that only the necessary
+output modules will be loaded into core.  (Note that using the ACTOUT
+routine requests almost all of the OUTLIB modules to be loaded.)
+	Using the output library
+
+	To use OUTLIB, the user must make a universal file named "AC"
+which defines the accumulator usage in the program to be using the
+library.  In other words, OUTLIB must be recompiled for each specific
+use unless the user has adopted a standard set of AC conventions from
+program to program.  Besides the AC definitions (which, of course, must
+be unique), any non-default assembly parameters must also be defined in
+the universal file.  All of the user's accumulators are preserved, except
+for "C" which is set to the last character output (or zero if a string was
+processed) and "M" which is used as an ILDB pointer for strings.  Following
+is a list of the AC's and their usage:
+
+	T1 -- three consecutive scratch accumulators for work
+	T2 -- must be equal to T1 + 1 for divisions and shifts
+	T3 -- a third scratch accumulator for counting
+	C -- provides (and set to) character to be output
+	M -- message pointer to ASCIZ string to be output
+	N -- number register for normal integer type-out and plural checks
+	P -- push down stack pointer (minimum of 20 free levels recommended)
+
+	Calls to the output library are of the form PUSHJ P,XXXOUT where
+XXX is the three-letter abbreviation of the name of the routine.  The
+user must declare all the needed entries with an "EXTERN" psuedo-op.
+
+	The default length of the output device list is three.  To direct
+output, the user's program must enter the devices to receive output into
+the output list.  The global symbol "OUTLST" is provided for this purpose.
+To specify device TTY, the user must set an OUTLST entry to -1 (SETOM OUTLST);
+to specify a normal, buffered I/O device, the user must put the address of
+the buffer ring header in the right half of the entry and the channel number
+in the left half of the entry (bits 14-17).  The whole output list is scanned
+for each character, and null (zero) entries are ignored.
+
+	By default, if the error return on an "OUT" UUO is taken, a simple
+error message is OUTSTR'ed, the "GETSTS" bits are put in AC 0, and the job
+is returned to monitor mode.  Defining the assembly parameter ".FTIOE" to
+be non-zero will inhibit output checking ("OUTPUT" UUO done instead).
+
+	By default, a break output is forced every time a LF, FF, or VT is
+output.  Defining the assembly parameter ".FTLMD" to be zero will override
+this action.
+
+	If the user wants output done only to TTY, the assembly parameter
+".FTMOD" may be defined as zero in the universal file "AC".  This causes
+the usual buffered I/O routines and the OUTLST to be omitted, and directs
+all output directly to the internal TTY buffer, thus considerably reducing
+run-time overhead.  To avoid the internal TTY buffering, the assembly
+parameter ".FTTBL" (which is the terminal buffer length in characters)
+must be defined as zero in the universal file.  This causes all TTY
+output to be done by OUTCHR's each time a character is sent.
+	Summary of the OUTLIB routines and their actions
+
+ACTOUT -- Output ASCIZ string with special action characters (see next page).
+FTLOUT,WRNOUT,ERROUT -- All three put an error marker on a new line followed
+	by the SIXBIT error prefix in "ERR"; FTLOUT uses a "?", outputs out a
+	string, and exits to monitor; WRNOUT uses a "%", outputs out a string,
+	and returns; ERROUT uses the character in C and outputs no string.
+APCOUT -- Outputs the string "at user PC " followed by octal number in N.
+DATOUT -- Outputs the current date in DD-MMM-YY format.
+TIMOUT -- Outputs the current time in HH:MM:SS format.
+LINOUT -- Outputs the ASCIZ string followed by a CRLF
+STROUT -- Outputs a plain old ASCIZ string
+FILOUT -- Outputs a full file specification from "DEV","FIL","EXT","PPN"; do
+	DEV and PPN as below, FIL as SIXBIT, and EXT as left-justified SIXBIT.
+DEVOUT -- Outputs the left-justified SIXBIT device name in "DEV"
+SIXOUT,SXSOUT -- Both do SIXBIT printing of the characters in "SIX"; SIXOUT
+	always outputs six characters; SXSOUT suppresses trailing spaces.
+PPNOUT -- Outputs the "[<proj>,<prog>]" pair in "PPN"
+DECOUT,OCTOUT,NUMOUT,DIGOUT -- DECOUT sets "RAD" to decimal radix and does
+	NUMOUT; OCTOUT sets "RAD" to octal radix and does NUMOUT; NUMOUT out-
+	puts the unformatted integer in N in the radix in "RAD"; DIGOUT adds
+	octal 60 to C and outputs the created digit (hopefully).
+DMPOUT,RHFOUT,LHFOUT -- DMPOUT outputs N in octal dump format with one space
+	between the two halves; RHFOUT outputs the right half of N in octal
+	dump format (leading zeroes); LHFOUT outputs the left half of N in
+	octal dump format (leading zeroes).
+DLFOUT,CLFOUT,DSPOUT,SPCOUT,BRKOUT,TABOUT,PLUOUT -- DLFOUT outputs two CRLF's;
+	CLFOUT does only one; DSPOUT outputs two spaces; SPCOUT does only one;
+	BRKOUT forces out all the buffers; TABOUT outputs a tab character;
+	PLUOUT outputs an "s" only if N is not equal to 1.
+CHROUT,FUCOUT,FLCOUT,FNCOUT -- CHROUT is the actual routine that sends out
+	each and every character; FUCOUT causes lower case characters to be
+	forced to upper case (140-177); FLCOUT causes upper case characters
+	to be forced to lower case (100-137); FNCOUT clears the case force.
+TSAV1,TSAV2,TSAV3,TRES3,TRES2,TRES1 -- PDL manipulation routines for saving
+	and restoring the temp. AC's upon subroutine exits; skip returns
+	are handled correctly.
+CPOPJ0,CPOPJ1,CPOPJ2 -- PDL manipulation "routines" for doing skip returns.
+	Using the action character handler
+
+	A call to ACTOUT does string output of the ASCIZ string pointed to
+by M just like STROUT, except that certain key characters initiate special
+output actions as long as the action feature is on (they are all on by de-
+fault).  To prevent certain actions from taking place (and possibly eliminate
+the need of the corresponding routine in core), the corresponding feature
+test switch must be defined as zero in the universal file "AC".  Note that
+some of the actions require that data be previously loaded into specific
+memory locations.
+
+	List of action character features
+
+CHAR	ASSEM. PAR.	DESCRIPTION OF ACTION
+"_"	.FTCLF		output a carriage return/line feed (CLFOUT)
+"*"	.FTBRK		cause a break output (force buffers) (BRKOUT)
+"<"	.FTFUC		force upper case (FUCOUT)
+">"	.FTFLC		force lower case (FLCOUT)
+"="	.FTFNC		turn off the case force (FNCOUT)
+"#"	.FTNUM		output the decimal integer in N**
+"$"	.FTPLU		output an "s" only if N <> 0 (PLUOUT)
+"("	.FTSPC		enter a singular/plural conditional -- outputs text
+   only if N is singular; "\" reverses the conditional; ")" closes the cond.
+":"	.FTDEV		output DEVICE: in "DEV" (DEVOUT)
+"["	.FTPPN		output [P,PN] in "PPN" (PPNOUT)
+"^"	.FTFIL		do full file spec in "DEV","FIL","EXT","PPN" (FILOUT)
+"%"	.FTWRN		simulate WRNOUT but still do action chars
+"?"	.FTFTL		simulate FTLOUT but still do act chrs, then exit
+"@"	.FTAPC		output "at user PC NNNNNN" (APCOUT)
+"+"	.FTTIM		output the current time (TIMOUT)
+"&"	.FTDAT		output the current date (DATOUT)
+
+** Unless the feature "substitute no for zero" (.FTSNZ) is turned off, the
+	characters "no" will be typed if N is zero.
+
+
+	End of OUTLIB.DOC

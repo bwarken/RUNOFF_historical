@@ -1,0 +1,266 @@
+
+
+
+MASSRT - DISK AND TAPE ERROR SORTING PROGRAM 
+	
+Originated by M.E.  MR1-3
+	
+     The purpose of MASSRT is to sort massbus  errors  according  to  the  spots
+where  they  occured  so  that media related errors can quickly be distinguished
+from electrical errors.  Although only a portion of  the  error  information  is
+extracted  from each SYSERR entry, MASSRT will serve to flag errors that are not
+likely media related.  These errors may then be examined in detail while running
+this program.
+	
+     MASSRT is intended to suppport all KL and KS  systems  and  uses  a  SYSERR
+ascii listing disk file as input.
+	
+     Before running MASSRT you  must  run  SYSERR  and  create  a  disk  listing
+containing  all  the  disk errors you wish to examine.  The /DET swith should be
+used so that the error types can be evaluated.
+	
+DO NOT USE THE BRIEF SWITCH.  For example:
+	
+*ERRORS.LST=/ALL/DET/BEGIN:-3D
+	
+     You should also set the terminal width to at least 80 so  that  each  entry
+outputted by MASSRT will fit on one line.  Example:
+	
+TOPS 10:  .SET TTY W 80
+	
+TOPS 20:  $TER W 80
+	
+
+                      MASSRT COMMANDS
+	
+
+COMMANDS ARE:
+	
+G - GO SORT ERRORS
+S - ENTER SORT DIALOGUE
+D - CHANGE DISPLAY SELECTION *
+L - SILENCE/REVIVE/DELETE LOG *
+F - SELECT NEW SYSERR LISTING
+B - BEGIN AT SPECIFIED SEQUENCE *
+R - READ SYSERR LISTING ENTRY *
+Q - CLOSE LOG AND RETURN TO MONITOR
+H - TYPE DETAILED HELP FILE
+	
+* - These commands involve one or more argumets which may be entered  separately
+or in one line such as "R135" or "DT1".
+	
+                                                                          Page 2
+	
+
+G - GO SORT ERRORS
+------------------
+     The G command sorts the massbus errors according to the sort parameters set
+up  by  the S command and displays the errors according to the display selection
+set up by the D command.
+	
+     In the default mode error information is extracted from each massbus  error
+entry found in the SYSERR listing and sorted in the following order of priority:
+LOGICAL  UNIT,  SERIAL  NUMBER,  SURFACE/FILE,  CYLINDER/PROGRAM  SECTOR/RECORD,
+DEVICE  COMMAND  REG  (01),  ERROR  TYPE  (hard or soft), DEVICE ERROR REG (02),
+CONTROLLER STATUS, RECORD SEQUENCE NUMBER.  Therfore  all  entries  for  logical
+unit XXXXX are grouped together;  within that group all entry for drive serial #
+YYYY are grouped together;  within that group all entris on surface/file ZZ  are
+grouped together;  etc...  For example:
+	
+COMMAND (G,S,D,L,F,B,R,Q,H) ?  G
+	
+********************************************************************************
+ALEXSI.LST*SEQ:  35= SAT 1 DEC 79 02:54:12  TO SEQ:  57= MON 3 DEC 79 14:51:51 *
+********************************************************************************
+TIME OF LAST ERROR     SER   MEDIA    CYL SUR  SEC  REPT T   CREG   EREG RH STAT
+--------------------------------------------------------------------------------
+SAT 1 DEC 79 04:07:16  0164. DP000    630   1   0   NONE S   READ    DCK  222715
+SAT 1 DEC 79 20:31:24  0164. DP000    703   2  12      1 S   READ    DCK  222615
+SAT 1 DEC 79 05:08:20  0164. DP000    548  13  16   NONE S   READ    DCK  222615
+SUN 2 DEC 79 06:40:16  0164. DP000    562  13   0   NONE S   READ    DCK  202615
+SAT 1 DEC 79 04:46:51  0164. DP000    637  13  16   NONE S   READ    DCK  222715
+TOTAL ERRORS = 0006 ............................................................
+	
+MON 3 DEC 79 14:16:04  0626. DP110    346   5   0      3 S   READ    DCK  222615
+TOTAL ERRORS = 0004 ............................................................
+	
+********************************************************************************
+TIME OF LAST ERROR     SER   MEDIA    PGM FIL  REC  REPT T   CREG   EREG RH STAT
+--------------------------------------------------------------------------------
+MON 3 DEC 79 14:51:51  5057. MT200 MULTIO   0  2115 NONE S  WRITE    200  202615
+SAT 1 DEC 79 18:48:40  5057. MT200 MULTIO   0  5899 NONE S  WRITE    200  322615
+SUN 2 DEC 79 13:55:42  5057. MT200 MULTIO   0  6019 NONE S  WRITE    200  202615
+SUN 2 DEC 79 06:56:21  5057. MT200 MULTIO   0  8033 NONE S  WRITE    200  202615
+SAT 1 DEC 79 17:53:09  5057. MT200 MULTIO   0  8131 NONE S  WRITE    300  202615
+MON 3 DEC 79 04:02:49  5057. MT200 MULTIO   0  8286 NONE S  WRITE    300  202615
+SUN 2 DEC 79 20:28:30  5057. MT200 MULTIO   0 10449 NONE S  WRITE    200  202615
+SAT 1 DEC 79 15:07:16  5057. MT200 MULTIO   0 10726 NONE S  WRITE    200  322615
+SAT 1 DEC 79 02:54:12  5057. MT200 MULTIO   0 10896 NONE S  WRITE    200  202615
+SUN 2 DEC 79 18:54:24  5057. MT200 MULTIO   0 10945 NONE S  WRITE    200  322615
+SUN 2 DEC 79 15:56:54  5057. MT200 MULTIO   0 11107 NONE S  WRITE    300  202615
+SAT 1 DEC 79 06:24:16  5057. MT200 MULTIO   0 11508 NONE H  WRITE    220? 322615
+TOTAL ERRORS = 0012 ............................................................
+	
+        The format of the display will vary  depending  upon  the  "S"  and  "D"
+commands  as  explained  below.   In  all cases however, the command register is
+decoded only for read or write operations and the error register is decoded only
+for  disk entries where the error reg contains dck only.  In all other cases the
+octal code is given.  A "?" next to the error reg indicates that the error  code
+is not typically one generated by bad media for that device.
+                                                                          Page 3
+	
+
+S - CHANGE SORT PARAMETERS
+--------------------------
+COMMAND (G,S,D,L,F,B,R,Q,H) ?  S
+	
+     The S command will allow you to change the following sort parameters.   The
+default answer for each question is "N".  Note that the E command may be used to
+exit the sort dialogue if no further changes are desired before sorting.
+	
+SORT BY CYL/PROGRAM...........  (Y,N,E) ?  
+	
+        If you are sorting tape errors you should probably answer  "Y"  so  that
+the  errors will be sorted per program since file X record Y may not be the same
+spot for both program A and program B.
+        If you are sorting disk  errors  a  "Y"  answer  will  sort  the  errors
+according to logic spots rather than surface.
+	
+EXAMINE SPOTS ONLY............  (Y,N,E) ?  
+	
+        If you want just a list of "bad spots" you should answer "y" in addition
+to  setting  the display sellect to 3 (tally spots).  See D - DISPLAY SELLECTION
+(D3).
+	
+IGNORE SECTORS ON DISK ENTRIES (Y,N,E) ?  
+	
+     Because error reporting of the sector  may  be  erroneous  or  because  the
+sector  may be irrelevant when concerned with deleting bad spots you may wish to
+ignore it to avoid virtually redundant entries when tallying the bad spots.
+	
+USE MEDIA ID (IF AVAILABLE)...  (Y,N,E) ?  
+	
+        The default setting uses logical  device  name  as  part  of  the  media
+identification.   For field applications where several different packs/tapes may
+be mounted on the same logical device you should probably answer  "y"  to  group
+errors per pack/tape.
+	
+IGNORE SERIAL NUMBER..........  (Y,N,E) ?  N
+	
+        If you are using media id or in any case where the  same  pack/tape  has
+been  mounted  on  different physical devices you may want to answer "Y" so that
+the sort will be entirely per media rather than per media/physical device.
+	
+IGNORE LOGICAL DEVICE/MEDIA-ID (Y,N,E) ?  N
+	
+     Likewise, if you are concerned with errors on a particular physical  device
+rather  than  the  different  medias mounted on it you may want to answer "Y" to
+this question.
+	
+
+
+                                                                          Page 4
+	
+
+D - CHANGE DISPLAY SELECTION
+----------------------------
+	
+     The D command allows you to select either disk or tape entries or both disk
+and tape one of three displays.
+	
+COMMAND (G,S,D,L,F,B,R,Q,H) ?  D 
+	
+PROCESS DISK OR TAPE ENTRIES OR ALL ?  (D OR T OR A) ?  
+	
+        You may wish to examine only disk entries or  tape  entries  at  a  time
+especially  since the sort parameters may act differently for each.  The default
+sellection is "A".
+	
+DISPLAY ENTRIES...
+1 - IN CHRONOLOGICAL ORDER
+2 - SORTED BY SPOTS
+3 - SORTED BY SPOTS AND TALLIED.
+DISPLAY SELECTION 1, 2, OR 3 ? 
+	
+     Display selection 1 merely separates error entries per device and lists the
+disk  errors in order by time (sequence number).  The sort parameters except for
+using media id have no effect on the display.  This  allows  you  to  glance  at
+device performance over periods of time.
+	
+     Display selection 2 sorts the disk errors according to the  parameters  set
+up  by  the  S  command.  All errors are listed allowing you to see the time and
+sequence number of each error in a logical group of entries.
+	
+     Display selection 3 is the default display.  It sorts the  errors  as  with
+display  2,  however only unique entries (excluding time) are listed.  Duplicate
+entries are indicated by a tally number  in  the  RPTS  collumn  which  in  this
+display  takes  the  place of the sequence number.  Where duplicated entries are
+encountered the time at which the last repetitive entry was made  is  listed  in
+the time collumn.
+	
+F - SELECT NEW SYSERR LISTING
+-----------------------------
+     The F command allows you select a new SYSERR listing as an input file after
+the  initial  selection was made.  The name of the file must consist of from one
+to six digits with a three digit extension.  
+	
+B - BEGIN AT SPECIFIED SEQUENCE
+-------------------------------
+COMMAND (G,S,D,L,F,B,R,Q,H) ?  B
+	
+BEGIN COMMAND (N,SEQ#) 
+	
+        If you find the Syserr listing begins prior to  the  time  you  want  to
+evaluate  you  may  specify what sequence to begin by typing in a valid sequence
+number.  Once you have set a "begin sequence" you can remove it by answering "N"
+        The B command can only be issued after the currently sellected file  has
+been  sorted  via  the  G  command since it is this process that maps the Syserr
+entry sequence numbers.  Whenever the F command is issued the  sequence  map  is
+wiped out.
+                                                                          Page 5
+	
+
+R - READ SYSERR LISTING ENTRY
+-----------------------------
+	
+     The R command allows you to read specific entries from the  Syserr  listing
+without printing out the entire listing.
+	
+COMMAND (G,S,D,L,F,B,R,Q,H) ?  R
+	
+READ COMMAND (?,N,SEQUENCE NUMBER) 
+	
+        To read a single entry type in the sequence number.  To  read  the  next
+sequence  type  "N".  To read all "suspicios" entries as marked by a "?" next to
+the error reg in the sort display type in "?".
+        Like the Begin command this command  can  only  be  executed  after  the
+sellected  file  has  been  sorted.  Also the setting of the begin sequence will
+have an effect on the "R?" command.
+	
+L - SILENCE/REVIVE/DELETE LOG
+------------------------------
+"COMMAND (G,S,D,L,F,B,R,Q,H) ?  
+	
+Y - OUTPUT TO LOG
+N - STOP OUTPUT
+D - DELETE LOG
+	
+        In the default mode all displays generated by the "G" and  "R"  commands
+are  logged into MASSRT.LOG file.  At any point output to the log may be stopped
+via the "LN" command or continued via the "LY" command.  The "LD"  command  will
+reinitialize the log and, unless the "LN" command was issued continue logging.
+        Each time MASSRT is restarted the log file is initialized.
+	
+Q - CLOSE LOG AND RETURN TO MONITOR
+-----------------------------------
+        This command should be used to exit from the program else the  log  file
+will not be closed.
+	
+
+H - TYPE DETAILED HELP FILE
+---------------------------
+	
+     The H command types this detailed help file.  To get a  brief  help  prompt
+for  the commands just type carriage return to the COMMAND (G,S,D,L,F,B,R,Q,H) ?
+prompt.
+	

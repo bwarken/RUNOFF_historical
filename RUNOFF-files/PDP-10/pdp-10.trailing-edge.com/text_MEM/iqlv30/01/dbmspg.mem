@@ -1,0 +1,349 @@
+                     CREATING AND EDITING A QUERY
+
+
+                                 FIND
+                      (for DBMS data base files)
+
+
+FUNCTION:
+
+
+     The FIND statement locates and reads a record from  a  DBMS  data
+     base file.
+
+FORMATS:
+
+
+     The IQL FIND DBMS verbs are modelled  after  the  syntax  of  the
+     Codasyl  DBMS  FIND  verbs, of which there are five variations in
+     the current (V5A) implementation of DBMS-10/20.   Each  of  these
+     variations is called a "record selection expression", or rse, and
+     each variation has several options.  The FIND rse's are described
+     in detail in the TOPS-20 Data Base Management System Programmer's                      _______ ____ ____ __________ ______ ____________
+     Procedures Manual.  They are summarized below,  along  with  some     __________ ______
+     comments  on  slight  variances  from the usages described in the
+     referenced manual.
+
+
+                                   NOTE
+
+         In IQL, the use of the FIND verb always causes a  GET  of                                          ______
+         that  record, unlike the Codasyl usage, wherein those are
+         separate functions.
+
+
+
+
+     1.  FIND rse 1
+
+
+
+         FIND record-name USING data-item.
+
+
+         This  rse  gets  the  data  base   record   which   has   the
+         direct-access  data  base  key  value given by the data-item.
+         The only difference from the Codasyl rse syntax is  that  the
+         record-name MUST be specified in IQL.
+
+
+
+
+
+
+
+
+
+
+                                 3-24
+                     CREATING AND EDITING A QUERY
+
+
+     2.  FIND rse 2
+
+
+
+         FIND [OWNER IN set-name-1 SET OF] CURRENT OF
+                                        record-name RECORD.
+                                        set-name-2 SET.
+                                        area-name AREA.
+                                        RUN-UNIT.
+
+         This rse is used to get the "current" record,  as  identified
+         by  record  name,  set  name,  area  name,  or RUN-UNIT.  The
+         current record simply means the last accessed record  of  the
+         named  entity,  e.g.   the  "current of set-name" is the last
+         accessed record from that set, the "current  of  record-name"
+         is  the  last  accessed record of that particlar record type,
+         the "current of area" is the last accessed record  from  that
+         area,  and  the  "current  of  RUN-UNIT" is the last accessed
+         record by the query, of any type, from any area or set.
+
+
+         If the phrase "OWNER IN ..." is used, the record accessed  is
+         the   owner   of   the  named  current  record  via  the  set
+         relationship named in the OWNER phrase.  The only  difference
+         from  the  Codasyl rse syntax is that the keyword SET must be
+         given in the OWNER phrase in IQL.
+
+
+     3.  FIND rse 3
+
+                FIND NEXT [record-name] RECORD OF set-name SET.
+                                                  area-name AREA.
+                     PRIOR
+                     FIRST
+                     LAST
+
+
+         This FIND rse is used to access records in a relative fashion
+         within  an area or set.  The NEXT record is the one following
+         the current record, the PRIOR record is  the  one  preceeding
+         the  current  record,  the  FIRST and LAST records are at the
+         beginning or end, respectively.  The record name is optional,
+         meaning  that  if it is not specified, the record accessed is
+         any record which meets  the  specified  relation.   The  only
+         difference from the Codasyl rse syntax is that the ability to
+         specify a number as the relation operator  is  not  supported
+         (i.e.   FIND  integer  RECORD  ...).  Since this is extremely
+         rare in actual use, this should not be a limitation.
+
+
+
+
+
+
+                                 3-25
+                     CREATING AND EDITING A QUERY
+
+
+         This is one of the most frequently used rse's,  particularily
+         the FIND NEXT, since it will in fact find the first record of
+         the set in case no previous record has been  found.   A  very
+         common  construct  to use in queries which need to access all
+         of the records of some type within an area is the following:
+
+                IF FIRSTIME FIND FIRST record-name ...
+                        ELSE FIND NEXT record-name ...
+
+
+         In writing queries, you should always check the  ERROR-STATUS
+         data  item,  as  it  will  be set to a non-zero value in case
+         there is no record satisfying the relation  specified.   This
+         will  occur,  for  example,  if  all  of  the  records in the
+         set/area you are accessing have been found, and there are  no
+         more records in that set/area.  This is somewhat analagous to
+         an "end-of-file" condition.
+
+
+     4.  FIND rse 4
+
+
+
+         FIND OWNER RECORD OF set-name SET.
+
+
+         This rse is used to find the owner of the current  record  of
+         the  named  set.   This  is  identical  to using rse 2 if you
+         specified the same set names for set-name-1 and set-name-2.
+
+
+     5.  FIND rse 5
+
+
+
+         FIND [NEXT DUPLICATE WITHIN] record-name RECORD.
+
+
+         This rse is used to access records which are defined as  CALC
+         records.   This  is  somewhat  like an ISAM facility, wherein
+         certain fields within a record are  identified  as  CALC  (or
+         key)  fields,  and  the  value within these fields is used to
+         calculate a physical location for that record within the data
+         base.   To  use  this  rse,  you must pre-initialize the CALC
+         fields with the data values of the record you wish to access,
+         and then issue the FIND verb.  For example,
+
+                SET PERSON-NAME TO "SMITH".
+                FIND NAME-RECORD RECORD.
+
+
+
+
+
+                                 3-26
+                     CREATING AND EDITING A QUERY
+
+
+         The NEXT DUPLICATE phrase would be used to  access  the  next
+         record with the same "key" value, for example the next record
+         containing  SMITH.   The  schema  describing  the  data  base
+         defines   records  as  having  CALC  fields,  and  allows  or
+         prohibits the existence of duplicate key records.
+
+
+         A special data item is provided by IQL for  use  with  rse  5
+         FIND's,  in  the case of a certain CALC record type occurring
+         in more than one area.  Since the area name is used  as  part
+         of the CALC algorithm to find the record, this area name must
+         be provided to the  DBMS  run-time  system.   The  data  item
+         AREA-ID  is  used  for  this  purpose.   It is a 30 character
+         alpha-numeric item which must be initialized with the name of
+         the  area  which  is  to be used when searching for a certain
+         record with a certain key.  If you have a record which occurs
+         in  more than one area, and you use rse 5 without setting the
+         AREA-ID, you will get an error with ERROR-STATUS set to 323.
+
+
+
+
+CURRENCY UPDATING:
+
+
+     Normally, whenever a record is accessed, the so-called  "currency
+     indicators"  are  updated.  This means that the record just found
+     is made the current record of its record type, the current record
+     of  the  area,  the  current  record of any sets in which it is a
+     member, and the current  record  of  the  RUN-UNIT.   In  certain
+     applications,  however,  it  may  be  desireable  to suppress the
+     currency updates, thereby causing some previously accessed record
+     to  remain  as the current record.  This is expressed by adding a
+     SUPPRESS phrase to the FIND rse statement, as follows:
+
+        FIND rse SUPPRESS ALL     CURRENCY UPDATES.
+                          RECORD
+                          AREA
+                          SET
+
+
+     The only difference here from the  Codasyl  syntax  is  that  the
+     ability  to  give  a  list  of  individual set names for which to
+     suppress currency updates is not supported by IQL.
+
+
+
+
+
+
+
+
+
+
+                                 3-27
+                     CREATING AND EDITING A QUERY
+
+
+DBMS STATUS INFORMATION:
+
+
+     Certain status information about the results of DBMS  FIND  verbs
+     is  made  available to a query in the form of special pre-defined
+     data items.  These are:
+
+
+     1.  ERROR-COUNT
+
+
+         This is a numeric data item which is set by the DBMS run-time
+         system  whenever  a  FIND is executed.  It is set to 0 if the
+         FIND was successful, and set to non-zero if the  FIND  failed
+         for any reason.
+
+
+     2.  ERROR-STATUS
+
+
+         This is a numeric data item which is set by the DBMS run-time
+         whenever  a FIND is executed.  It is set to 0 if the FIND was
+         successful, and is set to a non-zero error code  to  indicate
+         the  nature of the error.  These error codes are described in
+         the DBMS Programmer's Manual.  Most of the errors encountered
+         by  the IQL user will be FIND errors, which are of the format
+         03xx, where the 03 means that this is a FIND error,  and  the
+         xx is the specific error code.
+
+
+         Some of the more frequently  encountered  errors  are  listed
+         below:
+
+                356     no record found with this data base key
+                        (rse 1)
+
+                317/322 the specified current record does not 
+                        participate as a member of the specified set
+                        (rse 2 and rse 4)
+
+                307/326 no record matches the specified relational
+                        selection, or the set is empty
+                        (rse 3)
+
+                306     no current record for the named set exists
+                        (rse 4)
+
+                326     no record exists with these CALC values
+                        (rse 5)
+
+                323     the value given in the AREA-ID is invalid
+                        (rse 5)
+
+
+                                 3-28
+                     CREATING AND EDITING A QUERY
+
+
+     3.  RECORD-NAME
+
+
+         This is an alpha-numeric data item, 30 characters long, which
+         contains  the  actual record name of the record most recently
+         accessed by a successful FIND, provided that currency updates
+         were not suppressed.
+
+
+     4.  AREA-NAME
+
+
+         This is an alpha-numeric data item, 30 characters long, which
+         contains  the  actual  area  name of the record most recently
+         accessed by a successful FIND, provided that currency updates
+         were not suppressed.
+
+
+     5.  CURRENT-RECORD-KEY
+
+
+         This is a numeric data item which contains  the  actual  data
+         base  key  value  of  the  record most recently accessed by a
+         successful FIND, provided  that  currency  updates  were  not
+         suppressed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                 3-29
+

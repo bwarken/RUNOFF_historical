@@ -1,0 +1,453 @@
+
+
+
+PROGRAMMING SPECIFICATION
+
+
+
+
+
+                           OPSER
+
+                  OPERATOR SERVICE PROGRAM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    Date:  29-Jun-71
+                    File:  OPSER.RNO
+                    EDITION:  1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        THIS  DOCUMENT  REFLECTS  THE  SOFTWARE  AS  OF
+        VERSION 2.
+
+        THE INFORMATION IN THIS DOCUMENT IS SUBJECT  TO
+        CHANGE   WITHOUT   NOTICE  AND  SHOULD  NOT  BE
+        CONSTRUED AS A COMMITMENT BY DIGITAL  EQUIPMENT
+        CORPORATION.
+
+        ACTUAL DISTRIBUTION OF THE  SOFTWARE  CONTAINED
+        IN  THIS SPECIFICATION WILL BE SUBJECT TO TERMS
+        AND CONDITIONS TO BE ANNOUNCED AT  SOME  FUTURE
+        DATE BY DIGITAL EQUIPMENT CORPORATION.
+OPSER                                                 Page 2
+
+
+                     TABLE OF CONTENTS
+                     -----------------
+
+
+                                                    PAGE
+
+          1.0   Function                            3
+          2.0   Interactive Commands                3
+          2.1   Special Syntax                      6
+          2.2   Defaults                            6
+          2.3   Special Entries                     6
+          3.0   Subjob Specification                7
+          4.0   Subjob Communication                7
+          4.1   Input to a Subjob                   7
+          4.2   Output from a Subjob                7
+          5.0   Core Layout                         7
+          6.0   Coding Conventions                  8
+          6.1   Register Assignments                8
+          6.2   Tasty Tidbits                       8
+          6.3   Assembly Switches                   9
+OPSER                                                 Page 3
+
+
+1.0  FUNCTION
+
+OPSER facilitates multiple job control for the  operator  by
+running  jobs  on a sublevel over pseudo-teletypes (mnemonic
+PTY).  Previous to OPSER, when the operator had to run  more
+than  one  job  at  one  time,  he  either  had  to run some
+detached, or use several terminals.  In the former case,  no
+I/O  link  existed between the running job and the operator,
+and if he was not watching, it would go by  without  notice.
+Using  several  terminals was problematic since the operator
+had to run from console to console to service the  programs.
+By  running these system jobs over PTY's, OPSER maintains an
+excellent I/O link, and  concentrates  in  one  console  the
+entire  control  center of the system.  It need not run only
+as an operator job, regular users can employ  OPSER  to  fan
+out multiple jobs.
+
+
+
+2.0  INTERACTIVE COMMANDS
+
+OPSER will signify its  readiness  to  process  any  of  the
+following  commands  by  typing  * or !  at the start of the
+line.  * will be typed if no  subjobs  are  in  use,  or  to
+indicate  subjobs  that  are  in Teletype input wait.  Thus,
+when OPSER types * to  signal  command  wait,  nothing  will
+happen  until the operator acts.  The commands must be typed
+to sufficient length to make them unique.  All are  prefixed
+by a colon(:).
+
+
+     :FREE               Type the number of the  first  free
+                         subjob.
+
+     :SYSTAT xx          Run    SYSTAT     with     optional
+                         argument(s)  xx over the first free
+                         subjob.
+
+     :DEFINE xx=n        Define  xx  as  the  mnemonic   for
+                         subjob n.  (Subjob specification is
+                         explained in Chapter 3.)
+
+     :EXIT               Exit to the monitor if  no  subjobs
+                         are  in use;  otherwise give a list
+                         of those that are running.
+
+     :WHAT n             Type the status of subjob n on  the
+                         console.   The  status  includes  a
+                         SYSTAT including the time, the time
+                         of  the last input and last output,
+                         and a linear listing of the  JOBSTS
+                         bits.
+
+     :KJOB n             Run LOGOUT over subjob n.
+OPSER                                                 Page 4
+
+
+     :STOP n             Put  subjob  n  into  monitor  mode
+                         immediately  by sending up to three
+                         CONTROL-C's.
+
+     :MSGLEVEL 0         Type short responses to  the  :WHAT
+                         command.
+
+     :MSGLEVEL 1         Type long responses  to  the  :WHAT
+                         command.
+
+     :TTYTST             Test the console by typing  all  of
+                         the  ASCII characters between octal
+                         40 and 174, inclusive.
+
+     :HELP               Type a text which briefly  explains
+                         the commands and how to communicate
+                         with subjobs.
+
+     :RESOURCES          Type the resources of the system.
+
+     :SILENCE n          Ignore all output from subjob n.
+
+     :REVIVE n           Resume  normal  echoing  of  output
+                         from subjob n.
+
+     :DAYTIME            Get today's date and current time.
+
+     :QUEUE <line>       Initiate the first free subjob  and
+                         send that line over it.
+
+     :JCONT nn           Continue the stopped monitor job.
+
+     :LOGIN p,pn         Send the LOGIN line over the  first
+                         free   subjob;    if   no  project-
+                         programmer number is typed,  assume
+                         the  operator's  project-programmer
+                         number.
+
+     :SLOGIN p,pn        Same as :LOGIN except suppress  all
+                         the LOGIN chatter.
+
+     :CURRENT            Type  the  number  of  the  current
+                         subjob (the last one referenced).
+
+     :SEND <line>        Simulate the monitor command SEND.
+
+     :SET KSYS hhmm      Stop the timesharing system at  the
+                         time   specified   by   hhmm   (not
+                         implemented yet).
+
+     :SET DATE mmddyy    Simulate the  monitor  command  SET
+                         DATE.
+
+     :SET DAYTIME hhmm   Simulate the  monitor  command  SET
+                         DAYTIME.
+OPSER                                                 Page 5
+
+
+     :SET  OPR TTY n     Simulate the  monitor  command  SET
+                         OPR.
+
+     :SET CORMAX n       Siimulate the monitor  command  SET
+                         CORMAX.
+
+     :SET CORMIN n       Simulate the  monitor  command  SET
+                         CORMIN.
+
+     :SET SCHEDULE n     Simulate the  monitor  command  SET
+                         SCHEDULE
+
+     :SET TTY arg        Simulate  the   SET   TTY   monitor
+                         command.
+
+     :DEVICE nam:logn:n  Reassign  the   device   with   the
+                         physical  name nam, and the logical
+                         name logn to subjob n.  The logical
+                         name  need  not  be  present, but a
+                         null field must be typed, e.g.,  to
+                         reassign  the  CDR to subjob 3, one
+                         must type :DEVICE CDR::3.
+
+     :AUTO filename      Process the named file as a list of
+                         interactive   commands;   the  AUTO
+                         file   is   terminated    by    the
+                         end-of-file  or  by the typing of a
+                         line  on   the   console   by   the
+                         operator;    AUTO  files  may  call
+                         other files, including themselves.
+
+     :TLOG filename      Create  a   log   file   with   the
+                         specified   name.   If  the  file's
+                         device is a directory one, check if
+                         the  file  exists  already;  if so,
+                         notify the operator and ask whether
+                         it  should  be  superseded.  If the
+                         answer is negative, the  file  will
+                         be appended to.
+
+     :CLOSE              Close the log file without  opening
+                         a new one.
+
+
+
+2.1  Special Syntax
+
+CONTROL-A's are translated to CONTROL-C's.
+
+ALL may be used as the subjob specification in  any  command
+string  where  a subjob specification is needed;  all active
+subjobs are implied as objects of the command.
+
+If BATCON is running under OPSER, it should be assigned  the
+mnemonic  B.  If one wishes to send text to BATCON subjob 2,
+OPSER                                                 Page 6
+
+
+he can type B2- <line> to OPSER  and  OPSER  will  send  the
+entire  line to BATCON (which will then send the part of the
+line after the dash to its own subjob 2).  The operator  can
+also  suffix the B with any length of ALL.  Refer to Chapter
+4 for a further description of sending text to subjobs.
+
+
+
+2.2  Defaults
+
+If a subjob specification is needed but one is not  present,
+the last subjob referenced is presumed.  The use of ALL does
+not alter this last reference.
+
+In the TLOG file specification, the default string is
+
+     DSK:OPSER.LOG
+
+Absence of any field results in substitution of the  default
+for  that  item.   In  particular,  if  a  null extension is
+desired, a period, then a  project-programmer  specification
+or <CR> must be typed.
+
+In the AUTO file specification, the default string is
+
+     DSK:OPSER.ATO
+
+The same default rules apply to this file  specification  as
+apply to the TLOG file specification.
+
+If an input line does not start with a dash  or  colon,  and
+the  first  non-alphanumeric  character  is not a dash, that
+entire line is sent to the last subjob referenced.
+
+
+
+2.3  Special Entries
+
+The REENTER command will act  exactly  as  a  START  or  RUN
+command  except  that  the subjob activity situation will be
+untouched, and the low segment will  not  be  zeroed.   This
+means  the  AUTO mode, if in progress, is ended, and the LOG
+file, if opened, is closed.
+
+
+
+3.0  SUBJOB SPECIFICATION
+
+A subjob can be specified in any one of four ways.   It  can
+be  left  out  entirely,  in  which  case  the  last  subjob
+referenced is presumed.  One can use ALL, in which case  all
+active  subjobs  are implied.  One can type a decimal number
+from zero to  the  limit  OPSER  was  generated  for,  or  a
+mnemonic  can  be  assigned  to  the  subjob  by the :DEFINE
+command.
+OPSER                                                 Page 7
+
+
+4.0  SUBJOB COMMUNICATION
+
+
+4.1  Input to a Subjob
+
+The operator can send text to a subjob by typing the  subjob
+specification,  delimited by a dash, followed by the line of
+text.  All text following the dash up to and  including  the
+break  character  is  sent  unmodified  to  the subjob.  For
+example,
+
+     3-R BATCH<CR>
+
+would result in R BATCH<CR> being sent to subjob 3.  In some
+cases  it  is  desirable  to  send  many  lines at once to a
+subjob.  One should type a  double  dash  after  the  subjob
+specification,   then   a  delimiter,  the  lines,  and  the
+delimiter again.  For example,
+
+     B--"R PIP<CR>
+     DSK:/X/B_DTA1:*.*<CR>
+     "<CR>
+
+would send all of the text between the quotes to subjob B.
+
+
+
+4.2  Output From a Subjob
+
+Any output from a subjob is headed by the time of  day,  the
+subjob's  name  and  a  carriage return.  Then the output is
+typed on the terminal.
+
+
+
+5.0  CORE LAYOUT
+
+With normal assembly options,  OPSER  is  assembled  in  two
+segments;   a  2K  high  segment,  and a 1K low segment data
+base.  All buffers except  those  of  the  AUTO  device  are
+preallocated;   their  sizes are subject to further assembly
+switches.  The buffers for  the  AUTO  device  are  expanded
+dynamically,  pushing  OPSER's low segment over the 1K mark.
+The low segment is purely block storage assignments,  so  no
+low file is written out on SAVE.
+
+
+
+6.0  CODING CONVENTIONS
+
+
+
+6.1  Register Assignments
+
+OPSER's accumulators are assigned by the  following  set  of
+OPSER                                                 Page 8
+
+
+symbols:
+
+     STAT=0              ; c(lh) = program bits
+                         ; c(rh) = subjob usage bits
+     A=1                 ; general scratch
+     B=A+1
+     C=B+1
+     D=C+1
+     E=D+1
+     LASO=11             ; last output from this sjb
+     ITEM=12             ; monjobnbr of subjob
+     CMD=13              ; word input register
+     SJB=14              ; PTY subjob (channel) ref
+     PT1=15              ; byte pointer
+     DATA=16             ; ASCII I/O register
+     P=17                ; pushdown pointer
+
+Registers A through E are for general scratch,  to  be  used
+for LOOKUP, ENTER or other UUO's.  The only time they should
+be preserved is in the I/O subroutines, since these routines
+are called so often and from so many contexts.  Register PT1
+must also be  saved  in  I/O  routines.   During  I/O  error
+recovery  routines, the ASCII byte register, DATA, must also
+be pushed.
+
+
+
+6.2  Tasty Tidbits
+
+Register SJB usually contains some kind of AOBJN pointer, so
+one  must be cautious of the c(lh), since it can be any kind
+of garbage.  That register  is  mainly  used  in  the  index
+field.
+
+
+
+6.3  Assembly Switches
+
+PURE,  if  non-zero,  OPSER  is  assembled  as  a  reentrant
+program.
+
+MOST symbolizes the maximum number of times a  PTY's  output
+buffers  will  be  transmitted before control is returned to
+the operator.  This is to prevent loud-mouthed subjobs  from
+taking a stranglehold on OPSER's attention.
+
+LISTN, if zero, will provide  a  normal  listing  file  with
+macro  expansions  XLIST'ed.   A negative value will give an
+XALL listing, and a positive one an ugly XALL.
+
+PDLSIZ specifies how large the pushdown list should be.
+
+SNOOZT specifies how long OPSER should  sleep  when  there's
+nothing to do, or when it's in some kind of wait.
+OPSER                                                 Page 9
+
+
+CHANCE sets the number of times OPSER will sleep waiting for
+a previously active subjob to resume output.
+
+HGHPTY sets the upper subjob  limit,  i.e.,  OPSER  will  be
+generated  for  HGHPTY+1  subjobs,  numbered  from  zero  to
+HGHPTY.
+
+FTAUTO, if  non-zero,  implies  the  assembly  of  the  AUTO
+feature.
+
+FTTLOG, if non-zero, implies the assembly of  the  log  file
+feature.
+
+DSKSIZ specifies the size of a standard disk buffer.
+
+TTYSIZ sets the standard size of a teletype buffer.
+
+LOGNB sets the number of pre-allocated buffers for  the  log
+file.
+
+FTTBUF, if non-zero, assumes buffered TTY I/O.
+
+TTONB sets the number of TTY output buffers.
+
+FT4S72 If non-zero, assumes Level C and Level D.

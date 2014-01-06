@@ -1,0 +1,637 @@
+.!Accept leading space as a paragraph indicator
+.Autoparagraph
+.!
+.!Set Paragraph Parameters (.I n, .S v, .TP t)
+.Set Paragraph 0,1,3
+.!
+.!Make all header levels non-run-in and exact case
+.Style Headers 7,0,0
+.!
+.!Make the page size 58 lines by 70 columns
+.Page Size 58,70
+.!
+.!Put out a subtitle line with the date on it
+.!Subtitle
+.!Autosubtitle
+.!Date
+.!
+.!Enable $$DATE etc
+.Flag Substitute
+
+.hl1 The DECNET event logger
+
+DECnet generates an event message when an error or something unusual
+occurs during operation.  The event message contains the type of
+event, where it occurred and the time of the event.  Example:
+
+.literal
+
+22:46:30          -- Message from DECnet event logger --
+
+DECNET Event type 4.15, Adjacency up
+Event came from node 7.142 (GIDNEY), occurred 8-JAN-1985 22:46:28
+
+  Circuit DTE-0-1
+
+  Node = 7.143 (GIDDN) 
+
+.end literal
+
+Each event has an identification of the form 4.15.  The first number
+(4) is called the event class and defines which part of DECnet that
+generated the event.  In particular, 4 stands for the routing layer.
+The second number (15) is called the event type and identifies the
+particular event.  Together 4.15 means "Adjacency up, reported by the
+routing layer".
+
+Associated with most events is a DECnet entity.  A DECnet entity may
+be a node, a circuit or a line.  In this particular event, the entity
+is the DTE-0-1 circuit.  It means that the "adjacency up" was detected
+on the DTE circuit.
+
+In addition, there may be one or more lines of additional data.  For
+this event, the additional data informs us that node GIDDN was
+detected at the other end of the DTE circuit.
+
+Here is the full list of all events.  The ones TOPS-20 will generate
+are flagged with a *.  TOPS-20 can however receive and log all defined
+events.  (We will see in a moment that events can be sent to (logged
+at) other nodes.)
+
+.literal
+
+List of all events defined in DEcnet phase IV network management
+================================================================
+
+Event   Tops-20 Entity          Name
+-----   ------  ------          ----
+
+  Network management layer
+0.0     *       -               Event records lost
+0.1             Node            Automatic node counters
+0.2             Line            Automatic line counters
+0.3     *       Circuit         Automatic service
+0.4             Line            Line counters zeroed
+0.5             Node            Node counters zeroed
+0.6             Circuit         Passive loopback
+0.7     *       Circuit         Aborted service request
+0.8     *       Any             Automatic counters
+0.9     *       Any             Counters zeroed
+
+  Session control layer
+2.0             -               Local node state change
+2.1             -               Access control reject
+
+  End to end communications layer (NSP)
+3.0     *       -               Invalid message
+3.1     *       -               Invalid flow control
+3.2     *       Node            Data base reused
+
+  Routing layer
+4.0     *       -               Aged packet loss
+4.1     *       Circuit         Node unreachable packet loss
+4.2     *       Circuit         Node out-of-range packet loss
+4.3             Circuit         Oversized packet loss
+4.4     *       Circuit         Packet format error
+4.5     *       Circuit         Partial routing update loss
+4.6     *       Circuit         Verification reject
+4.7     *       Circuit         Circuit down, circuit fault
+4.8     *       Circuit         Circuit down
+4.9     *       Circuit         Circuit down, operator initiated
+4.10    *       Circuit         Circuit up
+4.11    *       Circuit         Initialization failure, line fault
+4.12    *       Circuit         Initialization failure, software fault
+4.13    *       Circuit         Initialization failure, operator fault
+4.14    *       Node            Node reachability change
+4.15    *       Circuit         Adjacency up
+4.16    *       Circuit         Adjacency rejected
+4.17            Area            Area reachability change
+4.18    *       Circuit         Adjacency down
+4.19    *       Circuit         Adjacency down, operator initiated
+
+  Data link layer
+5.0     *       Circuit         Locally initiated state change
+5.1     *       Circuit         Remotely initiated state change
+5.2             Circuit         Protocol restart received in maintenance mode
+5.3     *       Circuit         Send error threshold
+5.4     *       Circuit         Receive error threshold
+5.5     *       Circuit         Select error threshold
+5.6     *       Circuit         Block header format error
+5.7             Circuit         Selection address error
+5.8             Circuit         Streaming tributary
+5.9             Circuit         Local buffer too smAny
+5.10            Module          Restart (X.25 protocol)
+5.11            Module          State change (X.25 protocol)
+5.12            Module          Retransmit maximum exceeded
+5.13            Line            Initialization failure
+5.14            Line            Send failed
+5.15            Line            Receive failed
+5.16            Line            Collision detect check failed
+5.17            Module          DTE up (X.25)
+5.18            Module          DTE down (X.25)
+
+  Physical link layer
+6.0             Line            Data set ready transition
+6.1             Line            Ring indicator transition
+6.2             Line            Unexpected carrier transition
+6.3             Line            Memory access error
+6.4             Line            Communications interface error
+6.5             Line            Performance error
+
+.end literal
+
+.note
+All events are listed and explained in the DECnet-20 System Managers
+Guide. 
+.end note
+
+.hl1 The three logging sinks
+
+An event can be reported (logged) in three different ways.  We call
+each "a logging sink".  The three logging sinks are:
+
+.list "o"
+.list element
+LOGGING CONSOLE
+.list element
+LOGGING FILE
+.list element
+LOGGING MONITOR
+.end list
+
+The system manager controls the event logger with network management
+through NCP.  He/she can decide what sinks that are active, i.e.
+turned on.  If so desired, a single event can be logged at multiple
+sinks. The three sinks are addressed in NCP as:
+
+.literal
+
+	NCP> SET LOGGING CONSOLE  ...
+	NCP> SET LOGGING FILE ...
+	NCP> SET LOGGING MONITOR ...
+
+or if the same operation is desired on all sinks
+
+	NCP> SET KNOWN LOGGING ...
+
+.end literal
+
+Whether a sink is enabled or not is determined by the STATE parameter.
+Example: to enable the logging console do
+
+.literal
+
+	NCP> SET LOGGING CONSOLE STATE ON
+
+or to disable all logging sinks do
+
+	NCP> SET KNOWN LOGGING STATE OFF
+
+.end literal
+
+.hl2 The LOGGING CONSOLE
+
+The logging console is really the OPR program.  If this sink is
+active, then the events are formatted and sent to all running OPR's.
+A sample of the output can be seen at the top of this document.
+
+Note that if the logging console is enabled, then ALL OPR's receive a
+copy of the event message.  If you wish to disable the output at a
+certain terminal, you can 
+
+.literal
+
+	OPR> DISABLE OUTPUT-DISPLAY (OF) DECNET-EVENT-MESSAGES
+
+.end literal
+
+There is also a corresponding ENABLE command.
+
+.hl2 The LOGGING FILE
+
+The logging file is always the system error file, i.e. SERR:ERROR.SYS.
+If this sink is enabled, then a binary version of the event message is
+put into the error file.
+
+The logged events can then be retrieved with SPEAR.  Example
+retrieving network errors:
+
+.literal
+
+509. 10:45:23  DECNET Event type 3.2  Data base reused
+		    From node 7275. (RONCO)
+		    occurred 4-APR-1985 10:41:47.877
+516. 11:25:18  DECNET Event type 3.0  Invalid message
+		    From node 7275. (RONCO)
+		    occurred 4-APR-1985 10:53:46.549
+517. 11:25:18  DECNET Event type 0.0  Event records lost
+		    From node 7275. (RONCO)
+		    occurred 4-APR-1985 11:03:53.738
+535. 12:06:43  DECNET Event type 0.3  Automatic line service
+		    From node 7275. (RONCO)
+		    occurred 24-JAN-1985 17:06:26
+
+.end literal
+
+.hl2 The LOGGING MONITOR
+
+The logging monitor provides a way to either send events to a user
+program, or to write them to a file the user specifies.  In both
+cases, the binary version of the event message is used.  The format of
+the event message (the same for all DECnet implementations) is defined
+in appendix A.
+
+The destination of the logging monitor events is set with the NAME
+parameter.  Example:
+
+.literal
+
+	NCP> SET LOGGING MONITOR NAME DCN:GIDNEY-TASK-LOGMON
+
+to send the events to a user program using DECnet or
+
+	NCP> SET LOGGING MONITOR NAME PS:<OPERATOR>LOGGING-MONITOR.BIN
+
+to write the event messages to a file.
+
+.end literal
+
+.Note
+You cannot redirect the console or file by setting NAME.
+.end note
+
+.hl1 Selecting what events to report
+
+The system manager may choose what events to log for each logging
+sink.  Here are a few examples:
+
+.literal
+
+To log all events known to TOPS-20 to the logging file:
+
+	NCP> SET LOGGING FILE KNOWN EVENTS
+
+To log all routing layer events to the console:
+
+	NCP> SET LOGGING CONSOLE EVENT 4.*
+
+To log network management events 0,1,2,3,5,7,8,9 to all sinks:
+
+	NCP> SET KNOWN LOGGING EVENT 0.0-3,5,7-9
+
+The latter could also have been accomplished with the sequence:
+
+	NCP> SET KNOWN LOGGING EVENT 0.0-9
+	NCP> CLEAR KNOWN LOGGING EVENT 0.4,6
+
+.end literal
+
+Note that you can only specify one event class in each event command.
+I.e. the following command is illegal:
+
+.literal
+
+	NCP> SET LOGGING MONITOR EVENT 4.15 , 5.13
+
+.end literal
+
+If an event is not enabled at any logging sink, it is filtered (i.e.
+thrown away) by the event logger.
+
+.hl1 The SHOW LOGGING command
+
+To inspect the current status of the logging sinks, you can use the
+SHOW LOGGING command.  Example:
+
+.literal
+
+To show all information stored for the logging console:
+	NCP> SHOW LOGGING CONSOLE SUMMARY
+
+and to do the same for all sinks:
+	NCP> SHOW KNOWN LOGGING SUMMARY
+
+Here is a sample output of the first command:
+
+NCP>show logging console summary
+NCP>
+11:26:53 	NCP
+		Request # 148; Show Logging Summary Completed
+		
+		Logging = Console
+		
+		  State = On
+		
+		  Sink Node = 7.142 (GIDNEY)
+		  Events = (Source = any) 0.0-9 
+		  Events = (Source = any) 3.0-2 
+		  Events = (Source = any) 4.0-4 6-14 16-19 
+		  Events = (Source = any) 5.0-31 
+		  Events = (Source = any) 6.0-5 
+
+.end literal
+
+.hl1 Event logger and system startup
+
+You now know all the basic commands of the event logger.  For each
+logging sink, you can SET or CLEAR the STATE, NAME and EVENT
+parameters.  The event logger initializes itself with the following
+commands at startup:
+
+.literal
+
+	NCP> SET LOGGING FILE KNOWN EVENT
+	NCP> SET LOGGING FILE STATE ON
+
+.end literal
+
+That is, all events will be logged to the logging file.  If you wish
+to change this at system startup, you will have to add LOGGING
+commands to your network startup file.
+
+No events will be logged unless both the STATE is ON, and some EVENT is
+enabled for the sink.
+
+.hl1 Using the event logger
+
+If you have a fairly small and stable network, you may wish to enable
+all events for logging to file and/or console.
+
+If you have a large and dynamic network, you may find that you want to
+filter certain events.  For instance, the routing layer, when a
+level-1 router, will generate an "adjacency up" event for each node
+that comes online on the Ethernet.  If you have many systems on the
+Ethernet, and the Ethernet goes offline/online, you will get a large
+number of "adjacency up" events that may hide the more interesting
+4.7-10 events (Circuit down/up).
+
+Along the same lines, you may wish to filter event 4.14 (Node
+reachability change) if you have a large and dynamic network.
+
+If your system does have a NIA20, we recommend that you enable all
+data link layer events (5.*).  When they occur, they are typically
+caused by a NIA20 hardware anomaly.
+
+.hl1 Event records lost
+
+Event messages may be temporarily stored both in the monitor and in
+the NMLT20 program before being reported.  If there are a lot of
+events occurring at the same time, the queues may overflow and the
+consequence will be a "lost event".  The "lost event" (0.0) does not
+contain any information about what event that was lost since more than
+one may have been discarded.  It only tells you that at least one
+event was thrown away becuase of buffering problems.  If you are
+troubleshooting a problem with the help of the event logger, it may be
+important to know that some information was lost in a sequence of
+events.
+
+If you experience a lot of "lost events" you should examine your
+reports to find out what event that may be happening frequently.
+
+.hl1 Implementation details
+
+The event logger, in particular the logging console, is fairly CPU
+intensive.  You can lower the overhead by filtering more events.
+
+We would also like to draw your attention to an implementation detail.
+Assume that you want to disable all events for the logging monitor.
+You could accomplish this in two different ways:
+
+.literal
+
+	NCP> SET LOGGING CONSOLE STATE OFF
+or
+	NCP> CLEAR LOGGING CONSOLE KNOWN EVENT
+
+.end literal
+
+We recommend that you use the CLEAR command.  It will lower the
+overhead more than the SET STATE OFF command because of the way the
+event logger is implemented.
+
+.hl1 MCB events
+
+The MCB will also generate events, but since it does not have any
+logging sinks of its own, it will send its events to its KL host.  The
+MCB does not have any event database, so you cannot dynamically
+disable or enable individual events.  However, since the events will
+pass through the event filters on the KL host, you can actually
+control the MCB events in the KL instead.
+
+The MCB does not have a clock, and can therefore not include the time
+of day in the event message.  It will include the uptime which may
+help you in determining exactly when a MCB event was generated.
+
+We would like to point to a potential problem.  If the MCB is
+connected to a VMS system, the VMS system may send routing messages
+that are too large for the MCB to process.  The MCB will generate a
+4.5 ("Partial routing update loss") event and send it to the KL.  This
+may happen very frequently and will cause overhead even if you throw
+away the 4.5 events as they arrive to the KL.
+
+If this happens, we suggest that you rebuild your MCB and change the
+static event database.  If we assume that you want to disable event
+4.5, issue the following command when running NETGEN generating the
+MCB:
+
+.literal
+
+	NETGEN> PURGE LOGGING FILE EVENT 4.5
+	NETGEN> LIST LOGGING FILE EVENT
+
+.end literal
+
+.hl1 Logging to remote nodes
+
+In addition to the logging sinks on your node, you can send events to
+other remote DECnet nodes.  For instance, you may want to send all
+events from all systems to one single node that collects all the
+events in the network.  If we assume that you want to send all network
+management events to the logging console on node RONCO:, here is the
+command to do it:
+
+.literal
+
+	NCP> SET LOGGING CONSOLE EVENT 0.* SINK NODE RONCO::
+
+.end literal
+
+and the result will be that all 0.* events will be sent to the console
+on RONCO: as well as to all other sinks that are enabled.
+
+Here is a sample typeout where both a local logging monitor, and two
+remote logging monitors are enabled:
+
+.literal
+
+NCP>show logging monitor summary known sinks
+NCP>
+11:34:10 	NCP
+		Request # 156; Show Logging Summary Completed
+		
+		Logging = Monitor
+		
+		  State = On
+		  Name = GIDNEY:<OPERATOR>LOGGING-MONITOR.BIN
+		
+		  Sink Node = 7.142 (GIDNEY)
+		  Events = (Source = any) 0.0-9 
+		  Events = (Source = any) 3.0-2 
+		  Events = (Source = any) 4.0-19 
+		  Events = (Source = any) 5.0-9 13-16 
+		  Events = (Source = any) 6.0-5 
+		
+		  Sink Node = 7.107 (RONCO)
+		  Events = (Source = any) 5.0-31 
+		
+		  Sink Node = 7.52 (LATOUR)
+		  Events = (Source = any) 4.1 
+		  Events = (Source = any) 5.0-31 
+
+.end literal
+
+Note that you have to add 'KNOWN SINKS' to the SHOW command to see all
+remote sinks.
+
+.hl1 Filtering on entity ID's
+
+Associated with most events is an entity type (see table in section
+1).  You can enable or disable events depending on what entity type
+they are associated with.  For example, if you want to log event 4.7
+only on the Ethernet circuit, do:
+
+.literal
+
+	NCP> CLEAR LOGGING CONSOLE EVENT 4.7
+	NCP> SET LOGGING CONSOLE EVENT 4.7 CIRCUIT NI-0-0
+
+.end literal
+
+Event 4.7 (Circuit down) will be logged only if it is the Ethernet
+circuit that went down.
+
+Events that are sent to remote sinks may be qualified in the
+same way.  The following NCP sequence illustrates all flavours of the
+event logger:
+
+.literal
+
+NCP>set logging console state on
+NCP>set logging console event 3.0,2
+NCP>set logging console event 4.7-10 circuit NI-0-0
+NCP>set logging console event 5.* sink node ronco::
+NCP>set logging console event 4.14 node ether:: sink node latour::
+NCP>set logging console event 4.14 node kl2102:: sink node latour::
+NCP>show logging console summary known sinks
+NCP>
+11:44:09 	NCP
+		Request # 167; Show Logging Summary Completed
+		
+		Logging = Console
+		
+		  State = On
+		
+		  Sink Node = 7.142 (GIDNEY)
+		  Events = (Source = any) 3.0 2 
+		  Events = (Source Circuit = NI-0-0) 4.7-10 
+		
+		  Sink Node = 7.107 (RONCO)
+		  Events = (Source = any) 5.0-31 
+		
+		  Sink Node = 7.52 (LATOUR)
+		  Events = (Source Node = 7.124 (ETHER)) 4.14 
+		  Events = (Source Node = 7.120 (KL2102)) 4.14 
+
+.end literal
+
+.appendix Event message format
+
+The format of the event message is defined in the corporate network
+management specification.  Here is a copy of the definition:
+
+.literal
+
+   FUNCTION    SINK     EVENT    EVENT    SOURCE    EVENT     EVENT
+     CODE      FLAGS    CODE     TIME      NODE     ENTITY    DATA
+
+   where:
+
+   FUNCTION CODE (1) : B = 1, meaning event log
+
+   SINK FLAGS (1) :  BM  Are flags indicating which sinks are to  receive
+                         a copy of this event, one bit per sink.  The bit
+                         assignments are:
+
+                         Bit      Sink
+
+                          0     Console
+                          1     File
+                          2     Monitor
+
+   EVENT CODE (2) : BM Identifies the specific event as follows:
+
+                         Bits        Meaning
+
+                         0-4     Event type
+                         6-14    Event class
+
+   EVENT TIME            Is the  source  node  date  and  time  of  event
+                         processing.  Consists of:
+
+                         JULIAN   SECOND   MILLISECOND
+                         HALF DAY
+
+                         where:
+
+                         JULIAN HALF DAY (2) :  B = Number of  half  days
+                                                    since  1 Jan 1977 and
+                                                    before  9  Nov   2021
+                                                    (0-32767).        For
+                                                    example, the  morning
+                                                    of Jan 1, 1977 is 0.
+
+                         SECOND (2) :  B =          Second within current
+                                                    half day (0-43199).
+
+                         MILLISECOND (2) : B =      Millisecond    within
+                                                    current        second
+                                                    (0-999).    If    not
+                                                    supported, high order
+                                                    bit is  set,  remain-
+                                                    der  are  clear,  and
+                                                    field is not  printed
+                                                    when   formatted  for
+                                                    output.
+
+   SOURCE NODE           Identifies the source node.  It consists of:
+
+                         NODE     NODE
+                         ADDRESS  NAME
+
+                         where:
+
+   NODE ADDRESS (2) :  B = Node address
+
+   NODE NAME (I-6) :  A = Node name, 0 length, if none.
+
+   EVENT ENTITY          Identifies the entity involved in the event, as
+                         applicable.  Consists of:
+
+                         ENTITY ENTITY
+                          TYPE    ID
+
+                         where:
+
+                         ENTITY TYPE (2) :  B   Represents  the  type  of
+                                                entity.    A   -1   value
+                                                indicates no  entity.   A
+                                                value  >= 0 is the entity
+                                                type and is  followed  by
+                                                the   entity  id  in  its
+                                                usual format.
+
+   EVENT DATA (*) :  B Is event specific data, zero or more data  entries
+                       as  defined  for NICE data blocks, parameter types
+                       according to event class.
+
+.end literal

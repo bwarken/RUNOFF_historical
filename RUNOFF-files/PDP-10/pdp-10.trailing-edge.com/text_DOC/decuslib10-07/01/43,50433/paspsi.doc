@@ -1,0 +1,233 @@
+This document describes a set of routines for using the PSI system in PASCAL.
+The user should read the section on PSI in the Monitor Calls Manual before
+trying to use this facility, although this file, especially the examples,
+may give those who haven't read it some idea of the facilities, at least.
+
+To use these routines, external declarations must be included in the
+user's program.  Also, the routines themselves must be loaded with
+the program.  Currently this requires that you load the file
+AIL:PASPSI.REL with your program.
+
+Warning:  I have tried simple programs, but this is not well debugged.
+If anyone finds a use for it, please tell me what you are doing and I
+will help you, since some final debugging may be needed.
+
+Later note:  It turns out that you are far more likely to find a monitor
+bug having to do with PSI, HIBER, etc., than you are to find a bug in
+my routines.  The PSI system is rotten.  (I mean that not as a meaningless
+insult but seriously:  it is full of places that will fall in on you if
+you step on them.)
+
+
+The PSI system has a number of conditions on which an interrupt can
+occur.  These include ^C, illegal memory reference, and various
+I/O conditions (e.g. transfer done, disk full).  To establish an
+interrupt condition, three things must be done:
+  (1)	You must initialize the PSI system.  This is done with PSIINI.
+	It uses the PIINI. UUO to initialize PSI and give the monitor
+	a "vector" which will contain an entry for each condition
+	you establish.  However, initializing the PSI system does
+	not turn it on. Thus,
+  (2)	You must turn on the PSI system.  This is done with PSION.
+	It uses the PISYS. UUO to turn on PSI.  Note that this must
+	be done after the PSIINI, and that it is in a sense less
+	permanent.  That is, you may establish conditions and then
+	keep turning them on and off with PSION and PSIOFF.  PSION
+	will restore the handling of interrupts which was suspended
+	by PSIOFF.  PSIINI does a complete reinitialization (i.e.
+	it cancels all conditions).
+  (3)	Finally, you must establish the conditions on which an
+	interrupt will be taken.  This is done with PSIADD.  PSIADD
+	uses the PISYS. UUO to add the specified condition.  It also
+	takes the location of a PASCAL procedure as an argument and sets
+	things so that that procedure will be called to process the
+	interrupt.  Note that in the default case this procedure
+	is executed at interrupt level, and any other interrupts will
+	be held until it is finished.  This can be overriden, but
+	you will have to be very careful indeed if you do so.
+		PSIADD returns an "index".  This is needed as a unique
+	way to refer to the condition for purposes of cancelling it
+	(or other nefarious functions that may be added later).
+	Note that there are two different ways to cancel an interrupt
+	added by PSIADD:  PSIOFF just suspends interrupt processing
+	of all interrupts.  The interrupts are still set, and processing
+	will be resumed at the next PSION.  PSIREM(index) removes
+	the one particular interrupt condition referred to.  It is
+	as if it had never been there.  (Thus if you establish an
+	interrupt on ^C, PSIOFF causes ^C interrupts to be delayed
+	until the next PSION, but does not let ^C stop your program.
+	PSIREM would restore normal ^C behavior.)
+		I/O interrupts are a special case.  For them, you
+	specify not only the interrupt type (this would be the device,
+	I/O channel, or UDX), but also a "reason".  This might be
+	disk full, etc.  It is only possible to have one condition
+	(i.e. one index value) for a given device, but that condition
+	may specify as many reasons as you like.  When an interrupt
+	happens you will be able to find out which reason caused it.
+	To establish multiple reasons, you simply set several bits
+	in the reason argument of the PSIADD.  Do not try to do more
+	than one PSIADD for the same device, as the monitor will
+	ignore all but the first.  (To add reasons you will have to
+	do PSIREM and then PSIADD with all the reasons including the
+	new ones.)
+		Note that the monitor does not return the type
+	which caused an interrupt.  That is why we are enforcing
+	a restriction of using a separate index for each type.
+	However it when the type is an I/O device, you are told
+	which reason caused the interrupt, and we pass this information
+	on to your procedure.  (We also pass the index of the
+	condition, in case the same procedure is handling more than
+	one.)
+
+When the interrupt-handler passes control to the routine you specified,
+certain information is present in accumulators.  These will show up
+as parameters to your interrupt procedure.  Thus I recommend making
+the interrupt procedure a procedure with four parameters:
+	arg 1 - index - this is the index of the condition, as
+			returned by the PSIADD when you added it
+
+	arg 2 - PC - this is where the main program was when the
+			interrupt happened
+
+	arg 3 - reasons - This is the reason field (right half of
+			.PSVFL) from the vector.  It is useful for
+			I/O interrupts, to tell you which of the
+			enabled reasons caused the interrupt.
+	arg 4 - status - definition depends upon the interrupt.  See the
+		monitor calls manual.  This is the status word (.PSVIS)
+		from the vector when the interrupt occurred.
+
+When designing a program that will use PSI, you must constantly keep
+in mind the fact that an interrupt can occur anywhere.  Thus there can
+be subtle timing problems.  For example, if you an interrupt occurs
+while you are waiting for TTY input, and the interrupt procedure
+also asks for TTY input, it will be very hard to unscramble the input.
+I do save and restore the status of the TTY file control block around
+interrupts, but that still may give strange results.  Note that an
+interrupt processor should never use the same file as the main program,
+except for TTY.  Terrible, subtle bugs will result.
+
+The other known limitation on what you can do in interrupts has to do
+with NEW and DISPOSE.  If you don't use DISPOSE in your program, there
+is no problem.  Programs that don't use DISPOSE get a simple version of
+NEW that is designed to be reentrant.  When you use DISPOSE (even once),
+we give you a full-scale dynamic memory manager.  This memory manager is
+not reentrant.  So if you interrupt NEW or DISPOSE and do another NEW or
+DISPOSE at interrupt level, the heap will probably get corrupted.  There
+is no problem if any of the following 3 things is true:
+  - you don't use DISPOSE, because then you get a reentrant memory
+	manager.
+  - you don't use NEW or DISPOSE at interrupt level
+  - you know that an interrupt can never occur during NEW or DISPOSE
+	(e.g. you are handling floating-point overflow via interrupts,
+	since the memory manager is guaranteed not to produce floating
+	point overflows!)
+Otherwise, you will have to contrive to treat calls to NEW or DISPOSE as
+critical sections.  (Unfortunately I have not  implemented critical
+sections for you on Tops-10.  I have on Tops-20, but would need a test
+site before I could do it on Tops-10.  I have no way to test Tops-10
+interrupt handling code.)
+
+Note that there is no way to predict the lexical context in which the
+interrupt processor routine will be called.  Thus it is not possible to
+set up the lexical display correctly.  This means that such routines
+must refer only to their own local variables and variables declared at
+the outermost level of the program.  They may not refer to anything at
+an intermediate level.  This restriction cannot be enforced, but
+violating it will lead to strange results.  Note that you may often set
+a global flag to indicate that an interrupt occurred, and let the main
+program handle it when it notices.
+
+
+index _ psiadd(type,reason,procedure)
+	This is the simplest form of the PSIADD.  It adds a condition
+	whose type is specified by type.  This is either an I/O
+	device, channel, or UDX, or it is a negative number specifying
+	some non-I/O type (e.g. -3 is ^C).  For an I/O type, you
+	must also specify the reason, as explained above.  This is
+	a half word of bits.  For non-I/O types, reason must be 0.
+	Procedure should probably be a global procedure, i.e. defined
+	at the outer level of the program.
+
+index _ psiadd(type,reason,procedure,control)
+	This is the full form of PSIADD.
+	Control is for the brave soul who wants special effects
+	from the PSI system.  With it you can specify that when an
+	interrupt occurs the PSI system should be left running even
+	during processing of the interrupt.  Or you can say that it
+	should be turned off until explicitly reenabled with PSION.
+	See the Monitor Calls manual for the bits to use for these
+	things.  (Note that they should be put in the right half
+	word of control.  PSIADD will move them to the left half
+	of .PSVLF.)  Control defaults to PS.VTO, which holds all
+	interrupts until the immediate processing routine finishes.
+	(This is the procedure passed to psiadd, either your immediate
+	interrupt routine, or PSIDFR.)  This is probably the only
+	sane choice.  Note that the PSI interrupt handler is not
+	reentrant.  If you override our default and allow other
+	interrupts to happen during processing of an interrupt, the
+	interrupt handler will get confused.
+
+psion
+	As explained above, this turns on processing of interrupts.
+	It may be done before or after PSIADD.  Of course it has
+	no effect until at least one condition has been added.
+	PSION is illegal until a PSIINI has been given.
+
+psioff
+	As explained above, this suspends processing of interrupts,
+	but does not change which conditions have been added.
+
+psirem(index)
+	Removes a condition set up by PSIADD.  Frees its index
+	entry for use by someone else (since there are a limited
+	number of entries in the tables).
+
+psiclr(index)
+	Clears any pending interrupts for the condition referred
+	to by index.  The condition is still enabled (assuming
+	PSIOFF isn't in effect), you just clear it out.  I'm not
+	sure that this is useful for very much.  DEC says you might
+	use it in an interrupt level routine if it caused more interrupts
+	which you wanted to ignore.
+
+psiini
+	Must be done before any other PSI function.  If it is done
+	again in the middle of a program it will cancel all interrupts
+	and completely clear out the system.  PSION and at least one
+	PSIADD will be needed again before anything else can happen.
+
+
+
+
+A typical use of PSI is shown below.  Assume PASCAL did not tell you
+when an arithmetic exception (e.g. divide by zero) happened.  (In
+fact the runtimes go to some considerable pain to diagnose these
+arithmetic exceptions, but this is still a useful example.)  We will
+set up a trap for them and print an appropriate message.  Since you
+may get tired of seeing the same message, the interrupt is removed
+after four times.
+
+
+program psidemo;
+var index:integer;
+count:integer;
+i:integer;
+function psiadd(a,b:integer;procedure c;d:integer):integer;extern;
+procedure psiini; extern;
+procedure psion; extern;
+procedure psirem(i:integer);extern;
+procedure trapper(index,pc,reason,status:integer);
+ begin
+ count:=count+1;
+ writeln(tty,'% Arithmetic exception at user PC ',PC-1:6:O);
+ if count>3 then psirem(index);
+ end;
+begin
+psiini;
+psion;
+index:=psiadd(-10b,0,trapper,0);  %-10b is the code for arithmetic
+					exception\
+while true do i:=trunc(1.0/0.0);	%This will trigger it, since it
+					 divides by zero\
+end.

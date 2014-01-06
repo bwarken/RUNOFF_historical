@@ -1,0 +1,198 @@
+
+
+
+Coleg Prifysgol Gogledd Cymru           University College of North Wales
+Labordy Cyfrifiadurol                   Computing Laboratory
+Document: ALGOL RANDOM ACCESS I/O       Date: May 1980  Author: I. G. Jones
+
+
+
+
+
+
+   Random access input, output in ALGOL on the DEC SYSTEM 10.
+    ______ ______ ______ ______ __ _____ __ ___ ___ ______ ___
+
+
+   This document details  the  procedures  implemented  for  random  access
+   input,  output  from an algol program.The records produced being written
+   onto the disc in dump record mode.
+   Integer, real, boolean, and long real arrays may be used for  the  array
+   in the procedures DREAD and DWRITE.
+
+
+   PROCEDURE DOPEN(CH,LLI);
+   INTEGER CH;  STRING LLI;
+
+
+   This procedure is used for opening a file on channel CH of name LLI, and
+   must be the first procedure called.
+
+
+   PROCEDURE DWRITE(CH,N,B1);
+   INTEGER CH,N;
+   ARRAY B1;
+
+
+   The above procedure is used for writing ARRAY B1 as a block of  data  on
+   the  previously  opened  channel  CH, with words from 1 to N of array B1
+   where array B1 can be of any type except string.  If N is  <128  then  1
+   block  of  128  words  will be written, with words from N+1 to 128 being
+   zero, while if N>128 then enough blocks of 128 words are written  so  as
+   to  accomodate  N.  The last block being zero filled if N is not exactly
+   divisible by 128.  If the array B1 is  long  real,  2*N  words  will  be
+   written to the disc file.
+
+
+   PROCEDURE DCLOSE(CH);
+   INTEGER CH;
+
+
+   When this procedure is called, the file allocated to channel CH  is  put
+   onto  the disc if the file has been written or modified in the operation
+   following DOPEN.  If DCLOSE is omitted from your program  then  the  new
+   file is not put onto the disc.
+
+
+   PROCEDURE DREAD (CH,N,B1);
+   INTEGER CH,N;
+   ARRAY B1;
+                                      ALGOL RANDOM ACCESS I/O        Page 2
+
+
+   This procedure is complementary to DWRITE, and is used for  reading  the
+   array  B1  from 1 to N, from channel CH, where CH is allocated to a file
+   which is on disc via DOPEN.
+
+
+   PROCEDURE DRFIND(CH,N);
+   INTEGER CH,N;
+
+
+   PROCEDURE DRFIND positions the  file  on  channel  CH  at  block  N  for
+   reading.   If  this  procedure is not used, reading will take place in a
+   sequential manner from the beginning of the file.  The  file  must  have
+   been  opened  by  DOPEN before this procedure may be called.  Users must
+   take into account that a record may span more than  one  disc  block  in
+   calculating  N.   If  N is a block further than the end of the file, and
+   DREAD is called after DRFIND, then the last block on the  file  will  be
+   read,  and  no indication that N is greater than the number of blocks on
+   the file will be given.
+
+
+   PROCEDURE DWFIND(CH,N);
+   INTEGER CH,N;
+
+
+   This procedure is similar to DRFIND, except that it positions  the  file
+   for writing on channel CH at block N.
+
+
+   BOOLEAN PROCEDURE DNEW(CH);
+   INTEGER CH;
+
+
+   This is a boolean procedure which returns a value TRUE if  the  file  on
+   channel  CH  is  a  new file, and a FALSE value if one is opening an old
+   file.
+
+
+   PROCEDURE DFEOF(CH);
+   INTEGER CH;
+
+
+   This procedure positions the file on channel CH at the end of  the  file
+   for writing purposes.
+
+
+   METHOD OF USE        ______ __ ___
+
+
+   The procedures used in an algol program should be declared  as  EXTERNAL
+   in the program, and called up on execution as follows.
+   .EX <PROGRAM>,REL:DRANDM.REL/SEARCH
+
+
+   N.B.  Since people sometimes use small blocks of  data  which  they  may
+   require  to access randomly.Then it is suggested that the following type
+                                      ALGOL RANDOM ACCESS I/O        Page 3
+
+
+   of procedure should be used to buffer the  data  to  128  or  less  word
+   blocks.With a similar type of procedure being used for retrieval.
+
+
+   PROCEDURE BUFFEROUT(CH,N,A);
+   VALUE CH,N;
+   INTEGER CH,N;
+   INTEGER ARRAY A;
+   BEGIN
+
+
+   OWN INTEGER ARRAY BUFF[1:128];
+   OWN INTEGER POINTER;INTEGER J;
+   EXTERNAL PROCEDURE DWRITE;
+   FOR J:=1 UNTIL N DO
+   BUFF[J+POINTER]:=A[J];
+   POINTER:=POINTER+N;
+   IF POINTER =128-N THEN
+   BEGIN 
+   DWRITE(CH,128,BUFF);POINTER:=0;
+   END
+   END BUFFER;
+
+
+   Thus when one does a random  access  the  block  will  not  be  directly
+   accessible,  but  can be obtained using a simple procedure.  Also due to
+   the fact that a string array holds the address of strings, and  not  the
+   actual strings it is not possible to directly store the strings on disc.
+   This may be got around by changing the string, and storing in an integer
+   array as exemplified by the following program.
+
+
+   BEGIN
+   INTEGER I,J,K,L,M;
+   STRING S;
+   INTEGER ARRAY LLE[1:10];
+   EXTERNAL PROCEDURE DOPEN,DCLOSE,DWRITE;
+   DOPEN(8,"LLINYN.BUF");
+   FOR I:=1 UNTIL 5 DO
+   BEGIN
+   READ(S);
+   LLE[1]:=LENGTH(S);L:=7;
+   IF LLE[1] >45 THEN LLE[1]:=45;
+   K:=1;M:=2;
+   FOR J:=1 UNTIL LLE[1] DO
+   BEGIN
+   SFIELD(LLE[M],K,L,S.[J]);
+   K:=K+L;
+   IF K > 30 THEN
+   BEGIN
+   K:=1;M:=M+1
+   END
+   END;
+   DWRITE(8,10,LLE);
+   END;
+                                      ALGOL RANDOM ACCESS I/O        Page 4
+
+
+   DCLOSE(8)
+   END;
+
+
+   If the strings are small in length, then better efficiency in  terms  of
+   disc  storage  could be obtained by using the above procedure BUFFEROUT.
+   With a similar program being used to retrieve the strings.   (The  first
+   element of the array in the example has been used for storing the number
+   of characters in the string.)
+
+
+
+   ERRORS      ______
+
+
+   If an error is detected,
+   I.E.  A negative number is given  as  the  block  number  in  DRFIND  or
+   DWFIND,  or  a  string array is given as the array parameter in DREAD or
+   DWRITE then an  error  message  is  typed  on  you'r  terminal.Also  the
+   erroneous  operation  is abandoned and you'r program terminated. 

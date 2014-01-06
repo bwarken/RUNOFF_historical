@@ -1,0 +1,5544 @@
+
+
+
+
+
+
+
+
+
+                                The LISP Editor
+
+
+                                    Contents
+
+
+           2 CURRENT EXPRESSION, P, &, PP, EDIT CHAIN, 0, ^,
+           5 (n), (n e1, ..., em), (-n e1, ..., em), N, F, R, NX, RI,
+          10 UNDO, BK, BF, \, \P, &, --, @ (AT-SIGN),
+          13 UP, B, A, :, DELETE, MBD, XTR, UP, ..., n, -n,
+          18 0, !0, ^, NX, BK, (NX n), (BK n), !NX, (NTH n),
+          22 PATTERN MATCH, &, *ANY*, --, ==, ...,
+          24 SEARCH ALGORITHM, MAXLEVEL, UNFIND, F, (F pat n),
+          27 (F pat T), (F pat N), (F pat), FS, F=, ORF, BF, (BF pat T),
+          30 LOCATION SPECIFICATION, IF, ##, $, LC, LCL, SECOND, THIRD,
+          32 (_ pat), BELOW, NEX, (NTH $), .., MARK, _, __, \, UNFIND,
+          37 \P, S, (n), (n e1, ..., em), (-n e1, ..., em), N,
+          41 B, A, :, DELETE, INSERT, REPLACE, DELETE, ##, UPFINDFLG,
+          46 XTR, EXTRACT, MBD, EMBED, MOVE, BI, BO, LI, LO, RI, RO,
+          57 THRU, TO, R, SW, P, ?, E, I, ##, COMS, COMSQ,
+          66 IF, LP, LPQ, ORR, MACROS, M, BIND, USERMACROS,
+          71 NIL, TTY:, OK, STOP, SAVE, REPACK, MAKEFN,
+          76 UNDO, TEST, ??, !UNDO, UNBLOCK, EDITDEFAULT, EDITL,
+          81 EDITF, EDITE, EDITV, EDITP, EDITFNS, EDIT4E,
+          84 EDITFPAT, EDITFINDP
+
+
+
+               The  LISP editor  allows rapid, convenient modification
+          of list structures.   Most often it is used to edit function
+          definitions,  (often while  the function itself  is running)
+          via  the function EDITF,  e.g.,  (EDITF FOO).   However, the
+          editor can also be used to edit the value of a variable, via
+          EDITV,  to edit special properties of an atom, via EDITP, or
+          to  edit  an  arbitrary  expression,  via EDITE.   It  is an
+          important feature which allows good  on-line  interaction in
+          the UCI LISP system.
+
+               This  chapter  begins   with  a   lengthy  introduction
+          intended for the new  user.  The reference portion begins on
+          page 15.
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Introduction
+
+               Let us introduce some of the basic editor commands, and
+          give a flavor for the editor's language structure by guiding
+          the  reader through a hypothetical editing session.  Suppose
+          we are editing the following incorrect definition of APPEND
+
+                    (LAMBDA(X)
+                     Y
+                     (COND ((NUL X) Z)
+                           (T (CONS (CAR) (APPEND (CDR X Y))))))
+
+
+          We call the editor via the function EDITF:
+
+                    #(EDITF APPEND)
+                    EDIT
+                    #
+
+          The  editor responds by typing  EDIT followed by #, which is
+          the editor's ready  character,  i.e.,  it signifies that the
+          editor is ready to  accept commands.   (In other  words, all
+          lines beginning with #  were typed by the user,  the rest by
+          the editor.)
+
+               At any given moment, the editor's attention is centered
+          on some substructure of the expression  being  edited.  This
+          substructure  is called  the current  expression,  and it is
+          what the user  sees when  he gives the editor the command P,
+          for  print.   Initially,  the  current expression is the top
+          level one, i.e., the entire expression being edited.  Thus:
+
+                    #P
+                    (LAMBDA (X) Y (COND & &))
+                    #
+
+               Note  that  the editor  prints  the current expression,
+          using PRINTLEV,  to a depth of 2, i.e., sublists of sublists
+          are  printed  as  &.   The command ?  Will print the current
+          expression as though PRINTLEV was given a depth of 100.
+
+          #?
+          (LAMBDA (X) Y (COND ((NUL X) Z) (T (CONS (CAR) (APPEND (CDR
+          X Y))))))
+          #
+
+          and  the  command  PP  (for  PrettyPrint)  will  GRINDEF the
+          current expression.
+
+
+
+
+                                      2 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+               A  positive integer is interpreted by  the editor  as a
+          command to descend into the correspondingly numbered element
+          of the current expression.  Thus:
+
+                    #2
+                    #P
+                    (X)
+                    #
+
+               A  negative integer has a similar  effect, but counting
+          begins from the  end of  the current expression and proceeds
+          backward,  i.e.,  -1  refers  to  the  last  element  in the
+          expression,  -2  the next  to  the  last,  etc.   For either
+          positive  integer or  negative integer,  if there is no such
+          element,  an error occurs.  'Editor errors' are not the same
+          as 'LISP errors' ,  i.e., they never cause breaks or even go
+          through the error machinery  but  are  direct  calls  to ERR
+          indicating  that  a  command  is in some  way  faulty.  What
+          happens next depends on the context in which the command was
+          being executed.  For example, there are conditional commands
+          which  branch  on errors.   In most  situations,  though, an
+          error will  cause  the editor  to  type  the  faulty command
+          followed by a ?  And wait for more input.  In this case, the
+          editor types the faulty command followed by  a  ?,  and then
+          another #.   The current  expression is never changed when a
+          command causes an error. thus:
+
+                    #P
+                    (x)
+                    #2
+                    2  ?
+                    #1
+                    #P
+                    X
+                    #
+
+               A  phrase  of  the  form  'the  current  expression  is
+          changed' or  'the current  expression becomes'  refers  to a
+          shift in  the editor's ATTENTION,  not  to a modification of
+          the structure being edited.
+
+               When  the  user  changes  the  current   expression  by
+          descending into it,  the old current expression is not lost.
+          Instead, the editor actually operates by maintaining a chain
+          of expressions  leading to  the  current  one.   The current
+          expression is simply the last link in the chain.  Descending
+          adds the indicated  subexpression onto the end of the chain,
+          thereby making it  be the current expression.  The command 0
+
+
+
+
+                                      2 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+          is used to ascend the chain; it removes the last link of the
+          chain,  thereby  making the  previous  link  be  the current
+          expression.  Thus:
+
+                    #P
+                    X
+                    #0 P
+                    (X)
+                    #0-1 P
+                    (COND (& Z) (T &))
+                    #
+
+          Note the use  of  several commands on a  single  line in the
+          previous output.   The  editor  operates in a  line buffered
+          mode.   Thus no command  is  actually seen by the editor, or
+          executed until the line is terminated,  either by a carriage
+          return, or an escape (alt-mode).
+
+               In our editing  session,  we  will  make  the following
+          corrections to APPEND: delete Y from where it appears, add Y
+          to the end of the argument list, (These two operations could
+          be  thought  of  as one  operation,  i.e.,  move Y  from its
+          current position  to a new position,  and in fact there is a
+          MOVE command  in  the editor.   However, for the purposes of
+          this introduction,  we will confine ourselves to the simpler
+          edit commands.)  change NUL  to NULL,  change Z to  Y, add X
+          after CAR, and insert a right parenthesis following CDR X.
+
+               First we will delete Y.  By now we have forgotten where
+          we are in the function definition,  but we want to be at the
+          "top,"  so we use  the  command ^, which ascends through the
+          entire  chain of expressions to  the  top  level expression,
+          which then becomes the  current expression,  i.e., ^ removes
+          all links except the first one.
+
+                    #^ P
+                    (LAMBDA (X) Y (COND & &))
+                    #
+
+               Note that if  we  are already  at  the  top,  ^  has no
+          effect,  i.e.,  it is  a NOP.   However, 0 would generate an
+          error.   In  other words,  ^ means  "go to the top," while 0
+          means "ascend one link."
+
+
+
+
+
+
+
+
+
+                                      2 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+               The basic structure modification commands in the editor
+          are
+
+          (n)
+                                  n>1   deletes    the   corresponding
+                                  element from the current expression.
+
+          (n e1,...,em)
+                                  n,m>1 replaces  the  nth  element in
+                                  the    current    expression    with
+                                  e1,...,em.
+
+          (-n e1,...,em)
+                                  n,m>1  inserts  e1,...,em before the
+                                  nth    element    in   the   current
+                                  expression.
+
+                        Thus:
+
+                                  #P
+                                  (LAMBDA (X) Y (COND & &))
+                                  #(3)
+                                  #(2 (X Y))
+                                  #P
+                                  (LAMBDA (X Y) (COND & &))
+                                  #
+
+               All  structure  modification  done  by  the  editor  is
+          destructive,  i.e.,  the editor  uses  RPLACA  and RPLACD to
+          physically change the structure it was given.  Note that all
+          three of  the above commands  perform  their  operation with
+          respect to  the nth  element from the front  of  the current
+          expression;  the  sign of n is used  to specify  whether the
+          operation is replacement  or  insertion.   Thus, there is no
+          way to specify deletion or replacement  of  the  nth element
+          from the  end of the current expression, or insertion before
+          the  nth  element  from the end  without  counting  out that
+          element's position from  the front of the  list.  Similarly,
+          because  we  cannot  specify  insertion  after  a particular
+          element,  we  cannot  attach something  at  the  end  of the
+          current expression  using  the  above commands.  Instead, we
+          use the command N (for NCONC).  Thus we could have performed
+          the above changes instead by:
+
+
+
+
+
+
+
+
+
+                                      2 . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    #P
+                    (LAMBDA (X) Y (COND & &))
+                    #(3)
+                    #2 (N Y)
+                    #P
+                    (X Y)
+                    #^ P
+                    #(LAMBDA (X Y) (COND & &))
+                    #
+
+               Now  we are ready  to  change NUL to NULL.  Rather than
+          specify the sequence of descent commands  necessary to reach
+          NULL,  and then replace it with NULL,  i.e., 3 2 1 (1 NULL),
+          we will use F, the find command, to find NULL:
+
+                    #P
+                    (LAMBDA (X Y) (COND & &))
+                    #F NUL
+                    #P
+                    (NUL X)
+                    #(1 NULL)
+                    #0 P
+                    ((NULL X) Z)
+                    #
+
+               Note that F is  special in that it  corresponds  to TWO
+          inputs.   In  other words, F says to the editor, "treat your
+          next  command as  an  expression to  be  searched  for." The
+          search  is carried out  in  printout  order  in  the current
+          expression.   If the target expression is not found there, F
+          automatically ascends and  searches  those  portions  of the
+          higher expressions that would appear after  (in  a printout)
+          the current expression.   If  the  search is successful, the
+          new  current expression  will  be  the  structure  where the
+          expression was found, (If the search is for an atom, e.g., F
+          NUL, the current expression will be the structure containing
+          the atom.  If the search is for a list, e.g., F (NUL X), the
+          current  expression will be the list itself.)  and the chain
+          will  be  the same  as  one  resulting  from the appropriate
+          sequence  of  ascent and descent commands.  If the search is
+          not successful,  an  error  occurs,  and neither the current
+          expression nor  the  chain is  changed:  (F  is never a NOP,
+          i.e., if successful, the current expression after the search
+          will  never be the same as the current expression before the
+          search.   Thus F EXPR repeated without  intervening commands
+          that  change  the edit  chain can be used to find successive
+          instances of EXPR.)
+
+
+
+
+
+                                      2 . 6
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    #P
+                    ((NULL X) Z)
+                    #F COND P
+
+                    COND  ?
+                    #P
+                    #((NULL X) Z)
+                    #
+
+
+               Here  the search failed  to find a  COND  following the
+          current expression,  although of course a  COND  does appear
+          earlier in  the  structure.   This  last example illustrates
+          another  facet of the  error  recovery  mechanism:  to avoid
+          further  confusion when an error occurs, all commands on the
+          line beyond the one which caused the error (and all commands
+          that  may  have  been  typed  ahead  while  the  editor  was
+          computing) are forgotten.
+
+               We could also  have used the R command (for Replace) to
+          change NUL to NULL.   A command of  the form (R e1  e2) will
+          replace  all occurrances of e1 in the  current expression by
+          e2.   There must be at least one such  occurrence  or  the R
+          command will generate an error.  Let us use the R command to
+          change all Z's (even though there is only one)  in APPEND to
+          Y:
+
+                    #^ (R Z Y)
+                    #F Z
+
+                    Z  ?
+                    #PP
+                    (LAMBDA(X Y)
+                     (COND ((NULL X) Y)
+                           (T (CONS (CAR) (APPEND (CDR X Y))))))
+                    #
+
+               The next  task is to change (CAR) to (CAR X).  We could
+          do this by (R (CAR) (CAR X)),  or by:
+
+                    #F CAR
+                    #(N X)
+                    #P
+                    (CAR X)
+                    #
+
+               The expression  we  now  want  to  change  is  the next
+          expression  after  the  current  expression,  i.e.,  we  are
+
+
+
+
+                                      2 . 7
+
+
+
+
+
+
+
+
+
+
+
+
+
+          currently looking at (CAR X) in (CONS (CAR X) (APPEND (CDR X
+          Y))).  We could get to the APPEND expression by typing 0 and
+          then 3 or -1,  or we can use the command NX, which does both
+          operations:
+
+                    #P
+                    (CAR X)
+                    #NX P
+                    (APPEND (CDR X Y))
+                    #
+
+               Finally, to change (APPEND (CDR X Y))  to  (APPEND (CDR
+          X) Y), we could perform (2 (CDR X) Y), or (2 (CDR X)) and (N
+          Y),  or  2 and  (3),  deleting  the Y,  and  then  0  (N Y).
+          However, if Y were a complex expression we would not want to
+          have  to  retype it.   Instead, we could use a command which
+          effectively   inserts   and/or   removes   left   and  right
+          parentheses.  There are six of these BI, BO, LI, LO, RI, and
+          RO,  for Both In, Both Out, Left In, Left Out, Right In, and
+          Right  Out.   Of course, we will always have the same number
+          of  left  parentheses  as  right  parentheses,  because  the
+          parentheses are just a notational guide to structure that is
+          provided  by our  print program.   (Herein lies  one  of the
+          principal  advantages of a LISP oriented editor  over a text
+          editor:  unbalanced  parentheses errors  are  not possible.)
+          Thus, left in, left out, right in, and right out actually do
+          not insert or remove just one parenthesis,  but this is very
+          suggestive of what actually happens.
+
+               In  this  case,  we  would  like a right parenthesis to
+          appear following X in  (CDR  X  Y).   Therefore,  we use the
+          command  (RI  2 2),  which means  insert a right parentheses
+          after  the  second  element in the  second  element  (of the
+          current expression):
+
+                    #P
+                    (APPEND (CDR X Y))
+                    #(RI 2 2)
+                    #P
+                    (APPEND (CDR X) Y)
+                    #
+
+               We have now finished our editing, and can exit from the
+          editor,  to test  APPEND,  or we  could  test it while still
+          inside of the editor, by using the E command:
+
+                    #E (APPEND (QUOTE (A B)) (QUOTE (C D E)))
+                    (A B C D E)
+
+
+
+
+                                      2 . 8
+
+
+
+
+
+
+
+
+
+
+
+
+
+               The E  command causes the  next input  to  be  given to
+          EVAL.
+
+               We GRINDEF APPEND, and leave the editor.
+
+                    #PP
+                    (LAMBDA(X Y)
+                     (COND ((NULL X) Y)
+                           (T (CONS (CAR X) (APPEND (CDR X) Y)))))
+                    #OK
+                    APPEND
+                    *
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 9
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Commands for the New User
+
+               This  manual  is  intended  primarily  as  a  reference
+          manual,  and the  remainder of this chapter is organized and
+          presented accordingly.  While the commands introduced in the
+          previous scenario constitute  a complete set, i.e., the user
+          could perform  any and  all  editing  operations  using just
+          those commands,  there are many situations in  which knowing
+          the right command(s)  can save the user considerable effort.
+          We include here as part of the introduction a list  of those
+          commands which  are not only frequently applicable  but also
+          easy  to  use.   They  are not presented  in  any particular
+          order,  and are all discussed  in  detail  in  the reference
+          portion of the chapter.
+
+          UNDO
+                                  Undoes the last modification  to the
+                                  structure being edited, e.g., if the
+                                  user deletes the wrong element, UNDO
+                                  will  restore  it.  The availability
+                                  of   UNDO   should   give  the  user
+                                  confidence  to  experiment  with any
+                                  and  all editing commands, no matter
+                                  how complex,  because he  can always
+                                  reverse the effect of the command.
+
+          BK
+                                  Like NX, except makes the expression
+                                  immediately   before   the   current
+                                  expression become current.
+
+          BF
+                                  Backwards  Find.    Like  F,  except
+                                  searches backwards, i.e., in inverse
+                                  print order.
+
+          \
+                                  Restores the  current  expression to
+                                  the expression before the  last "big
+                                  jump",  e.g.,  a find command, an ^,
+                                  or another \.   For example,  if the
+                                  user types F COND, and then F CAR, \
+                                  would take  him  back  to  the COND.
+                                  Another \ would take him back to the
+                                  CAR.
+
+
+
+
+
+
+
+                                      2 . 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+          \P
+                                  Like \ except  it  restores the edit
+                                  chain  to its state as  of  the last
+                                  print,  either by P,  ?,  or PP.  If
+                                  the  edit chain has not been changed
+                                  since the last print, \P restores it
+                                  to  its  state  as  of  the printing
+                                  before  that one,  i.e.,  two chains
+                                  are always saved.
+
+               Thus if  the user types P followed by 3  2 1 P, \P will
+          take him back to the first P, i.e., would be equivalent to 0
+          0 0.   Another  \P would then take him back to the second P,
+          i.e.,  he can use  \P to flip  back  and  forth  between two
+          current expressions.
+
+          &,--
+                                  The search expression given to the F
+                                  or  BF command need not be a literal
+                                  S-expression.   Instead, it can be a
+                                  pattern.   The symbol &  can be used
+                                  anywhere  within  this   pattern  to
+                                  match  with  any single element of a
+                                  list,  and  -- can be used  to match
+                                  with any segment  of  a list.  Thus,
+                                  in   the  incorrect   definition  of
+                                  APPEND used earlier, F (NUL &) could
+                                  have been used  to find (NUL X), and
+                                  F (CDR --) or F (CDR & &), but not F
+                                  (CDR &), to find (CDR X Y).
+
+               Note that & and -- can be nested arbitrarily  deeply in
+          the pattern.   For  example,  if there are many places where
+          the  varaible  X  is set,  F SETQ   may not find the desired
+          expression, nor may F (SETQ X &). It may be necessary to use
+          F (SETQ X (LIST --)). However, the usual technique in such a
+          case is to pick out a unique  atom which occurs prior to the
+          desired expression and perform two F commands.  This "homing
+          in"  process seems to be  more convenient than ultra-precise
+          specification of the pattern.
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 11
+
+
+
+
+
+
+
+
+
+
+
+
+
+          @ (at-sign)
+                                  Any atom ending in @ (at-sign)  in a
+                                  pattern  will  match  with the first
+                                  atom  or  string  that  contains the
+                                  same   initial    characters.    For
+                                  example,    F    VER@    will   find
+                                  VERYLONGATOM. @ can be nested inside
+                                  of the  pattern,  e.g., F (SETQ VER@
+                                  (CONS --)).
+                                  If  the  search  is  successful, the
+                                  editor  will print = followed by the
+                                  atom which matched with  the @-atom,
+                                  e.g.,
+                                       #F (SETQ VER@ &)
+                                       =VERYLONGATOM
+                                       #
+
+
+               Frequently the user will  want  to  replace  the entire
+          current expression or insert something  before it.  In order
+          to do this using a command of the form (n e1,...,em)  or (-n
+          e1,...,em),  the user  must be above the current expression.
+          In other words,  he  would have to perform a 0 followed by a
+          command  with the  appropriate  number.   However, if he has
+          reached the current expression via an F command,  he may not
+          know what that number is.  In this case, the user would like
+          a command whose effect would be to modify the edit  chain so
+          that  the current expression became  the first element  in a
+          new,  higher  current expression.  Then he could perform the
+          desired operation via (1 e1,...,em)  or (-1  e1,...,em).  UP
+          is provided for this purpose.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 12
+
+
+
+
+
+
+
+
+
+
+
+
+
+          UP
+                                  After UP operates,  the  old current
+                                  expression is the  first  element of
+                                  the  new  current  expression.  Note
+                                  that   if  the   current  expression
+                                  happens to be the  first  element in
+                                  the next higher expression,  then UP
+                                  is   exactly   the    same   as   0.
+                                  Otherwise,   UP  modifies  the  edit
+                                  chain   so  that   the  new  current
+                                  expression  is  a  tail  (Throughout
+                                  this  chapter  'tail'  means 'proper
+                                  tail')    of    the    next   higher
+                                  expression:
+
+                                            #F APPEND
+                                            (APPEND (CDR X) Y)
+                                            #UP P
+                                            ... (APPEND & Y))
+                                            #0 P
+                                            (CONS (CAR X) (APPEND & Y))
+                                            #
+
+                                  The ...  is  used by  the  editor to
+                                  indicate that the current expression
+                                  is  a  tail  of   the   next  higher
+                                  expression  as  opposed  to being an
+                                  element (i.e., a member) of the next
+                                  higher  expression.   Note:  if  the
+                                  current  expression  is   already  a
+                                  tail, UP has no effect.
+
+          (B e1,...,em)
+                                  Inserts e1,...,em before the current
+                                  expression,  i.e.,  does  an  UP and
+                                  then a -1.
+
+          (A e1,...,em)
+                                  Inserts e1,...,em after  the current
+                                  expression,  i.e.,  does  an  UP and
+                                  then either  a  (-2 e1,...,em) or an
+                                  (N   e1,...,em),   if   the  current
+                                  expression is  the  last one  in the
+                                  next higher expression.
+
+
+
+
+
+
+
+
+                                      2 . 13
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (: e1,...,em)
+                                  Replaces   current   expression   by
+                                  e1,...,em, i.e., does an UP and then
+                                  a (1 e1,...,em).
+
+          DELETE
+                                  Deletes  current  expression,  i.e.,
+                                  equivalent to (:).
+
+               Earlier,  we  introduced  the  RI command in the APPEND
+          example.   The rest of the commands in this family:, BI, RO,
+          LI, LO,  and RO, perform similar functions and are useful in
+          certain situations.   In  addition, the commands MBD and XTR
+          can be  used  to combine the effects of several  commands of
+          the  BI-BO  family.   MBD  is  used  to  embed  the  current
+          expression  in  a  larger expression.   For example,  if the
+          current expression is  (PRINT  bigexpression),  and the user
+          wants  to replace it by (COND  (FLG (PRINT bigexpression))),
+          he can  acomplish this by (LI 1),  (-1 FLG), (LI 1), and (-1
+          COND), or by a single MBD command.
+
+               XTR  is used  to extract an expression from the current
+          expression.   For example,  extracting the  PRINT expression
+          from the above COND could be accomplished  by  (1),  (LO 1),
+          and (LO  1)  or by a single  XTR command.   The new  user is
+          encouraged to include XTR and MBD in his repertoire  as soon
+          as he is familiar with the more basic commands.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 14
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Attention Changing Commands
+
+               Commands  to  the  editor   fall  into  three  classes:
+          commands that change the  current  expression  (i.e., change
+          the  edit chain)  thereby "shifting the editor's attention,"
+          commands   that  modify  the  structure  being  edited,  and
+          miscellaneous  commands,  e.g.,  exiting  from  the  editor,
+          printing, evaluating expressions.
+               within the  context of commands that shift the editor's
+          attention, we can distinguish among (1) those commands whose
+          operation  depends  only on the structure of the edit chain,
+          e.g.,  0,  UP, NX; (2) those which depend on the contents of
+          the structure,  i.e.,  commands that  search;  and (3) those
+          commands  which  simply  restore  the  edit  chain  to  some
+          previous state,  e.g.,  \,  \P.   (1)   and  (2) can also be
+          thought of  as  local,  small steps  versus  open ended, big
+          jumps.    Commands  of  type  (1)   are   discussed  on  pp.
+          2.15-2.21;  type (2) on pp.  2.22-2.35;  and type (3) on pp.
+          2.36-2.37.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 15
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Local Attention-Changing Commands
+
+          UP
+                                  (1)  If a P  command would cause the
+                                  editor to  type  ...   before typing
+                                  the  current  expression,  i.e., the
+                                  current  expression is a tail of the
+                                  next  higher expression,  UP  has no
+                                  effect; otherwise
+                                  (2)  UP  modifies  the edit chain so
+                                  that  the  old   current  expression
+                                  (i.e.,  the one  at  the time UP was
+                                  called)  is the first element in the
+                                  new  current  expression.   (If  the
+                                  current  expression  is   the  first
+                                  element    in   the    next   higher
+                                  expression   UP  simply  does  a  0.
+                                  Otherwise UP  adds the corresponding
+                                  tail to the edit chain.
+
+               Examples:  The current expression in each case is (COND
+          ((NULL X) (RETURN Y))).
+
+                    1.      #1 P
+                            COND
+                            #UP P
+                            (COND (& &))
+
+                    2.      #-1 P
+                            ((NULL X) (RETURN Y))
+                            #UP P
+                            ... ((NULL X) (RETURN Y)))
+                            #UP P
+                            ... ((NULL X) (RETURN Y)))
+
+                    3.      #F NULL P
+                            (NULL X)
+                            #UP P
+                            ((NULL X) (RETURN Y))
+                            #UP P
+                            ... ((NULL X) (RETURN Y)))
+
+               The execution of UP is straightforward, except in those
+          cases where the current expression appears more than once in
+          the  next higher expression.   For example,  if  the current
+          expression is (A  NIL B NIL  C NIL)  and the user performs 4
+          followed by  UP,  the current expression should  then be ...
+          NIL C NIL.)  UP can  determine which tail is the correct one
+
+
+
+
+                                      2 . 16
+
+
+
+
+
+
+
+
+
+
+
+
+
+          because the commands that  descend save  the last tail on an
+          internal editor variable, LASTAIL.  Thus after the 4 command
+          is executed,  LASTAIL is (NIL C NIL).  When UP is called, it
+          first determines if the current expression is a tail  of the
+          next  higher  expression.    If   it  is,  UP  is  finished.
+          Otherwise, UP computes
+          (MEMB current-expression next-higher-expression) to obtain a
+          tail  beginning with  the  current expression.  (The current
+          expression  should always be either a tail or an  element of
+          the next  higher expression.   If it is neither, for example
+          the user has directly (and incorrectly) manipulated the edit
+          chain,  UP  generates  an  error.)  If  there  are  no other
+          instances  of  the  current-expression  in  the  next higher
+          expression, this tail is the correct one.  Otherwise UP uses
+          LASTAIL to select the correct tail.   (Occasionally the user
+          can get  the  edit chain  into  a state where LASTAIL cannot
+          resolve  the  ambiguity,  for  example  if  there  were  two
+          non-atomic structures in  the same expression that  were EQ,
+          and the user descended more than one level into one  of them
+          and then tried to come back out using UP.   In this case, UP
+          selects the first tail and prints LOCATION UNCERTAIN to warn
+          the user.   Of course,  we  could  have  solved this problem
+          completely in our implementation  by saving  at each descent
+          both  elements and tails.   However,  this would be a costly
+          solution to a  situation that arises infrequently,  and when
+          it  does,  has no detrimental effects.  The LASTAIL solution
+          is cheap and resolves 99% of the ambiguities.
+
+          n (n>0)
+                                  Adds the nth element of  the current
+                                  expression to the front of  the edit
+                                  chain,  thereby making it be the new
+                                  current  expression.   Sets  LASTAIL
+                                  for use  by UP.   Generates an error
+                                  if the current expression  is  not a
+                                  list   that  contains   at  least  n
+                                  elements.
+
+          -n (n>0)
+                                  Adds the nth element from the end of
+                                  the current expression to  the front
+                                  of the edit chain, thereby making it
+                                  be the new current expression.  Sets
+                                  LASTAIL for use by UP.  Generates an
+                                  error if  the  current expression is
+                                  not  a list that contains at least n
+                                  elements.
+
+
+
+
+
+                                      2 . 17
+
+
+
+
+
+
+
+
+
+
+
+
+
+          0
+                                  Sets  edit  chain  to  CDR  of  edit
+                                  chain,   thereby  making   the  next
+                                  higher expression be the new correct
+                                  expression.   Generates an  error if
+                                  there is no higher expression, i.e.,
+                                  CDR of edit chain is NIL.
+
+          Note that 0 usually  corresponds to going  back to  the next
+          higher  left parenthesis,  but not  always.  For example, if
+          the current expression  is (A B  C D E F  G),  and  the user
+          performs
+
+                    # UP P
+                    ... C D E F G)
+                    #3 UP P
+                    ... E F G)
+                    #0 P
+                    ... C D E F G)
+
+               If the intention  is to go back to the next higher left
+          parenthesis,   regardless  of  any  intervening  tails,  the
+          command !0 can be used.  (!0  is pronounced bang-zero.)
+
+          !0
+                                  Does repeated 0's until it reaches a
+                                  point where  the  current expression
+                                  is  not  a  tail  of the next higher
+                                  expression,  i.e.,  always goes back
+                                  to the next higher left parenthesis.
+
+          ^
+                                  Sets  edit  chain  to  LAST  of edit
+                                  chain,  thereby making the top level
+                                  expression     be     the    current
+                                  expression.    Never   generates  an
+                                  error.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 18
+
+
+
+
+
+
+
+
+
+
+
+
+
+          NX
+                                  Effectively does an UP followed by a
+                                  2,   (Both  NX  and  BK  operate  by
+                                  performing   a  !0  followed  by  an
+                                  appropriate   number,   i.e.   There
+                                  won't be an extra tail above the new
+                                  current expression,  as  there would
+                                  be if NX operated  by  performing an
+                                  UP followed by a 2.)  thereby making
+                                  the current expression  be  the next
+                                  expression.   Generates  an error if
+                                  the  current  expression is the last
+                                  one   in  a  list.    (However,  !NX
+                                  described  below  will  handle  this
+                                  case.)
+
+          BK
+                                  Makes the current expression  be the
+                                  previous   expression  in  the  next
+                                  higher   expression.   Generates  an
+                                  error  if the current  expression is
+                                  the first expression in a list.
+
+          For example,  if the current  expression  is (COND ((NULL X)
+          (RETURN Y)))
+
+                  #F RETURN P
+                  (RETURN Y)
+                  #BK P
+                  (NULL X)
+
+          (NX n) n>0
+                                  Equivalent  to n NX commands, except
+                                  if an error occurs,  the  edit chain
+                                  is not changed.
+
+          (BK n) n>0
+                                  Equivalent to n BK  commands, except
+                                  if an error  occurs,  the edit chain
+                                  is not changed.
+
+          Note: (NX -n) is equivalent to (BK n), and vice versa.
+
+
+
+
+
+
+
+
+
+
+                                      2 . 19
+
+
+
+
+
+
+
+
+
+
+
+
+
+          !NX
+                                  Makes current expression be the next
+                                  expression at a higher  level, i.e.,
+                                  goes  through  any  number  of right
+                                  parentheses  to  get  to   the  next
+                                  expression.
+
+          For example:
+
+                    #PP
+                    (PROG (UF)
+                          (SETQ UF L)
+                     LP   (COND ((NULL (SETQ L (CDR L))) (ERR NIL))
+                                ((NULL (CDR (MEMQ# (CAR L) (CADR L))))
+                                 (GO LP)))
+                          (EDITCOM (QUOTE NX))
+                          (SETQ UNFIND UF)
+                          (RETURN L))
+                    #F CDR P
+                    (CDR L)
+                    #NX
+
+                    NX  ?
+                    #!NX P
+                    (ERR NIL)
+                    #NX P
+                    ((NULL &) (GO LP))
+                    #!NX P
+                    (EDITCOM (QUOTE NX))
+                    #
+
+               !NX  operates by doing  0's until  it  reaches  a stage
+          where the current  expression  is not the last expression in
+          the next higher expression,  and then does  a  NX.  Thus !NX
+          always   goes   through  at   least   one   unmatched  right
+          parenthesis,  and the new current expression is always  on a
+          different level,  i.e.,  !NX and NX always produce different
+          results.  For example using the previous current expression:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 20
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                  #F CAR P
+                                  (CAR L)
+                                  #!NX P
+                                  (GO LP)
+                                  #\P P
+                                  (CAR L)
+                                  #NX P
+                                  (CADR L)
+                                  #
+
+          (NTH n) n>0
+                                  Equivalent  to  n  followed  by  UP,
+                                  i.e.,  causes the list starting with
+                                  the  nth  element  of   the  current
+                                  expression.   ((NTH  1)  is  a NOP.)
+                                  Causes    an   error    if   current
+                                  expression does not have  at least n
+                                  elements.
+
+          A  generalized form  of NTH using location specifications is
+          described on page 2.34.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 21
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Commands That Search
+
+               All of  the  editor commands that  search use  the same
+          pattern matching routine.  (This routine is available to the
+          user directly, and is described later in this chapter in the
+          section on "Editor Functions.")  We will therefore begin our
+          discussion  of searching  by  describing  the  pattern match
+          mechanism.  A pattern PAT matches with X if
+
+                  1.  PAT is EQ to X.
+                  2.  PAT is &.
+                  3.  PAT is a number and EQUAL to X.
+                  4.  If (CAR pat)  is the atom *ANY*,  (CDR pat) is a
+                      list of patterns, and PAT  matches X if and only
+                      if one of the patterns on (CDR pat) matches X.
+                  5.  If PAT is a literal atom or string, and (NTHCHAR
+                      pat -1)  is @, then PAT matches with any literal
+                      atom  or  string  which  has  the  same  initial
+                      characters  as  PAT,  e.g.   VER@  matches  with
+                      VERYLONGATOM, as well as "VERYLONGSTRING".
+                  6.  If (CAR pat) is the atom --, PAT matches X if
+                          A.  (CDR pat)=NIL, i.e.  PAT=(--),
+                                e.g.,  (A --)  matches (A) (A B C) and
+                                (A .  B)
+                              In other words, -- can match any tail of
+                              a list.
+                          B.  (CDR pat) matches with some tail of X,
+                                e.g.   (A -- (&)) will match with (A B
+                                C (D)),  but not (A  B C D), or (A B C
+                                (D)  E).  However, note that (A -- (&)
+                                --) will match with (A B C (D) E).
+                              In   other  words,  --  will  match  any
+                              interior segment of a list.
+                  7.  If  (CAR pat)  is the atom  ==, PAT matches X if
+                      and only if (CDR pat) is EQ to X.  (This pattern
+                      is for use by programs that call the editor as a
+                      subroutine, since any non-atomic expression in a
+                      command type in by the user obviously  cannot be
+                      EQ to existing structure.)
+                  8.  Otherwise if X is a list,  PAT matches X if (CAR
+                      pat) matches (CAR x), and (CDR pat) matches (CDR
+                      x).
+
+               When  searching, the pattern matching routine is called
+          only to match with elements  in  the  structure,  unless the
+          pattern begins with :::, in which case CDR of the pattern is
+          matched against tails  in the structure.  (In this case, the
+          tail  does not have to be a proper tail,  e.g.   (:::  A --)
+
+
+
+
+                                      2 . 22
+
+
+
+
+
+
+
+
+
+
+
+
+
+          will  match with the  element (A B C) as well as with CDR of
+          (X A B C),  since (A B C) is a tail of (A B C).) Thus if the
+          current expressiion is (A B C (B C)),
+
+                  #F (B --)
+                  #P
+                  (B C)
+                  #0 F (::: B --)
+                  #P
+                  ... B C (B C))
+                  #F (::: B --)
+                  #P
+                  (B C)
+                  #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 23
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Search Algorithm
+
+               Searching  begins  with  the  current   expression  and
+          proceeds in print order.   Searching usually means  find the
+          next instance of this pattern,  and consequently a  match is
+          not  attempted  that would  leave the edit  chain unchanged.
+          (However,  there is  a version of the find command which can
+          succeed and leave the current expression unchanged.) At each
+          step, the pattern is matched against the next element in the
+          expression  currently  being  searched,  unless  the pattern
+          begins  with :::  in which case  it  is matched  against the
+          corresponding  tail   of   the   expression.    (EQ  pattern
+          tail-of-expression)=T also indicates  a successful match, so
+          that a  search  for  FOO  will find the FOO in (FIE .  FOO).
+          The  only exception to this occurs when PATTERN=NIL, e.g., F
+          NIL.  In this  case,  the pattern will not match with a null
+          tail (since most lists end in NIL) but will match with a NIL
+          element.
+
+               If the match is not successful, the search operation is
+          recursive  first  in the CAR  direction  and then in the CDR
+          direction, i.e., if the element under examination is a list,
+          the  search  descends into that  list  before  attempting to
+          match with  other elements  (or  tails)  at the  same level.
+          (There  is also a  version  of  the  find command which only
+          attempts matches at the top level of the current expression,
+          i.e.,  does  not descend  into elements, or ascend to higher
+          expressions.)
+
+               However,  at  no point is  the total recursive depth of
+          the search  (sum of number of CARs and CDRs  descended into)
+          allowed to exceed  the value  of the variable  MAXLEVEL.  At
+          that point, the search of that element or tail is abandoned,
+          exactly as  though the element  or tail had  been completely
+          searched without finding  a  match, and the search continues
+          with the next element or  tail for which the recursive depth
+          is below MAXLEVEL.   This feature is  designed to enable the
+          user to search circular list structures (by setting MAXLEVEL
+          small),   as  well  as  protecting  him   from  accidentally
+          encountering  a  circular  list  structure  in the course of
+          normal editing.   MAXLEVEL is initially set  to  300.   If a
+          successful match is not found in the current expression, the
+          search automatically ascends to the next  higher expression,
+          and continues searching there on the  next  expression after
+          the expression it  just  finished  searching.   If  there is
+          none,  it  ascends again, etc.  This process continues until
+          the entire edit chain has been searched,  at which point the
+          search fails,  and  an  error  is generated.   If the search
+
+
+
+
+                                      2 . 24
+
+
+
+
+
+
+
+
+
+
+
+
+
+          fails  the  edit  chain is  not  changed (nor are any CONSes
+          performed.)
+
+               If  the  search is successful,  i.e.,  an expression is
+          found that the pattern matches, the edit chain is set to the
+          value it would have had had the user reached that expression
+          via a sequence of integer commands.
+
+               If  the expression that matched  was a list, it will be
+          the final link  in  the edit chain,  i.e.,  the  new current
+          expression.   If  the expression that matched is not a list,
+          e.g.,  is an atom,  the current expression  will be the tail
+          beginning with that atom, (Except for situations where match
+          is with  Y in (X .  Y), Y atomic and not NIL.  In this case,
+          the  current expression will  be (X .   Y).) i.e., that atom
+          will be the first element in the new current expression.  In
+          other words,  the  search  effectively  does an UP.  (Unless
+          UPFINDFLG=NIL (initially set  to  T).   For  discussion, see
+          page 2.45).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 25
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Search Commands
+
+               All of the commands below set LASTAIL  for  use  by UP,
+          set UNFIND  for use by \  (p.  2.36),  And do not change the
+          edit chain or perform any CONSes if they are unsuccessful or
+          aborted.
+
+          F pattern
+                                  i.e.,  two commands:  the  F informs
+                                  the editor  that the next command is
+                                  to  be  interpreted  as  a  pattern.
+                                  This is the most  common  and useful
+                                  form  of   the   find  command.   If
+                                  successful,  the  edit  chain always
+                                  changes,  i.e., F pattern means find
+                                  the next instance of PATTERN.
+
+                                  If (MEMB pattern current-expression)
+                                  is true,  F does not proceed  with a
+                                  full recursive search.
+
+                                  If  the value of the MEMB is  NIL, F
+                                  invokes    the    search   algorithm
+                                  described earlier.
+
+               Thus if the current expression  were (PROG NIL LP (COND
+          (--(GO  LP1)))  ...   LP1  ...),  F LP1  would find the prog
+          label,  not the LP1 inside of the GO expression, even though
+          the latter appears  first  (in print  order)  in the current
+          expression.   Note  that  1  (making  the  atom PROG  be the
+          current expression),  followed by F LP1 would find the first
+          LP1.
+
+          (F pattern N)
+                                  Same as F  pattern,  i.e., finds the
+                                  next instance of pattern, except the
+                                  MEMB  check  of  F  pattern  is  not
+                                  performed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 26
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (F pattern T)
+                                  Similar  to  F  pattern,  except may
+                                  succeed without changing edit chain,
+                                  and does not perform the MEMB check.
+
+               Thus if the current expression  is  (COND  ..),  F COND
+          will look  for the  next  COND,  but  (F COND  T) will 'stay
+          here'.
+
+          (F pattern n) n>0
+                                  Finds  the  nth  place  that pattern
+                                  matches.   Equivalent to  (F pattern
+                                  T)   followed   by   (F  pattern  N)
+                                  repeated  n-1   times.    Each  time
+                                  PATTERN successfully  matches,  n is
+                                  decremented  by  1,  and  the search
+                                  continues,  until n reaches 0.  Note
+                                  that  the  pattern  does not have to
+                                  match with n  identical expressions;
+                                  it  just has to match N times.  Thus
+                                  if the current  expression  is (FOO1
+                                  FOO2  FOO3),  (F F00@  3)  will find
+                                  FOO3.
+
+                                  If   the   pattern  does  not  match
+                                  successfully  N  times,  an error is
+                                  generated  and  the  edit  chain  is
+                                  unchanged  (even   if   the  PATTERN
+                                  matched n-1 times).
+
+          (F pattern) or
+          (F pattern NIL)
+                                  Only  matches  with  elements at the
+                                  top level of the current expression,
+                                  i.e.,  the search  will  not descend
+                                  into  the  current  expression,  nor
+                                  will it go  outside  of  the current
+                                  expression.    May  succeed  without
+                                  changing edit chain.
+
+               For example, if the current expression is
+          (PROG NIL (SETQ X (COND & &)) (COND &) ...)
+          F (COND --)  will find  the COND inside the SETQ, whereas (F
+          (COND --))  will find the  top  level COND, i.e., the second
+          one.
+
+
+
+
+
+
+
+                                      2 . 27
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (FS pattern[1] ...  pattern[n])
+                                  Equivalent  to F pattern[1] followed
+                                  by F  pattern[2] ...   followed by F
+                                  pattern  n,  so  that if F pattern m
+                                  fails,  edit chain is left  at place
+                                  pattern m-1 matched.
+
+          (F= expression x)
+                                  Equivalent to (F  (== .  Expression)
+                                  x),  i.e.,  searches for a structure
+                                  EQ to expression, see p.  2.22.
+
+          (ORF pattern[1] ...  pattern[n])
+                                  Equivalent  to  (F (*ANY* pattern[1]
+                                  ...   pattern[n]) N), i.e., searches
+                                  for an expression that is matched by
+                                  either     pattern[1]     or     ...
+                                  pattern[n].  See p.  2.22.
+
+          BF pattern
+                                  Backwards Find.  Searches in reverse
+                                  print    order,    beginning    with
+                                  expression  immediately  before  the
+                                  current   expression   (unless   the
+                                  current expression is the  top level
+                                  expression,   in   which   case   BF
+                                  searches the  entire  expression, in
+                                  reverse order.)
+
+                                  BF  uses  the  same   pattern  match
+                                  routine  as  F,   and  MAXLEVEL  and
+                                  UPFINDFLG have  the same effect, but
+                                  the searching begins  at the  end of
+                                  each list,  and  descends  into each
+                                  element before  attempting  to match
+                                  that element.   If unsuccessful, the
+                                  search  continues   with   the  next
+                                  previous  element,  etc.,  until the
+                                  front  of the  list  is  reached, at
+                                  which point BF ascends and backs up,
+                                  etc.
+
+               For example, if the current expression is
+          (PROG NIL (SETQ X (SETQ Y (LIST Z))) (COND ((SETQ W --) --)) --)
+          F  LIST    followed  by  BF  SETQ  will  leave  the  current
+          expression as (SETQ Y (LIST Z)),  as will F COND followed by
+          BF SETQ
+
+
+
+
+
+                                      2 . 28
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (BF pattern T)
+                                  Search   always   includes   current
+                                  expression,  i.e.,  starts at end of
+                                  current    expression    and   works
+                                  backward, then ascends and backs up,
+                                  etc.
+
+               Thus in the previous example,  where F COND followed by
+          BF SETQ found (SETQ Y (LIST Z)), F COND followed by (BF SETQ
+          T) would find the (SETQ W --) expression.
+
+          (BF pattern)            Same as BF pattern.
+          (BF pattern NIL)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 29
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Location Specification
+
+               Many of the more sophisticated commands described later
+          in  this chapter use  a  more general  method  of specifying
+          position  called  a   LOCATION  SPECIFICATION.   A  LOCATION
+          SPECIFICATION is a list of edit  commands  that are executed
+          in the  normal  fashion  with  two  exceptions.   First, all
+          commands  not  recognized by the  editor are  interpreted as
+          though they had been preceded by F.  (Normally such commands
+          would cause errors.) For example, the location specification
+          (COND 2 3)  specifies the 3rd element in the first clause of
+          the  next COND.   (Note that the  user could always write (F
+          COND 2  3) for (COND 2 3) if he were not sure whether or not
+          COND was the name of an atomic command.)
+
+               Secondly,  if an error occurs  while  evaluating one of
+          the commands  in  the  location  specification, and the edit
+          chain had been changed,  i.e., was not the same as it was at
+          the   beginning   of   that   execution   of   the  location
+          specification,  the  location operation  will  continue.  In
+          other  words,  the  location operation keeps going unless it
+          reaches  a  state where  it detects that it is 'looping', at
+          which point it  gives  up.   Thus,  if  (COND  2 3) is being
+          located,  and  the  first clause  of the next COND contained
+          only two elements,  the  execution  of  the command  3 would
+          cause  an error.   The search would then continue by looking
+          for the next  COND.   However, if a point were reached where
+          there  were  no further CONDs, then the first command, COND,
+          would  cause  the error;  the edit chain would not have been
+          changed,  and so  the entire  location operation would fail,
+          and cause an error.
+
+               The IF  command and the ##  function provide  a  way of
+          using  in  location   specifications   arbitrary  predicates
+          applied  to elements in the current expression.   IF  and ##
+          will be described in detail later in the chapter, along with
+          examples ilustrating their use in location specifications.
+
+               Throughout this chapter,  the  meta-symbol $ is used to
+          denote  a  location  specification.   Thus  $  is a  list of
+          commands interpreted as described  above.   $   Can  also be
+          atomic, in which case it is interpreted as (LIST $).
+
+
+
+
+
+
+
+
+
+
+                                      2 . 30
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (LC .  $)
+                                  Provides   a   way   of   explicitly
+                                  invoking   the  location  operation,
+                                  e.g.  (LC COND 2 3) will perform the
+                                  search described above.
+
+          (LCL .  $)
+                                  Same as LC except search is confined
+                                  to  current  expression,  i.e.,  the
+                                  edit  chain  is  rebound  during the
+                                  search so  it looks as if the editor
+                                  were  called  on  just  the  current
+                                  expression.   For example, to find a
+                                  COND containing a  RETURN, one might
+                                  use the location specification (COND
+                                  (LCL  RETURN)  \)  where the \ would
+                                  reverse   the  effects  of  the  LCL
+                                  command,  and make the final current
+                                  expression be the COND.
+
+          (SECOND .  $)
+                                  Same  as  (LC  .   $)   Followed  by
+                                  another  (LC  .   $)  Except that if
+                                  the first succeeds and second fails,
+                                  no change is made to the edit chain.
+
+          (THIRD .  $)
+                                  Similar to second.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 31
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (_ pattern)
+                                  Ascends the edit chain looking for a
+                                  link which matches PATTERN. in other
+                                  words,  it keeps doing  0's until it
+                                  gets  to   a  specified  point.   If
+                                  PATTERN  is  atomic,  it  is matched
+                                  with the first element of each link,
+                                  otherwise with the entire link.  (If
+                                  pattern   is   of   the   form   (IF
+                                  expression), EXPRESSION is evaluated
+                                  at each link,  and if  its  value is
+                                  NIL,  or  the  evaluation  causes an
+                                  error, the ascent continues.)
+          For example:
+
+                      #PP
+                      (PROG NIL
+                            (COND ((NULL (SETQ L (CDR L)))
+                                   (COND (FLG (RETURN L))))
+                                  ((NULL (CDR (MEMB (CAR L (CADR L)))))
+                                   (GO LP))))
+                      #F CADR
+                      #(_ COND)
+                      #P
+                      (COND (& &) (& &))
+                      #
+
+               Note that this command differs from BF in that  it does
+          not  search inside of each link, it simply ascends.  Thus in
+          the  above  example,  F CADR followed by BF COND  would find
+          (COND (FLG (RETURN L))), not the higher COND.
+
+                                  If no match is  found,  an  error is
+                                  generated  and  the  edit  chain  is
+                                  unchanged.
+
+          (BELOW com x)
+                                  Ascends the edit chain looking for a
+                                  link  specified by COM,  and stops x
+                                  links below that,  i.e.  BELOW keeps
+                                  doing   0's   until  it  gets  to  a
+                                  specified point,  and then backs off
+                                  N  0's.    (X  is  evaluated,  e.g.,
+                                  (BELOW com (*PLUS X Y)))
+
+
+
+
+
+
+
+
+                                      2 . 32
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (BELOW com)
+                                  Same as (BELOW com 1)
+
+          For  example,  (BELOW  COND)  will  cause  the  COND  clause
+          containing the  current expression to become the new current
+          expression.   Thus  if the  current  expression is  as shown
+          above,  F CADR followed  by  (BELOW  COND) will make the new
+          expression be ([NULL (CDR (FMEMB (CAR L)  CADR L]  (GO LP)),
+          and is therefore equivalent to 0 0 0 0.
+
+                                  BELOW  operates  by evaluating X and
+                                  then executing COM,  or  (_  com) if
+                                  COM   is   not   a  recognized  edit
+                                  command, and measuring the length of
+                                  the  edit  chain  at that point.  If
+                                  that length is M and  the  length of
+                                  the  current edit chain  is  N, then
+                                  BELOW ascends n-m-y links where Y is
+                                  the value of X.   Generates an error
+                                  if COM  causes  an  error,  i.e., it
+                                  can't find the  higher  link,  or if
+                                  n-m-y is negative.
+
+               The BELOW command is useful for locating a substructure
+          by specifying something it contains.   For  example, suppose
+          the user is editing a  list of lists,  and wants  to  find a
+          sublist  that contains  a  FOO  (at  any  depth).  He simply
+          executes F FOO (BELOW \).
+
+          (NEX x)
+                                  Same as (BELOW x) followed by NX.
+
+          For example, if the user is deep inside of a SELECTQ clause,
+          he can advance to the next clause with (NEX SELECTQ).
+
+          NEX
+                                  Same as (NEX _).
+
+               The  atomic form of NEX is useful  if the user  will be
+          performing  repeated  executions  of  (NEX  x).   By  simply
+          MARKing (see p.  2.36)  The chain corresponding to X, he can
+          use NEX to step through the sublists.
+
+
+
+
+
+
+
+
+
+
+                                      2 . 33
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (NTH $)
+                                  Generalized       NTH       command.
+                                  Effectively  performs  (LCL  .   $),
+                                  Followed  by  (BELOW \), followed by
+                                  UP.
+
+          In other words,  NTH locates $, using a search restricted to
+          the current  expression,  and  then  backs up to the current
+          level,  where  the  new current expression is the tail whose
+          first element contains,  however deeply, the expression that
+          was the terminus of the location operation.  For example:
+
+           #P
+           (PROG (& &) LP (COND & &) (EDITCOM &) (SETQ UNFIND UF) (RETURN L))
+           #(NTH UF)
+           #P
+           ... (SETQ UNFIND UF) (RETURN L))
+           #
+
+                                  If the search  is  unsuccessful, NTH
+                                  generates  an  error  and  the  edit
+                                  chain is not changed.
+
+          Note that (NTH n)  is just a special case of (NTH $), and in
+          fact, no special check is made for $ a number; both commands
+          are executed identically.
+
+          (pattern :: .  $)
+                                  E.g.,  (COND  ::  RETURN).   Finds a
+                                  COND that contains a RETURN,  at any
+                                  depth.  Equivalent to (F pattern N),
+                                  (LCL . $) followed by (_ pattern).
+
+               For example,  if  the  current expression  is (PROG NIL
+          (COND ((NULL L) (COND (FLG (RETURN L))))) --), then (COND ::
+          RETURN)  will make (COND  (FLG  (RETURN L)))  be the current
+          expression.   Note  that it is the  innermost  COND  that is
+          found,  because  this  is  the  first  COND encountered when
+          ascending from  the  RETURN.  In other words, (pattern :: $)
+          is not equivalent to (F pattern N),  followed by  (LCL  . $)
+          followed by \.
+
+               Note that $ is  a location  specification,  not  just a
+          pattern.   Thus (RETURN :: COND 2 3) can be used to find the
+          RETURN which contains a COND whose first clause contains (at
+          least)  three elements.   Note also that since $ permits any
+          edit command,  the user can write commands of the form (COND
+          ::  (RETURN :: COND)), which will locate the first COND that
+
+
+
+
+                                      2 . 34
+
+
+
+
+
+
+
+
+
+
+
+
+
+          contains a RETURN that contains a COND.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 35
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Commands That Save and Restore the Edit Chain
+
+               Three facilities are  available for saving  the current
+          edit chain  and later retrieving it.  The commands are MARK,
+          which marks  the current chain for future reference,  _, (An
+          atomic command;  do  not  confuse  with  the list command (_
+          pattern).) which returns to the last mark without destroying
+          it,  and __,  which returns to the last mark and also erases
+          it.
+
+          MARK
+                                  Adds  the current edit chain  to the
+                                  front of the list MARKLIST.
+
+          _
+                                  Makes  the  new  edit  chain be (CAR
+                                  MARKLIST).   Generates  an  error if
+                                  MARKLIST is NIL, i.e., no MARKS have
+                                  been  performed,  or  all  have been
+                                  erased.
+
+          __
+                                  Similar  to  _  but  also erases the
+                                  MARK,  i.e.,  performs (SETQ MARKLST
+                                  (CDR MARKLST)).
+
+               If the user did not prepare in advance for returning to
+          a particular edit chain,  he may still be  able to return to
+          that chain with a single command by using \ or \P.
+
+          \
+                                  Makes the edit chain be the value of
+                                  UNFIND.    Generates   an  error  if
+                                  UNFIND=NIL.
+
+               UNFIND is set to the current edit chain by each command
+          that  makes  a "big  jump",  i.e.,  a  command  that usually
+          performs more than  a single ascent or descent, namely ^, _,
+          __,  !NX,  all commands that involve a search,  e.g., F, LC,
+          ::,  BELOW,  et  al and \  and  \P themselves.  (Except that
+          UNFIND is not reset when the current edit chain  is  the top
+          level expression, since this could always be returned to via
+          the ^ command.)
+
+               For example,  if the user types F COND, and then F CAR,
+          \ would take him back to the COND.  Another \ would take him
+          back to the CAR, etc.
+
+
+
+
+
+                                      2 . 36
+
+
+
+
+
+
+
+
+
+
+
+
+
+          \P
+                                  Restores the edit chain to its state
+                                  as  of  the  last  print  operation,
+                                  i.e.,  P,  ?,  or  PP.   If the edit
+                                  chain has not changed since the last
+                                  printing,  \P  restores  it  to  its
+                                  state as of the printing before that
+                                  one,  i.e.,  two  chains  are always
+                                  saved.
+
+               For  example,  if the user types P followed by 3 2 1 P,
+          \P will return to the first P,  i.e., would be equivalent to
+          0 0 0.   (Note  that if  the user  had typed P followed by F
+          COND,  he could use either \ or \P to return to the P, i.e.,
+          the  action of \  and \P are independent.)  another \P would
+          then take him back to the second P, i.e., the user could use
+          \P to flip back and forth between the two edit chains.
+
+          (S var .  $)
+                                  Sets var (using SETQ) to the current
+                                  expression  after  performing  (LC .
+                                  $).  Edit chain is not changed.
+
+               Thus (S FOO) will set FOO to the current expression, (S
+          FOO  -1 1)  will set FOO  to  the first  element in the last
+          element of the current expression.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 37
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Commands That Modify Structure
+
+               The  basic  structure  modifications  commands  in  the
+          editor are:
+
+          (n)
+                                  n>1   deletes    the   corresponding
+                                  element from the current expression.
+
+          (n e1 ...  em)
+                                  n,m>1  replaces  the  nth element in
+                                  the  current expression  with e1 ...
+                                  em.
+
+          (-n e1 ...  em)
+                                  n,m>1 inserts e1  ...  em before the
+                                  n element in the current expression.
+
+          (N e1 ...  em)
+                                  m>1 attaches e1  ...   em at the end
+                                  of the current expression.
+
+
+          As mentioned earlier:
+
+          All structure modificaton done by the editor is destructive,
+          i.e.,  the  editor  uses  RPLACA    and RPLACD to physically
+          change the structure it was given.
+
+               However,  all structure  modification  is undoable, see
+          UNDO p.  2.76.
+
+               All  of  the  above  commands  generate  errors  if the
+          current  expression is not a  list,  or  in the case  of the
+          first three commands,  if the  list  contains  fewer  than n
+          elements.   In  addition,  the command (1), i.e., delete the
+          first element,  will cause an  error  if  there  is only one
+          element,  since deleting  the first  element must be done by
+          replacing it with the  second element, and then deleting the
+          second element.  Or, to look at it another way, deleting the
+          first element  when  there is only one element would require
+          changing a list to an atom  (i.e.  to NIL)  which  cannot be
+          done.   (However, the command DELETE will work even if there
+          is only one element in the current expression, since it will
+          ascend to a point where it can do the deletion.)
+
+
+
+
+
+
+
+                                      2 . 38
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Implementation of Structure Modification Commands
+
+          Note:  Since all commands that  insert,  replace,  delete or
+          attach structure  use the same low  level  editor functions,
+          the remarks made here  are valid for all  structure changing
+          commands.
+
+               For all replacement,  insertion,  and attaching  at the
+          end of a list,  unless the command was typed in  directly to
+          the editor,  copies of the corresponding structure are used,
+          because of  the  possibility  that  the exact  same command,
+          (i.e.  same list  structure)  might  be  used  again.  (Some
+          editor commands take as arguments  a list of  edit commands,
+          e.g.   (LP F FOO  (1 (CAR FOO))).  In this case, the command
+          (1 (CAR FOO)) is not considered to have been "typed in" even
+          though  the  LP  command  itself  may  have  been  typed in.
+          Similarly,  commands  originating  from  macros, or commands
+          given to the editor as  arguments to  EDITF,  EDITV,  et al,
+          e.g.   (EDITF FOO  F COND  (N  --)) are not considered typed
+          in.)  Thus if the program constructs the command (1 (A B C))
+          via (LIST 1 FOO),  and gives this command to the editor, the
+          (A B C)  used  for  the  replacement will NOT be EQ  to FOO.
+          (The user can circumvent this by using the I  command, which
+          computes  the  structure to  be used.  In the above example,
+          the  form  of the  command would  be  (I 1 FOO), which would
+          replace the first element with the value of FOO itself.  See
+          p.  2.63)
+
+               The rest of this section is  included  for applications
+          wherein  the editor is used to modify a data  structure, and
+          pointers into that data structure are stored  elsewhere.  In
+          these cases,  the actual mechanics of structure modification
+          must  be known  in order  to predict the effect that various
+          commands may have on  these  outside pointers.  For example,
+          if the value  of FOO is CDR of the current  expression, what
+          will the commands (2),  (3), (2 X Y Z), (-2 X Y Z), etc., do
+          to FOO?
+
+               Deletion of the first element in the current expression
+          is performed  by replacing  it  with  the second element and
+          deleting the second element by patching around it.  Deletion
+          of  any  other  element is done by patching around it, i.e.,
+          the previous tail is altered.   Thus  if FOO  is  EQ  to the
+          current expression  which is (A  B C  D),  and FIE is CDR of
+          FOO,  after executing the command  (1),  FOO will be (B C D)
+          (which is EQUAL but not EQ to FIE).  However, under the same
+          initial  conditions,   after  executing   (2)  FIE  will  be
+          unchanged,  i.e.,  FIE will still be (B C D) even though the
+
+
+
+
+                                      2 . 39
+
+
+
+
+
+
+
+
+
+
+
+
+
+          current expression  and FOO are  now (A  C  D).   (A general
+          solution of  the  problem just isn't possible,  as  it would
+          require being  able to make two lists EQ to each  other that
+          were  originally  different.   Thus  if FIE  is  CDR  of the
+          current  expression,   and  FUM  is  CDDR   of  the  current
+          expression,  performing(2)  would  have to make FIE be EQ to
+          FUM if all subsequent operations were to update both FIE and
+          FUM correctly.  Think about it.)
+
+               Both  replacement  and  insertion  are  accomplished by
+          smashing both CAR and  CDR of the corresponding tail.  Thus,
+          if FOO were EQ to  the current expression,  (A B C D), after
+          (1    X Y Z), FOO would be (X Y Z B C D).  Similarly, if FOO
+          were EQ to the current expression, (A B C D), then after (-1
+          X Y Z), FOO would be (X Y Z A B C D).
+
+               The N command is accomplished by smashing the  last CDR
+          of  the current expression a la NCONC.  Thus, if FOO were EQ
+          to any tail of the current expression,  after executing an N
+          command,  the corresponding expressions would also appear at
+          the end of FOO.
+
+               In  summary,  the  only  situation  in  which  an  edit
+          operation will not  change an  external pointer  occurs when
+          the  external  pointer  is  to a  proper  tail  of  the data
+          structure,  i.e.,  to CDR of some node in the structure, and
+          the operation is  deletion.  If all external pointers are to
+          elements of the structure,  i.e., to CAR of some node, or if
+          only insertions, replacements, or attachments are performed,
+          the edit operation  will always have the same  effect  on an
+          external pointer as it does on the current expression.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 40
+
+
+
+
+
+
+
+
+
+
+
+
+
+          The A,B,: Commands
+
+               In the (n),  (n  e1  ...   em),  and  (-n  e1  ...  em)
+          commands,  the sign of the integer is used  to  indicate the
+          operation.   As  a result, there is no direct way to express
+          insertion after  a particular element,  (hence the necessity
+          for a  separate  N  command).   Similarly,  the  user cannot
+          specify deletion or replacement of the NTH element  from the
+          end  of   a   list  without   first  converting  n   to  the
+          corresponding positive integer.  Accordingly, we have:
+
+          (B e1 ...  em)
+                                  Inserts   e1  ...    em  before  the
+                                  current  expression.   Equivalent to
+                                  UP followed by (-1 e1 ...  em).
+
+               For example,  to insert FOO before  the last element in
+          the current expression, perform -1 and then (B FOO).
+
+          (A e1 ...  em)
+                                  Inserts e1 ...  em after the current
+                                  expression.     Equivalent   to   UP
+                                  followed by (-2 e1 ...  em) or (N e1
+                                  ...  em) or (N e1 ...  em) whichever
+                                  is appropriate.
+
+          (:  e1 ...  em)
+                                  Replaces  the  current expression by
+                                  e1   ...    em.   Equivalent  to  UP
+                                  followed by (1 e1 ...  em).
+          DELETE or (:)
+                                  Deletes the  current  expression, or
+                                  if the current expression is a tail,
+                                  deletes its first element.
+
+               DELETE first  tries to delete the current expression by
+          performing an UP and then a (1).   This works in most cases.
+          However,  if after performing UP, the new current expression
+          contains  only  one element,  the command (1) will not work.
+          Therefore DELETE starts over and performs a BK,  followed by
+          UP, followed by (2).  For example, if the current expression
+          is (COND ((MEMB X Y))  (T Y)), and the user performs -1, and
+          then  DELETE,  the  BK-UP-(2)  method  is used,  and the new
+          current expression will be ...  ((MEMB X Y)))
+
+               However,  if  the next  higher expression contains only
+          one element,  BK will not work.   So  in  this  case, DELETE
+          performs UP,  followed  by  (:  NIL),  i.e., it REPLACES the
+
+
+
+
+                                      2 . 41
+
+
+
+
+
+
+
+
+
+
+
+
+
+          higher  expression by  NIL.   For  example,  if  the current
+          expression is  (COND  ((MEMB  X  Y))  (T  Y))  and  the user
+          performs  F MEMB and then DELETE, the new current expression
+          will be ...   NIL (T Y))  and  the original expression would
+          now be (COND NIL (T Y)).   The rationale behind this is that
+          deleting (MEMB X Y)  from ((MEMB X Y)) changes a list of one
+          element to a  list  of no  elements,  i.e., () or NIL.  Note
+          that 2 followed by  DELETE  would DELETE  ((MEMB  X  Y)) NOT
+          replace it by NIL.
+
+               If the  current expression  is a tail, then B, A, and :
+          will work exactly the same as though the  current expression
+          were  the first  element in that tail.   Thus if the current
+          expression were  ...   (PRINT  Y)  (PRINT Z)), (B (PRINT X))
+          would insert (PRINT X) before (PRINT Y), leaving the current
+          expression ...(PRINT X) (PRINT Y) (PRINT Z)).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 42
+
+
+
+
+
+
+
+
+
+
+
+
+
+               The  following  forms  of  the  A,  B,  and  : commands
+          incorporate a location specification:
+
+          (INSERT e1 ...  em BEFORE .  $)
+                                  Similar to  (LC.  $)  followed by (B
+                                  e1 ...  em).
+
+          #P
+          (PROG (W Y X) (SELECTQ ATM  & NIL) (OR & &) (PRIN1 &))
+          #(INSERT LABEL BEFORE PRIN1)
+          #P
+          (PROG (W Y X) (SELECTQ ATM & NIL) (OR & &) LABEL (PRIN1 &))
+          #
+
+                                  Current edit chain  is  not changed,
+                                  but UNFIND  is set to the edit chain
+                                  after the  B  was performed, i.e., \
+                                  will  make  the  edit  chain be that
+                                  chain   where   the   insertion  was
+                                  performed.
+
+          (INSERT e1 ...  em AFTER .  $)
+                                  Similar to INSERT BEFORE except uses
+                                  A instead of B.
+
+          (INSERT e1 ...  em FOR .  $)
+                                  Similar to INSERT BEFORE except uses
+                                  : for B.
+
+          (REPLACE $ WITH e1 ...  em)
+                                  Here $ is the segment of the command
+                                  between REPLACE and  WITH.   Same as
+                                  (INSERT e1  ...   em FOR .  $).  (BY
+                                  can be used for WITH.)
+
+          Example: (REPLACE COND -1 WITH (T (RETURN L)))
+
+          (CHANGE $ TO e1 ...  em)
+                                  Same as REPLACE WITH
+
+          (DELETE .  $)
+                                  Does  a  (LC   .   $)   followed  by
+                                  DELETE.   Current edit chain  is not
+                                  changed    (Unless    the    current
+                                  expression is no  longer  a  part of
+                                  the  expression being  edited, e.g.,
+                                  if the current expression is ...  C)
+                                  and  the  user performs  (DELETE 1),
+
+
+
+
+                                      2 . 43
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                  the  tail,  (C),  will have been cut
+                                  off.    Similarly,  if  the  current
+                                  expression is (CDR Y)  and  the user
+                                  performs  (REPLACE WITH  (CAR X)).),
+                                  but UNFIND is set to the  edit chain
+                                  after the DELETE was performed.
+
+          Example: (DELETE -1), (DELETE COND 3)
+
+               Note  that  if  $  is  NIL  (empty),  the corresponding
+          operation  is  performed here  (on the  current edit chain),
+          e.g.,  (REPLACE  WITH  (CAR X)) is equivalent to (:(CAR X)).
+          For added readability, HERE is also permitted, e.g., (INSERT
+          (PRINT X)  BEFORE HERE)  will  insert  (PRINT X)  before the
+          current expression (but not change the edit chain).
+
+               Note  also  that $ does not have to specify  a location
+          WITHIN the current expression,  i.e.,  it is perfectly legal
+          to  ascend  to  INSERT,  REPLACE,  or  DELETE.   For example
+          (INSERT   (RETURN) AFTER ^ PROG -1) will go to the top, find
+          the  first  PROG,  and insert a (RETURN) at its end, and not
+          change the current edit chain.
+
+               Finally,  the  A,  B, and : commands, (and consequently
+          INSERT,  REPLACE, and CHANGE), all make special checks in E1
+          thru  Em for  expressions of the form (## .  coms).  In this
+          case,  the expression  used for inserting or replacing  is a
+          copy of the current expression after  executing coms, a list
+          of edit commands.   (The execution  of coms  does not change
+          the current edit chain.)  For example, (INSERT (## F COND -1
+          -1)  AFTER3) [not (INSERT F COND -1 (## -1 ) AFTER 3), which
+          inserts four elements after  the  third  element,  namely F,
+          COND,  -1,  and  a  copy  of the last element in the current
+          expression]  will  make  a copy of the last form in the last
+          clause of the next  COND,  and  insert  it  after  the third
+          element of the current expression.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 44
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Form Oriented Editing and the Role of UP
+
+               The UP that is performed  before A,  B,  and : commands
+          (and  therefore  in  INSERT,  CHANGE,  REPLACE,  and  DELETE
+          commands  after  the location portion of  the  operation has
+          been performed.), makes these operations form-oriented.  For
+          example,  if  the user  types  F  SETQ,  and then DELETE, or
+          simply  (DELETE  SETQ),  he  will  delete  the  entire  SETQ
+          expression,  whereas (DELETE X)  if X is a variable, deletes
+          just the  variable  X.   In  both  cases,  the  operation is
+          performed  on the corresponding FORM  and in  both  cases is
+          probably  what  the user  intended.   Similarly, if the user
+          types (INSERT (RETURN Y)  BEFORE SETQ),  he means before the
+          SETQ expression,  not before the atom SETQ.  (*There is some
+          ambiguity  in (INSERT expr  AFTER functionname), as the user
+          might mean  make  expr  be  the  function's  first argument.
+          Similarly,  the  user cannot write (REPLACE SETQQ WITH SETQ)
+          meaning  change the name of the  function.  The user must in
+          these cases write (INSERT  expr  AFTER  functionname 1), and
+          (REPLACE  SETQQ    1    WITH SETQ).)  A  consequent  of this
+          procedure  is that a pattern of the form (SETQ Y  --) can be
+          viewed  as simply an elaboration  and further  refinement of
+          the pattern SETQ.   Thus (INSERT (RETURN Y) BEFORE SETQ) and
+          (INSERT (RETURN  Y)  BEFORE  (SETQ  Y  --)) perform the same
+          operation  (Assuming  the next SETQ  is  of  the  form (SETQ
+          Y-)).)  and,  in fact, this is one of the motivations behind
+          making  the current expression after F  SETQ,  and F (SETQ Y
+          --) be the same.
+
+               Occasionally, however, a user may have a data structure
+          in which  no  special significance or meaning is attached to
+          the position of an atom in a list, as LISP attaches to atoms
+          that  appear  as  CAR  of  a  list,  versus  those appearing
+          elsewhere in a list.  In general, the user may not even know
+          whether a particular atom  is at the head of a list  or not.
+          Thus, when he writes (INSERT expression AFTER FOO), he means
+          after the atom FOO,  whether or not it is CAR of a list.  By
+          setting  the  variable  UPFINDFLG  to  NIL  (Initially,  and
+          usually,  set to T.)  the user  can suppress the implicit UP
+          that  follows  searches  for  atoms,  and  thus  achieve the
+          desired effect.   With UPFINDFLG = NIL then following F FOO,
+          for example,  the current  expression will  be the atom FOO.
+          In this case,  the A,  B, and : operations will operate with
+          respect to the atom FOO.   If the user intends the operation
+          to refer to the list which FOO heads, he simply uses instead
+          the pattern (FOO --).
+
+
+
+
+
+
+                                      2 . 45
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Extract and Embed
+
+          Extraction involves  replacing  the  current expression with
+          one of its subexpressions (from any depth).
+
+          (XTR .  $)
+                                  Replaces   the    original   current
+                                  expression with the  expression that
+                                  is current after  performing  (LCL .
+                                  $).
+
+          For example,  if the  current expression  is (COND ((NULL X)
+          (PRINT Y))), (XTR PRINT), or (XTR 2 2) will replace the COND
+          by the PRINT.
+
+                                  If the current expression after (LCL
+                                  .   $)   is   a  tail  of  a  higher
+                                  expression,  its  first  element  is
+                                  used.
+
+          For example, if the current expression is
+          (COND  ((NULL  X)  Y)  (T Z)), then (XTR Y) will replace the
+          COND with Y.
+
+                                  If  the  extracted  expression  is a
+                                  list,  then  after XTR has finished,
+                                  the current  expression will be that
+                                  list.
+
+          Thus, in the first example, the current expression after the
+          XTR would be (PRINT Y).
+
+                                  If the extracted expression is not a
+                                  list,  the  new  current  expression
+                                  will  be a  tail whose first element
+                                  is that non-list.
+
+          Thus,  in  the  second example, the current expression after
+          the  XTR would  be ...   Y followed by  whatever followed by
+          COND.
+
+               If  the  current  expression  initially   is   a  tail,
+          extraction  works  exactly the same  as  though  the current
+          expression were the first element in that tail.  Thus is the
+          current expression is  (XTR  PRINT) will replace the COND by
+          the PRINT, leaving (PRINT Y) as the current expression.
+
+
+
+
+
+
+                                      2 . 46
+
+
+
+
+
+
+
+
+
+
+
+
+
+          The  extract  command  can  also   incorporate   a  location
+          specification.
+
+          (EXTRACT $1 FROM $2)
+                                  ($1  is the  segment between EXTRACT
+                                  and FROM.)
+                                  Performs (LC .  $2)  And then (XTR .
+                                  $1).   Current  edit  chain  is  not
+                                  changed,  but  UNFIND  is set to the
+                                  edit  chain   after   the   XTR  was
+                                  performed.
+
+          Example: If the current expression is
+          (PRINT (COND ((NULL X) Y) (T Z))) then following
+          (EXTRACT Y FROM COND), the current expression will be
+          (PRINT Y).
+          (EXTRACT 2 -1 FROM COND), (EXTRACT Y FROM 2),
+          (EXTRACT 2 -1 FROM 2) will all produce the same result.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 47
+
+
+
+
+
+
+
+
+
+
+
+
+
+               While extracting  replaces  the current expression by a
+          subexpression,  embedding  replaces  the  current expression
+          with one containing it as a subexpression.
+
+          (MBD x)
+                                  X  is  a  list,  substitutes  (a  la
+                                  SUBST,  i.e.,  a  fresh copy is used
+                                  for each  substitution)  the current
+                                  expression for  all instances of the
+                                  atom   *  in  x,  and  replaces  the
+                                  current  expression with  the result
+                                  of that substitution.
+
+          Example:  If the current expression is (PRINT Y), (MBD (COND
+          ((NULL  X)  *)  ((NULL  (CAR  Y))  * (GO LP))) would replace
+          (PRINT  Y)  with  (COND((NULL  X) (PRINT Y)) ((NULL (CAR Y))
+          (PRINT Y) (GO LP))).
+
+          (MBD e1 ...  em)
+                                  Equivalent to (MBD (e1 ...  em *)).
+
+          Example:  If the  current expression is (PRINT Y), then (MBD
+          SETQ X) will replace it with (SETQ X (PRINT Y)).
+
+          (MBD x)
+                                  X atomic, same as (MBD (x *)).
+
+          Example:  If  the  current  expression  is  (PRINT  Y), (MBD
+          RETURN) will replace it with (RETURN (PRINT Y)).
+
+          All three  forms of MBD  leave  the edit chain  so  that the
+          larger expression is the new current expression.
+
+               If  the   current  expression   initially  is  a  tail,
+          embedding  works  exactly  the same  as  though  the current
+          expression were the first element in that tail.  Thus if the
+          current expression were (PRINT Y) with (SETQ X (PRINT Y)).
+
+               The  embed  command  can  also  incorporate  a location
+          specification.
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 48
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (EMBED $ IN .  x)
+                                  ($ is the segment between  EMBED and
+                                  IN.) Does (LC .  $)  and then (MBD .
+                                  x).   Edit chain is not changed, but
+                                  UNFIND  is  set  to  the  edit chain
+                                  after the MBD was performed.
+
+          Example:  (EMBED  PRINT  IN  SETQ X), (EMBED 3 2 IN RETURN),
+          (EMBED COND 3 1 IN (OR * (NULL X))).
+
+          WITH can be used for IN, and SURROUND can be used for EMBED,
+          e.g., (SURROUND NUMBERP WITH (AND * (MINUSP X ))).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 49
+
+
+
+
+
+
+
+
+
+
+
+
+
+          The MOVE Command
+
+               The MOVE  command  allows the user to  specify  (1) the
+          expression to be moved,  (2) the place it is to be moved to,
+          and (3) the operation to be performed there, e.g., insert it
+          before, insert it after, replace, etc.
+
+          (MOVE $1 TO com . $2)
+                                  ($1 is the segment between  MOVE and
+                                  TO.)  Where COM is BEFORE, AFTER, or
+                                  the name of a list command, e.g., :,
+                                  N,   etc.    Performs  (LC  .   $1),
+                                  Obtains the current expression there
+                                  (or its first  element,  if  it is a
+                                  tail),  let  us call this expr; MOVE
+                                  then  goes  back  to  original  edit
+                                  chain, performs (LC .  $2),  Peforms
+                                  (com expr), then goes back to $1 and
+                                  deletes  expr.   Edit  chain  is not
+                                  changed.   UNFIND  is  set  to  edit
+                                  chain    after   (com    expr)   was
+                                  performed.
+
+               For example,  if the current expression is (A B D C), (
+          MOVE 2 TO  AFTER 4)  will make the new current expression be
+          (A C D B).  Note that 4 was executed as of the original edit
+          chain, and that the second element had not yet been removed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 50
+
+
+
+
+
+
+
+
+
+
+
+
+
+               As  the following examples  taken  from  actual editing
+          will show,  the  MOVE  command is an extremely versatile and
+          powerful feature of the editor.
+
+
+          #?
+          (PROG (L) (EDLOC (CDDR C)) (RETURN (CAR L)))
+          #(MOVE 3 TO : CAR)
+          #?
+          (PROG (L) (RETURN (EDLOC (CDDR C))))
+          #
+
+
+          #P
+          ... (SELECTQ OBJPR & &) (RETURN &) LP2 (COND & & ))
+          #(MOVE 2 TO N 1)
+          #P
+          ... (SELECTQ OBJPR & & &) LP2 (COND & &))
+          #
+
+
+          #P
+          (OR (EQ X LASTAIL) (NOT &) (AND & & &))
+          #(MOVE 4 TO AFTER (BELOW COND))
+          #P
+          (OR (EQ X LASTAIL) (NOT &))
+          #\ P
+          ... (& &) (AND & & &) (T & &))
+          #
+
+
+          #P
+          ((NULL X) (COND & &))
+          #(-3 (GO DELETE))
+          #(MOVE 4 TO N (_ PROG))
+          #P
+          ((NULL X) (GO DELETE))
+          #\ P
+          (PROG (&) (COND & & &) (COND & & &) (COND & &))
+          #(INSERT DELETE BEFORE -1)
+          #P
+          (PROG (&) (COND & & &) (COND & & &) DELETE (COND & &))
+          #
+
+
+               Note  that in the last  example,  the  user  could have
+          added  the prog label  DELETE  and  moved  the  COND  in one
+          operation by performing  (MOVE 4 TO  N (_ PROG) (N DELETE)).
+
+
+
+
+                                      2 . 51
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Similarly,  in the next example, in the course of specifying
+          $2,  the location where  the expression was to be  moved to,
+          the  user  also  performs a  structure modification,  via (N
+          (T)),  thus creating  the  structure  that will  receive the
+          expression being moved.
+
+
+          #P
+          ((CDR &) (SETQ CL &) (EDITSMASH CL & &))
+          #(MOVE 4 TO N 0 (N (T)) - 1]
+          #P
+          ((CDR &) (SETQ CL &))
+          #\ P
+          (T (EDITSMASH CL & &))
+          #
+
+
+               If $2 is NIL, or (HERE), the current position specifies
+          where the operation is to  take place.  In this case, UNFIND
+          is set to where the expression that was moved was originally
+          located, i.e., $1.  For example:
+
+
+          #P
+          (TENEX)
+          #(MOVE ^ F APPLY TO N HERE)
+          #P
+          (TENEX (APPLY & & ))
+          #
+
+
+          #P
+          (T (PRIN1 C-EXP))
+          #(MOVE BF PRIN1 TO N HERE)
+          #P
+          (T (PRIN1 C-EXP) (PRIN1 &))
+          #
+
+
+               Finally, if $1 is NIL, the MOVE command allows the user
+          to  specify some place the current expression is to be moved
+          to.   In this  case,  the  edit chain is changed, and is the
+          chain where the  current expression was moved to;  UNFIND is
+          set to where it was.
+
+
+          #P
+          (SELECTQ OBJPR (&) (PROGN & &))
+
+
+
+
+                                      2 . 52
+
+
+
+
+
+
+
+
+
+
+
+
+
+          #(MOVE TO BEFORE LOOP)
+          #P
+          ...(SELECTQ OBJPR & &) LOOP (RPLACA DFPRP &) (RPLACD DFPRP &))
+          #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 53
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Commands That "Move Parentheses"
+
+               The   commands  presented   in   this   section  permit
+          modification  of  the list  structure itself,  as opposed to
+          modifying components thereof.  Their effect can be described
+          as inserting or removing a single left or right parenthesis,
+          or pair  of left and  right parentheses.   Of  course, there
+          will always be the same number of left parentheses  as right
+          parentheses in any list structure, since the parentheses are
+          just  a notational guide to the structure provided by PRINT.
+          Thus,  no command can insert or remove just one parenthesis,
+          but this is suggestive of what actually happens.
+
+               In  all  six commands,  n and  m are used to specify an
+          element  of a list,  usually of the current  expression.  In
+          practice,  n and m are usually positive or negative integers
+          with the obvious interpretation.   However, all six commands
+          use  the generalized  NTH  command, p.  2.34,  To find their
+          element(s),  so that nth  element means the first element of
+          the  tail  found  by performing (NTH n).  In other words, if
+          the current expression is (LIST  (CAR  X)  (SETQ  Y  (CONS W
+          Z))),  then (BI 2 CONS), (BI X -1), and (BI X Z) all specify
+          the exact same operation.
+
+               All  six  commands  generate an error if the element is
+          not found, i.e., the NTH fails.  All are undoable.
+
+          (BI n m)
+                                  Both in,  inserts a left parentheses
+                                  before the nth element and after the
+                                  mth   element    in    the   current
+                                  expression.   Generates an  error if
+                                  the mth element is  not contained in
+                                  the nth tail,  i.e., the mth element
+                                  must be "to the  right"  of  the nth
+                                  element.
+
+          Example:  If the current expression  is  (A B  (C D E) F G),
+          then (BI 2 4) will modify it to be (A (B (C D E) F) G).
+
+          (BI n)
+                                  Same as (BI n n).
+
+          Example:  If  the current expression  is (A B (C D E)  F G),
+          then (BI -2) will modify it to be (A B (C D E) (F) G).
+
+
+
+
+
+
+
+                                      2 . 54
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (BO n)
+                                  Both  out.  Removes both parentheses
+                                  from the  nth element.  Generates an
+                                  error if nth element is not a list.
+
+          Example:  If  the  current expression is  (A B (C D E) F G),
+          then (BO D) will modify it to be (A B C D E F G).
+
+          (LI n)
+                                  Left in,  inserts a left parenthesis
+                                  before  the  nth   element   (and  a
+                                  matching  right  parenthesis  at the
+                                  end  of  the   current  expression),
+                                  i.e., equivalent to (BI n -1).
+
+          Example:  If the  current expression is  (A B (C D E)  F G),
+          then (LI 2) will modify it to be (A (B (C D E) F G)).
+
+          (LO n)
+                                  Left out, removes a left parenthesis
+                                  from the nth element.   All elements
+                                  following   the   nth   element  are
+                                  deleted.  Generates an error  if nth
+                                  element is not a list.
+
+          Example:  If the current  expression is (A B (C D  E)  F G),
+          then (LO 3) will modify it to be (A B C D E).
+
+          (RI n m)
+                                  Right    in,    inserts    a   right
+                                  parenthesis after the mth element of
+                                  the nth  element.   The  rest of the
+                                  nth element  is  brought  up  to the
+                                  level of the current expression.
+
+          Example: If the current expression is (A (B C D E) F G), (RI
+          2 2) will modify it to be (A (B C) D E F G).  Another way of
+          thinking  about  RI  is  to  read  it  as  "move  the  right
+          parenthesis at the end of the nth  element IN  to  after the
+          mth element."
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 55
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (RO n)
+                                  Right   out,   removes   the   right
+                                  parenthesis  from  the  nth element,
+                                  moving it to  the end of the current
+                                  expression.   All elements following
+                                  the nth element are moved  inside of
+                                  the nth element.  Generates an error
+                                  if nth element is not a list.
+
+          Example: If the current expression is (A B (C D E) F G), (RO
+          3)  will  modify it to be (A B (C D E F G)).  Another way of
+          thinking  about  RO  is  to  read  it  as  "move  the  right
+          parenthesis at the end of the nth element OUT to the  end of
+          the current expression."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 56
+
+
+
+
+
+
+
+
+
+
+
+
+
+          TO and THRU
+
+               EXTRACT,  EMBED,  DELETE, REPLACE, and MOVE can be made
+          to operate on several contiguous  elements,  i.e., a segment
+          of  a  list,  by using  the  TO  or  THRU  command  in their
+          respective location specifications.
+
+          ($1  THRU $2)
+                                  Does  a (LC  .  $1),  Followed by an
+                                  UP,  and then a (BI  1  $2), thereby
+                                  grouping  the segment into  a single
+                                  element,   and  finally  does  a  1,
+                                  making  the final current expression
+                                  be that element.
+
+          For example, if the current expression is (A (B (C D) (E) (F
+          G  H)  I) J K), following (C THRU G), the current expression
+          will be ((C D) (E) (F G H)).
+
+          ($1  TO $2)
+                                  Same as THRU except last element not
+                                  included, i.e., after the BI, an (RI
+                                  1 -2) is performed.
+
+               If both  $1 and $2 are numbers,  and $2 is greater than
+          $1,  then  $2  counts  from  the  beginning  of  the current
+          expression,  the same as $1.  In other words, if the current
+          expression is (A B C D E F G),  (3 THRU 4) means (C THRU D),
+          not (C THRU F).   In this case, the corresponding BI command
+          is (BI 1 $2-$1+1).
+
+               THRU and TO are not very useful commands by themselves,
+          and are  not intended to  be used "solo", but in conjunction
+          with EXTRACT,  EMBED, DELETE, REPLACE, and MOVE.  After THRU
+          and TO  have operated,  they  set  an  internal  editor flag
+          informing  the  above  commands that  the  element  they are
+          operating on is actually a  segment, and that the extra pair
+          of  parentheses  should be  removed  when  the  operation is
+          complete.  Thus:
+
+
+          #P
+          (PROG NIL (SETQ A &) (RPLACA & &) (PRINT &) (RPLACD & &))
+          #(MOVE (3 THRU 4) TO BEFORE 5) P
+          (PROG NIL (PRINT &) (SETQ A &) (RPLACA & &) (RPLACD & &))
+          #
+
+          Note that when specifing $2 in the MOVE,  5 was used instead
+
+
+
+
+                                      2 . 57
+
+
+
+
+
+
+
+
+
+
+
+
+
+          of 6.   This is because the $2 is located after  $1 is.  The
+          THRU location  groups items  together  and thus  changes the
+          numeric location of the following items.
+
+
+          #P
+          (PROG NIL (PRIN1 &) (PRIN1 &) (SETQ IND &) (SETQ VAL &) (PRINT &))
+          #(MOVE (5 THRU 7) TO BEFORE 3)
+          #P
+          (PROG NIL (SETQ IND &) (SETQ VAL &) (PRINT &) (PRIN1 &) (PRIN1 &))
+          #(DELETE (SETQ THRU PRI@))
+          = PRINT
+          #P
+          (PROG NIL (PRIN1 &) (PRIN1 &))
+          #
+
+
+          #P
+          ... LP (SELECTQ & & &) (SETQ Y &) OUT (SETQ FLG &) (RETURN Y))
+          #(MOVE (1 TO OUT) TO N HERE)
+          #P
+          ... OUT (SETQ FLG &) (RETURN Y) LP (SELECTQ & & &) (SETQ Y &))
+          #
+          #PP
+          (PROG (TEMP1 TEMP2)
+                (COND ((NOT (MEMQ REMARG LISTING))
+                       (SETQ TEMP1 (ASSOC REMARG NAMEDREMARKS))
+                       (SETQ TEMP2 (CADR TEMP1)))
+                      (T (SETQ TEMP1 REMARG)))
+                (NCONC LISTING REMARG)
+                (RETURN (CONS TEMP1 TEMP2)))
+          #(EXTRACT (SETQ THRU CADR) FROM COND) PP
+          (PROG (TEMP1 TEMP2)
+                (SETQ TEMP1 (ASSOC REMARG NAMEDREMARKS))
+                (SETQ TEMP2 (CADR TEMP1))
+                (NCONS LISTING REMARG)
+                (RETURN (CONS TEMP1 TEMP2)))
+          #
+
+
+               TO  and  THRU  can  also  be  used  directly  with XTR.
+          (Because XTR involves a location specification  while A,B,:,
+          and  MBD  do not.)  Thus  in  the  previous  example, if the
+          current  expression had been the  COND,  e.g.,  the user had
+          first performed F COND ,  he could have used (XTR (SETQ THRU
+          CADR)) to perform the extraction.
+
+
+
+
+
+
+                                      2 . 58
+
+
+
+
+
+
+
+
+
+
+
+
+
+          ($1  TO), ($1 THRU)
+                                  Both  same  as  ($1  THRU -1), i.e.,
+                                  from $1 thru the end of the list.
+
+
+          #P
+          (VAL (RPLACA DFPRP &) (RPLACD & &) (RPLACA VARS &) (RETURN &))
+          #(MOVE (2 TO) TO N (_ PROG))
+          #(N (GO VAR))
+          #P
+          (VAL (GO VAR))
+          #
+
+
+          #P
+          (T (COND &) (EDITSMASH CL & &) (COND &))
+          #(-2 (GO REPLACE))
+          #(MOVE (COND TO) TO N PROG (N REPLACE))
+          #P
+          (T (GO REPLACE))
+          #\ P
+          (PROG (&) (COND & & &) (COND & & &) DELETE (COND & &) REPLACE
+          (COND &) (EDITSMASH CL & &) (COND &))
+          #
+
+
+          #PP
+          (LAMBDA(CLAUSALA X)
+           (PROG (A D)
+                 (SETQ A CLAUSALA)
+            LP   (COND ((NULL A) (RETURN NIL)))
+                 (SERCH X A)
+                 (RUMARK (CAR A))
+                 (NOTICECL (CAR A))
+                 (SETQ A (CDR A))
+                 (GO LP)))
+          #(EXTRACT (SERCH THRU NOT@) FROM PROG) P
+          = NOTICECL
+          (LAMBDA (CLAUSALA X) (SERCH X A) (RUMARK &) (NOTICECL &))
+          #(EMBED (SERCH TO) IN (MAP [FUNCTION (LAMBDA (A) *] CLAUSALA]
+          #PP
+          (LAMBDA(CLAUSALA X)
+           (MAP (FUNCTION
+                 (LAMBDA(A)
+                  (SERCH X A)
+                  (RUMARK (CAR A))
+                  (NOTICECL (CAR A))))
+                CLAUSALA))
+
+
+
+
+                                      2 . 59
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (R x y)
+                                  Replaces all instances  of x by y in
+                                  the  current  expression,  e.g.,  (R
+                                  CAADR CADAR).  Generates an error if
+                                  there is not at least one instance.
+
+               R  operates  by  performing  a  DSUBST.    The  current
+          expression  is  the  third  argument  to  DSUBST,  i.e., the
+          expression  being  substituted  into,  and  y  is  the first
+          argument  to DSUBST, i.e., the expression being substituted.
+          R computes the  second argument to DSUBST, the expression to
+          be  substituted  for,  by performing  (F x  T).   The second
+          argument is then the current expression at that point, or if
+          that current  expression is a list and x is atomic, then the
+          first element of that current expression.  Thus x can be the
+          S-expression (or  atom)  to be  substituted for, or can be a
+          pattern which specifies that S-expression (or atom).
+
+          For  example,  if the current expression is (LIST FUNNYATOM1
+          FUNNYATOM2 (CAR FUNNYATOM1)), then (R FUN@ FUNNYATOM3 ) will
+          substitute FUNNYATOM3 for FUNNYATOM1 throughout  the current
+          expression.  Note that FUNNYATOM2, even though it would have
+          matched with the pattern FUN@, is NOT replaced.
+
+               Similarly,  if  (LIST(CAR  X)  (CAR  Y))  is  the first
+          expression matched by (LIST --),  then  (R  (LIST  --) (LIST
+          (CAR Y)  (CAR Z)))  is equivalent to (R (LIST (CARX) (CARY))
+          (LIST  (CAR  Y)  (CAR  Z))),  i.e.,  both  will  replace all
+          instances of (LIST (CAR X)  (CAR Y))  by (LIST  (CAR Y) (CAR
+          Z)).   Note that other forms beginning with LIST will not be
+          replaced,  even though  they would have  matched  with (LIST
+          --).   To  change all expressions of the  form  (LIST --) to
+          (LIST (CAR Y) (CAR Z)), the user should perform (LP (REPLACE
+          (LIST --)  WITH (LIST (CAR Y) (CAR].
+
+          UNFIND is set  to the edit  chain following the find command
+          so  that  \ will  make  the current  expression be the place
+          where the first substitution occurred.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 60
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (SW n m)
+                                  Switches the nth and mth elements of
+                                  the current expression.
+
+          For example,  if the  current expression is (LIST (CONS (CAR
+          X)  (CAR Y))  (CONS (CDR Y))), (SW 2 3) will modify it to be
+          (LIST (CONS (CDR X)  (CDR Y))  (CONS (CAR X) (CAR Y))).  The
+          relative  order of n   and m is not  important, ie, (SW 3 2)
+          and (SW 2 3 ) are equivalent.
+
+                                  SW uses  the generalized NTH command
+                                  to  find the nth and mth elements, a
+                                  la the BI-BO commands.
+
+          Thus in the previous example, (SW CAR CDR) would produce the
+          same result.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 61
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Commands That Print
+
+          P
+                                  Prints current expression  as though
+                                  PRINTLEV were given a depth of 2.
+
+          (P m)
+                                  Prints   mth   element   of  current
+                                  expression as  though  PRINTLEV were
+                                  given a depth of 2.
+
+          (P 0)
+                                  Same as P
+
+          (P m n)
+                                  Prints   mth   element   of  current
+                                  expression  as  though PRINTLEV were
+                                  given a depth of N.
+
+          (P 0 n)
+                                  Prints current expression  as though
+                                  PRINTLEVEL were given a depth of N.
+
+          ?
+                                  Same as (P 0 100)
+
+               Both (P m)  and (P m  n) use the general NTH command to
+          obtain the corresponding element, so that m does not have to
+          be a number, e.g.  (P COND 3) will work.
+
+               All  printing   functions   print   to   the  teletype,
+          regardless of the primary output file.  No printing function
+          ever  changes  the  edit chain.  All record the current edit
+          chain for use by \P, p.  2.37.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 62
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Commands That Evaluate
+
+          E
+                                  Only when typed in, (i.e., (INSERT D
+                                  BEFORE E) will treat E as a pattern)
+                                  causes the editor to  call  the LISP
+                                  interpreter giving it the next input
+                                  as argument.
+
+          Example:
+                      #E (BREAK FIE FUM)
+                      (FIE FUM)
+                      #E (FOO)
+                      (FIE BROKEN)
+                      1:
+
+          (E x)
+                                  Evaluates  X,  i.e.,  performs (EVAL
+                                  x),  and  prints  the  result on the
+                                  teletype.
+
+          (E x T)
+                                  Same as (E x) but does not print.
+
+               The (E x)  and (E x T) commands are mainly intended for
+          use by MACROS and subroutine calls  to the editor;  the user
+          would  probably type in a form for evaluation using the more
+          convenient format of the (atomic) E command.
+
+          (I c x1 ...  xn)
+                                  Same  as  (c  y1   ...    yn)  where
+                                  yi=(EVAL xi).
+
+          Example:  (I  3  (GETD (QUOTE  FOO))  will  replace  the 3rd
+          element of the  current expression  with  the  definition of
+          FOO.   (The I  command  sets an internal flag to indicate to
+          the   structure   modification   commands   not    to   copy
+          expression(s) when inserting, replacing, or attaching.) (I N
+          FOO  (CAR FIE))  will attach the value of FOO and CAR of the
+          value of FIE to  the end of the current  expression.   (I F=
+          FOO T) will search for an expression EQ to the value of FOO.
+
+                                  If c is not an atom, it is evaluated
+                                  as well.
+
+          Example:  (I (COND  ((NULL FLG)  (QUOTE -1)) (T 1)) FOO), if
+          FLG is NIL,  inserts  the  value  of  FOO  before  the first
+          element of  the current expression,  otherwise  replaces the
+
+
+
+
+                                      2 . 63
+
+
+
+
+
+
+
+
+
+
+
+
+
+          first element by the value of FOO.
+
+          (##  com[1] com[2] ... com[n])
+                                  is  an  FSUBR (not a  command).  Its
+                                  value is what the current expression
+                                  would be  after  executing  the edit
+                                  commands com[1] ...  com[n] starting
+                                  from   the   present   edit   chain.
+                                  Generates an error if any  of com[1]
+                                  thru  com[n]   cause   errors.   The
+                                  current edit chain is never changed.
+                                  (Recall  that A,B,:,INSERT, REPLACE,
+                                  and  CHANGE  make special checks for
+                                  ## forms in the expressions used for
+                                  inserting  or  replacing,  and use a
+                                  copy  of  ##  form  instead  (see p.
+                                  2.44).  thus, (INSERT (## 3 2) AFTER
+                                  1)  is equivalent to (I INSERT (COPY
+                                  (## 3 2 )) (QUOTE AFTER) 1).)
+
+          Example: (I R (QUOTE X) (## (CONS ..Z))) replaces all X's in
+          the current expression by the first CONS containing a Z.
+
+               The I command is  not very convenient for  computing an
+          entire  edit command for execution,  since  it  computes the
+          command name and  its  arguments  separately.   Also,  the I
+          command cannot be used to  compute an  atomic  command.  The
+          following  two  commands  provide  more   general   ways  of
+          computing commands.
+
+          (COMS x1 ...  xn)
+                                  Each xi is evaluated  and  its value
+                                  executed as a command.
+
+          For  example,  (COMS (COND (X (LIST 1 X)))) will replace the
+          first element  of the current expression with the value of X
+          if non-NIL,  otherwise do nothing.   (NIL as a command  is a
+          NOP, see p.  2.71.)
+
+          (COMSQ com[1] ...  com[n])
+                                  Executes com[1] ...  com[n].
+
+          COMSQ is mainly useful in conjunction with the COMS command.
+          For example,  suppose  the user wishes to compute  an entire
+          list  of commands for evaluation,  as  opposed  to computing
+          each command  one at a time  as does the  COMS  command.  He
+          would then  write  (COMS  (CONS  (QUOTE COMSQ)  x))  where x
+          computed the list of commands, e.g.,
+
+
+
+
+                                      2 . 64
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (COMS (CONS (QUOTE COMSQ) (GET FOO (QUOTE COMMANDS)))).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 65
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Commands That Test
+
+          (IF x)
+                                  Generates an  error unless the value
+                                  of (EVAL x)  is true, i.e., if (EVAL
+                                  x)  causes an error or (EVAL x)=NIL,
+                                  IF will cause an error.
+
+               For  some  editor commands,  the occurrence of an error
+          has a well defined meaning,  i.e., they use errors to branch
+          on as COND uses NIL  and  non-NIL.   For  example,  an error
+          condition in a location specification may  simply  mean "not
+          this one, try the next." Thus the location specification
+                 (*PLUS (E (OR (NUMBERP (## 3)) (ERR NIL)) T))
+          specifies the first *PLUS whose second argument is a number.
+          The IF command,  by equating NIL  to  error, provides a more
+          natural way  of  accomplishing the  same  result.   Thus, an
+          equivalent location specification is (*PLUS (IF (NUMBERP (##
+          3)))).
+
+               The IF command  can  also be used to select between two
+          alternate lists of commands for execution.
+
+          (IF x coms1 coms2)
+                                  If (EVAL x)  is true, execute coms1;
+                                  if  (EVAL x)  causes  an error or is
+                                  equal to NIL, execute coms2.
+
+          For example,  the command (IF (NULL A)  NIL  (P)) will print
+          the current expression provided A=NIL.
+
+          (IF x coms1)
+                                  If (EVAL  x) is true, execute coms1;
+                                  otherwise generate an error.
+
+          (LP .  coms)
+                                  Repeatedly executes  coms, a list of
+                                  commands, until an error occurs.
+
+               For example,  (LP F PRINT (N T)) will attach a T at the
+          end of every PRINT expression.   (LP F PRINT (IF (##  3) NIL
+          ((N  T))))  will  attach  a  T  at  the  end  of  each print
+          expression which  does not already have  a  second argument.
+          (i.e.   The  form  (##  3)  will cause  an error if the edit
+          command 3 causes an error,  thereby selecting ((N T)) as the
+          list  of commands  to  be  executed.   The IF  could also be
+          written as (IF (CDDR (##)) NIL ((N T))).)
+
+
+
+
+
+                                      2 . 66
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                  When  an  error occurs,  LP prints n
+                                  OCCURRENCES,  where  n is the number
+                                  of   times   COMS  was  successfully
+                                  executed.  The edit chain is left as
+                                  of   the  last  complete  successful
+                                  execution of COMS.
+
+          (LPQ .  Coms)
+                                  Same  as  LP  but  does  not print n
+                                  OCCURRENCES.
+
+               In order to  prevent non-terminating loops, both LP and
+          LPQ terminate when the number of iterations reaches MAXLOOP,
+          initially set to 30.
+
+          (ORR coms[1] ...  Coms[n])
+                                  ORR begins by  executing  coms[1], a
+                                  list  of   commands.   If  no  error
+                                  occurs, ORR is finished.  Otherwise,
+                                  ORR restores  the edit  chain to its
+                                  original  value,  and  continues  by
+                                  executing coms[2],  etc.  If none of
+                                  the  command  lists  execute without
+                                  errors, i.e., the ORR "drops off the
+                                  end",   ORR   generates   an  error.
+                                  Otherwise, the edit chain is left as
+                                  of   the  completion  of  the  first
+                                  command list  which executes without
+                                  error.   (NIL as  a  command list is
+                                  perfectly  legal,  and  will  always
+                                  execute  successfully.  Thus, making
+                                  the last 'argument'  to  ORR  be NIL
+                                  will  insure  that   the  ORR  never
+                                  causes  an error.  Any other atom is
+                                  treated as (atom), i.e., the example
+                                  given below could be written as (ORR
+                                  NX !NX NIL).)
+
+               For example, (ORR (NX) (!NX) NIL) will perform a NX, if
+          possible,   otherwise  a  !NX,  if  possible,  otherwise  do
+          nothing.   Similarly,  DELETE could  be  written as (ORR (UP
+          (1)) (BK UP (2)) (UP (: NIL))).
+
+
+
+
+
+
+
+
+
+
+                                      2 . 67
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Macros
+
+               Many of  the  more  sophisticated branching commands in
+          the editor,  such  as ORR,  IF, etc., are most often used in
+          conjunction with edit macros.  The macro feature permits the
+          user to define new commands  and thereby expand the editor's
+          repertoire.    (However,   built  in  commands  always  take
+          precedence over macros, i.e., the editor's repertoire can be
+          expanded, but not modified.) Macros are defined by using the
+          M command.
+
+          (M c .  coms)
+                                  For c an atom,  M  defines  c  as an
+                                  atomic  command.   (If  a  macro  is
+                                  redefined,    its   new   definition
+                                  replaces  its old.)  Executing  c is
+                                  then the same as executing  the list
+                                  of commands COMS.
+
+               For example, (M BP BK UP P) will define BP as an atomic
+          command which does three things, a BK, an UP, and a P.  Note
+          that macros can use commands  defined by  macros as  well as
+          built  in  commands  in  their  definitions.   For  example,
+          suppose Z is  defined by (M Z -1  (IF (NULL (##)) NIL (P))),
+          i.e.  Z does a -1, and then if the current expression is not
+          NIL,  a P.   Now we can define ZZ by (M ZZ -1 Z), and ZZZ by
+          (M ZZZ -1 -1 Z) or (M ZZZ -1 ZZ).
+
+               Macros can also define  list  commands,  i.e., commands
+          that take arguments.
+
+          (M (c) (arg[1] ...  arg[n]) .  coms)
+                                  C an atom.   M defines c  as  a list
+                                  command.   Executing  (c e1 ...  en)
+                                  is then performed by substituting e1
+                                  for  arg[1],   ...   en  for  arg[n]
+                                  throughout  COMS, and then executing
+                                  COMS.
+
+               For  example,  we could  define a more general BP by (M
+          (BP)  (N)  (BK N) UP P).  Thus, (BP 3) would perform (BK 3),
+          followed by an UP, followed by a P.
+
+               A list command can be defined via a macro so as to take
+          a fixed or indefinite number of 'arguments'.  The form given
+          above specified a macro with a fixed number of arguments, as
+          indicated by  its argument list.   If the 'argument list' is
+          atomic, the command takes an indefinite number of arguments.
+
+
+
+
+                                      2 . 68
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (M (c) args .  coms)
+                                  Name,  args both atoms, defines c as
+                                  a list command.  executing (c e1 ...
+                                  en) is performed by substituting (e1
+                                  ...   en), i.e., CDR of the command,
+                                  for args throughout  coms,  and then
+                                  executing coms.
+
+               For  example,  the  command SECOND,  p.   2.31,  can be
+          defined as  a macro by  (M (2ND)  X  (ORR ((LC  .   X) (LC .
+          X)))).   Note  that  for  all  editor  commands,  'built in'
+          commands  as  well  as  commands defined  by  macros, atomic
+          definitions and list definitions are completely independent.
+          In other words,  the existence of an atomic definition for c
+          in no way affects the treatment of c when it appears  as CAR
+          of  a  list command,  and the existence of a list definition
+          for c in no way affects the treatment of c  when  it appears
+          as an atom.   in particular,  c can be  used as the  name of
+          either  an atomic command,  or a list  command, or both.  In
+          the latter  case,  two entirely different definitions can be
+          used.
+
+               Note also that once  c is defined as an  atomic command
+          via a macro definition,  it will not  be  searched  for when
+          used in a location specification, unless c is preceded by an
+          F.   Thus (INSERT -- BEFORE BP) would not search for BP, but
+          instead  perform a  BK,  an  UP,  and a P,  and  then do the
+          insertion.   The  corresponding  also  holds  true  for list
+          commands.
+
+               Occasionally,  the  user  will  want  to  employ  the S
+          command  in  a macro  to save  some  temporary  result.  For
+          example, the SW command could be defined as
+
+          (M (SW)  (N M) (NTH N) (S FOO 1) MARK 0 (NTH M) (S FIE 1) (I
+          1 FOO) __ (I 1 FIE))
+
+          (A more elegant definition would  be (M  (SW)  (N M) (NTH N)
+          MARK 0 (NTH M)  (S  FIE 1) (I 1 (## _ 1)) __ (I 1 FIE)), but
+          this would still use one free variable.)
+
+               Since  SW  sets  FOO  and  FIE,   using  SW   may  have
+          undesirable side  effects,  especially when  the  editor was
+          called from deep  in a computation.   Thus we must always be
+          careful to make up unique names for dummy variables  used in
+          edit  macros, which is bothersome.  Furthermore, it would be
+          impossible   to   define  a  command   that   called  itself
+          recursively while setting free variables.   The BIND command
+
+
+
+
+                                      2 . 69
+
+
+
+
+
+
+
+
+
+
+
+
+
+          solves both problems.
+
+          (BIND . coms)
+                                  Binds three dummy  variables #1, #2,
+                                  #3,  (initialized to NIL),  and then
+                                  executes  the  edit  commands  COMS.
+                                  Note that these bindings are only in
+                                  effect while the commands  are being
+                                  executed,  and that BIND can be used
+                                  recursively;  it will rebind #1, #2,
+                                  and  #3  each  time  it  is invoked.
+                                  (BIND is implemented by (PROG (#1 #2
+                                  #3)  (EDITCOMS (CDR COM))) where COM
+                                  corresponds to the BIND command, and
+                                  EDITCOMS  is   an   internal  editor
+                                  function  which executes  a  list of
+                                  commands.)
+
+               thus we could now write SW safely as
+
+          (M (SW) (N M) (BIND (NTH N) (S #1 1) MARK 0 (NTH M) (S #2 1)
+          (I 1 #1) __ (I 1 #2))).
+
+               User   macros  are  stored   on   a   list  USERMACROS.
+          (USERMACROS  is initially NIL.)  thus if  the user  wants to
+          save his  macros,  he  should save the  value of USERMACROS.
+          (The user probably should also save the value of EDITCOMSL).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 70
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Miscellaneous Commands
+
+          NIL
+                                  Unless  preceded  by  F  or  BF,  is
+                                  always a NOP.
+
+          TTY:
+                                  Calls the  editor  recursively.  The
+                                  user can then type in  commands, and
+                                  have   them   executed.    The  TTY:
+                                  command  is  completed when the user
+                                  exits from  the  lower editor.  (See
+                                  OK and STOP below.)
+
+               The TTY:  command is  extremely useful.  It enables the
+          user to set up a complex operation,  and perform interactive
+          attention-changing  commands  part  way  through   it.   For
+          example  the  command (MOVE 3 TO AFTER COND 3 P TTY:) allows
+          the user to interact,  in effect,  within the  MOVE command.
+          Thus he can verify for himself that the correct location has
+          been found,  or complete  the specification  "by  hand".  In
+          effect, TTY: says "I'll tell you what you should do when you
+          get there."
+
+               The  TTY:  command  operates by printing TTY:  and then
+          calling the  editor.   The  initial  edit chain in the lower
+          editor is the one that existed  in the higher  editor at the
+          time  the TTY:  command was  entered.   Until the user exits
+          from the lower  editor,  any attention changing  commands he
+          executes  only  affect  the lower editor's  edit chain.  (Of
+          course,  if  the  user performs  any  structure modification
+          commands while under a TTY:  command,  these will modify the
+          structure in both editors,  since it is the same structure.)
+          When  the  TTY:  command  finishes,  the lower editor's edit
+          chain becomes the edit chain of the higher editor.
+
+          OK
+                                  Exits from the editor.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 71
+
+
+
+
+
+
+
+
+
+
+
+
+
+          STOP
+                                  Exits from the editor with an error.
+                                  Mainly  for  use in conjunction with
+                                  TTY: commands that the user wants to
+                                  abort.
+
+               Since all of  the  commands  in  the editor  are ERRSET
+          protected, the user must exit from the editor via a command.
+          STOP provides a way of  distinguishing between  a successful
+          and  unsuccessful  (from  the  user's   standpoint)  editing
+          session.   For example,  if the user is executing (MOVE 3 TO
+          AFTER COND TTY:), and he exits from the lower editor with an
+          OK,  the MOVE  command will then complete its operation.  If
+          the user wants to abort the  MOVE command,  he must make the
+          TTY:  command  generate an  error.   He does this by exiting
+          from the lower editor with a STOP  command.   In  this case,
+          the higher editor's edit chain will  not be  changed  by the
+          TTY: command.
+
+          SAVE
+                                  Exits  from the editor and saves the
+                                  'state of the edit' on  the property
+                                  list of  the function/variable being
+                                  edited under the property EDIT-SAVE.
+                                  If the editor is called again on the
+                                  same   structure,   the  editing  is
+                                  effectively  "continued,"  i.e., the
+                                  edit  chain,  mark  list,  value  of
+                                  UNFIND and UNDOLST are restored.
+
+          For example:
+
+          #P
+          (NULL X)
+          #F COND P
+          (COND (& &) (T &))
+          #SAVE
+          FOO
+           .
+           .
+           .
+          *(EDITF FOO)
+          EDIT
+          #P
+          (COND (& &) (T &))
+          #\ P
+          (NULL X)
+          #
+
+
+
+
+                                      2 . 72
+
+
+
+
+
+
+
+
+
+
+
+
+
+               SAVE is  necessary only if  the  user  is  editing many
+          different expressions; an exit from the editor via OK always
+          saves the state of the edit of that call to the editor.  (On
+          the property list of the  atom EDIT, under the property name
+          LASTVALUE.   OK also  remprops EDIT-SAVE  from  the property
+          list  of the  function/variable  being edited.) Whenever the
+          editor is  entered,  it  checks to see if it  is editing the
+          same expression  as the last  one edited.   In this case, it
+          restores the mark list,  the undolst,  and sets UNFIND to be
+          the edit chain as of the previous exit from the editor.  For
+          example:
+
+          *(EDITF FOO)
+          EDIT
+          #P
+          (LAMBDA (X) (PROG & & LP & & & &))
+             .
+             .
+             .
+          #P
+          (COND & &)
+          #OK
+          FOO
+          #
+             .
+             .            Any number of inputs except for
+             .            calls to the editor.
+          *(EDITF FOO)
+          EDIT
+          #P
+          (LAMBDA (X) (PROG & & LP & & & &))
+          #\ P
+          (COND & &)
+          #
+
+               The user can always continue editing, including undoing
+          changes from a previous editing session, if
+
+                    (1)  No  other expressions have  been edited since
+                    that  session;  (since saving  takes place at exit
+                    time,  intervening calls that were exited via STOP
+                    will not  affect the editor's memory of  this last
+                    session.) or
+
+                    (2) It was ended with a SAVE command.
+
+
+
+
+
+
+
+                                      2 . 73
+
+
+
+
+
+
+
+
+
+
+
+
+
+          REPACK
+                                  Permits the 'editing' of an  atom or
+                                  string.
+
+          For example:
+
+          #P
+          ... "THIS IS A LOGN STRING")
+          #REPACK
+          EDIT
+          1#P
+          (/" T H I S /  I S /  A /  L O G N /  S T R I N G /")
+          1#(SW G N)
+          1#OK
+          "THIS IS A LONG STRING"
+          #
+
+               REPACK operates by  calling the  editor  recursively on
+          UNPACK of  the current  expression,  or  if it is a list, on
+          UNPACK of its first element.   If the lower editor is exited
+          successfully,  i.e.  via OK as opposed to  STOP, the list of
+          atoms is made into a single atom or  string,  which replaces
+          the atom or string being 'repacked.'  The new atom or string
+          is always printed.
+
+          (REPACK $)
+                                  Does (LC .  $)  followed  by REPACK,
+                                  e.g.  (REPACK THIS@).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 74
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (MAKEFN form args n m)
+                                  Makes (CAR  form)  an EXPR  with the
+                                  nth  through  mth  elements  of  the
+                                  current    expression    with   each
+                                  occurance  of  an  element  of  (CDR
+                                  form)  replaced by the corresponding
+                                  element  of  args.   The nth through
+                                  mth  elements are  replaced by form.
+                                  For example:
+
+          #P
+          ... (SETQ A NIL) (SETQ B T) (CONS C D))
+          #(MAKEFN (SETUP C D) (W X) 1 3) P
+          ... (SETUP C D))
+          #E (GRINDEF SETUP)
+          (DEFPROP SETUP
+           (LAMBDA(W X) (SETQ A NIL) (SETQ B T) (CONS W X))
+          EXPR)
+          #
+
+          (MAKEFN form args n)
+                                  Same as (MAKEFN form args n n).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 75
+
+
+
+
+
+
+
+
+
+
+
+
+
+          UNDO
+
+               Each   command   that   causes  structure  modification
+          automatically  adds  an  entry  to  the   front  of  UNDOLST
+          containing the information required  to restore all pointers
+          that were changed by the command.
+
+          UNDO
+                                  Undoes the  last, i.e., most recent,
+                                  structure modification  command that
+                                  has not yet been undone, (Since UNDO
+                                  and    !UNDO     causes    structure
+                                  modification, they also add an entry
+                                  to UNDOLST.  However, UNDO and !UNDO
+                                  entries are skipped  by  UNDO, e.g.,
+                                  if the user performs an  INSERT, and
+                                  then an  MBD,  the  first  UNDO will
+                                  undo the  MBD,  and the  second will
+                                  undo the INSERT.   However, the user
+                                  can  also  specify  precisely  which
+                                  command he  wants  undone.   In this
+                                  case,  he can undo an  UNDO command,
+                                  e.g., by typing UNDO UNDO, or undo a
+                                  !UNDO  command,  or  undo  a command
+                                  other  than  that  most  recently  _
+                                  performed.)  and prints the  name of
+                                  that command,  e.g., MBD UNDONE. The
+                                  edit  chain is then exactly  what it
+                                  was  before the 'undone' command had
+                                  been  performed.   If  there  are no
+                                  commands to undo, UNDO types NOTHING
+                                  SAVED.
+
+          !UNDO
+                                  Undoes  all  modifications performed
+                                  during  this editing  session, i.e.,
+                                  this  call to  the  editor.  As each
+                                  command  is  undone,   its  name  is
+                                  printed  a  la  UNDO.   If  there is
+                                  nothing to  be  undone, !UNDO prints
+                                  NOTHING SAVED.
+
+               Whenever  the  user  continues  an  editing  session as
+          described on  pages 2.72-2.73,  the  undo information of the
+          previous session(s)  is  protected  by  inserting  a special
+          blip,  called an undo-block on the front  of  UNDOLST.  This
+          undo-block  will terminate the operation of a !UNDO, thereby
+          confining  its  effect  to  the  current  session,  and will
+
+
+
+
+                                      2 . 76
+
+
+
+
+
+
+
+
+
+
+
+
+
+          similarly prevent an UNDO command from operating on commands
+          executed in the previous session.
+
+               Thus,  if  the  user  enters  the  editor  continuing a
+          session, and immediately executes an UNDO or !UNDO, UNDO and
+          !UNDO  will  type  BLOCKED,   instead   of   NOTHING  SAVED.
+          Similarly,  if the  user executes several commands  and then
+          undoes them all, either via several UNDO commands or a !UNDO
+          command, another UNDO or !UNDO will also type BLOCKED.
+
+          UNBLOCK
+                                  Removes an undo-block.   If executed
+                                  at  a  non-blocked  state,  i.e., if
+                                  UNDO or !UNDO  could  operate, types
+                                  NOT BLOCKED.
+
+          TEST
+                                  Adds an  undo-block  at the front of
+                                  UNDOLST.
+
+               Note   that  TEST  together   with   !UNDO   provide  a
+          'tentative' mode for  editing,  i.e., the user can perform a
+          number of  changes,  and then undo all of them with a single
+          !UNDO command.
+
+          ??
+                                  Prints the entries on  UNDOLST.  The
+                                  entries are  listed  in  the reverse
+                                  order  of their execution, i.e., the
+                                  most   recent   entry   first.   For
+                                  example:
+          #P
+          (CONS (T &) (& &))
+          #(1 COND) (SW 2 3) P
+          (COND (& &) (T &))
+          #??
+          SW (1 --)
+          #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 77
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Editdefault
+
+               Whenever  a command  is  not  recognized,  i.e., is not
+          'built  in'  or defined  as a  macro,  the  editor  calls an
+          internal  function,  EDITDEFAULT to determine what action to
+          take.   If  a location  specification is being  executed, an
+          internal flag informs EDITDEFAULT  to  treat the  command as
+          though it had been preceded by an F.
+
+          If  the  command  is  atomic  and  typed  in  directly,  the
+          procedure followed is as given below.
+
+
+          1)
+                    If the command is one of the  list commands, i.e.,
+               a member of EDITCOMSL, and there is additional input on
+               the  same teletype  line,  treat  the  entire line as a
+               single  list command.   (Uses READLINE.   Thus the line
+               can be terminated by carriage return, right parenthesis
+               or square bracket,  or a list.) Thus, the user may omit
+               parentheses for  any list command typed in  at  the top
+               level (which  is not  also an atomic command, e.g., NX,
+               BK).  For example:
+
+          #P
+          (COND (& &) (T &))
+          #(XTR 3 2)
+          #MOVE TO AFTER LP
+          #
+
+               If  the  command  is  on  the  list  EDITCOMSL  but  no
+               additional input is on the teletype line,  an  error is
+               generated, e.g.,
+
+          #P
+          (COND (& &) (T &))
+          #MOVE
+
+
+          MOVE ?
+          #
+
+
+          2)
+                    If the last character in the command is P, and the
+               first n-1 characters comprise the  command  __,  _, UP,
+               NX,  BK,  !NX,  UNDO,  or  REDO,  assume  that the user
+               intended two commands, e.g.,
+
+
+
+
+                                      2 . 78
+
+
+
+
+
+
+
+
+
+
+
+
+
+          #P
+          (COND (& &) (T &))
+          #2 NXP
+          (T (CONS X Y))
+
+
+          3)
+                    Otherwise, generate an error.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 79
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Editor Functions
+
+          (EDITL L coms atm marklst mess)
+                                  EDITL  is  the  editor.   Its  first
+                                  argument is the edit chain,  and its
+                                  value is  an edit chain,  namely the
+                                  value  of  L  at  the time  EDITL is
+                                  exited.   (L is  a special variable,
+                                  and so can  be  examined  or  set by
+                                  edit  commands.   For example,  ^ is
+                                  equivalent to  (E  (SETQ  L(LAST L))
+                                  T).)
+
+                                  Coms   is   an   optional   list  of
+                                  commands.   For interactive editing,
+                                  coms is  NIL.   In  this case, EDITL
+                                  types EDIT and then waits  for input
+                                  from the  teletype.  (If mess is not
+                                  NIL EDITL types it instead  of EDIT.
+                                  For  example,  the  TTY:  command is
+                                  essentially (SETQ L (EDITL L NIL NIL
+                                  NIL  (QUOTE  TTY:))).)  Exit  occurs
+                                  only  via  an  OK,   STOP,  or  SAVE
+                                  command.
+
+                                  If coms is NOT  NIL,  no  message is
+                                  typed,  and  each member of  coms is
+                                  treated as  a  command and executed.
+                                  If an error occurs in  the execution
+                                  of one  of  the  commands,  no error
+                                  message is printed , the rest of the
+                                  commands  are   ignored,  and  EDITL
+                                  exits  with  an  error,   i.e.,  the
+                                  effect  is the same as though a STOP
+                                  command had been  executed.   If all
+                                  commands execute successfully, EDITL
+                                  returns the current value of L.
+
+                                  Marklst is the list of marks.
+
+                                  On calls from EDITF, Atm is the name
+                                  of  the  function  being  edited; on
+                                  calls  from  EDITV,  the name of the
+                                  variable,  and calls from EDITP, the
+                                  atom  of which some  property of its
+                                  property list  is being edited.  The
+                                  property list of atm is used  by the
+                                  SAVE command for saving the state of
+
+
+
+
+                                      2 . 80
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                  the  edit.   Thus SAVE will not save
+                                  anything  if   atm=NIL   i.e.,  when
+                                  editing  arbitrary  expressions  via
+                                  EDITE or EDITL directly.
+
+          (EDITF x)
+                                  FSUBR   function   for   editing   a
+                                  function.   (CAR x)  is the  name of
+                                  the function,  (CDR  x)  an optional
+                                  list  of commands.   For the rest of
+                                  the  discussion,  fn is (CAR x), and
+                                  coms is (CDR x).
+
+                                  If x is NIL,  fn is set to the value
+                                  of LASTWORD, coms is set to NIL, and
+                                  the value of LASTWORD is printed.
+
+                                  The value of EDITF is fn.
+
+          (1)   In  the  most  common  case,  fn  is  an  non-compiled
+          function, and EDITF simply performs
+          (EDITE (CADR (GETL fn (QUOTE (FEXPR EXPR MACRO))))  coms fn)
+          and sets LASTWORD to fn.
+
+          (2)   If  fn is  not an editable function,  but has a value,
+          EDITF  assumes the user meant to  call EDITV, prints =EDITV,
+          calls EDITV and returns.
+
+          Otherwise, EDITF generates an fn NOT EDITABLE error.
+
+          (EDITE expr coms atm)
+                                  Edits  an expression.   Its value is
+                                  the  last  element  of  (EDITL (LIST
+                                  expr)  coms atm NIL NIL).  Generates
+                                  an error if expr is not a list.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 81
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (EDITV editvx)
+                                  FSUBR  function,  similar  to EDITF,
+                                  for  editing  values.   (CAR editvx)
+                                  specifies the value, (CDR editvx) is
+                                  an optional list of commands.
+
+                                  If editvx is NIL,  it is set  to the
+                                  value  of  (NCONS LASTWORD)  and the
+                                  value of LASTWORD is printed.
+
+               If  (CAR  editvx)  is a  list,  it is evaluated and its
+          value given to EDITE,  e.g.   (EDITV (CDR (ASSOC (QUOTE FOO)
+          DICTIONARY)))). In this case, the value of EDITV is T.
+
+               However,  in most  cases,  (CAR editvx)  is a variable,
+          e.g.  (EDITV FOO); and EDITV calls EDITE on the value of the
+          variable.
+
+               If  the  value  of  (CAR editvx)  is  atomic then EDITV
+          prints a NOT EDITABLE error message.
+
+               When (if) EDITE returns, EDITV sets the variable to the
+          value  returned,  and  sets  LASTWORD  to  the  name  of the
+          variable.
+
+               The value  of  EDITV  is the name of the variable whose
+          value was edited.
+
+          (EDITP x)
+                                  FSUBR function, similar to EDITF for
+                                  editing property lists.  Like EDITF,
+                                  LASTWORD is used if x is NIL.  EDITP
+                                  calls  EDITE on the property list of
+                                  (CAR x).   When  (if) EDITE returns,
+                                  EDITP  RPLACD's  (CAR  x)  with  the
+                                  value returned, and sets LASTWORD to
+                                  (CAR x).
+
+                                  The value of EDITP is the atom whose
+                                  property list was edited.
+
+
+
+
+
+
+
+
+
+
+
+
+                                      2 . 82
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (EDITFNS x)
+                                  FSUBR function,  used to perform the
+                                  same editing  operations  on several
+                                  functions.   (CAR x) is evaluated to
+                                  obtain a list of functions.  (CDR x)
+                                  is a list of edit commands.  EDITFNS
+                                  maps  down  the  list  of functions,
+                                  prints  the  name of  each function,
+                                  and calls the  editor (via EDITF) on
+                                  that function.
+
+               For example,  (EDITFNS FOOFNS  (R FIE FUM)) will change
+          every FIE to FUM in each of the functions on FOOFNS.
+
+                                  The  call  to  the editor  is ERRSET
+                                  protected, so that if the editing of
+                                  one   function   causes   an  error,
+                                  EDITFNS  will  proceed  to  the next
+                                  function.
+
+               Thus in the  above example, if one of the functions did
+          not contain a FIE,  the R command would cause an  error, but
+          editing would continue with the next function.
+
+                                  The value of EDITFNS is NIL
+
+          (EDIT4E pat y)
+                                  Is the pattern  match  routine.  Its
+                                  value is  T if  pat  matches y.  See
+                                  pp.   2.22-2.23   For  definition of
+                                  'match'.
+
+               Note:  before  each  search  operation  in  the  editor
+          begins,  the entire pattern  is scanned for atoms or strings
+          that end in at-signs.  These are replaced by patterns of the
+          form
+                      (CONS (QUOTE /@) (EXPLODEC atom)).
+          Thus from the standpoint of EDIT4E, pattern type 5, atoms or
+          strings ending in  at-signs,  is really "If  car[pat] is the
+          atom @  (at-sign),  PAT will match with any literal  atom or
+          string whose initial character codes (up to the  @)  are the
+          same as those in cdr[pat]."
+
+               If the  user  wishes  to call  EDIT4E directly, he must
+          therefore  convert  any  patterns  which  contain  atoms  or
+          strings ending in at-signs to the  form recgnized by EDIT4E.
+          This can be done via the function EDITFPAT.
+
+
+
+
+
+                                      2 . 83
+
+
+
+
+
+
+
+
+
+
+
+
+
+          (EDITFPAT pat flg)
+                                  Makes  a   copy   of  pat  with  all
+                                  patterns of type 5 converted  to the
+                                  form expected by EDIT4E.  Flg should
+                                  be  passed  as  NIL  (flg=T  is  for
+                                  internal use by the editor).
+
+          (EDITFINDP x pat flg)
+                                  Allows a  program  to  use  the edit
+                                  find  command  as  a  pure predicate
+                                  from  outside  the editor.   X is an
+                                  expression,   pat  a  pattern.   The
+                                  value  of  EDITFINDP  is  T  if  the
+                                  command  F  pat  would  succeed, NIL
+                                  otherwise.  EDITFINDP calls EDITFPAT
+                                  to  convert pat to the form expected
+                                  by  EDIT4E,  unless flg=T.  Thus, if
+                                  the program is applying EDITFINDP to
+                                  several different  expressions using
+                                  the  same pattern,  it will  be more
+                                  efficient to call EDITFPAT once, and
+                                  then   call   EDITFINDP   with   the
+                                  converted pattern and flg=T.
+
+          (EDITRACEFN com)
+                                  Is available to help the  user debug
+                                  complex  edit  macros, or subroutine
+                                  calls  to the editor.  EDITRACEFN is
+                                  to be defined by the user.  Whenever
+                                  the value of  EDITRACEFN is non-NIL,
+                                  the   editor   calls   the  function
+                                  EDITRACEFN  before   executing  each
+                                  command  (at  any  level), giving it
+                                  that command as its argument.
+
+          For example, defineing EDITRACEFN as
+                     (LAMBDA (C) (PRINT C) (PRINT (CAR L)))
+          will  print  each  command  and  the  corresponding  current
+          expression.   (LAMBDA  (C)  (BREAK1  T  T NIL NIL NIL)) will
+          cause a break before executing each command.
+
+                                  EDITRACEFN  is  initially  equal  to
+                                  NIL, and undefined.
+
+
+
+
+
+
+
+
+
+                                      2 . 84
+
+
+
+

@@ -1,0 +1,203 @@
+FQC - MEASUREMENT AND TRACING SYSTEM FOR SIMULA PROGRAMS
+========================================================
+
+If a SIMULA program has been developed which will be used very often,
+e.g.   as  a  part in a regularly used production system, it is often
+profitable to spend some efforts optimizing the program.
+
+A central and sometimes non-trivial problem in  program  optimization
+is  to  find  the  innermost loops of the program. Once the execution
+profile of a program is known it is usually easy to  make  it  faster
+with  a few changes such as modifications in processing algorithms or
+by using a small machine language subroutine.
+
+DEC-10 SIMULA is delivered with a frequency measurement system  which
+assists  in  spotting  frequently executed parts of a SIMULA program.
+The system consists of two SIMULA programs, FQCRED and FQCLST.
+
+The system is used as follows:
+
+The program to be analyzed must have been tested well enough  to  run
+to  normal  completion.   It  is  read  by  the  program FQCRED which
+produces two modified versions of it, one of which  is  a  compilable
+SIMULA  program  (.FQ1+.FQ2)  and  the  other a listing later used to
+produce  the  frequency  listing  (.FQD).   The  modified  compilable
+program  is  executed  (.FQR) and produces, if normally terminated, a
+file of measured frequencies (.FQS). This file  is  merged  with  the
+listing  output from FQCRED by the program FQCLST, which produces the
+final output (.FQL).
+
+The user may also measure the execution time for different  parts  of
+his  program by editing calls to a procedure Z_T(I) into his program.
+A call with I > 0 initiates a timing which is ended by  a  call  with
+the corresponding negative I. The logic is as follows:
++100>=I>0  T0[I]:= cptime;
+-100<=I<0  J:=-I; ACC[J]:= ACC[J]+(cptime-T0[J]);
+Calls to Z_T may be overlapping (even partly).
+
+For example:
+
+BEGIN
+	....
+	Z_T(+1);------------+
+	....                |
+	Z_T(+2);---------+  |
+	....             |  |
+	Z_T(+3);------+  |  |
+	....          |  |  |
+	Z_T(-2);------)--+  |
+	....          |     |
+	Z_T(-3);------+     |
+	....                |
+	Z_T(-1);------------+
+	....
+END
+
+The resulting CPU-times will be presented at the end  of  the  result
+file  (.FQL).  For  reliable results, do not try to measure too small
+intervalls (depending on the precision of the timing). Note that only
+such measurements that yielded accumulated times > 0 will be printed.
+
+The measured program should satisfy some restrictions:
+
+i)	The program must not contain the identifiers Z_Q, Z_T or Z__.
+
+ii)	The  program  should not use any files on DSK: named
+        <program name>.FQ1 .FQ2 .FQR .FQD .FQS .FQL or .FQT.
+
+iii)	The program should terminate through its last END.
+	I.e. not through call to Exit or through SIMDDT.
+
+iv)	The source code lines should preferably not contain
+	any internal TABs (leading TABs are OK). If so, the
+	produced frequency indicators (|) might be misplaced
+	(within such a line). TABs may be removed with
+	.COPY temp.sim=prog.sim(W).
+
+Note that the frequency indicators will be positioned  at  the  first
+position  of  the  symbol  counted.  Its  related  number  should  be
+interpreted as the number of times this symbol has been PASSED during
+the  execution. An indicated label (L:) will thus tell how many times
+control passed the label from left, excluding explicit jumps  (GO  TO
+L).
+
+By  adding the switch /T to the filespecification requested by FQCRED
+a trace file (.FQT) will be produced, containing the number  of  each
+executed  (counted)  statement.  This  may  be  useful when debugging
+Simulation programs or programs making use of resume/detach.  If  the
+program  terminates  with  an  error the file with logical name TRACE
+must be closed before leaving SIMDDT.
+
+The result file (.FQL) will contain information about the  number  of
+the  first traced statement on each source line. Consequetive numbers
+will be indicated as xx-yy in .FQT. Note that the file is created  in
+APPEND  mode adding new traces to the end of the file. The trace file
+will contain the first six characters of the traced  symbol  followed
+by its statement number.
+
+Adding a number to the trace switch (/T:x) will  trace  the  executed
+statements  the  first  x  times.  Every  statement  number  will  be
+displayed (no xx-yy compacting). X must be >= 0, /T:0  is  equivalent
+to /T.
+
+The  use  of tracing will considerably increase the execution time of
+the modified program. Thus it is not recommended to use timing  (Z_T)
+together with tracing. The tracing may be switched off by calling the
+procedure TRACEOFF. It may be activated again by calling TRACEON.
+
+
+If you want to include any of your external modules in the  analysis,
+run the program SIMEXP prior to FQCRED.
+
+
+The following session illustrates the use of the system on the SIMULA
+program FLOPY.SIM.
+
+
+	.run pub:fqcred
+
+	Welcome to FQCRED Version 3
+
+	Program:flopy
+
+	[FQCRED: CPU time: 0.88]
+	Running modified program: SIMULA:  FLOPY
+	LINK:	Loading
+	[LNKXCT FLOPY Execution]
+
+	If you want to have the result at once type .CONTINUE
+	To accumulate the frequencies just type: START
+
+	.con
+
+	Welcome to FQCLST Version 3
+
+	Result on file: DSK: FLOPY.FQL - Type CON to see them at once.
+
+	.con
+
+	 Max   --------------------- FQC Result ---------------------
+
+	        BEGIN COMMENT FREQUENCY MEASUREMENT EXAMPLE;
+	            INTEGER u,k;   TEXT t;
+	            z_t(+1);
+	     1      |1
+	            WHILE Draw(0.999,u) DO u:= u+2;
+	  1636      |1                     |1636
+	            z_t(-1);
+	     1      |1
+	            z_t(+2);
+	     1      |1
+	            FOR u:= 1 STEP 1 UNTIL 5000 DO
+	     1      |1
+	            IF t = NOTEXT THEN k:=k+1;
+	  5000      |5000              |5000
+	            z_t(-2);
+	     1      |1
+	            z_t(+3);
+	     1      |1
+	            FOR u:= 1 STEP 1 UNTIL 5000 DO
+	     1      |1
+	            IF t == NOTEXT THEN k:=k+1;
+	  5000      |5000               |5000
+	            z_t(-3);
+	     1      |1
+	            z_t(+4);
+	     1      |1
+	            FOR u:= 1 STEP 1 UNTIL 5000 DO
+	     1      |1
+	            IF TRUE THEN k:=k+1;
+	  5000      |5000        |5000
+	            z_t(-4);
+	     1      |1
+	        END;
+	     1  |1
+
+	FQC results:
+	Max frequency:      5000
+	Sum frequency:     31649
+	No. of executions:     1
+
+	CPU timing: Total   0.50 sec.
+
+	Call no.    Time spent    % of runtime
+	    1          0.047           9.46
+	    2          0.248          49.90
+	    3          0.095          19.11
+	    4          0.089          17.91
+
+
+	.DIRECT flopy
+
+	FLOPY	SIM     1  <057>   8-Aug-78   User program
+	FLOPY	FQ1     4  <057>   8-Aug-78   Modif. file part 1
+	FLOPY	FQ2     3  <057>   8-Aug-78   Modif. file part 2
+	FLOPY	FQD     1  <057>   8-Aug-78   Edited file with bars (|)
+	FLOPY	FQR    11  <057>   8-Aug-78   REL-file from FQ1+FQ2
+	FLOPY	FQS     1  <057>   8-Aug-78   Frequency + timing data (binary)
+	FLOPY	FQL     3  <057>   8-Aug-78   Result file (FQS+FQD)
+
+
+Cleaning up afterwards might be done with .DELETE *.FQ?
+
+		[End of FQC.HLP 78-08-16 MO]

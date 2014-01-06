@@ -1,0 +1,170 @@
+
+
+
+
+
+                    Care and Feeding of
+                  PITT REAL TIME STAR TREK
+                      Daniel R. Strick
+                        October 1975
+
+
+
+   PItt  REal  Time  Star  trek  (PIRETS)  is  a   game   or
+demonstration  program  (depending on you morality) designed
+to run on a KI-10 CPU under  the  standard  TOPS-10  monitor
+version not earlier than 5.5.  PIRETS is written in MACRO-10
+and organized so that the  saved  core  image  is  a  single
+sharable (high) segment and runs in 2+5K of core.
+
+   This dectape contains 10 files that  you  need  to  bring
+PIRETS up on your system:
+    PIRETS.DOC - documentation for the PIRETS supporter,
+    STRTRK.DOC - documentation for the PIRETS player,
+    STRTRK.SHR - a runnable PIRETS core image,
+    PIRETS.MAC - the PIRETS main program,
+    INEPTA.MAC - miscellaneous numeric routines,
+    IORUTS.MAC - miscellaneous I/O routines,
+    FILSET.MAC - file specification ungarbaging routine,
+    FILMSG.MAC - error messages for FILSET,
+    ACCESS.MAC - limits access to PIRETS,
+    UNGARB.FOR - ungarbages a PIRETS score report.
+
+
+
+                      SCORE REPORTING
+
+   Whenever a game is terminated, PIRETS tries to append  an
+8  word score record onto a file identified in the parameter
+section of the main program (see below under MODIFICATIONS).
+The score file device, file name, extension, and PPN are the
+values of the symbols SCRDEV, SCRFIL,  SCREXT,  and  SCRPPN.
+PIRETS  gives  no  indication  of an unsuccessful attempt to
+write the score.  Therefore the score recording facility can
+be  turned off by using a bad file specification.  PIRETS is
+provided    with    a    specification    for    the    file
+"NUL:PIRETS.DAT[377777,377777]".
+
+   The score recording routine is designed to write  onto  a
+disk  like device.  Note that PIRETS cannot create the file,
+it can only append to an existing file.  Note also that  the
+file  must  have  a protection that permits append mode I/O.
+Assuming   that   the   score   file   is   to   be   called
+"DSK:PIRETS.DAT[123,456]"  and  that you are user [123,456],
+you can create the initial copy  with  the  monitor  command
+"COPY DSK:PIRETS.DAT<444>=NUL:X".
+
+   UNGARB (a FORTRAN-10 program) can be used  to  print  the
+information  from  a  score  file.   The  first  part of the
+
+
+
+
+
+program just lists the data read from the  score  file.   In
+order  to fit one score record onto one line of the listing,
+the field widths  were  minimized  and  the  titles  of  the
+columns were abbreviated.  The following explanations should
+prove helpful.  "CREATION" is the moment at which the player
+requested  that  a  new galaxy be created.  "TERMINATION" is
+when the score record is written.  "I-K&R"  is  the  initial
+(creation)  number  of  enemies  with Klingons listed before
+Romulans.  "R-K&R" and "I-K&R" are the numbers of enemies at
+the  last  game  restoration  and  termination.  "GS" is the
+galaxy size.  "RS" is a two letter code for the  reason  for
+termination:
+    CS - collision with star,
+    OT - out of time,
+    OE - out of energy,
+    OC - out of crew,
+    VI - victory,
+    DX - destruction of the Excalibur with phasers,
+    CX - collision with the Excalibur,
+    ^C - surrender,
+    SG - game save,
+    RG - game restoration.
+"I-TIM", "R-TIM", and "T-TIM" are the initial,  restoration,
+and  termination  time  limits  in  stardates.   "PRTG"  and
+"TNTRG" are the ratings that PIRETS generates for the player
+when  the  game  terminates.   "PRTG" is the "TOTAL EFFORT".
+"TNTRG" is the "PROFICIENCY".  "EK/SD" is the average number
+of  enemies  killed per stardate since the last restoration.
+"VERSN" is the major version and edit number of  the  PIRETS
+core  image  used.  "RC" is the count of the number of times
+that the game has been saved and restored.  The second phase
+of the UNGARB program lists accumulated statistics that have
+been sorted and organized during the first phase.  This part
+of  the output should be self explanatory.  UNGARB output is
+written to FORTRAN channel number 6.
+
+   If you want to write your own score ungarbaging  program,
+you  can  find  the format of a score file record on page 41
+(subroutine SCORE) of the PIRETS main program.
+
+
+
+                  VARIABLE STARTUP MESSAGE
+
+   When PIRETS is  started,  it  looks  for  a  file  called
+NOTICE.TXT.   First  it  looks under the device and PPN from
+which the program was run and then (if not found)  it  looks
+under the device and PPN of the score recorder.  If it finds
+a notice file, it types it after the initial startup message
+and  before  the  request  for the desired galaxy size.  The
+notice file  must  be  ASCII  text  with  no  internal  null
+characters.   PIRETS  will type only up to the first null in
+the file (i.e. do NOT line block it).  If the file  contains
+
+
+
+
+
+more  than  about  1900  characters,  the  remainder will be
+ignored.  PIRETS  gives  no  indication  of  an  error  when
+attempting  to access the notice file; if PIRETS cannot find
+it or cannot read it, PIRETS will simply not type it.
+
+
+
+                     ACCESS LIMITATION
+
+   PIRETS  is  perhaps  most  "useful"  as  a  demonstration
+program.   It  is  certainly  most useful as a game.  In the
+absence of an effective control  (e.g. work  ethic),  it  is
+capable  of  tying  up  any concievable number of terminals.
+Our  experience  is  that  students  have  an   unbelievable
+capacity  for  the  stuff.   For example, on October 15, the
+score report shows 44 games played during  the  lunch  hour.
+For this reason, the PIRETS supporter is advised to hide his
+source files and limit access to his core image file.  As an
+alternative,  a  facility  is  provided  for  control by the
+PIRETS program itself.
+
+   At some point in the initialization phase of  the  PIRETS
+program,  a  call is made to the subroutine ACCESS.  If this
+subroutine decides not to permit play, it  simply  does  not
+return.  The rules for the ACCESS program are few:
+    1) The starting point must be labelled with the
+       global symbol ACCESS,
+    2) Accumulator 17 must be saved,
+    3) PIRETS must be resumed with the instruction
+            "POPJ   17,".
+The supplied ACCESS program is just a return instruction and
+will permit anybody to run PIRETS at any time.
+
+
+
+                       MODIFICATIONS
+
+   You are supplied with the PIRETS source files so that you
+can change it if you desire.  My experience is that everyone
+thinks he has a better idea.   The  main  program  has  some
+parameters  on  the  top  of page 2 and the bottom of page 4
+that you can modify  even  if  you  are  not  familiar  with
+MACRO-10.   After you have modified the source programs from
+the dectape, the following two monitor commands can be  used
+to create a new PIRETS core image (this assumes the modified
+files are on disk).
+    .LOAD PIRETS,INEPTA,IORUTS,FILSET,FILMSG,ACCESS
+    .SSAVE STRTRK
+

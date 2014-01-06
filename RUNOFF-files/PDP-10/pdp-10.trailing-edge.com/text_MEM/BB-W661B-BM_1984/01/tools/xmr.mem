@@ -1,0 +1,993 @@
+
+
+
+                                  TOPS-20 PSI
+
+                            X.25/DECnet Router Hack
+
+
+
+                                 February, 1984
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             Copyright (C) 1984 by
+                         Digital Equipment Corporation,
+                          Maynard, Massachusetts 01754
+
+
+     THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+     ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+     INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+     COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+     OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+     TRANSFERRED.
+
+     THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+     AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+     CORPORATION.
+
+     DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+     SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+                      TOPS-20 PSI X.25/DECnet Router Hack
+
+
+                                C O N T E N T S
+
+                      ___________________________________
+
+
+
+
+
+             1.0     INTRODUCTION . . . . . . . . . . . . . . . . . . . . 1
+
+             2.0     FUNCTIONAL DESCRIPTION . . . . . . . . . . . . . . . 1
+             2.1       DECnet Poor Man's Router . . . . . . . . . . . . . 1
+             2.2       X.25/DECnet Poor Man's Router  . . . . . . . . . . 3
+             2.3       Component Interaction  . . . . . . . . . . . . . . 3
+             2.4       Network Management . . . . . . . . . . . . . . . . 4
+
+             3.0     SECURITY . . . . . . . . . . . . . . . . . . . . . . 5
+             3.1       System Access Control  . . . . . . . . . . . . . . 5
+             3.2       Object Access Control  . . . . . . . . . . . . . . 5
+             3.3       Hints  . . . . . . . . . . . . . . . . . . . . . . 5
+
+             4.0     USER COMMANDS  . . . . . . . . . . . . . . . . . . . 5
+             4.1       DETACH Command . . . . . . . . . . . . . . . . . . 6
+             4.2       LOG/NOLOG Commands . . . . . . . . . . . . . . . . 6
+             4.3       STOP Command . . . . . . . . . . . . . . . . . . . 6
+             4.4       TRACE/NOTRACE Commands . . . . . . . . . . . . . . 6
+
+             5.0     INITIALIZATION COMMANDS  . . . . . . . . . . . . . . 6
+             5.1       ACCESS-SERVER Command  . . . . . . . . . . . . . . 6
+             5.2       DEFINE Command . . . . . . . . . . . . . . . . . . 7
+             5.3       ENABLE-ACCESS Command  . . . . . . . . . . . . . . 7
+             5.4       ENABLE-GLOBAL Command  . . . . . . . . . . . . . . 8
+             5.5       LOGFILE Command  . . . . . . . . . . . . . . . . . 9
+             5.6       NETWORK Command  . . . . . . . . . . . . . . . . . 9
+             5.7       PASSWORD Command . . . . . . . . . . . . . . . .  10
+
+             6.0     INSTALLATION INFORMATION . . . . . . . . . . . . .  10
+             6.1       Inventory  . . . . . . . . . . . . . . . . . . .  10
+             6.2       Utilities  . . . . . . . . . . . . . . . . . . .  11
+             6.3       Assembling And Compiling . . . . . . . . . . . .  11
+             6.4       Operations . . . . . . . . . . . . . . . . . . .  11
+             6.5       DECnet Utilities . . . . . . . . . . . . . . . .  11
+             6.6       Known Bugs . . . . . . . . . . . . . . . . . . .  12
+
+
+     APPENDIX A      SAMPLE INITIALIZATION FILE
+
+
+     APPENDIX B      EXAMPLE
+
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                                  INTRODUCTION
+
+
+     1.0  INTRODUCTION
+
+     This document describes the procedures for building  and  running  the
+     XMR  program.   The XMR program is an unsupported tool that provides a
+     facility where DECnet utilities like Network File Transfer (NFT), File
+     Transfer Spooler (FTS), DECnet/MS, and others can use to transfer data
+     over an X.25 link in addition to a conventional DECnet link.
+
+
+
+     2.0  FUNCTIONAL DESCRIPTION
+
+     The XMR program has its origin in the DECnet Poor Man's Router program
+     (PMR).  XMR uses the same routing scheme with additional X.25 support.
+
+
+
+     2.1  DECnet Poor Man's Router
+
+     The Poor Man's Router has been writen in the  golden  days  of  DECnet
+     Phase  II,  when only DECnet links to adjacent node could be made.  In
+     larger networks, people  tried  to  get  around  this  limitation  and
+     implemented  the "Poor Man's Routing" to allow connection to any nodes
+     in the network.
+
+     In the Poor Man's Routing scheme, a DECnet  utility  first  reads  the
+     routing  table  from the file SYSTEM:DECNET-HOSTS.TXT and searches for
+     the name of the destination node.  Each node in this table is  defined
+     as:
+
+          Destination-Node,Node-1::Node-2::......Node-n::Destination-Node::
+
+     where Node-n defines the routing path to the destination node.
+
+     When a routing path is obtained successfully from the  routing  table,
+     the  DECnet  utility  creates  a DECnet link to the PMR process at the
+     first node in the routing path (DECnet object 123 is reserved for  the
+     PMR,  also  known  as  PSTHRU,  processes on TOPS-10/20 systems).  The
+     DECnet utility removes the first node name, where  the  receiving  PMR
+     process  resides,  from  the  routing  path and forwards the remaining
+     routing path text string to that PMR process.
+
+     The PMR process parses the received routing path text string,  removes
+     the  first node name from the routing path, creates a link to the next
+     PMR process at that node and forwards the remaining routing path  text
+     string.  The process is repeated at the next node.
+
+     The PMR process at the node next to the last node in the routing  path
+     (the  last  node  is  the  destination  node),  creates  a link to the
+     originally intended object at the destination node and  sends  an  ACK
+     back.   From  there  on,  each PMR process reads DECnet data on either
+     side of the link and simply forwards them  to  the  other  side.   The
+
+
+                                       1
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                             FUNCTIONAL DESCRIPTION
+
+
+     DECnet  utility  does  not  see any difference between a direct DECnet
+     link or such a routing link.
+
+     For example, a DECnet utility at  node  BOSTON  wants  to  connect  to
+     another  utility at node MIAMI, and the connection can be made through
+     nodes DALLAS and DENVER.  All are  connected  by  conventional  DECnet
+     devices.   The  destination  DECnet  object SRV:21 at node MIAMI.  The
+     Poor Man's Routing path in the file  SYSTEM:DECNET-HOSTS.TXT  at  node
+     BOSTON is:
+
+          MIAMI,DALLAS::DENVER::MIAMI::
+
+     The activities along the routing path can be traced as follows:
+
+          +---------+
+          | BOSTON  |
+          |         |
+          | DECnet  | Path DALLAS::DENVER::MIAMI::
+          | Utility |
+          |         |
+          +----+----+ DCN:123
+               |
+               |
+          +----+----+ SRV:123
+          | DALLAS  |
+          |         |
+          | DECnet  | Path DENVER::MIAMI::
+          | PMR     |
+          |         |
+          +----+----+ DCN:123
+               |
+               |
+          +----+----+ SRV:123
+          | DENVER  |
+          |         |
+          | DECnet  | Path MIAMI::
+          | PMR     |
+          |         |
+          +----+----+ DCN:21
+               |
+               |
+          +----+----+ SRV:21
+          | MIAMI   |
+          |         |
+          | DECnet  |
+          | Utility |
+          |         |
+          +---------+
+
+
+
+
+
+
+                                       2
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                             FUNCTIONAL DESCRIPTION
+
+
+     2.2  X.25/DECnet Poor Man's Router
+
+     The XMR first implements the known  functionality  of  a  PMR  process
+     (PSTHRU)  creating  a  DECnet SRV:123.  When a DECnet conncect request
+     has been received, the routing  path  text  string  is  parsed  and  a
+     connection  to the next PMR process at the next node is established or
+     the  connection  to  the  final  object  is  made.   After  the  final
+     connection  to  the requested object has been made an ACK is sent back
+     to the initiator of the request in order to start up the  actual  data
+     transfer.
+
+     In addition to this functionality already known from PSTHRU the XMR is
+     able  to create X.25 links over the PPSN to another system running XMR
+     (normaly this will be a DECsystem-20).  The decision either to  create
+     a  DECnet  link  or an X.25 link is made by examining the X25NOD table
+     set up by the program.  This table holds, in sorted order,  all  known
+     nodes  reachable  by  X.25 links and their associated DTE number.  The
+     program obtains this information by processing the initialization file
+     SYSTEM:XMR.INI (see below).
+
+     The XMR process behaves, besides the additional  access  control  (see
+     below),  the  same  way  the DECnet PMR process does.  The XMR process
+     parses the routing path text string  in  the  X.25  data  packets  and
+     creates  a  DECnet  link  to  the  final  object  and acknowledges the
+     connection.  From there on, DECnet data messages  are  segmented  into
+     X.25 packets and reassembled to DECnet messages on the other end.  The
+     DECnet utilities at both systems do not perceive  the  differences  of
+     the X.25 link from a synchronous device DECnet link.
+
+
+
+     2.3  Component Interaction
+
+     The components of XMR can be described logically as follows:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                       3
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                             FUNCTIONAL DESCRIPTION
+
+
+                  +----------+         +----------+
+                  |          |         |          |
+                  | X.25     |         | DECnet   |
+     X.25  >>>>>>>> Server   |---------| Driver   >>>>>>>>  DECnet
+                  | SRV:.XMR |         | DCN:xxx  |
+                  |          |         |          |
+                  +----------+         +----------+
+                                            /
+                                           /
+                            +----------+  /      +----------+
+                            |          | /       |          |
+                            | DECnet   |/        | X.25     |
+             DECnet  >>>>>>>> Server   |---------| Driver   >>>>>>>>  X.25
+                            | SRV:123  |         | DTE addr |
+                            |          |         |          |
+                            +----------+         +----------+
+
+
+     >>>> Routing            ---- Data
+          Direction               Flow
+
+
+
+     2.4  Network Management
+
+     The X.25 Driver places the call to the remote  system  with  the  call
+     user  data  string  "XMR" in the call packet.  The string occupies the
+     first 3 bytes of the call user data field.
+
+     At startup time and after a session  is  completed,  the  X.25  Server
+     declares  itself  to be a selectable server for an X.25 incoming call.
+     If the object name for the X.25 Server is "SRV:.XMR".  The TOPS-20 PSI
+     Gateway  must have the following information defined in its X25-SERVER
+     data base:
+
+          16:24:18   NCP
+                     Request # 50; Show Module Characteristics Completed
+
+                     Module = X25-SERVER
+
+                       Destination = XMR
+                       Node = 0 (120)
+                       Object = 0 (XMR)
+                       Priority = 1
+                       Call Mask = FF FF FF
+                       Call Value = 58 4D 52
+
+     The CALL MASK and CALL VALUE definitions must  not  be  changed.   The
+     object   name  for  the  X.25  Server  can  be  changed  to  suit  the
+     installation's requirements.  See below for instructions how to change
+     the  declared  object  name  when running the XMR program.  The object
+     name declared by the XMR program must match the defined  name  in  the
+
+
+                                       4
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                             FUNCTIONAL DESCRIPTION
+
+
+     Gateway data base, otherwise incoming calls will be rejected.
+
+
+
+     3.0  SECURITY
+
+     When an X.25 incoming call has been received by the XMR process, it is
+     validated before the DECnet connection is made to the intended object.
+     There are two levels of validation for each X.25 incoming  call.   The
+     XMR process verifies the source DTE address of each X.25 incoming call
+     to ensure that  the  remote  system  is  allowed  to  access  the  XMR
+     facility.   When  the  X.25  connection  is  verified, the XMR process
+     verifies that the remote system is authorized to communicate with  the
+     intended object.
+
+
+
+     3.1  System Access Control
+
+     Each X.25 incomming call is identified by DTE address where  it  comes
+     from.   The  XMR  process maintains a table of DTE addresses which are
+     allowed to access the local system.  Access will only  be  granted  if
+     either  the  calling DTE address is present in this table or access is
+     globally allowed to at least one object (see below).
+
+
+
+     3.2  Object Access Control
+
+     After the system access has been granted, the routing path text string
+     is  parsed and the access to the requested object is verified.  Access
+     to an object will be  refused  if  the  calling  DTE  address  is  not
+     authorized  to  access  that  object  or  the  object  is not globally
+     accessible.
+
+
+
+     3.3  Hints
+
+     Usually, access to the mail objects 27 and 201 (for VMAIL  and  DMAIL)
+     are  enabled globally.  Individual remote systems may be authorized to
+     access certain objects only.
+
+
+
+     4.0  USER COMMANDS
+
+     The following commands may be used to control the XMR process.
+
+
+
+
+
+
+                                       5
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                                 USER COMMANDS
+
+
+     4.1  DETACH Command
+
+     The DETACH command turns off any output to  the  controlling  terminal
+     and  detaches  the process from the controlling terminal to let it run
+     in the background.
+
+
+
+     4.2  LOG/NOLOG Commands
+
+     The LOG command enables the output to the controlling  terminal.   The
+     NOLOG command disables the terminal logging.
+
+
+
+     4.3  STOP Command
+
+     The STOP command stops the XMR process imediately,  the  log  file  is
+     updated and all active links are disconnected.
+
+
+
+     4.4  TRACE/NOTRACE Commands
+
+     These commands are  used  for  debugging  purposes  only.   The  TRACE
+     commands  enables  traced  data  to  be  typed  out at the controlling
+     terminal.  The NOTRACE commands disables tracing.
+
+
+
+     5.0  INITIALIZATION COMMANDS
+
+     After the XMR  program  has  been  started,  the  initialization  file
+     SYSTEM:XMR.INI  is  processed.   This  file  contains  all information
+     needed to start up  the  XMR  process,  no  operator  intervention  is
+     required.
+
+     The following commands allows the System Manager  to  set  up  XMR  as
+     needed.
+
+
+
+     5.1  ACCESS-SERVER Command
+
+     The ACCESS-SERVER command specifies the DECnet object  name  that  the
+     XMR  process  will  be  known  to the Gateway in order to receive X.25
+     incoming calls.
+
+     Syntax:
+
+          ACCESS-SERVER  object
+
+
+
+                                       6
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                            INITIALIZATION COMMANDS
+
+
+     Arguments:
+
+          object         is any valid DECnet Server specification but  must
+                         be the same as the one known to the Gateway.
+
+     Remarks:
+
+          This command is required.
+
+          See the Network Management section  above  for  more  information
+          about  the  object names relationship between the process and the
+          Gateway.
+
+     Example:
+
+          ACCESS-SERVER SRV:.XMR
+
+
+
+     5.2  DEFINE Command
+
+     The DEFINE command specifies the node to be reached over X.25  network
+     and its DTE address.
+
+     Syntax:
+
+          DEFINE  node  address
+
+     Arguments:
+
+          node           is the DECnet node name of the remote system.
+
+          address        is the numeric string of the full DTE address.
+
+     Remarks:
+
+          The correctness of the DTE  address  can  be  checked  using  the
+          X29PAD program.
+
+     Example:
+
+          DEFINE TWEX 311061700048
+
+
+
+     5.3  ENABLE-ACCESS Command
+
+     The ENABLE-ACCESS command restricts the access  of  individual  remote
+     system  to  selected  DECnet objects.  The specified remote system may
+     access only the DECnet objects specified  in  the  command  and  those
+     enabled globally (see ENABLE-GLOBAL command).
+
+
+
+                                       7
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                            INITIALIZATION COMMANDS
+
+
+     Syntax:
+
+          ENABLE-ACCESS  address  ALL
+                                  OBJECT  list
+
+     Arguments:
+
+          address        is the full DTE address of the  authorized  remote
+                         system.
+
+          list           is the list of DECnet objects  the  remote  system
+                         can access.
+
+     Remarks:
+
+          This command must be specified at least once.
+
+          The ALL parameter (or none) allows the authorized  remote  system
+          to access all objects.
+
+     Example:
+
+          ENABLE-ACCESS 311061700048 OBJECT 24
+
+
+
+     5.4  ENABLE-GLOBAL Command
+
+     The ENABLE-GLOBAL command controls access to specific  DECnet  objects
+     at the local system.  The DECnet objects specified by this command are
+     accessible to all remote systems.
+
+     Syntax:
+
+          ENABLE-GLOBAL  ALL
+                         list
+
+     Arguments:
+
+          list           is the list of DECnet objects remote  systems  can
+                         access.
+
+     Remarks:
+
+          This command must be specified at least once.
+
+          The ALL parameter allows all  objects  accessible  by  authorized
+          remote systems.
+
+     Example:
+
+          ENABLE-GLOBAL ALL
+
+
+                                       8
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                            INITIALIZATION COMMANDS
+
+
+          ENABLE-GLOBAL 27,201
+
+
+
+     5.5  LOGFILE Command
+
+     The LOGFILE command enables logging of events and specifies  the  name
+     of the log file to be written in append mode by the XMR program.
+
+     Syntax:
+
+          LOGFILE file
+
+     Arguments:
+
+          file           is any valid file specification.
+
+     Remarks:
+
+          This command is optional.
+
+          This command is not affected by the user LOG/NOLOG commands.
+
+     Example:
+
+          LOGFILE XMR.LOG
+
+
+
+     5.6  NETWORK Command
+
+     The NETWORK command is used to define the X.25 network name which  the
+     system is connected to.  The network name must be identical to the one
+     defined in the X25-ACCESS data base.  Use the NCP command SHOW  MODULE
+     X25-ACCESS  CHARACTERISTICS  to  determine  the  network  name defined
+     there.
+
+     Syntax:
+
+          NETWORK  name
+
+     Arguments:
+
+          name           is the network name text string.
+
+     Remarks:
+
+          This command is required.
+
+     Example:
+
+          NETWORK TRANSPAC
+
+
+                                       9
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                            INITIALIZATION COMMANDS
+
+
+     5.7  PASSWORD Command
+
+     The PASSWORD command defines the password to  be  used  when  an  X.25
+     outgoing  call  has  be made by the program.  The password must be the
+     same as the access password defined in the Gateway.
+
+     Syntax:
+
+          PASSWORD  access
+
+     Arguments:
+
+          access         is the access password text string.
+
+     Remarks:
+
+          This command is optional if the Gateway does not  require  access
+          password.
+
+     Example:
+
+          PASSWORD MAGIC
+
+
+
+     6.0  INSTALLATION INFORMATION
+
+     6.1  Inventory
+
+     The program is supplied as source files in the PS:<TOOLS>  saveset  of
+     the TOPS-20 PSI Version 1.1 distribution tape.  The files are:
+
+           o  XMR.MAC
+           o  XMR.CTL
+           o  XMR.MEM
+           o  XMR.INI
+
+     In addition, you will need the following utility files to rebuild  the
+     program:
+
+           o  GLXTXT.MAC
+           o  GLXTXT.REL
+           o  GLXTXT.MEM
+           o  TXTUNV.MAC
+           o  TXTUNV.REL
+           o  TXTUNV.UNV
+
+
+
+
+
+
+
+
+                                       10
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                            INSTALLATION INFORMATION
+
+
+     6.2  Utilities
+
+     You need the following software utilities to build the software
+
+           o  MACRO-20 Assembler
+           o  CREF Macro Cross Reference program
+           o  LINK
+
+
+
+     6.3  Assembling And Compiling
+
+     A copy of the executable file XMR.EXE is supplied on the tape ready to
+     run.   However,  if  you  decide to modify the source file, submit the
+     file XMR.CTL to rebuild the program.
+
+          $SUBMIT XMR.CTL <RET>
+
+
+
+     6.4  Operations
+
+     You need to update, create and install the following files before  XMR
+     can be used:
+
+           o  SYS:XMR.EXE
+           o  SYSTEM:DECNET-HOSTS.TXT
+           o  SYSTEM:XMR.INI
+
+     You need to update the system PTYCON.ATO file to  have  the  following
+     entries  in  order  to startup the XMR program automatically at system
+     reboot:
+
+          ^X
+          DEFINE ^$XMR
+          CONN XMR
+          LOG OPERATOR
+          ENABLE
+          XMR
+          DETACH
+          ^X
+
+
+
+     6.5  DECnet Utilities
+
+     The DECnet utilities need to be built or patched with the  Poor  Man's
+     Routing  switch  turned  on  before  they  can  be  used  with the XMR
+     facility.  The most common DECnet utilities that can work with the XMR
+     facility are:
+
+
+
+
+                                       11
+                      TOPS-20 PSI X.25/DECnet Router Hack
+                            INSTALLATION INFORMATION
+
+
+           o  NFT (Network File Transfer)
+           o  FTS (File Transfer Spooler)
+           o  MS, VMAIL, DMAIL, NMAIL, etc.  (Mail utilities)
+           o  SETHOST, HOST (X29PAD can be used instead)
+
+     NFT has to be built or patched with the Poor Man's Routing  flag  set.
+     You can patch the existing NFT on your system as follows:
+
+          @ENABLE
+          $GET SYS:NFT
+          $INFORMATION (ABOUT) VERSION
+           SOLEIL:: Valbonne-2060, TOPS-20 Monitor 5.1(5101)
+           TOPS-20 Command processor 5.1(1354)
+           Program is NFT, version is 2(257)
+          $
+          $DDT
+          DDT
+          PMRFLG[   0   -1
+          ^Z
+          $INFORMATION (ABOUT) MEMORY-USAGE
+
+          46. pages, Entry vector loc 140 len 3
+
+          0-6             <NEW-SUBSYS>NFT.EXE.3  1-7   R, CW, E
+          7               Private   R, W, E
+          10-25           <NEW-SUBSYS>NFT.EXE.3  11-26   R, CW, E
+          47-65           <NEW-SUBSYS>NFT.EXE.3  27-45   R, CW, E
+          766             Private   R, W, E
+          770-777         <SUBSYS>UDDT.EXE.4  2-11   R, E
+          $
+          $SAVE NFT.EXE.2 !New generation! (PAGES FROM) 0 (TO) 65
+           NFT.EXE.2 Saved
+          $
+
+     If the patched NFT still does not work, you'll have to rebuild it with
+     the  PMRFLG  set as above.  See your DECnet installation documentation
+     for instructions how to do that.
+
+
+
+     6.6  Known Bugs
+
+     If the link gets aborted while the XMR program is executing the  SOUTR
+     JSYS,  waiting  to  send  data  to  the  Gateway, the program will get
+     confused.  The symptom of this problem is the program will show having
+     more  than  one  X.25  server  open  or none open at all.  Restart the
+     program will remedy the problem.
+
+
+
+
+
+
+
+                                       12
+
+
+
+
+
+
+
+
+
+
+
+
+                                   APPENDIX A
+
+                           SAMPLE INITIALIZATION FILE
+
+
+
+     The following is a typical initialization file set  up  for  a  system
+     connected to the French network TRANSPAC.
+
+          !
+          !Set Network specific parameters
+          !
+          NETWORK TRANSPAC
+          PASSWORD TRNSP
+          !
+          !Set log-file name and define X25 incoming call server
+          !
+          LOG XMRLOG.LOG
+          ACCESS-SERVER SRV:.XMR
+          !
+          ! DEC E.T.C. Valbonne "The European Technical Center" [ DEC2060 ]
+          DEFINE SOLEIL 106040145
+          !
+          !Allow access for all DTE's to mail
+          !
+          ENABLE-GLOBAL 27,201                ;VMAIL+DMAIL
+          !
+          !Allow SOLEIL to access to all objects
+          !
+          ENABLE-ACCESS 106040145
+          !
+          !Allow this DTE to access for SET HOST (Mail is globally enabled)
+          !
+          ENABLE-ACCESS 031104561734 OBJECT 23
+
+
+
+
+
+
+
+
+
+
+
+
+                                      A-1
+
+
+
+
+
+
+
+
+
+
+
+
+                                   APPENDIX B
+
+                                    EXAMPLE
+
+
+
+     The following is an example of how DECnet utilities (NFT/FAL)  on  two
+     TOPS-20 systems may communicate over an X.25 network.
+
+     Let's assume:
+
+           o  The local system is called SOLEIL
+
+           o  The remote system has the DECnet name TWEX.
+
+           o  TWEX is accessible via the X.25 DTE address 311061700048.
+
+     The file SYSTEM:DECNET-HOSTS.TXT at node SOLEIL contains the following
+     entry:
+
+          TWEX,SOLEIL::TWEX::
+
+     The file SYSTEM:XMR.INI at node SOLEIL contains the following entry:
+
+          DEFINE NODE TWEX 311061700048
+
+     A connection to destination node TWEX  will  now  be  routed  to  node
+     SOLEIL  object 123, the XMR process on the local system.  This process
+     examines its data base, finds node TWEX to be an X.25 node and creates
+     an X.25 link to system TWEX.  The Gateway at node TWEX is set up so an
+     X.25 incoming  call  with  call  user  data  "XMR"  (8-bit  ASCII)  is
+     forwarded  to the XMR process.  Depending on the object identification
+     specified by the DECnet utility at node SOLEIL, the connection is made
+     to the appropriate process at node TWEX (in this example, FAL).
+
+     A user running the NFT program will not perceive the  X.25  connection
+     being there.
+
+          $NFT
+          NFT>DIRECTORY TWEX::
+          Access information for node TWEX::
+          User: GFAUSER
+          Account:
+          Password:
+
+
+                                      B-1
+                                    EXAMPLE
+
+
+
+          routing = SOLEIL::(311061700048)TWEX::,connect OK ,
+
+            TWEX::PS:<GFAUSER>
+          COMMANDS.TV.3;P777700            1 104(7)     21-Jan-84  5:18:57
+          COPY.CMD.3;P777700               2 2887(7)    20-Dec-83  4:37:14
+          FOO.MCR.1;P777700                1 1670(7)    26-Oct-83 12:51:49
+          LINK.EXE.1;P777700             106 54272(36)   4-Nov-83 10:38:37
+          MAIL.TXT.1;P770404               4 9704(7)    13-Jan-84  5:55:08
+          MSG.QMP.1;P777700                1 160(7)      8-Dec-83 11:02:19
+          NI.MEM.1;P777700                75 38277(36)  14-Feb-84 13:45:48
+          NFT>COPY *.* TWEX::
+          routing = SOLEIL::(311061700048)TWEX::,connect OK ,
+          PS:<FAUSER>GLXTXT.REL.1 => TWEX::PS:<GFAUSER>GLXTXT.REL.1 [OK]
+          PS:<FAUSER>TXTUNV.UNV.1 => TWEX::PS:<GFAUSER>TXTUNV.UNV.1 [OK]
+          NFT>EXIT (TO MONITOR)
+          $
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      B-2
+ 

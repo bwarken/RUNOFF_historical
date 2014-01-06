@@ -1,0 +1,894 @@
+
+
+
+APLSF.DOC -- Changes from V1A(132) to V1B(301)
+November 1978
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1976,1977,1978 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+APLSF.DOC                                                       Page 2
+
+
+APLSF.DOC -- Changes from V1A(132) to V1B(301)
+November 1978
+
+
+
+1.0  SUMMARY
+
+APLSF is the implementation on the DECSYSTEM-10 of  the  APL  language
+with shared system functions and system variables.  It runs on a KI-10
+or KL-10 processor under release 6.03 or later of the TOPS-10 monitor,
+and  requires  VMSER  on  the  KI-10.   It  requires no other software
+modules during execution, and is documented in the APLSF  Programmer's
+Reference Manual (DEC-10-LPLSA-A-D).
+
+The reason for this release is to correct outstanding  bugs  in  APLSF
+Version 1A.
+
+APLSF Version 1B runs under release  6.03  or  later  of  the  TOPS-10
+monitor.  It has been tested in-house under 6.03A and 7.01.
+
+APLSF Version 1B fully supersedes Version 1A and includes  edits  #200
+to #301.
+APLSF.DOC                                                       Page 3
+
+
+2.0  EXTERNAL CHANGES
+
+
+2.1  Functional Changes
+
+
+     1.  Overlays have been eliminated.
+
+     2.  The maximum workspace size is now 176K (352P).
+
+     3.  Trailing blanks in comments are discarded before the  comment
+         is stored in the workspace.
+
+     4.  Relative comparisons, which use the relative  fuzz,  used  to
+         always  return  not  equal if the numbers had opposite signs.
+         The signs are now ignored in the comparison - the numbers are
+         equal if they are within relative fuzz.
+
+     5.  All terminal characteristics which are changed by APL are now
+         restored on exit (unless the exit is via control-C's).
+
+     6.  Negative integers raised to irrational powers will  now  give
+         range  errors  instead  of  returning  the  negation  of  the
+         absolute value of the base raised to the irrational power.
+
+     7.  The negative number which is largest in magnitude now has the
+         two-word   octal   representation   400000,,0  1  instead  of
+         400000,,1 0.  Thus,  for  example,  .CE/.IO0  will  return  a
+         different answer than it has in the past.
+
+     8.  The state of the )ECHO switch is now saved when  a  workspace
+         is saved.
+
+
+
+2.2  Functional Additions
+
+
+     None.
+APLSF.DOC                                                       Page 4
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+3.1  DEFICIENCIES AND RESTRICTIONS
+
+As of November, 1978, the known deficiencies and restrictions in APLSF
+are:
+
+     1.  The caret symbol  indicating  where  an  error  in  an  APLSF
+         statement  was  first detected is sometimes displayed too far
+         to the left.  This is a design problem with the  interpreter,
+         and there are no plans to fix it in the immediate future.
+
+     2.  It is not possible to display the trace or stop vector  of  a
+         function.  This is a restriction which will not be removed in
+         the foreseeable future.
+
+     3.  It is impossible to  enter  an  invalid  TTY  mnemonic  in  a
+         character  string  when  using  a TTY terminal, just as it is
+         impossible  to  enter  an  illegal  overstrike  from  an  APL
+         terminal.  This is a permanent restriction.
+
+     4.  Monadic domino uses an inordinate amount of core.  This is  a
+         deficiency  due  to  the  algorithm  used, which does monadic
+         domino by simulating a dyadic domino with a left argument  of
+         the  identity  matrix.   Thus,  it  must  construct  a double
+         precision identity matrix.  We will attempt to  correct  this
+         deficiency soon.
+
+
+3.2  OUTSTANDING BUGS
+
+As of November, 1978, the known outstanding bugs in APLSF are:
+
+
+     1.  Erasing a pendent or a suspended function can cause a  SYSTEM
+         ERROR.
+
+     2.  The compression of a zero-by-n matrix returns a length  error
+         when  the  left argument is an n-element vector, but works if
+         it is a scalar.
+
+     3.  A niladic branch inside a multistatement line will fail  with
+         a SYNTAX ERROR.
+
+     4.  If F is a niladic function which does not return an  explicit
+         result, the construct ';F;' will give a VALUE ERROR.
+
+APLSF.DOC                                                       Page 5
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+
+4.1  Files Included on this Tape
+
+The APLSF system is composed of the following files:
+
+     APLSF.DOC    This documentation file.
+
+     APLSF.EXE    The APLSF executable file.
+
+     GENSF.EXE    Generation program for APLSF.   See  below  for  its
+                  use.
+
+     APLSF.RNH    The HELP message to respond to the monitor HELP
+     APLSF.HLP    command.  Put APLSF.HLP on HLP:[2,5].
+
+
+     BILING.1     The APLSF workspace which processes the APL  billing
+                  file.  Put it on the APL library area.
+
+The following two files are not distributed.  They  are  generated  by
+APLSF.
+
+     APLHSF.APL   The APLSF HI file, if a HI message is desired.
+
+     ACCTSF.APL   The APLSF accounting file.
+
+The default is to put APLSF.EXE and GENSF.EXE on SYS:[1,4],  APLSF.HLP
+on HLP:[2,5], and BILING.1 on APL:[5,31].
+
+
+4.2  Changing the Default Installation Parameters
+
+The default installation parameters are as follows:
+
+     The installation name is DECSYSTEM-10 APLSF.
+     Two PPN's which differ only in the project number do  not  belong
+          to the same programmer.
+     The automatic save facility, .BXAUS, is off.
+     The name of the accounting file is ACCTSF.APL.
+     The PPN used for the accounting file is [5,31].
+     The PPN used for the HI file and the library is [5,31].
+     The default value of )CORMAX is 20K (thus,  the  default  maximum
+          workspace size is 20K).
+     The structure used for the HI file and the library is APL:.
+     The default file protection for permanent files  is  000  (system
+          standard).
+     The default file protection for library workspaces is 100.
+
+If a change in the parameters is desired, log in as  [1,2],  copy  the
+executable file to [1,2], run GENSF.EXE and answer the questions.  The
+program  updates  the  EXE  file.   Then  rename  and  distribute  the
+different files to the appropriate disk structures and PPNs.
+APLSF.DOC                                                       Page 6
+
+
+4.3  Creating a HI Message
+
+If you wish a HI message,  login  under  [1,2],  sign  on  APLSF,  and
+execute the command
+
+     )HI 'THIS IS MY HI MESSAGE'
+
+Then sign off APLSF.
+APLSF.DOC                                                       Page 7
+
+
+5.0  INTERNAL CHANGES
+
+5.1  Edits
+
+Note:  Edit numbers were restarted at 200 for version 1B so that  edit
+numbers on the DECsystem-10 and the DECSYSTEM-20 would be identical.
+
+EDIT #    SPR       REMARKS
+
+200       11278     SV variables were being incorrectly delocalized on
+                    function exit.
+201       -----     Invalid TTY mnemonics where second character is  a
+                    carriage-return tended to lose characters when the
+                    line was retyped.
+202       -----     Make the largest  negative  number,  .CE/.IO0,  be
+                    octal 400000,,0 1 instead of 400000,,1 0.
+203       24114     If the base of an exponentiation is negative,  and
+                    the  exponent  is  irrational,  give a RANGE ERROR
+                    instead of doing the exponentiation.
+204       -----     .BXCIQ gives system errors  when  used  without  a
+                    header.
+205       -----     Internal edit to begin to merge the sources on the
+                    -10 and the -20.
+206       11356     Fix E format and IBM format with negative  numbers
+                    where result exactly fills field.
+207       -----     Internal edit to remove the overlay from  the  -10
+                    version, and to merge the two sets of sources into
+                    a single set.
+210       -----     Fix  destruction  of   function   globals   during
+                    attempted  parse  of a function header line.  This
+                    was the bug which required a DDT patch in  version
+                    1A.
+211       11273     Allow embedded carriage returns in long lines.
+212       -----     Change the high segment origin  to  540000  octal,
+                    thus allowing workspaces of up to 176K.
+213       -----     Internal edit.
+214       -----     Remove  trailing  blanks  from   comments   before
+                    storing the comment.
+215       -----     Increase maximum length of quad  names  to  twelve
+                    characters.
+216       -----     Internal edit.
+217       -----     Fix to another case in which invalid TTY menmonics
+                    lose characters later on.
+220       -----     If no mnemonic  is  typed  after  an  invalid  TTY
+                    mnemonic,   the   next  character  is  incorrectly
+                    case-inverted.
+221       -----     If quote-quad input is requested by a  line  which
+                    contains   an  invalid  mnemonic,  the  length  is
+                    reported incorrectly.
+222       -----     Copying an identifier with a printname longer than
+                    10  characters  into  a  workspace  which  did not
+                    previously  contain  that  name  caused  workspace
+                    damage.  Also, the NOT COPIED list failed to print
+                    names longer than 10 characters.
+223       11520     Use the absolute fuzz to round in  real-to-integer
+APLSF.DOC                                                       Page 8
+
+
+                    conversion.
+224       -----     Fix a bug in the real floor routine, and a bug  in
+                    arctangent.
+225       -----     Increase the immediate line editing buffer  to  50
+                    words.
+226       -----     Remove  the  last  remaining  KA  floating   point
+                    instruction.
+227       25391     Registers were being clobbered  when  new  entries
+                    were  added  to  very  complicated  )SI  stacks in
+                    certain cases.
+230       11627     Fix floor and ceiling to  not  cause  fixed  point
+                    overflows.
+231       25231     Do not use the sign in a relative comparison.
+232       -----     Fix a bug in the )BLOT command  caused  by  moving
+                    the high segment origin.
+233       25684     Fix ILL MEM REF or Illegal UUO in  formatting  due
+                    to negative byte count in convert instruction.
+234       -----     Fix a memory allocation bug caused by  moving  the
+                    high segment origin.
+235       11559     Check nonscalar subscripts for INDEX ERRORs.
+236       -----     Teach the output routines that  the  mnemonic  for
+                    delta takes three characters.
+237       -----     Avoid  fixed  point  overflow  in  some  cases  of
+                    plus-reduction  of  a boolean, in compression, and
+                    in  expansion.   This  results  in  a  significant
+                    performance improvement in these primitives.
+240       -----     Fix a bug in edit 235.
+241       -----     Fix spacing in )LIB command.
+242       -----     Make )LIB and )DROP work for DECtapes on the -10.
+243       -----     Internal edit.
+244       -----     Withdrawn.
+245       25933     Print size of an empty file properly..
+246       25934     Make  LA36  as  default  APL  character  set  work
+                    properly.
+247       -----     Prevent garbage in last four words of first record
+                    in billing file.
+250       11382     Make APL preserve all terminal characteristics.
+251       -----     Reserved.
+252       25326     Fix  a  bug  in  COPY  involving   erasing   local
+                    functions,  and  another  one  in  which workspace
+                    damage occurs if the symbol table  has  to  expand
+                    during the COPY and there was a nonempty )SI stack
+                    in the active workspace.
+253       26086     Make the line (.BXEX'A')+A1 work properly.
+254       11909     Fix another bug in subscription,  caused  by  edit
+                    235,   which   caused   null   matrices   to  work
+                    improperly.
+255       26088     Do not give an end-of-file error during  a  .BXFLS
+                    if a null file is assigned as direct access.
+256       26172     Make sure there is enough space to  do  conversion
+                    from  integer  to  floating  point during terminal
+                    input.
+257       MANY      Make matrix inversion distinguish  more  precisely
+                    between singular and nonsingular matrices.
+260       -----     Function  editing  of  long  function  lines   may
+APLSF.DOC                                                       Page 9
+
+
+                    produce system errors.
+261       -----     Use  the  printing   precision   during   function
+                    display.
+262       -----     Fix dyadic iota,  which  occasionally  accepted  a
+                    non-vector left argument.
+263       -----     Fix monadic encode, so it returns null string when
+                    given  a group name, instead of generating WS FULL
+                    or SYSTEM ERROR.  (APLSF only)
+264       -----     Fix buffer handling.  Increase buffers to hold max
+                    line  size  and add check on line input so buffers
+                    are not overwritten.
+265       -----     -20 only edit to fix the OPENF bit assignments for
+                    the COMPT.  UUO when opening a /bu or /da file.
+266       -----     Two changes to function line number handling:   If
+                    a  function  has  precisely  1000 lines (including
+                    header) when open, make the next line number to be
+                    entered  999.999  instead of 1000.  Second, do not
+                    allow the user to close a function which has  more
+                    than   1000  lines  in  it,  regardless  of  their
+                    numbers.
+267       26469     Return 0.RO 0 for matrices being  graded  along  a
+                    zero   dimension.    Always   return   .IO  N  for
+                    operations such as .GD N 0 .RO X.
+270       -----     For binary file  input,  correctly  convert  lower
+                    case a to .ZA instead of .AL (off-by-one bug).
+271       -----     Before printing line, make sure we haven't added a
+                    trailing  blank  (which will wipe out last char if
+                    line exactly fills screen).
+272       12147     Save )ECHO flag with workspace.
+273       12146     Make sure .GO is given a valid argument.
+274       12150     Make changes to prevent rank errors when doing  an
+                    IBM-format of large, but legal, numeric arrays.
+275       12149     Fix function-line editting to handle a  quad  used
+                    as  the left argument of a dyadic user function in
+                    the APL character set.
+276       12180     Quote quad input of a string in  which  the  first
+                    character  is  a linefeed does not read the second
+                    character.
+277       12272     Fix a bug introduced by edit 212.
+300       12221     Fix a bug in format operator  which  caused  extra
+                    line of blanks to be printed when filling the last
+                    formatting field on the last line with blanks.
+301       -----     Expand the message  printed  on  system  error  to
+                    request more information from the customer.
+
+
+
+[End of APLSF.DOC]
+
+[APLSF.OLD is appended as an integral part of APLSF.DOC]
+APLSF.DOC                                                      Page 10
+
+
+APLSF.OLD -- Changes from V1(30) to V1A(132)
+January 1978
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1976,1977, 1978 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+APLSF.OLD                                                      Page 11
+
+
+APLSF.OLD -- Changes from V1(30) to V1A(132)
+January 1978
+
+
+
+1.0  SUMMARY
+
+APLSF is the implementation on the DECsystem-10 of  the  APL  language
+with  shared system functions and system variables.  It runs on a KI10
+or KL10 processor under release 6.02 or later of the TOPS-10  monitor,
+and  requires VMSER on the KI10.  It requires no other software during
+execution, and is documented in the  DECsystem-10  APLSF  PROGRAMMER'S
+REFERENCE MANUAL (DEC-10-LPLSA-A-D).
+
+The reason for this release is to correct outstanding  bugs  in  APLSF
+Version 1, and to implement several new features.  See Section 2.2 for
+a detailed description of these features.
+
+APLSF version 1A runs under release  6.02  or  later  of  the  TOPS-10
+monitor  on  a  KI10  or KL10, and requires VMSER on the KI10.  It has
+been tested in-house under 6.03 monitors.
+
+APLSF Version 1A fully supersedes Version 1 and includes edits #31  to
+#132.
+
+The only relevant documentation is  APLSF.BWR,  a  BEWARE  file  which
+contains  the  MCO  necessary to add the APL ersatz device to pre-6.03
+monitors and a fix to the page fault handler (MAKPFH).
+
+
+
+2.0  EXTERNAL CHANGES
+
+
+2.1  Edits
+
+EDIT #    SPR       REMARKS
+
+031       none      Fix compression of blanks to tabs.
+032       none      Internal fix to aid debugging.
+033       none      Fix embedded assignment operators.
+034       none      Produce error if overlay file cannot be read.
+035       none      Differentiate between APL and APLSF in greeting.
+036       none      Do not go virtual unless necessary.
+037       none      Add LOADID to SYSTEM ERROR dump.
+040       none      Prevent SYSTEM ERROR loop.
+041       none      Make SYSTEM ERROR message more explicit.
+042       22135     Fix LA36 formfeeds and fill characters after tabs.
+043       none      Use APL:  ersatz device.
+044       20 SPR    Fix optional argument to )FNS, )GRPS, and )VARS.
+045       22137     Give  correct  error  message  if  file  operation
+                    fails.
+046       20 SPR    Fix  right  parenthesis  in  left  argument  to  $
+                    format.
+047       20 SPR    (withdrawn)
+APLSF.OLD                                                      Page 12
+
+
+050       22567     Check validity of arguments to .BXCIQ.
+051       22435     Prevent recoverable system errors during indexing.
+052       22132     Do not loop on )INPUT NUL:.
+053       22576     Check validity of )MAXCORE argument.
+054       22760     Allow use by non-VM users.
+055       22234     Fix O<BS>U<BS>T.
+056       none      More of edit 43.
+057       none      Allow more core for domino
+060       none      Give WSFULL instead of NO CORE in some situations
+061       none      Use default path, not logged-in PPN
+062       none      Use WIDTH when printing comment line
+063       none      Fix linefeed editing
+064       none      Avoid garbage in continuation lines
+065       23659     fix .BXFX to accept unmatched quotes and  comments
+                    as last function line
+066       none      Make )OWNER print TTY number instead of 0
+067       none      Fix subscripted left argument of dyadic epsilon
+070       20spr     Fix first write to new block of binary file.
+071       23388     Fixes to )COPY, especially execute of )COPY
+072       none      Fix  problem  with   .BXCR   which   was   causing
+                    unpredictable garbage in the workspace.
+073       23990     Fix .BXCIQ and .IQ of integer and ASCII data
+074       24062     Fix O<BS>U<BS>T for quad-del input.
+075       -----     fix double  precision  to  integer  conversion  of
+                    numbers longer than 27 bits
+076       24026     another fix to $ format to prevent extra data
+077       24324     allow bracket editing of comment lines
+100       23832     check more  carefully  for  range  errors  due  to
+                    floating overflows or underflows during real input
+101       23920     allow linefeed editing during bracket editing
+102       23839     prevent system error with .BXLC after WSFULL.
+103       -----     more of edit 100
+104       24112     make floating point comparison to zero use .BXCT
+105       -----     fix .BXCIQ to not give system error in some cases
+106       23992     allow matrices up to 262143 elements, not words.
+107       -----     more of edit 106
+110       23993     Avoid system errors in .BXNL after subscription.
+111       23835     Allow  group  to  be  defined  with  15  undefined
+                    entries.
+112       -----     Implementation of new features (see Section 2.2)
+113       -----     Make .BXFI and .BXVI available in both  APLSF  and
+                    APL-BASIC (see Section 2.2)
+114       24476     Fix folding of output line during  immediate  mode
+                    bracket editing.
+115       11266     Allow  exact  replacement  more  often  in  direct
+                    access  files  to  avoid unnecessary direct access
+                    file expansion.
+116       23959     Disallow a function having a label with  the  same
+                    name  as  the  function.  Give a DEFN ERROR if the
+                    label already exists, and a  LABEL  ERROR  if  the
+                    function already exists.
+117       23830     Make subscripted  (either  explicit  or  implicit)
+                    reduction or scan of a scalar give an INDEX ERROR.
+120       11283     Fix false zero problem  with  .BXFI  (see  Section
+                    2.2)
+APLSF.OLD                                                      Page 13
+
+
+121       24305     Allow .Z@ (delta-underscore) to be entered from  a
+                    TTY terminal.
+122       none      Do  not  allow  matrix  with  more   than   262143
+                    elements.
+123       10337     Allow only end-of-line and semicolon after .GO
+124       22131     Make error caret appear in correct  position  more
+                    often.
+125       11301     Further fix to late-detected monadic execute.
+126       11258     Do detection of syntax error during  late  monadic
+                    execute correctly.
+127       23837     Make sure there is enough  core  during  .BXFX  or
+                    during an execute of a function definition.
+130       24304     Make  the  protection  error  which  results  from
+                    failure  of  )DROP  the  same  as other protection
+                    errors (error -1)
+131       11262     Handle   pagemarks   across   buffer    boundaries
+                    correctly.
+132       -----     Make  EOF  during  .BXFCM  return  a  null  matrix
+                    instead of an error.
+
+
+2.2  Functional Changes and Additions
+
+APLSF contains the following functional changes:
+
+     1.  If the command overlay file (CMXSF.OVL) cannot be  read  when
+         APLSF  begins  to  run  (usually due to too high a protection
+         code), APLSF will give the fatal error UNABLE TO  ACCESS  THE
+         OVERLAY FILE and return to monitor mode.
+
+     2.  The initial greeting message has been modified slightly.
+
+     3.  The SYSTEM ERROR message is now more explicit, and the  small
+         dump  produced  by  the  SYSTEM  ERROR contains one more word
+         which will indicate  what  system  command  module  was  last
+         loaded.
+
+     4.  APLSF will no longer  require  that  the  user  have  virtual
+         memory  privileges.   It  will  go virtual only when physical
+         memory is exhausted.  However, VMSER is still required.
+
+     5.  The installation procedure has been modified to use  the  APL
+         ersatz device (see below).
+
+     6.  Fatal system errors  will  no  longer  loop  in  most  cases.
+         Unrecoverable  system  errors  will  cause an exit to monitor
+         mode after the second system error message.
+
+     7.  The )MAXCORE argument can no longer be set  larger  than  the
+         system core maximum.  This conforms to the documentation.
+
+     8.  The statement '(A_1)+A_0', which previously returned 2,  will
+         now return 1.
+APLSF.OLD                                                      Page 14
+
+
+     9.  The message WS FULL is now given in some situations where the
+         message NOT ENOUGH CORE AVAILABLE was previously given.
+
+    10.  .BXPW is now used when printing comment lines.
+
+    11.  Floating point comparisons to zero now use .BXCT.
+
+    12.  Functions may no longer have labels with the same name as the
+         function.
+
+    13.  Reduction and scan of a scalar may no longer be  subscripted,
+         either explictly or implicitly via .CS and .CB.
+
+    14.  The only legal lexemes immediately to the left  of  a  branch
+         arrow are now end-of-line and semicolon (;).
+
+
+APLSF contains the following functional additions:
+
+     1.  .BXVI and .BXFI -
+
+         These two system functions respectively  validate  and  parse
+         input.   They are monadic, and accept as argument a character
+         vector, scalar, or one-element array.  They each  attempt  to
+         parse  the  argument  as  a numeric vector whose elements are
+         separated by spaces or tabs.  .BXVI returns a boolean  vector
+         which  contains a 1 in each position corresponding to a valid
+         number, while .BXFI returns a numeric vector  which  contains
+         the  values  of  the  numbers in the vector, with a 0 in each
+         position  not  corresponding  to  a  valid   number.    Thus,
+         (.BXVI A)/.BXFI A_.QQ  gets  a  line of input and retains all
+         numbers in the input.
+
+         Example:
+               A _ ' 1.5 3 A .NG5 3.. 1.0E15 + 1'
+               .BXVI A
+         1 1 0 1 0 1 0 1
+               .BXFI A
+         1.5 3 0 -5 0 1.0E15 0 1
+               (.BXVI A)/.BXFI A
+         1.5 3 -5 1.0E15 1
+
+     2.  .BXQLD, .BXQCO, and .BXQPC -
+
+         These three system functions stand for,  respectively,  Quiet
+         Load,  Quiet  Copy,  and  Quiet Protected Copy.  They are all
+         monadic, and each accepts as its argument a character vector.
+         This  character  vector  is  parsed exactly as if it were the
+         argument to a system command of )LOAD, )COPY, or )PCOPY.  The
+         operation  is  performed,  and  if  successful,  no  value is
+         returned.  In addition, APL will not indicate the  return  of
+         no   value  by  printing  a  blank  line.   Instead,  nothing
+         whatsoever will be printed.  Thus, such a system function may
+         be  used  alone  on  a  function line without the user seeing
+         blank lines appearing on his/her terminal.  In the case of  a
+APLSF.OLD                                                      Page 15
+
+
+         Quiet  Load,  .BXLX  is  performed  as usual.  In the case of
+         Quiet Protected Copy, the names of  the  objects  not  copied
+         will not be returned.
+         However, should an error be encountered during the  execution
+         of  any  of these system functions, the normal action will be
+         taken with respect to the error.  Thus, one  may  trap  those
+         errors  as usual via the use of execute, should one desire to
+         do so.
+
+
+
+
+3.0  KNOWN BUGS, DEFICIENCIES, and RESTRICTIONS
+
+3.1  DEFICIENCIES and RESTRICTIONS
+
+As of January, 1978, the known deficiencies in APLSF are:
+
+     1.  APLSF cannot be protected EXECUTE ONLY.
+
+     2.  APLSF does not support SFDs.
+
+     3.  It is not possible to display the trace or stop vector  of  a
+         function.  This is a restriction which will not be removed in
+         the foreseeable future.
+
+     4.  It is impossible to  enter  an  invalid  TTY  mnemonic  in  a
+         character  string  when  using  a TTY terminal, just as it is
+         impossible  to  enter  an  illegal  overstrike  from  an  APL
+         terminal.  This is a permanent restriction.
+
+     5.  The caret symbol  indicating  where  an  error  in  an  APLSF
+         statement  was  first detected is sometimes displayed too far
+         to the left.  This is a design problem with the  interpreter,
+         and there are no plans to fix it in the immediate future.
+
+     6.  Monadic domino uses an inordinate amount of core.  This is  a
+         deficiency  due  to  the  algorithm  used, which does monadic
+         domino by simulating a dyadic domino with a left argument  of
+         the  identity  matrix.   Thus,  it  must  construct  a double
+         precision identity matrix.  We will attempt to  correct  this
+         deficiency soon.
+
+3.2  OUTSTANDING BUGS
+
+As of January, 1978, the known outstanding bugs in APLSF are:
+
+
+     1.  Erasing a pendant or a suspended function can cause a  SYSTEM
+         ERROR.
+
+     2.  An illegal teletype mnemonic can cause  following  characters
+         to be lost.
+APLSF.OLD                                                      Page 16
+
+
+     3.  It is still possible for a SYSTEM ERROR to loop.
+
+     4.  The compression of a zero-by-n matrix returns a LENGTH  ERROR
+         when  the  left argument is an n-element vector, but works if
+         it is a scalar.
+
+     5.  Character strings containing linefeeds cannot be successfully
+         read either from an ASCII sequential file or using the )INPUT
+         command.
+
+     6.  The monadic encode of a group name will give a SYSTEM ERROR.
+
+     7.  A niladic branch inside a multistatement line will fail  with
+         a SYNTAX ERROR.
+
+     8.  Erasing a function while  inside  the  function  may  give  a
+         system error.
+
+     9.  If F is a niladic function which does not return an  explicit
+         result, the construct ';F;' will give a VALUE ERROR.
+
+APLSF.OLD                                                      Page 17
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+
+4.1  Files Included on this Tape
+
+The APLSF system is composed of the following files:
+
+     APLSF.SHR    The APLSF executable files.
+     APLSF.LOW
+
+     CMXSF.OVL    The system command file.  This file must be readable
+                  from all PPNs.
+
+     GENSF.EXE    One-time-only final generation of APLSF.  See  below
+                  for its use.
+
+     APLSF.RNO    Documentation of the differences between APL-10
+     APLSF.MEM    and APLSF.
+
+     APLSF.RNH    The HELP message to respond to the monitor HELP
+     APLSF.HLP    command.  Put APLSF.HLP on HLP:[2,5].
+
+     APLSF.1      Same as APLSF.MEM, except in workspace format.   Put
+                  it in the APL library area.
+
+     APLSF.RND    This documentation file.
+     APLSF.DOC
+
+     APLSF.BWR    The BEWARE file for APLSF version 1A.   It  contains
+                  two MCOs which it may be necessary to install to run
+                  APLSF.
+
+     BILING.1     The APLSF workspace which processes the APL  billing
+                  file.  Put it on the APL library area.
+
+The following two files are not distributed.  They  are  generated  by
+APLSF.
+
+     APLHSF.APL   The APLSF HI file, if a HI message is desired.
+
+     ACCTSF.APL   The APLSF accounting file.
+
+The default is to put  GENSF.EXE,  APLSF.SHR,  and  APLSF.LOW  on  the
+system  library  area SYS:[1,4], APLSF.HLP on the help area HLP:[2,5],
+and the other  APLSF  files  (CMXSF.OVL,  BILING.1,  and  APLSF.1)  on
+APL:[5,31].  The APL:  ersatz device is defined for 6.03 monitors;  if
+you want to use it but are running an earlier monitor  version,  refer
+to the BEWARE file.
+APLSF.OLD                                                      Page 18
+
+
+4.2  Changing the Default Installation Parameters
+
+If a change in the parameters is desired, run  the  program  GENSF.EXE
+under  [1,2]  or any other PPN with a project number less than 11, and
+answer the questions.  The program updates the SHR file.  Then  rename
+and  distribute the different files to the appropriate disk structures
+and PPNs.  GENSF must also be run if you want the value of .BXAUS (see
+page 3-5 of the manual) in a clear workspace to be 1.
+
+Example:
+
+If you defined the following parameters:
+
+     Name of APLSF on the system area:  APLNEW
+     System library PPN                 12,34
+     Name of system command file        COMAND
+     System command file PPN            5,6
+     Library area PPN                   7,7
+     APL disk structure                 DSKN
+
+Then do the following:
+
+     .COPY APLNEW.SHR[12,34]<056>=updated APLSF.SHR
+     .COPY APLNEW.LOW[12,34]<056>=distributed APLSF.LOW
+     .COPY DSKN:COMAND.OVL[5,6]<055>=distributed CMXSF.OVL
+     .COPY DSKN:[7,7]<100>/X=distributed *.1
+
+
+4.3  Creating a HI Message
+
+If you wish a HI message, login under  [1,2],  sign  on  APLSF  ,  and
+execute the command
+
+     )HI 'THIS IS MY HI MESSAGE'
+
+Then sign off APLSF.
+
+
+4.4  Conversion Package
+
+This section need only be read by  those  who  currently  have  APL-10
+workspaces.  The workspace format has changed for APLSF , so a utility
+for converting APL-10 workspaces to the new format is provided on this
+tape.
+
+     SFCONV.EXE   Converter, should be put on SYS:[1,4] or NEW:[1,5].
+
+     SFCONV.RNH   Help file for SFCONV.EXE.  Put
+     SFCONV.HLP   SFCONV.HLP on HLP:[2,5].
+
+     SFCONV.1     Converter documentation in APLSF  workspace  format.
+                  Put it on the library area.
+APLSF.OLD                                                      Page 19
+
+
+5.0  INTERNAL CHANGES
+
+See section 2.2, above, for a list of edits included in  this  version
+and descriptions of what was fixed by each edit.
+
+
+
+6.0  SUGGESTIONS
+
+You may experience a PAGE FAULT LOOP or a HALT at location  777016  if
+the  APLSF  users have low virtual memory limits.  Refer to the beware
+file for a patch to the page fault handler (MAKPFH) if these  problems
+occur.
+
+
+
+[End of APLSF.DOC]

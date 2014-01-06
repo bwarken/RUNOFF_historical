@@ -1,0 +1,625 @@
+.ps 57 68 .autop
+.VAR OLDTAB A B
+.VAR NEWRUN A B
+.IF NEWRUN
+.HEADER BOTTOM
+.ENDIF NEWRUN
+
+.C;INSTALLATION COOKBOOK
+.C;HOW TO ADAPT A TERMINAL TO THE SED SCREEN EDITOR
+.C;BY A CHRISTOPHER HALL
+.C;June 1981
+.S1
+.c;ADAPTING SED TO A TERMINAL
+
+This is a step-by-step description of how to build the tables for SED,
+for your terminal. The Installation manual, SED.MEM, contains essentially
+the same information, but explains why things work the way they do.
+
+First, look at SED.DIR and see if your terminal is one of the ones for which
+there already is a terminal file. If so, just compile and load SED with that
+file, and you're in business. If your terminal is a VT100 the terminal file
+is SEDV10.MAC, so the loading sequence would be:
+
+.s1 .lit
+        .LOAD SEDSYM,SEDV10,SED
+        .SS SED
+.EL
+
+Beware of using a terminal file that was written for a terminal which is
+similar to, but not the same as, your own. Terminals are sickeningly
+different, and it's likely that the file will not quite be right. However,
+if you keep this cavaet in mind, you can use an existing terminal file
+as a starting point.
+
+If your terminal is not on the list in SED.DIR you will need to write a
+terminal file to support it. That file contains two tables, one of which
+describes the terminal's functions to SED, and the other tells which control
+characters and sequences invoke which editor commands. The file also contains
+two subroutines which move the cursor and maybe other routines to do
+terminal-dependent things, like special stuff on entry to and exit from SED.
+
+The materials you will need to build this file are the file SEDX.MAC, which
+serves as the framework to build upon, and the terminal manual which
+describes which character sequences move the cursor, clear the screen, and
+do the other terminal functions. Also, you can use the program SEDECO (as in
+SED ECHO) to make the terminal echo back the characters that are output
+by its special keys, or to see how the terminal behaves when certain
+sequences are typed in. See the program itself, SEDECO.MAC, for information
+on how to run it.
+
+You can also use the other terminal files, SED???.MAC, as examples of
+how your file might look.
+
+.PG
+.C;THE TERMINAL OUTPUT TABLE
+
+After the initial stuff in SEDX.MAC is the terminal output table. It contains
+the sequences which SED must send to the terminal in order to get things to
+happen. The bare table looks like this:
+
+.s1 .lit
+OTABLE: BYTE (7) 0              ;CURSOR UP
+        BYTE (7) 0              ; DOWN
+        BYTE (7) 0              ; RIGHT
+        BYTE (7) 0              ; LEFT
+        BYTE (7) 0              ; HOME
+        BYTE (7) 0              ;CLEAR TO END OF PAGE
+        BYTE (7) 0              ;CLEAR TO END OF LINE
+        BYTE (7) 0              ;ROLL UP AND CLEAR LINE
+        BYTE (7) 0              ;ROLL DOWN AND CLEAR LINE
+        BYTE (7) 0              ;PROTECT ON (CPOPJ IF NONE)
+        BYTE (7) 0              ;PROTECT OFF (CPOPJ IF NONE)
+        BYTE (7) 0              ;INSERT LINE (0 IF NONE)
+        BYTE (7) 0              ;INSERT SPACE (0 IF NONE)
+        BYTE (7) 0              ;DELETE LINE (0 IF NONE)
+        BYTE (7) 0              ;DELETE SPACE (0 IF NONE)
+        BYTE (7) 0              ;MOVE TO BOTTOM
+        BYTE (7) 0              ;HOME AND CLEAR ENTIRE PAGE
+        CPOPJ                   ;ROUTINE TO POSITION TO CHARACTER
+        CPOPJ                   ;ROUTINE TO POSITION TO START OF LINE
+        ^D24                    ;LINES PER PAGE
+        ^D80                    ;CHARACTERS PER LINE
+        0                       ;TERMINAL-DEPENDENT FLAGS
+        CPOPJ                   ;ROUTINE TO CALL ON ENTRY
+        CPOPJ                   ;ROUTINE TO CALL ON EXIT
+        0,,0                    ;NUMBER OF NULLS TO OUTPUT,,NULL CHARACTER
+        ITABLE                  ;ADDRESS OF INPUT CHARACTER TABLE
+        0                       ;MARK TO DISPLAY ON ENTER (OMIT IF MRK NOT SET)
+.el .s1
+
+There's not much there, since filling it in is what this cookbook is all
+about.
+
+.S2 .I0
+CURSOR MOVEMENT
+
+First, look in the terminal manual to find which character sequences move
+the cursor up, down, right, left, and home (the upper left corner).
+Put each sequence is the appropriate slot of the table.
+
+If the sequence is five characters or less, put the sequence itself in the
+table. For example if CURSOR-UP were "ESCAPE A" the first word of the table
+should contain
+
+.s1 .lit
+        OTABLE: BYTE (7) 33,"A"
+.el
+
+If the character sequence is longer than 5 characters, use the following
+format:
+
+.s1 .lit
+        OTABLE: 37777,,[BYTE (7) 33,"A","B","C","D","E","F"]
+.EL
+
+If the sequence depended on something variable, like, say, the current cursor
+position, you would need to write a subroutine to handle the operation. Then
+put the label of the routine in the appropriate slot of the table, thusly:
+
+.s1 .lit
+        OTABLE: MOVRGT
+.el
+
+Usually the cursor positioning sequences are short enough to go under the
+first format, except that CURSOR-HOME might need to be done by absolute
+positioning (in which case just put in the sequence to position to (0,0)
+or (1,1)).
+
+.s2 .i0
+CLEAR TO END OF PAGE
+
+The next table entry is the sequence which clears the screen from the cursor
+position to the end of the page. Note: this is not the sequence to clear the
+entire screen. Not all terminals have this. If yours does, enter the sequence
+in the table in one of the formats described above. If your terminal can't
+clear to end of screen, put a zero in the table position. The zero tells SED
+to find some other way of clearing, and nothing else is required from you.
+
+.s2 .i0
+CLEAR TO END OF LINE
+
+Next comes the sequence which clears from the cursor position to the end of
+the line. Set this up as above. If your terminal can't do it put a zero in
+the table (which tells SED to simulate the clear by outputting spaces. Hope
+your baud rate is high).
+
+.s2 .i0
+ROLL SCREEN UP AND CLEAR LINE
+
+This is the sequence which will cause the terminal to move every line on the
+screen up one, make the top line disappear, and clear out the bottom line.
+You can assume that the cursor is at the bottom left of the screen when this
+sequence is output.
+
+For most terminals, this operation is done by outputting a linefeed (Octal
+12). Some terminals can do it other ways, too, but if linefeed works use it.
+Put the linefeed or the sequence in the table in the usual way.
+
+Beware: on some terminals the bottom line is not cleared, but is actually the
+old top line wrapped around. If this happens, you will need to put in the
+sequence to clear to end of line after the sequence to roll. If that's more
+than 5 characters use the long format described in the cursor movement
+section.
+
+If your terminal can't roll up (and some can't), put a zero in the table.
+Then if SED wants to roll it will rewrite the screen.
+
+.s2 .i0
+ROLL SCREEN DOWN AND CLEAR LINE
+
+This is similar to the above, except movement is in the opposite direction.
+You can assume that the cursor is home which this sequence is output. Handle
+this the same way as the ROLL UP sequence. Put in a zero if you ain't got it.
+
+A lot more terminals can roll up than can roll down, so it's common to see a
+zero here and a sequence in the table position above. Then SED will roll up
+but rewrite the screen if it has to roll down, which is the best it can do
+under the circumstances.
+
+.s2 .i0
+TURN HIGHLIGHTING ON AND OFF
+
+Highlighting is anything which makes some characters on the screen stand
+out from the rest. Reverse video, blinking, and half brightness are the
+most common examples. Not many terminals can highlight, so I'll take the
+negative case first.
+
+If all you can get are normal vanilla characters, put a zero in each of these
+two table positions. Then write down two things to do later: set the MRK flag
+when you come to the flag word, and define a mark in the last word of the
+terminal table. Both of these will be taken up below.
+
+If your terminal can highlight, it usually works like this: you output a
+sequence, then all characters output are highlighted (sometimes the
+characters have to be on the same line; they will be), then you output
+another sequence to make all following characters normal again.
+
+Put the sequences which turn on and turn off highlighting in the two table
+positions. The choice of what kind of highlighting is done is up to you.
+
+.s2 .i0
+INSERT AND DELETE LINES AND SPACES
+
+The next four functions, INSERT-LINE, INSERT-SPACE, DELETE-LINE, and
+DELETE-SPACE, are found only on fairly sophisticated terminals, but save SED
+a lot of work when they exist. If they don't exist put zeros in the table
+positions (and it's quite permissable to have zeros in some positions and
+sequences in others).
+
+INSERT-LINE puts a blank line where the cursor is, moves the rest of the
+screen down one line, and the bottom line goes off the screen. DELETE-LINE
+removes the line where the cursor is and moves everything beneath up a line.
+The new bottom line is blank.
+
+INSERT-SPACE puts a space where the cursor is and moves the rest of the line
+one space to the right. Characters which go off the right of the screen must
+go away, not wrap around to the next line. DELETE-SPACE removes the character
+(not necessarily a space) at the cursor and moves the rest of the line one
+space to the left. The new rightmost character on the line is a space.
+
+If your terminal has any of these, enter the appropriate sequence or
+subroutine label in the table.
+
+Terminals work in wondrous ways. The VT100, for example, cannot do any of
+these things, but it can limit it's scrolling region. It turns out that that
+capability can be used to simulate a hardware INSERT- and DELETE-LINES. See
+the file SEDV10.MAC to see how it's done. The moral is that there's more than
+one way to skin a cat; be creative.
+
+.s2 .i0
+MOVE TO THE BOTTOM OF THE SCREEN
+
+The next function is something which terminals usually can't do in one
+operation, but which SED finds useful. You can move to the bottom left of the
+screen in a number of ways: move HOME and UP (the cursor does not stick to
+the margins of the screen), or absolute cursor positioning are examples.
+
+However you choose to reach the bottom of the screen, put that sequence in
+the table. You must have something in this table position, a short or long
+character sequence or a subroutine label. Not a zero.
+
+.s2 .i0
+HOME AND CLEAR ENTIRE PAGE
+
+Almost every terminal can clear its entire screen. That sequence goes here.
+Sometimes the cursor is moved HOME which the clear occurs, sometimes it is
+left wherever it is. In that latter case, you will have to include the
+sequence to move the cursor home before or after the clear.
+
+This table position can't contain a zero either.
+
+.s2 .i0
+CURSOR POSITIONING ROUTINES
+
+The next two table positions contain the addresses of subroutines which move
+the cursor to absolute positions on the screen. The first routine moves to
+the row contained in accumulator RW and the column contained in CM. The
+second moved the cursor to the start of the row contained in AC T4.
+
+The subroutines themselves reside in the terminal file you are writing.
+Unfortunately there are nearly as many cursor movement algorithms as there
+are terminals, so I can't help you much here. Find out from your handy
+terminal manual how to move the cursor around, and write the routines.
+
+The file SED.POS contains sample cursor movement subroutines, ones which are
+used in the existing SED???.MAC terminal files. If your algorithm is included
+among them, just copy the routine into your terminal file. Otherwise you're
+on your own, but you can use the routines in SED.POS as guides.
+
+.s2 .i0
+LINES PER PAGE AND CHARACTERS PER LINE
+
+The next two table positions contain values: the number of lines on the
+screen and the number of characters per line.
+
+.s2 .i0
+TERMINAL-DEPENDENT FLAGS
+
+There are a number of flags which alter SED'S performance. Most deal with
+terminal characteristics, and must be set in the right way for SED to work
+right.
+
+The flags are:
+
+.s1 .lit
+        LSD    LINEFEED AND CURSOR DOWN ARE THE SAME CHARACTER
+        TBS    HARDWARE TABS EXIST (AND ARE PRE-SET)
+        WRP    LONG LINES WRAP AROUND TO NEXT LINE OF SCREEN
+        MRK    NO PROTECTED FIELDS; THUS, MARK NEEDED ON ENTER
+        NEL    DON'T BOTHER RE-WRITING LAST LINE OF SCREEN
+        SLW    SLOW TERMINAL: WRITE ERROR MSGS ON BOTTOM LINE
+        NLP    SEND NULLS AFTER ABSOLUTE CURSOR POSITIONING
+        NPG    DON'T SET TTY NO PAGE (^S AND ^Q REMAIN XOFF AND XON)
+.el .s1
+Explanations:
+
+(LSD) LINEFEED is normally a command which clears out the line to which the
+cursor moves. If it and CURSOR-DOWN are indistinguishable (both code 012,
+say), then the LINEFEED command is disabled, and just the CURSOR-DOWN remains.
+
+(TBS) If hardware tabs do not exist they must be simulated using
+CURSOR-RIGHT's. Beware: a lot of terminals have hardware tabs, but they must
+be set up by someone. If SED expects tabs but they are not set up it will go
+bananas, so don't set the TBS flag for these terminals (or enable the tabs in
+a terminal-specific entry subroutine).
+
+(WRP) Lines too long for the screen will either lock on the right margin or
+wrap around to the next line, depending on the terminal. The editor display
+routine needs to know which will occur, or else long lines will not display
+properly. Note: some terminals, such as the VT100 (in wrap mode) will wrap
+before the 81st character is typed, rather than after the 80th. Do not set
+the WRP flag for those terminals and they will work o.k.
+
+(MRK) A protected field is one which SED wants to highlight. For example,
+when you type ENTER SED will highlight the character at the cursor position
+(by making it reverse video, for example). It's useful to mark that cursor
+location, so if the terminal does not have any highlighting features, the MRK
+flag indicates that a certain mark should be put at the cursor location when
+ENTER is typed. The character code for that mark is contained in the last
+word of this table (if MRK is not set that mark word can be omitted).
+
+(NEL) Make SED not care about keeping the bottom line of the screen up to
+date. If your terminal is slow and has enough lines on the screen that it can
+afford to give one away, then some re-write time can be saved by setting the
+NEL flag.
+
+(SLW) Causes error messages to be written on the bottom line of the screen.
+The remainder of the screen is not affected (normally the whole screen is
+erased and re-done). If your terminal is slow you can save a lot of rewriting
+by setting the SLW flag.
+
+(NLP) If your terminal needs to idle a while after positioning the cursor, set
+the NLP flag, and set the NUL word of the table to the number of nulls to
+send and the character to use.
+
+(NPG) Some terminals that run at 9600 baud (and others) will send CONTROL-S
+(XOFF) to the computer to tell it to stop transmitting and CONTROL-Q (XON) to
+tell the computer to resume. SED cannot tell XOFF and XON from DELETE-SPACES
+and ROLL-BACK-PAGES, so if the terminal persists in sending XON's and XOFF's
+set the NPG flag and don't use CONTROL-S and CONTROL-Q as editor commands.
+
+.s2 .i0
+ENTRY AND EXIT ROUTINES
+
+If your terminal needs to be initialized (TABS set up, for example), write a
+subroutine in SEDX.MAC to do whatever is necessary and put its address in the
+appropriate table position. That routine will be called just before SED reads
+in the file to be edited. Similarly for a routine to do things on exiting
+from SED, in the next table position. That routine is called just before
+exiting.
+
+If nothing special needs to be done put a CPOPJ in these positions.
+
+.PG .i0
+NUMBER AND TYPE OF NULLS TO OUTPUT
+
+There are a number of situations where SED needs to delay and let the
+terminal finish what it is doing. The most reliable delay tactic is to send
+some nulls to the terminal. A null is any character which causes no action
+from the terminal. 000 is the classic null, but beware: some terminals or
+communication lines ignore 000's, and the desired delay does not occur.
+Suggestions: RUBOUT (177) or CONTROL-F (006). Anyway, the situations which
+need a delay are set up in the terminal characteristics flags, described
+elsewhere, and the number of nulls to output for each delay and the null
+character are defined in the NUL word of the terminal output table. If no
+delay is ever required (the "usual" case) set the NUL word to 0 and don't set
+any of the NL? characteristics flags.
+
+.s2 .i0
+ADDRESS OF THE TERMINAL INPUT TABLE
+
+The terminal input table tells which sequence of characters coming from the
+terminal invoke which commands. The next section of this manual describes how
+to write the input table.
+
+Enter the address of the input table in this position.
+
+.s2 .i0
+MARK TO DISPLAY ON ENTER
+
+If you do not have the MRK flag set, skip this. You don't even need to
+include this word in the table, and it will be ignored if it is there.
+
+If you have MRK set (usually because your terminal cannot highlight
+characters), put in this table position the single character which you would
+like to be displayed as a place marker in your file. Any character will do,
+but a little experimentation may be needed to decide on one which is easy to
+locate on the screen.
+
+.PG
+.C;THE TERMINAL INPUT TABLE
+
+.LIT
+********************************************************************
+.EL
+This section is not yet complete. I have included this cookbook on the
+distribution tape because I figure it will do some good even though it isn't
+done yet.
+
+Please refer to the installation manual, SED.MEM, for the rest of the
+installation instructions.
+.LIT
+********************************************************************
+.EL
+
+The terminal input table tells what you type at the terminal to invoke
+which commands. Building this table takes a little more work than building
+the output table, because you can set up the editor commands on the keyboard
+just about any way you want.
+
+.S2 .I0
+ARRANGING THE COMMANDS
+
+The first step is to find out what things on your terminal keyboard can
+be used to invoke commands. Control characters should be used for most of
+the commands, as they are the easiest to type. Any special keys can also be
+used as commands; look in your terminal manual to find out what sequences
+of characters those keys transmit.
+
+There are 40 commands. If you don't have enough control characters and special
+keys to take care of them all you can set up the remainder as control
+sequences (a control character followed by one or more characters). For
+example, you might define the <WINDOW> command as ESCAPE#W, <MARK> as
+ESCAPE#M, and <LINE> as ESCAPE#L. The SED user would be expected to type
+those two-character sequences in order to invoke those commands (so set up
+the less frequently used commands this way).
+
+Note that if you use a control character as the start of a sequence it cannot
+also be used by itself to invoke a command. If CONTROL-A#L is <SLIDE-LEFT>,
+then CONTROL-A alone cannot be a command.
+
+When you have a list of the available control characters and sequences,
+link them up with ther editor commands. Use the worksheet on the next page,
+if you like.
+
+.pg
+.C;WORKSHEET (PAGE 1)
+.C;WHICH COMMANDS ARE INVOKED BY WHICH TERMINAL SEQUENCES
+
+.S2 .LIT
+   COMMAND           NORMAL  YOUR          COMMAND           NORMAL  YOUR
+CODE AND NAME      SEQUENCE  SEQUENCE   CODE AND NAME      SEQUENCE  SEQUENCE
+
+
+21 ROLL-BACK-PAGES     ^Q    ______      3 ABORT               ^C    ______
+
+27 ROLL-BACK-LINES     ^W    ______     26 PICK                ^V    ______
+
+ 5 SEARCH-BACKWARD     ^E    ______      2 SET-FILE            ^B    ______
+
+22 SEARCH-FORWARD      ^R    ______     16 SWITCH              ^N    ______
+
+24 ROLL-FORWARD-LINES  ^T    ______     15 CARRIAGE-RETURN     ^M    ______
+
+31 ROLL-FORWARD-PAGES  ^Y    ______     36 CURSOR-UP                 ______
+
+25 BACKTAB             ^U    ______     34 CURSOR-DOWN               ______
+
+11 TAB                 ^I    ______     10 CURSOR-LEFT               ______
+
+17 ENTER-CONTROL-CHAR  ^O    ______     35 CURSOR-RIGHT              ______
+
+20 PERCENT-GOTO        ^P    ______     37 CURSOR-HOME               ______
+
+ 1 INSERT-SPACES       ^A    ______     33 ENTER-PARAMETER           ______
+
+23 DELETE-SPACES       ^S    ______      0 RESET              RUBOUT ______
+
+ 4 INSERT-LINES        ^D    ______
+
+16 DELETE-LINES        ^F    ______
+
+ 7 PUT                 ^G    ______
+
+50 ERASE-LINE          ^J    ______
+
+13 SLIDE-LEFT          ^K    ______
+
+14 SLIDE-RIGHT         ^L    ______
+
+32 EXIT                ^Z    ______
+
+30 EXECUTE             ^X    ______
+
+.EL .PG
+.C;WORKSHEET (PAGE 2)
+.C;WHICH COMMANDS ARE INVOKED BY WHICH TERMINAL SEQUENCES
+
+.S2 .LIT
+   COMMAND           NORMAL  YOUR          COMMAND           NORMAL  YOUR
+CODE AND NAME      SEQUENCE  SEQUENCE   CODE AND NAME      SEQUENCE  SEQUENCE
+
+
+40 RECALL                    ______
+
+41 INSERT-MODE               ______
+
+42 DELETE-CHARACTER          ______
+
+43 REAL-TAB                  ______
+
+44 MARK                      ______
+
+46 CASE                      ______
+
+47 WINDOW                    ______
+
+50 ERASE-LINE                ______
+
+52 UP-TAB                    ______
+
+53 DOWN-TAB                  ______
+
+54 RE-WRITE                  ______
+
+55 SAVE-FILE                 ______
+
+56 HELP                      ______
+
+57 BEGIN-LINE                ______
+
+60 END-LINE                  ______
+
+61 ERASE-WORD                ______
+
+62 PUSH (TOPS-20 ONLY)       ______
+.EL .PG
+
+If the "normal" sequences given above seem a little chaotic it is because the
+commands are arranged on the keyboard so that similar commands are nearby.
+The name of the key has nothing to do with the nature of the command invoked.
+Most SED users agree that this system is better than having commands linked
+to keys which are mnemonic but which are located far apart (like CONTROL-F
+and CONTROL-B for <SEARCH-FORWARD> and <SEARCH-BACKWARD>, for example).
+
+The general layout is:
+
+.S1 .LIT
+          .____.____.____.____.____.____.____.____.____.____.
+          !  Q    W !  E    R !  T    Y !  U    I !  O !  P !
+          !                             !         !ENTR!PERC!
+          !      ROLLS AND SEARCHES     !  TABS   !CCH !GOTO!
+          !_.__!____!____!____!_.__!_.__!_.__!_.__!____!_.__!
+            !  A    S !  D    F !  G !  H !  J !  K    L !
+            !                   !    !CUR !ERAS!         !
+            !   INSERT/DELETE   !PUT !LEFT!LINE! SLIDES  !
+            !_.__!_.__!_.__!_.__!_.__!_.__!_.__!_.__!____!
+              !  Z !  X !  C !  V !  B !  N !  M !
+              !    !    !    !    !SET !    !RE- !
+              !EXIT!EXCT!ABRT!PICK!FILE!SWCH!TURN!
+              !____!____!____!____!____!____!____!
+.EL .s1
+Also, the RESET command is invoked by the RUBOUT (DELETE) key.
+
+Most terminals have special keys with arrows on them which can be used
+for the cursor movement commands. The terminal manual will tell you what
+sequences they send. If there is no key for <CURSOR-HOME>, locate it near
+the arrow keys.
+
+.S2 .I0
+SETTING UP THE TABLE
+
+Now it's time to introduce you to the terminal input table itself.
+In SEDX.MAC the table looks like:
+
+.s1 .lit
+                         0
+        IVT52:  EXP     40, 1, 2, 3, 4, 5, 6, 7
+                EXP     42,11,50,13,14,15,16,17
+                EXP     20,21,22,23,24,25,26,27
+                EXP     30,31,32
+                -12,,I.VT52
+                EXP              34,35,36,37
+.EL .S1
+
+The 5th slot in the table, for example, tells what happens when the user
+types a CONTROL-E (which has Octal code 5); the 34th slot tells what
+happens to a CONTROL-_\ (which might be invoked by a special or cursor
+movement key); and so forth.
+
+The "0" that's hanging above the table (slot -1, actually) is used by the
+RUBOUT (or DELETE) key.
+
+If a control character invokes a command directly the corresponding slot
+in the table contains the code for that command. If CONTROL-B invokes
+the <SET-FILE> command then slot 2 of the table contains 2. If CONTROL-B
+invoked <SEARCH-FORWARD> then slot 2 would contain 22.
+
+Things get more complicated when it comes to control sequences. Whoever set
+up the table above made ESCAPE (slot 33) be the start of a number of
+control sequences (in fact, this example is based on a VT52 terminal, where
+ESCAPE is the first character sent out by all the cursor movement and
+special keys). Slot 33 contains not a value but a pointer. The right half of
+the pointer is the address of a subtable (described below) and the left
+half is the negative length of the subtable.
+
+Every   SUBTABLE HERE
+
+
+
+
+
+
+
+
+
+
+.S1 .LIT
+WHAT KINDS OF BEASTS CAN LIVE IN THE TERMINAL INPUT TABLE
+
+DESCRIPTION        EXAMPLE        WHATZIT
+
+code               16             code of the command invoked
+-count,,address    -4,,SUBTAB     subtable pointer for sequences which
+                                  begin with this control character
+-big,,address      -100,,SUBTAB   ditto, if subtable ends with a zero
+
+BEASTS LIVING IN SUBTABLES
+
+code,,character    37,,"H"        code of command whose invoking sequence
+                                  ends with the given character
+address,,character SSUBTB,,"O"    sub-subtable pointer for given character
+code,,0            24,,0          command code which will match on anything
+0                  0              optional table-ending word
+.el .s1

@@ -1,0 +1,80 @@
+
+
+			VMS Dumper Tape Reader
+
+
+	Written by:	Pieter Bowman
+			Salt Lake City, Utah
+
+Usage:
+
+$ DUMPER tape {vmslogfilespec} {-a} {"-s*filename*"} {-p} {-rvmsfilespec}
+
+[-a = restore all files reguardless, 36 -> 7 bit: option not there! ]
+-s = select files to restore
+-p = print filenames from tape to log file (default log filespec is terminal)
+-r = restore files & partial filename for restore
+
+Note1: no spaces allowed between -s or -r switchs and their filespecs
+Note2: Switches must be lower case 
+Note3: Tape file specifications are case sensitive.
+
+Example:
+
+$ dumper :== $SYS$SYSTEM:DUMPER.EXE		! Setup symbol on VAX
+$ mount mfa0: /for /block=2590 /record=2590	! Mount the Dumper tape
+$ dumper mfa0: tapelog.txt -p			! Get the tape's 
+						! directory structure
+
+   		! You should look at TAPELOG.TXT and then create subdirectories
+		! like the Dumper tape's directory structure.
+
+$ assign __DRB0:[bowman.] disk			! Define "disk"
+
+						! You could...
+
+$ dumper mfa0: -a -p -rdisk:[dir]		! Restore entire tape
+
+						! Or you could...
+
+$ dumper mfa0: -a -p "-s*<CPM>DU.*" -rDISK:     ! Restore selected files:
+						! <CPM>DU.* on MFA0: to
+						!     __DRB0:[BOWMAN.CPM]DU.*
+
+
+[N.B. The VMS filespec is a partial filespec, the program (or, rather,
+SYS$PARSE) fills in the missing fields with the Dec-20 filename fields.
+Wildcards should not be used.]
+
+Selected source code comments:
+
+
+
+ *	machines.  DUMPER is a DEC-10/20 tape reader/writer used for
+ *	backing up files and exchanging tapes with other 10/20 sites.
+ *	This version was written on a VAX-11/780 in Dec C and MACRO-32.
+ *	The following files are needed:
+ *		DUMPER.C	(this file, main dumper source)
+ *		WILD.C		(wild string compare function)
+ *		PARSE.MAR	(makes a usable file name for the Vax)
+ *
+ *	Example run:
+ *		$ DUMPER :== $disk:[dir]DUMPER.EXE	! Setup symbol on VAX
+ *		$ mount mfa0: /foriegn/blocksize=2590/record=2590
+ *		$ dumper mfa0: -p -rdisk:[dir]		! Restore whole tape
+ *
+ *	Written by:
+ *		Pieter Bowman
+ *		Salt Lake City, Utah
+ */
+
+
+/*
+ * Take a 20ish filename and make it a Vaxish filename.  First copy the
+ * structure verbatim (useless).  Next copy the first 39 characters of the
+ * directory name; alpha-numeric plus periods.  If a period is encountered
+ * end of first directory name and can have another 39 chars.  Then copy the
+ * first 39 chars. of the file name; alpha-numeric only (ie. no quoted (^V)
+ * characters).  Copy the first 39 characters of the file extension (type);
+ * "alnum".  Lastly copy the generation number; can be as high as 262143.
+ */

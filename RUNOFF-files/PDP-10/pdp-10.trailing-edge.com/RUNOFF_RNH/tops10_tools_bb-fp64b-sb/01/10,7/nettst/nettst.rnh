@@ -1,0 +1,395 @@
+.FLAGS CAPIT.PS 58,72
+.T <NETTST - A NETWORK TEST PROGRAM  V5D(37)
+.SUBTTL ^RIC ^WERME, 1976/1977
+.HL 1 general operation
+.hl 2 assembly instructions
+NETTST is built from several files.
+Before trying to build it, collect the following files into a single area:
+.lm 15.ts 16
+.s.i -15
+<nettst.mac	This is the main program.
+It references all the following files.
+.s.i -15
+<tulip.mac	This assembles into <tulip.unv, the symbol definition file
+for the TULIP IO package (DECUS _#10-231).
+This version is newer than the DECUS version, which will be updated
+sometime.
+TULIP documentation is not shipped on the release tape, interested
+parties should order TULIP from DECUS.
+.s.i -15
+<tullib.mac	This is the IO package subroutine library and
+assembles into <tullib.rel.
+.s.i -15
+<maclib.mac	A collection of IO subroutines not well enough designed to
+warrant inclusion with TULLIB.
+This assembles into <maclib.rel.
+.s.i -15
+<netlib.mac	A collection of subroutines that allow the caller (NETTST)
+to symbolically access memory in running DN8x systems.
+This assembles into <netunv.unv and <netlib.rel.
+.s.i -15
+<dteprm.unv	This is a module used in building TOPS-10 monitors and is
+needed by NETTST to access the DTE20 communications area.
+.s.lm 0
+Next, assemble all the ancillary stuff:
+.s.i 10;_.COMPILE TULIP,TULLIB,MACLIB,NETLIB
+.S
+Then load and save NETTST:
+.s.i 10;_.LOAD NETTST
+.I 10;_.SAVE NETTST
+.br;See the description of the DDT command below for saving NETTST with
+DDT.
+.hl 2 restrictions
+A few commands make symbolic references to running DN8x systems.
+Unfortunately, these require extensions to NETTST, NETLIB, and some other
+program that writes symbol table files (probably DDT11).
+This probably will not be done for the 6.03A network LIR but hopefully
+will be done for 7.01.
+The commands affected by this restriction are SYMSET, OCNMON, and
+SCBMON.
+.hl 2 command format
+Any reasonable number of commands may be typed on a single line separated
+by commas (although spaces sometimes (but not always) work).
+Commands will be executed in the order typed.
+.s;For example:
+.i 5;Do? ASCOUT:LPT22:, RIPPLE, SPACE, RIPPLE, RELEASE
+.I 5;Do? OCNMON, NDBMON, SCBMON
+.hl 2 arguments
+Commands that take arguments are shown that way below with their
+default as the argument.
+The argument is tacked onto a command with a colon, commands that take
+arguments may be typed without them in which case the last argument used
+will be the default.
+.s;The types of arguments presently used are:
+.ls
+.le;File spec
+.br;SFD's are not handled, but the NODE__DEV:FILE.EXT construct
+is.
+Furthermore, terminals on network nodes may be specified this way, something
+that cannot be done with the monitor assign command.
+(E.#G_. "ENCORE__TTY0:" specifies the console terminal of node ENCORE.)
+.le;ON/OFF
+.le;Decimal numbers (unsigned)
+.le;Octal numbers (unsigned)
+.le;SIXBIT strings (6 character max)
+.els
+.hl 1 data test commands
+.hl 2 device specification commands
+.ls.le;ASCINP:IN:NETTST.LST
+.br;ASCOUT:OUT:NETTST.LST
+.br;BININP:IN:NETTST.LST
+.br;BINOUT:OUT:NETTST.LST
+.br;BYTINP:IN:NETTST.LST
+.br;BYTOUT:OUT:NETTST.LST
+.br;IMPINP:IN:NETTST.LST
+.br;IMPOUT:OUT:NETTST.LST
+.br;PIMINP:IN:NETTST.LST
+.br;PIMOUT:OUT:NETTST.LST
+.BR;All these specify the file to access with the following test commands.
+Only one of these can be in effect at any given time, issuing a new
+command will cause the previous file to be closed and released.
+.els
+.hl 2 Test pattern commands
+.ls
+.le;ONES
+.br;ZEROS
+.br;These are meant for use with the BININP/BINOUT commands but will handle
+ASCII quite nicely also.
+The pattern used will be floating ones or floating zeros.
+These patterns were originally used to test binary task/task
+transfers.
+.le;PERIOD
+.br;SPACE
+.br;RIPPLE
+.br;These are meant for use with the ASCINP/ASCOUT commands but will also handle
+binary quite nicely.
+The patterns used are strings of period, spaces, or a ripple pattern
+bracketed with angle brackets (so you can see where the spaces stopped).
+These patterns were orginally used for test LPT compression.
+.le;LISTEN
+.br;This command only works after ASCINP, BININP, or BYTINP.
+It will print data from the connection on the terminal (in octal if used
+after BININP).
+It was originally written to see exactly what an RSX-11M system was
+sending through the compatible port.
+.le;LOOP
+.br;This continually repeats the command line until an error
+occurs or something is typed on the keyboard.
+See below under "Monitoring Commands" for more information.
+.els
+.hl 2 Parameter modifying commands
+.ls
+.le;NUMLIN:130
+.br;This specifies the number of messages to be sent or received per
+invocation of pattern command.
+.le;STLEN:1
+.br;This specifies the length of data for the first message
+sent.
+.le;INCREMENT:1
+.br;This specifies the increase in length of each successive message from
+the pattern generater.
+.le;PARAMETERS
+.br;This prints out the present values of the preceeding three commands
+and some (usually wrong) information about the amount of data that can
+fit in a buffer.
+The preceeding three command also force this command to be executed.
+.le;BUFFERS:0
+.br;This specifies the number of buffers to be used by the data test commands
+and must be issued before them.
+Zero means to use the system default for the number of buffers.
+.le;NOECHO
+.BR;This specifies that devices are to be opened with the IO.SUP bit
+(i.e., TTY suppress echo; bit 28) set in the status word.
+.le;NOFORM
+.br;This specifies that devices are to be opened with the IO.SFF bit
+(i.e., LPT suppress form feed; bit 29) set in the status word.
+For LPT's this means the preceeding and trailing formfeeds will be suppressed.
+It also must be issued before a data test command.
+.le;ECHO:OFF
+.br;When echo is set ON, the next device specification command sets up
+the device in modify mode.
+When the next pattern command is typed, after each message
+is received (sent), an echo is sent (received).
+This is to check out full duplex TSK's, a task yet to be done.
+.le;HASH:OFF
+.br;When on, a hash mark (_#) will be printed on the terminal after the
+transmission of each message to provide visual and
+audible (sometimes) feedback that the data is still moving.
+At the end of a data pattern command, a CRLF will be output.
+.le;STATISTICS:OFF
+.br;When on, the baud rate of the transfer will be printed for the
+data moved for this invocation of a data pattern command.
+Keep in mind that this doesn't include parity bits, or TTY's start
+and stop bits.
+If ASYNC:ON is in effect, this will also print the number of successful
+and unsuccessful IO instructions.
+.els
+.hl 2 special IO mode commands
+These commands exercise the extensions to normal buffered mode IO done in the
+past several monitor releases.
+All of these commands are of the ON/OFF variety and are used to enable
+or disable the special modes.
+When the interrupt and async. IO modes are on, their action cannot
+really be appreciated unless HASH is also on.
+.ls.le;ASYNCHRONOUS:OFF
+.br;This makes the next device specification command do its OPEN with the
+asynchronous IO bit set.
+Whenever an IN or OUT UUO gets an error return with no error bits set, NETTST
+will print an "A" if in hash mode and then HIBERnate waiting for IO activity
+to happen.
+In case nothing happens, it will wake up after 10 seconds anyway and try again.
+This makes it tolerant of monitor bugs that forget to wake NETTST.
+See also: STATISTICS.
+.le;INTERRUPTS:OFF
+.br;When the argument is ON, this turns on the PSI system which is set up
+to handle interrupts for the device under test.
+The interrupt routine does not materially affect the operation of the test
+routines, it merely logs the interrupts if the hash switch is set.
+Whenever an interrupt occurs, visual indication will be given if HASH:ON
+is in effect.
+The output based on the reason bits are:
+.s.ts 30,40.nf
+Output	bit	meaning
+I	PS.RID	input done
+O	PS.ROD	output done
+-EOF-	PS.REF	end of file
+-INPUT ERROR-	PS.RIE
+-OUTPUT ERROR-	PS.ROE
+-OFFLINE-	PS.RDO
+-ONLINE-	PS.ROL
+.s.f
+All other interrupt conditions are not enabled for but if they occur they
+will be marked with a "?".
+.le;MPX:OFF
+.br;When this is set to ON, the next device specification command will OPEN
+the MPX device and then connect the test device to that channel.
+The special actions of the MPX device (specifically the storing of the
+UDX in the buffer header) will not be checked (after all, this is a network
+tester, not MSGSER tester); the goal of this command is to have no effect on
+the operation of the test.
+.els
+.hl 2 terminal commands
+.ls
+.le;TTYMAP:ALL
+.br;The parameter this takes is either a node name or number or ALL.
+It will print a mapping on the TTY between node__line pairs to
+TTY numbers.
+If a node name or number is given, the mapping will be
+from line numbers on that node (0 to whatever) to TTY numbers (356
+from 'TTY356').
+If the special case of ALL is typed, then the mapping is from TTY number
+to node__line pairs.
+Note that TTYs PTYs use are include at the high end of the output.
+.le;SEND:0
+.br;This command is a hack command of sorts.
+The parameter is a TTY number, every line typed after this
+command up to an ESCape will be printed on the TTY specified.
+I got tired of typing a lot of .SEND's one night.
+.le;FOX:
+.br;There is no default for this command at first.
+The parameter is either a node name or number or a TTY
+device name.
+If a node is used, it will have the same effect as the TTY name for
+the terminal on the specified node with the same line number as the
+program's job number
+(That's so I could tell OPSER 'ALL-FOX:FOO').
+This will send several lines (set by NUMLIN) of text to the
+terminal specified.
+Last I saw, the TRMOP. I used to send the data no longer blocked
+the job which makes it kind of useless for this application.
+.le;SPEED:9600
+.br;This sets the baud rate to be used in future FOX commands.
+Only the output side will be set.
+.le;FILL:0
+.br;This sets the fill class to be used on future FOX commands.
+.els
+.hl 2 Monitoring commands
+.br;There are several commands that display useful information from the
+-10 or -11s.
+When used with the LOOP command (below) they output data, wait awhile,
+output any errors that occurred since last time, wait some more, etc.
+Once in a great while, they output all the information in a summary
+form.
+.ls
+.le;BADMON
+.br;This prints out the contents of bad NCL messages as they arrive in the -10.
+Most NCL messages are decoded and are printed in a reasonable form.
+Take this data with a grain of salt.
+Race conditions inherent in any network designed to date make it possible
+for almost any message that made sense when it was transmitted be illegal
+when it is read.
+.le;DTE:25316
+.br;Someday I'm going to add code to read the symbols contained in
+a monitor .EXE file.
+Until then, this parameter is the address of the KL10's comm area that
+is used by all systems with DTE20's.
+This command isn't really a monitoring command because it won't
+remember to sleep before the next invocation, but this is a good
+section to put it.
+Since it outputs a lot of data, using the logging facility
+described below is a good idea.
+Therefore, its normal use is to type:
+.s;Do? LOG, DTE, ENDLOG
+.le;NDBMON
+.br;This is almost an analogue of the SYSDPY T display but is meant
+for hardcopy instead of video.
+It also outputs the queue of unacknowledged messages for each NDB.
+Since that information changes often, it is a good idea to take it
+with a grain of salt.
+If you get the same output twice, it will be valid.
+Since detecting errors in this data is not easy, in  loop mode
+this will print only during the summary times.
+.le;NETMON
+.br;This produces a quicky display of the data stored in the .GTNET
+GETTAB table.
+A better way to see this data is to use the SYSDPY "_\" command.
+Keep in mind that this data is available only in systems that have 
+FTCMSR turned on and that the system is shipped with it turned
+off.
+.le;OCNMON
+.br;This outputs the DDCMP messages statistics for all -11s in
+the network (the LB.OCN/LB.ICN data).
+Errors are defined to be any change in the error counts.
+.le;SCBMON
+.br;This is the analogue of the SYSDPY T data from the -11s' point
+of view.
+It outputs the NCL message data for each active SCB for each -11
+from the network.
+Since detecting errors in this data is not easy, in  loop mode
+this will print only during the summary times.
+.le;SCNMON
+.br;This outputs SCNSER statistics since the last execution of the
+command or since startup if this is the first time.
+The items listed are:
+.ls.le;RCV - _# of receive interrupts
+.le;XMT - _# of transmit done interrupts
+.le;ECHO - _# of characters echoed
+.le;ACT - _# of lines active.
+Receive active is when there is input in the buffer and
+transmit active is when LDLOIP is set (I think).
+If both are active, that will increase the count by 2.
+.le;SIZE the number of characters SCNSER is willing to buffer
+.le;BAUD - average baud rate (based on sum of receive and transmit
+interrupts).
+The asterisks following make a histogram, one per every 500 baud.
+.els
+.le;LOOP
+.br;This command makes NETTST constantly repeat the command line
+until a fatal error is detected or a character is typed on the TTY.
+In the case of the monitoring commands, there will be a sleep between
+invocations of the command line to keep from loading the system you're
+trying to measure.
+LOOP can also be used with any other command to repeat it.
+For example, "LOOP RIPPLE" sends continuous ripple patterns to the currently
+open device or reads and checks them from the current input device.
+LOOP alone is not recommended - it gobbles machine time.
+.le;SLEEP:10000
+.br;This specifies the number of milliseconds to sleep before NETTST
+repeats the command line when looping.
+.le;SUMMARY:10
+.br;This specifies the number of minutes
+before a summary printout is done.
+Summaries are based on clock time, not the time since the command was
+typed, so by using the defaults, summaries should appear within
+10 seconds of the start of each 10 minute interval during the day.
+.els
+.hl 2 Logging facility
+.ls
+.le;LOGFILE:LPT:NETTST.LOG
+.BR;This specifies the log file that will record output request by
+future LOG commands.
+Special treatment is accorded different logging devices.
+Once opened, most devices (LPT, TSK, MTA) will be left open until
+explicitly released; however DSK and TTY will be released
+before NETTST prompts for a new command and before the hibernate
+encountered when looping on a monitoring command.
+.le;LOG
+.br;The remainder of the output from this command string will be
+directed to the log file instead of the TTY.
+.le;ENDLOG
+.br;This releases the logging device if it is still open.
+(Which should not be the case if it is a DSK or TTY.)
+.els
+Typical usage:
+.s.nf.lm 8
+Do? LOGF:DSK:
+Do? LOG TTYMAP:ALL
+Do? LOOP LOG OCNMON, SCBMON, NDBMON
+.S.F.LM 0
+.hl 2 Miscellaneous
+.ls
+.le;SYMSET
+.br;OCNMON and SCBMON access the -11s in the network symbolically
+using symbol tables output by a special version of DDT11.
+As versions change, these have to be replaced and that may be
+done via this command.
+Generally what you want to do is:
+.s;_.RUN NETTST
+.BR;Do?#SYMSET, EXIT
+.BR;_.SSAVE NETTST
+.le;PAUSE:1000
+.br;This pauses the specified amount of time in milliseconds and may
+be useful in exercising race conditions.
+If more than one PAUSE command is typed on a line, the time spent
+sleeping will equal the last value typed on the line, for example
+.s;Do?#PAUSE:1000, PAUSE:2000
+.s;will sleep for two intervals of 2 seconds each.
+This happens because NETTST's command decoder evaluates all the arguments
+before executing the commands.
+commands that take values have only one location dedicated for
+that value, so in the example NETTST first stores 1000, then 2000, and then
+executes the pause twice, both times with a sleep time of 2 seconds.
+.le;DDT
+.br;If DDT is loaded, this will call it via a "PUSHJ P," type call.
+To get back to NETTST, type "CPOPJ$G".
+Easier though is to do this patch:
+.s;_.DEBUG NETTST
+.BR;NETTST$:
+.BR;CDDT/POPJ P,
+.BR;_.$B
+.S;Then all you have to do to get back is type "$P".
+.le;HELP
+.br;This prints a list of the current commands.
+.le;EXIT
+.br;This closes any open files and returns to the monitor.
+.els

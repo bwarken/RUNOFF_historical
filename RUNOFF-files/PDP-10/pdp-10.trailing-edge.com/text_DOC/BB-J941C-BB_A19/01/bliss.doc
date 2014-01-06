@@ -1,0 +1,446 @@
+
+
+
+            Bliss-36 Release 3 For TOPS-10: Release Notes
+                            February-1982
+
+
+
+
+
+1.0  INTRODUCTION
+
+This document provides information pertaining to Bliss-36 Version 3.
+
+     It contains the following sections:
+
+      o  Introduction
+
+      o  New Features
+
+      o  Restrictions
+
+      o  Known Bugs
+
+      o  For Further Help
+
+      o  Components
+
+
+
+
+2.0  NEW FEATURES
+
+Version 3 of BLISS is upward compatible with the V2.1 compiler.
+
+
+
+2.1  Common Language Changes
+
+This section discusses new language and compiler  features  which  are
+common  to  Bliss-32,  Bliss-36  and Bliss-16.  See the Bliss Language
+Guide (Order No.  AA-H275C-TK for details).
+
+
+
+2.2  %REQUIRE Lexical Function
+
+This new lexical-function includes the contents of a source-file  into
+the current compilation.  Unlike the REQUIRE declaration, the %REQUIRE
+lexical-function  may  appear  within  any  context  where  a  lexical
+function is permitted.
+
+
+                              Exception
+
+               %REQUIRE is illegal within a macro-body.
+Bliss-36 Release 3 For TOPS-10: Release Notes                   Page 2
+
+
+For example, the lexeme sequence:
+
+        %REQUIRE ( 'PS:<MYDIR>FOO' )
+
+will include the contents of the file PS:<MYDIR>FOO.REQ in the current
+compilation.
+
+
+
+2.2.1  INITIAL Or PRESET On Local Storage
+
+The  initial-  and  preset-attributes  are  now  permitted  on  LOCAL,
+REGISTER   and   STACKLOCAL   declarations.    This  permits  run-time
+initialization of dynamic storage.  The existing restrictions that the
+initial-values must be ltce expressions remain.
+
+
+
+2.3  EXTERNAL Declarations In LIBRARY Precompilation
+
+BLISS libraries serve  as  an  interface  specification  to  insure  a
+uniform  environment  among  interacting  modules.   BLISS  V3  allows
+EXTERNAL, EXTERNAL ROUTINE and EXTERNAL LITERAL declarations inside  a
+LIBRARY  pre-compilation to extend the generality of the interface and
+increase the compiler's ability to  perform  compile-time  consistency
+checks.
+
+
+
+2.4  BUILTIN Machine-specific Functions In LIBRARY
+
+
+
+                                 NOTE
+
+               This change in functionality was adopted
+               too  late  in the documentation cycle to
+               be included in the V3 documentation.
+
+
+BUILTIN machine-specific functions (such as UUO, FIRSTONE or REPLACEN)
+are  permitted  as  declarations  in  library precompilation.  BUILTIN
+registers or linkage-functions (such as SP or NULLPARAMETER)  are  not
+permitted  in libraries.  This makes it possible to define a STRUCTURE
+declaration which uses BUILTIN functions and to include that STRUCTURE
+in a LIBRARY.
+
+For a useful example, see the  definition  of  the  MONWORD  structure
+which is in the TENDEF.R36 file supplied with this release of BLISS.
+Bliss-36 Release 3 For TOPS-10: Release Notes                   Page 3
+
+
+2.5  PSECT Attribute On PLIT Expression
+
+It is now possible to specify which psect a PLIT or  UPLIT  should  be
+allocated in.  For example
+
+        UPLIT PSECT($own$) (1,2)
+
+will place the plit-body into the "$own$" psect.
+
+
+
+2.5.1  New PSECT Declaration Storage-Class
+
+In  order  to  facilitate  the  use  of  PSECT  declarations,  a   new
+"storage-class" has been defined.
+
+The NODEFAULT  storage-class  does  not  affect  the  present  default
+PSECT-name  assiciated  with  the storage-classes OWN, GLOBAL, PLIT or
+CODE.  Thus, it becomes possible to define PSECTs  without  destroying
+the existing defaulted values.
+
+
+
+2.5.2  Improved Error Recovery
+
+Considerable effort has been made to improve compiler  error  recovery
+in V3 of BLISS.  In particular, whenever possible:
+
+      o  missing operators in an expression  are  treated  as  WARNING
+         level  diagnostics  and  an  appropriate  operator  (such  as
+         semicolon, comma or "THEN") is inserted.
+
+      o  missing operands are treated as WARNING level diagnostics and
+         a literal zero is inserted.
+
+
+
+
+2.6  BLISS-36 Specific Changes
+
+2.6.1  Indirect Address-mode Generation
+
+The V3 BLISS-36 compiler will optionally generate  instructions  which
+use  indirect  addressing.   This  optimization is controlled by a new
+module-head switch
+
+        ADDRESSING_MODE (  { INDIRECT | NOINDIRECT } )
+
+The  NOINDIRECT  option  (the  default)  prevents  the  compiler  from
+generating indirection implicitly.
+Bliss-36 Release 3 For TOPS-10: Release Notes                   Page 4
+
+
+2.6.1.1  Indirect Addressing Example - For example, the BLISS fragment
+
+        OWN X;
+        REGISTER R;
+
+        R = ..X;
+
+will normally expand to the machine instructions
+
+        MOVE    T1, X           ; First "."
+        MOVE    R, (T1)         ; Second ".", ignore <18,18>
+
+but if the ADDRESSING_MODE( INDIRECT ) module-head switch is  present,
+the compiler may produce
+
+        MOVE    R, @X
+
+
+
+2.6.1.2  Pragmatics On Indirect Addressing - Indirect       addressing
+assumes   that   when   an   indirect   fetch  operation  specifies  a
+field-selector  of  <0,36>  that  the  left-half  does  not  have  the
+indirect-bit  or index-register set.  The memory word accessed MUST be
+a pure address (either 18 or 30 bits).
+
+The default is ADDRESSING_MODE( NOINDIRECT ), however, it is  possible
+to  change  this  at the time BLISS-36 is installed.  See the BLISS-36
+Installation Guide for further information.     
+
+
+
+2.6.2  SKIP Linkage-modifier With PUSHJ Linkage-type
+
+In V2.1, this attribute was only legal with the JSYS linkage-type.  In
+BLISS  V3,  SKIP may now be associated with a PUSHJ linkage-type also.
+The skip count must be in the range 0 to 2.
+
+For example, to call a routine which will return  to  either  PC+1  or
+PC+2:
+
+        LINKAGE
+            skip_ret = PUSHJ :  SKIP(1) LINKAGE_REGS(15,13,1)
+                                NOPRESERVE(2,3,4,5)
+                                PRESERVE(0,6,7,8,9,10,11,12,14);
+
+        EXTERNAL ROUTINE
+            icanskip    : skip_ret;
+
+        IF icanskip()
+        THEN
+            ! It did skip on return to caller
+            ....
+        ELSE
+            ! Did not skip
+            ....
+Bliss-36 Release 3 For TOPS-10: Release Notes                   Page 5
+
+
+
+
+
+
+2.6.3  KS10 Environment Option And Switch
+
+The  keyword  KS10  is  now  supported  in  the  Bliss-36  ENVIRONMENT
+module-head  switch.   The  command-line  switch  /KS10 is also legal.
+This is a synonym  for  ENVIRONMENT(KL10)  or  the  /KL10  switch  and
+controls the instructions which the compiler will use.
+
+It is also possible to alter the default  for  this  switch  when  the
+compiler  is  installed.   See  the  Bliss-36  Installation  Guide for
+further information.
+
+
+
+2.6.4  ERRLIM Switch
+
+This switch specifies the maximum number  of  Error-level  diagnostics
+which  are  permitted before terminating the compilation.  The default
+value is 30 errors.
+
+
+
+2.6.5  Double-Precision Floating Point ( %D )
+
+BLISS now supports double precision floating point literals on the KI,
+KL  and  KS  processors.   The syntax is identical to the Bliss-32 and
+Bliss-16 %D.
+
+
+
+2.6.6  Extended Exponent Literals ( %G )
+
+The KL processor now has support for a  floating  point  format  which
+handles a larger exponent than the %E or %D floating point formats.
+
+
+                         Hardware Requirement
+
+               This feature requires micro-code support
+               for its operation.
+
+
+See the Bliss Language Guide for details on  the  form  of  G_Floating
+constants.  The basic syntax is
+
+        %G 'floating-number'
+
+where  "floating-number"  is  a  character   string   representing   a
+floating-point number.
+Bliss-36 Release 3 For TOPS-10: Release Notes                   Page 6
+
+
+2.6.7  Floating Point BUILTIN Functions
+
+These functions are documented  in  the  Bliss-36  User's  Guide,  3rd
+Edition.  The new functions provide a common syntax for floating point
+manipulation in Bliss-36, Bliss-32 or Bliss-16, using  either  single,
+double or extended exponent floating point formats.
+
+          ADDF      SUBF      MULF      DIVF      CMPF
+          ADDD      SUBD      MULD      DIVD      CMDD
+          ADDG      SUBG      MULG      DIVG      CMPG
+          CVTIF     CVTID     CVTDI     CVTFI     CVTFD
+          CVTIG     CVTFG     CVTGI     CVTGF     CVTDF
+
+The ADDx, SUBx, MULx and DIVx builtins all take  the  address  of  two
+source  operands and the address of a destination.  The CVTxy builtins
+take the address of a source and the address of a  destination.   Only
+CMPG, CMPF and CMPD return a value in the range {-1, 0, 1} to indicate
+less-than, equal or greater-than.  All other  floating-point  builtins
+are NOVALUE-d.
+
+
+
+3.0  RESTRICTIONS
+
+If Bliss-36 Version 3 is used  to  compile  a  library,  that  library
+cannot  be used with any earlier compiler.  The new release can handle
+any library compiled by a V2 or V2.1 compiler.  We recommend that  you
+recompile all library files with the latest release.
+
+The CLEARSTACK linkage-option must not be used with the MAIN  routine.
+BLISS-36 does not provide support for this.
+
+
+
+4.0  CHANGES TO UNSUPPORTED SOFTWARE
+
+As a courtesy to our users, some  unsupported  development  tools  are
+shipped with the BLISS distribution.
+
+
+
+4.1  XPORT - Transportable BLISS Programming Tools
+
+A maintenance release of XPORT appears in the version 3 release.
+
+
+
+4.2  SIX12 - BLISS Symbolic Debugger
+
+SIX12 has been upgraded to include  many  new  features  developed  by
+Carnegie-Mellon  University  and  has  been re-written in Bliss-36 and
+extensively commented.  This should make it much easier for  users  to
+tailor the debugger to their own needs.
+
+Included in this release is  a  machine-readable  manual  -  SIX12.MEM
+Bliss-36 Release 3 For TOPS-10: Release Notes                   Page 7
+
+
+which serves as a reference manual for the debugger.
+
+
+
+4.3  TENDEF.R36 System Interface File
+
+Two   STRUCTUREs   have   been   defined   in   TENDEF   to   simplify
+systems-programming  with  the  MONSYM  and  UUOSYM system interfaces.
+These are MONWORD and MONVEC data structures.  For information on  how
+to  use this, examine TENDEF.R36 or consult the Bliss-36 User's Guide,
+(Tools, Libraries and System Interfaces, Chapter 9).
+
+
+
+4.4  PRETTY - BLISS Source Formatter
+
+PRETTY has been enhanced to understand the full BLISS V3 language.   A
+number  of  known problems with the formatter have been fixed for this
+release.
+
+
+
+5.0  KNOWN BUGS
+
+
+      o  A /VARIANT switch in  SWITCH.INI  will  override  a  /VARIANT
+         switch in the BLISS command line.
+
+
+
+
+6.0  FOR FURTHER HELP
+
+     A number of sources of additional help are available.
+
+      o  For information on command interface -- "HLP:BLISS.HLP"  Just
+         type "HELP BLISS" to the monitor.
+
+      o  Language information -- "BLISS  Language  Guide":   Documents
+         the  BLISS  language.   The  Third  Edition,  which documents
+         version  3  of  BLISS  is  available  as  SDC  order   number
+         AA-H275C-TK.
+
+      o  Compiler information -- "BLISS-36 User's  Guide":   Describes
+         use  of  the  BLISS-36  compiler,  some  available tools, and
+         machine  specific  features.   The   Third   Edition,   which
+         documents  version  3  of  BLISS-36 is available as SDC order
+         number AA-H712C-TK.
+
+      o  Syntax summary -- "BLISS Pocket  Guide":   Available  as  SDC
+         order number AV-H289C-TK.
+
+      o  BLISS course -- A course in the BLISS programming language is
+         available  from  DEC.  Your system manager may obtain further
+         information  by  contacting  DEC  Educational   Services   at
+Bliss-36 Release 3 For TOPS-10: Release Notes                   Page 8
+
+
+         (617) 275-5000 ext. 2675.
+
+      o  BLISS-36 debugger (SIX12):  "DOC:SIX12.MEM"
+
+      o  BLISS pretty-print  utility:   "HLP:PRETTY.HLP":   Just  type
+         "HELP PRETTY" to the monitor.
+
+      o  BLISS cross-reference utility:  "HLP:BLSCRF.HLP":  Just  type
+         "HELP BLSCRF" to the monitor.
+
+      o  Simple  terminal  I/O:   "HLP:TUTIO.HLP":   Just  type  "HELP
+         TUTIO" to the monitor.
+
+      o  Conversion   of   BLISS-10   programs    to    BLISS-36    --
+         "HLP:CVT10.HLP":  Just type "HELP CVT10" to the monitor.  For
+         greater detail see the file "DOC:CVT10.DOC".
+
+      o  Monitor interfaces -- "DOC:MONINT.DOC".
+
+      o  Examining ".REL" files -- "HLP:DMPREL.HLP":  Just type  "HELP
+         DMPREL" to the monitor.
+
+      o  Anything else -- contact your system manager.
+
+
+
+
+7.0  COMPONENTS
+
+     Below is a list of the major components of the  BLISS-36  system.
+Full  support  is  available  only for the BLISS compiler itself.  The
+other components are unsupported but will be maintained to the  extent
+our resources allow.
+
+      o  BLISS -- The BLISS-36 compiler itself.
+
+      o  PRETTY -- An automatic formatting program  for  BLISS  source
+         code.
+
+      o  BLSCRF and CONDEN --  A  cross-reference  listing  generating
+         system for BLISS source code.
+
+      o  EZIO and TUTIO -- I/O utilities for BLISS-36.
+
+      o  Monitor Interfaces -- definitions necessary  for  interfacing
+         with the TOPS-10 and TOPS-20 monitors.
+
+      o  CVT10 -- BLISS-10 to BLISS-36 conversion program.
+
+      o  SIX12 -- High level debugger for BLISS-36.
+
+      o  XPORT -- Transportable BLISS programming tools
+

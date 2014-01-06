@@ -1,0 +1,561 @@
+BLISS Language Formatter PRETTY: Maintenance Information	Page 1
+
+
+
+                          TABLE of CONTENTS
+
+
+         Section                 Title                           Page
+
+        1.0      SUMMARY . . . . . . . . . . . . . . . . . . . . 2
+        2.0      PROJECT CONVENTIONS . . . . . . . . . . . . . . 2
+        2.1      Labels And Symbols  . . . . . . . . . . . . . . 2
+        2.2      Subprogram Interfaces And Calling Sequences . . 2
+        2.3      Data Formats And Representations  . . . . . . . 3
+        2.4      Error And Exception Reporting . . . . . . . . . 3
+        2.5      Unusual Conditions Treatment Philosophy . . . . 3
+        3.0      DESIGN OVERVIEW . . . . . . . . . . . . . . . . 4
+        4.0      TABLES, QUEUES, AND BUFFERS . . . . . . . . . . 5
+        5.0      OVERVIEW OF MAJOR MODULES . . . . . . . . . . . 6
+        5.1      Module FORMAT.xxx . . . . . . . . . . . . . . . 6
+        5.2      Module BLFxxx . . . . . . . . . . . . . . . . . 6
+        5.3      Module CONTRL . . . . . . . . . . . . . . . . . 6
+        5.4      Module LEX  . . . . . . . . . . . . . . . . . . 7
+        5.5      Module SCANNR . . . . . . . . . . . . . . . . . 7
+        5.6      Module OUTPUT . . . . . . . . . . . . . . . . . 8
+        5.7      Module PARSE1 . . . . . . . . . . . . . . . . . 8
+        5.8      Module PARSE2 . . . . . . . . . . . . . . . . . 9
+        5.9      Module PARSE3 . . . . . . . . . . . . . . . . . 9
+        5.10     Module SYMPRP . . . . . . . . . . . . . . . . . 10
+        5.11     Module UTILIT . . . . . . . . . . . . . . . . . 10
+        6.0      KEY ALGORITHMS  . . . . . . . . . . . . . . . . 11
+        6.1      The Parsing Algorithm . . . . . . . . . . . . . 11
+        6.2      The Search Algorithm  . . . . . . . . . . . . . 11
+        7.0        MAINTENANCE AND DIAGNOSTIC TOOLS AND PROCEDURES12
+        7.1      Adding A Language Feature . . . . . . . . . . . 12
+        7.1.1      Adding A New Keyword -  . . . . . . . . . . . 12
+        7.1.2      Adding A Syntactic Element -  . . . . . . . . 12
+        7.1.3      Adding A User Option -  . . . . . . . . . . . 12
+        7.2      Debugging . . . . . . . . . . . . . . . . . . . 13
+        8.0      SYSTEM TEST DESCRIPTION . . . . . . . . . . . . 13
+BLISS Language Formatter PRETTY: Maintenance Information	Page 2
+
+
+1.0  SUMMARY
+
+The maintainability and reliability of computer  programs  is  closely
+related  to  their  readability.  It is common practice to enhance the
+readability of complex programs by the judicious use of open space  in
+the  listings to indicate the relationships between different parts of
+the program:  closely related parts are bunched together so  that  the
+eye  perceives  them  as  a  unit, while unrelated parts are listed on
+separate pages, etc.  In a highly structured language such  as  BLISS,
+it  is  useful  and customary to organize the code and listings into a
+heirarchical  structure  in  which  the  highest-level   commands   or
+expressions  are  aligned  near  the  left  margin and the position of
+lower-level code is indicated by the  amount  of  indentation  to  the
+right.   In this way, the exact conditions under which a given line of
+code are executed may be determined by the reader by simply  examining
+the  points  at  which  the  indentation  level changes (which are the
+decision and iteration points of the program.) At the same time, parts
+of  the  code which are executed most frequently (and which become the
+attack points for optimization of the program) are indicated as  local
+maxima  of  the  indentation  level.   The  BLISS  Language  Formatter
+("PRETTY") will transform an existing  BLISS  program  into an
+equivalent form which adheres to conventional rules and standards  for
+readability.
+
+
+
+
+2.0  PROJECT CONVENTIONS
+
+2.1  Labels And Symbols
+
+
+Global routine names are of the form "XYZ$..." where XYZ is associated
+with a function of the program, e.g.  LEX with lexical processing, SCN
+with source text scanning, PRS with parsing, OUT with output, etc.
+
+
+
+2.2  Subprogram Interfaces And Calling Sequences
+
+
+Communication between modules consists of simple calling sequences (in
+which  the  arguments are integers or character string pointers) and a
+single Global data structure called  TOKEN.   Communication  within  a
+module  is  by  means  of  simple OWN variables (few arrays except for
+character string VECTORS) or simple calling sequences.
+BLISS Language Formatter PRETTY: Maintenance Information	Page 3
+
+
+2.3  Data Formats And Representations
+
+
+     1.  The input and output source files  consist  of  sequences  of
+         ASCII  text  records, punctuated by linefeed characters. The
+         XPORT routine  library  is  used  for   record   I/O.
+
+     2.  The  global  array  TOKEN  consists  of  a  character  string
+         description  (character  pointer  and length) and a type code
+         for the current  token.   Each  item  in  this  structure  is
+         allocated a full word.
+
+
+
+2.4  Error And Exception Reporting
+
+
+     1.  File I/O errors are reported to the user terminal  and  cause
+         abortion  of the run.  System action pertaining to open files
+         will be taken.
+
+     2.  Anomalies in  the  syntax  of  the  source  are  reported  by
+         inserting  comments  into  the output file at the point where
+         the anomaly occured.  The same message is also  sent  to  the
+         terminal.  These messages have a distinctive format:
+
+         "!!ERROR!!..." in the output file
+         "?!ERROR!!..." at the terminal or log file 
+
+         which is easily found by an editor.  Subsequent  reprocessing
+         of   the  output  file  by  BLF  will  erase  these  comments
+         automatically.   Occurrence  of  such  an  error   does   not
+         necessarily  cause  termination of the run.  A command option
+         is provided for suppression of error messages in  the  output
+         file (but not to the terminal.)
+
+
+
+
+2.5  Unusual Conditions Treatment Philosophy
+
+
+The main philosophy of the formatter is always to produce a consistent
+output  file, even in the face of errors by the user, confusion of the
+parsers due to hidden syntax information, etc.  The output format  may
+be unacceptable, but the output file must be complete.
+
+BLISS Language Formatter PRETTY: Maintenance Information	Page 4
+
+
+3.0  DESIGN OVERVIEW
+
+
+     1.  PRETTY processes a single input source file  and  produces  a
+         single   output  source  file;an  optional  listing  file  is
+         possible.
+
+     2.  The input file is parsed using a recursive descent  algorithm
+         and syntax errors are reported in the output file as comments
+         inserted into the text  (thus  the  problems  of  correlating
+         separate output and error files are avoided.)
+
+     3.  Everything which PRETTY can insert into the  output  text  is
+         first  deleted  from the input text:  error comments, spaces,
+         tabs, formfeeds, etc.  This guarantees that  subsequent  runs
+         through  PRETTY  will  produce comparable text, but confounds
+         the user who invents, e.g., vertical spacing conventions  for
+         his own use.
+
+     4.  Each lexeme found in the input  text  is  reproduced  in  the
+         output,  in  the  same order.  This obvious rule leads to the
+         use of remarks as line-breaks (since they must appear at  the
+         end  of the line) and thus gives the user some flexibility in
+         laying out the format of the program.
+BLISS Language Formatter PRETTY: Maintenance Information	Page 5
+
+4.0  TABLES, QUEUES, AND BUFFERS
+
+
+The major global data structure in BLF is called TOKEN.   It  consists
+of three words:
+
+
+     1.  [TOK_LEN]:  The number of characters in the token (0 - 120)
+
+     2.  [TOK_CP]:  A character pointer to the first character of  the
+         token in the input stream.
+
+     3.  [TOK_TYPE]:  The value of the type of the token (0 -  approx.
+         130),   as   determined   by   the   table  in  REQUIRE  file
+         'TOKTYP.BLI'.
+
+         The token  type,  set  by  SCN$GETSYM,  may  be  modified  by
+         LEX$GETSYM if it is of interest to the formatting process.
+
+
+
+Other tables of interest to the maintainer of BLF are as follows:
+
+     1.  BLISS Keywords - found in module LEX.  This table contains  a
+         complete sorted list of all known BLISS keywords, and a token
+         type associated with each.  All keywords with type S_NAME are
+         not relevant to the formatting process (for example, names of
+         character string functions.) All others are relevant, and are
+         singled out by some parsing routine.
+
+     2.  Error messages and types - found in module UTILIT.
+
+     3.  Symbol properties table -  found  in  module  SYMPRP.   These
+         properties are used in parsing, e.g.  to locate the end of an
+         expression.
+
+     4.  Synonym definition table - found in module LEX.   This  table
+         defines  the  sequence of lexemes assigned to a user variable
+         which is declared a synonym by means of the  SYNONYM  control
+         comment.   The  table  is  initially  cleared by LEX$INIT and
+         built up by user controls.
+
+BLISS Language Formatter PRETTY: Maintenance Information	Page 6
+
+
+5.0  OVERVIEW OF MAJOR MODULES
+
+
+5.1  Module FORMAT.xxx
+
+
+This module is the central control module.  Its function is to  invoke
+other  modules  to  obtain  file  specifications,  process  the  input
+file(s), etc.  The execution of this module terminates on receipt of a
+ctrl-c (abort) or ctrl-z (end of file) signal from the terminal.  This
+module is extremely simple in structure  and  the  listing  is  wholly
+self-explanatory.   FORMAT.VT1  should   be   used   on  the  VAX  and
+DECsystem-10,  and FORMAT.T20 should be used on DECSYSTEM-20 machines.
+
+
+
+
+5.2  Module BLFxxx
+
+
+This module provides  the  BLF  Command  Language  Interface.   It  is
+responsible  for  obtaining  from  the  user terminal the names of the
+input and output  files.   The  XPORT library  is  used  for  all  I/O
+functions, both for the terminal and the files.  BLFVMS is used on VAX
+systems,  BLFT10  and BLFT20 are used on DECsystem-10 and -20 machines,
+respectively.
+
+
+
+
+5.3  Module CONTRL
+
+
+This module processes the special control comments which are  used  to
+specify the user options for BLF.  When such a comment is found in the
+input by Module LEX, it is passed to CONTRL for analysis  and  action,
+usually  a  matter  of  setting  the  values  of  internal  flags  and
+variables.  These values are returned to the parsers, etc.   by  calls
+to the function CTL$SWITCH.
+
+Among the controls recognized is a request to read more controls  from
+an  alternate  input  file  (!<BLF/require'file.ext'>).  The alternate
+file may not contain another control of this type.  When this  control
+is  found,  the  scanner is directed to the alternate input file until
+its end-of-file or some disallowed lexeme is found;  then  input  from
+the  primary  input file is resumed.  The switching is done in routine
+SCN$SETINUNIT in module SCANNR.
+
+BLISS Language Formatter PRETTY: Maintenance Information	Page 7
+
+
+5.4  Module LEX
+
+
+This module accepts lexemes  from  SCANNR  and  discriminates  between
+syntactic elements of the language and other lexemes such as comments,
+conditional compilation controls (%IF etc.) and file punctuation  (end
+of  line,  end  of  file.)  Names  are  identified  as relevant to the
+formatter (e.g.,  BEGIN,  MODULE,  MACRO)  or  irrelevant  (most  user
+identifiers,  character  function names, etc.) and a unique token type
+is assigned (in TOKEN.) Each syntactical element is  returned  to  the
+parsers on request.
+
+LEX detects the control comments (of the form "!<Blf/...>") and passes
+them to CONTRL for further processing.
+
+This module consists of three routines and a  large  table  (of  BLISS
+keywords.)  Routine  LEX$GETSYM  accepts  tokens  from the Scanner and
+sorts them out.  If the lexeme is a name, routine LOOKUP is called  to
+do  a binary search of the table and to perform case conversion.  Case
+conversion (which may be specified by user control) is performed  even
+if  the text is not being reformatted (either because it is in a macro
+definition, or if requested not to reformat.) LEX may change the  type
+of  the token obtained, and under certain circumstances may change the
+pointer to point to a copy of the lexeme which  has  been  created  to
+prevent overlaying by the following token.  
+
+The special SYNONYM control causes a user name to be associated with a
+sequence of lexical tokens, which are stored in the SYN data structure
+within LEX.  Whenever that user name subsequently appears in the text,
+the sequence of tokens is returned to the parsers one at a time with a
+token length of  zero.   At  a  designated  point  the  user  name  is
+associated  with  one  of the tokens for purposes of output.  When the
+last of the tokens associated with the user name is  returned  to  the
+parsers by LEX$GETSYM, the normal scanning of input tokens is resumed.
+
+
+
+
+5.5  Module SCANNR
+
+
+This module controls the input of text lines and the separation of the
+input  text  into  lexemes, the characteristics of which are stored in
+the global data structure TOKEN.
+
+The primary function of the routines in this module is to input a line
+(READALINE)  and  provide  the  next token in sequence (SCN$GETSYM.) A
+secondary function is to provide the  controls  needed  to  copy  text
+verbatim  (e.g.   in  a  macro definition.) To achieve the latter, the
+lines are written directly  as  they  are  read:   PRETTY  still  goes
+through  the  motions of putting tokens, spaces, etc.  into the output
+buffer, but that buffer is not written out in "verbatim mode."
+
+The scanner may take its inputs from one of three sources:
+BLISS Language Formatter PRETTY: Maintenance Information	Page 8
+
+
+     1.  The normal input file
+
+     2.  An alternate "require" file
+
+     3.  A point in the midst of a SYNONYM definition line from either
+         of the two input files
+
+The switching of context from one source to another is accomplished by
+means  of  structure  references  through a pointer usually designated
+"sp".  A short stack for values  of  this  pointer  is  maintained  by
+routines SCN$PUSH and SCN$POP.
+
+
+
+
+5.6  Module OUTPUT
+
+
+This  module  contains  all  the  routines  which   pertain   to   the
+construction  of  the  output  line image and writing the output file.
+The actual writing is  primarily  done  by  BREAK1,  which  is  called
+whenever the parsing and formatting routines determine that a new line
+is in order.  Writing is also done by routine  OUT$EJECT,  whose  sole
+function   is  to  put  formfeeds  into  the  file.   These  are  done
+independently because it is  not  always  clear  exactly  when  it  is
+correct  to  do  so:   e.g.   when  GLOBAL  ROUTINE is found, the text
+"GLOBAL " is already in the buffer when the decision to create  a  new
+page  (based on finding "ROUTINE") is made.  Therefore the formfeed is
+written before further parsing or output is done.
+
+A major function of the output module routines is in keeping track  of
+the  current  indentation  level.   The parsing routines may alter the
+level incrementally by calls to OUT$INDENT;  actual generation of tabs
+and  spaces  to  acheive  the  correct  indentation is done by routine
+OUT$TAB.
+
+Whenever one of the parsers finds an unexpected token (because  of  an
+error  or  other  anomaly),  it  usually  outputs  the token anyhow to
+prevent looping.  The routine OUT$DEFAULT provides default  formatting
+rules  for  tokens  found  out of context;  these rules are not always
+those  that  would  have  been  used  if  the  token  were   correctly
+recognized.
+
+
+
+
+5.7  Module PARSE1
+
+
+This module contains the main parsing  routine  (PRS$MAIN)  and  other
+routines  to  parse the major syntactic structures (Modules, Routines,
+Blocks, etc.) of the BLISS language.  Together with its sister modules
+PARSE2   and  PARSE3,  it  contains  the  decision  process  by  which
+whitespace is reinserted into the stream of lexemes to form the output
+BLISS Language Formatter PRETTY: Maintenance Information	Page 9
+
+
+stream.   The  parsing  routines  perform  a minimal syntactic (and no
+semantic)  analysis  of  the  text  and  report  errors  as  they  are
+discovered.
+
+It should be noted that the syntax which the formatter sees  and  that
+which the compiler sees are not necessarily the same:
+
+
+     1.  The compiler joins REQUIRE files with the source  text;   the
+         formatter does not.
+
+     2.  The  compiler  ignores  text  not  selected  by   conditional
+         compilation  controls;   the  formatter  must process all the
+         input text.
+
+     3.  The compiler expands all macros;  the formatter does not.
+
+Thus what may appear to the formatter as an error  in  syntax  may  be
+correct to the compiler.
+
+The three parsing modules are maintained separately only because, as a
+single  module,  they would be unmanageably bulky.  Each routine looks
+at successive tokens in the order in which they naturally occur, using
+the  routine  LEX$GETSYM  to  access each token, and disposes of those
+tokens, in the same order, by calls to routine OUT$TOK.   In  between,
+each routine makes certain decisions as to the current syntactic state
+of the input text, and on the basis of context makes decisions  as  to
+what whitespace to reinsert into the output stream.
+
+
+
+5.8  Module PARSE2
+
+
+This module contains all the routines pertaining  to  the  parsing  of
+expressions,  especially of control expressions (IF/ THEN/ ELSE, INCR/
+DECR, WHILE/ UNTIL, etc.) These  control  expressions  are  the  major
+causes of indentation in the output file.  
+
+
+
+
+5.9  Module PARSE3
+
+
+This module contains all the routines pertaining  to  the  parsing  of
+declarations,  with  the  exception of Modules and Routines (which are
+handled by PARSE1.) There are specific routines for declarations (e.g.
+STRUCTURE)  which  have  unusual  syntax, but many declarations have a
+common general format and are handled by the default declaration
+parser, DO_DECL_DEF.
+BLISS Language Formatter PRETTY: Maintenance Information	Page 10
+
+
+5.10  Module SYMPRP
+
+
+This short module has the function of making  certain  discriminations
+between  classes  of  lexemes,  e.g.   which  can be used to terminate
+expressions ("OF", "UNTIL", etc.)
+
+
+
+
+5.11  Module UTILIT
+
+
+This module contains the  error-handling  routine  UTL$ERROR  and  its
+associated tables of error messages and types.
+
+BLISS Language Formatter PRETTY: Maintenance Information	Page 11
+
+
+6.0  KEY ALGORITHMS
+
+
+6.1  The Parsing Algorithm
+
+The parsing algorithm used in PRETTY is a recursive  descent  analysis
+of  the  major  structural  elements, with a strong tendency to ignore
+syntactic elements (e.g.  declaration switches) which  are  irrelevant
+to  the  task  of  formatting  the  text.   In this parse, the topmost
+element is taken to be a block  body  (rather  than  MODULE  or  other
+declaration,  which  might seem more natural from reading the language
+manuals) in order to be able  to  handle  built-in  macro  references,
+declarations, or whatever with equal facility.
+
+
+
+
+6.2  The Search Algorithm
+
+The process of finding  a  BLISS  keyword  among  the  other  uses  of
+identifiers  is  done  by  a  binary search algorithm which appears in
+Routine LOOKUP in Module LEX.  This routine has a  complete  table  of
+all   BLISS  keywords.   The  capitalization  scheme  used  by  PRETTY
+distinguishes these keywords from all other  uses  of  identifiers  in
+implementing the selected case conversion options.
+BLISS Language Formatter PRETTY: Maintenance Information	Page 12
+
+
+7.0  MAINTENANCE AND DIAGNOSTIC TOOLS AND PROCEDURES
+
+
+7.1  Adding A Language Feature
+
+
+If and when BLISS is extended, the formatter must be updated to handle
+the  new  syntax  and associated keywords.  The process goes along the
+following lines:
+
+
+
+
+7.1.1  Adding A New Keyword - 
+
+The new keyword may be inserted into the keyword table in module  LEX,
+routine  LOOKUP, at any time.  It must be inserted at the proper place
+according to ASCII collating sequence;  the table-look-up  in  routine
+LOOKUP  does  a binary search which depends for its success on correct
+sequencing.
+
+
+
+7.1.2  Adding A Syntactic Element - 
+
+Depending on the nature of the syntactic function, this may be easy or
+difficult.   The  first  thing  to  check  is to see if it has similar
+syntax to some other element.  If so, the two can be doubled  up  with
+little  effort  (e.g.  just as UNTIL and WHILE are handled by the same
+routine.) Otherwise, it will be necessary to write a  new  routine  to
+perform  the analysis.  The basic guidelines for writing such routines
+are:
+
+     1.  Calls to the routines OUT$TOK (or OUT$STOKS)  and  LEX$GETSYM
+         must   be  paired.   Otherwise  a  lexeme  will  be  lost  or
+         duplicated.
+
+     2.  Use existing routines (PRS$EXPRESSION,  for  example)  to  do
+         most of the work.
+
+
+
+
+
+7.1.3  Adding A User Option - 
+
+The maintainer who plans to add a new  user  option  should  begin  by
+studying   module  CONTRL.BLI,  which  contains  the  current  option-
+handling routines.  In particular, the way in which CONTRL  cooperates
+with  SCANNR  in handling a function which may be either internally or
+externally invoked (namely, turning off  the  formatting  process)  by
+means of routine calls should be examined carefully.
+BLISS Language Formatter PRETTY: Maintenance Information	Page 13
+
+
+7.2  Debugging
+
+Insertion of the comment line
+
+!<BLF/DEBUG>
+
+will cause routine LEX$GETSYM to print on the terminal each  syntactic
+lexeme  encountered.   This,  coupled  with the use of a debugger,
+is sufficient to determine exactly when any error condition
+occurs and what routine examines a particular lexeme.
+
+
+
+8.0  SYSTEM TEST DESCRIPTION
+
+
+Two areas of functionality in BLF must be tested independently:
+
+     1.  The property that all incoming lexemes are output in the same
+         order  must be verified, by compiling representative programs
+         both before and after processing by  BLF  and  comparing  the
+         binary  output  files  bit  by  bit  with the file comparison
+         utility program.
+
+     2.  The visual properties of the listing  must  be  examined  for
+         readability.   This  is  a  completely subjective process for
+         which there can be no completely automatic methods.

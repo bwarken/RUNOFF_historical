@@ -1,0 +1,1150 @@
+.ap;.date;.pr;.autosubtitle 4
+.lm 5;.rm 75;.ps 59,75;.sthl 6,0,0;.fl substitute
+.title Security Enhancements for TOPS-20
+.pa
+.figure 15
+.c;Security Enhancements for TOPS-20
+.s 1
+.c;Michael Raspuzzi
+.c;Gregory A. Scott
+.c;LSBU Software Engineering
+.s 1
+.c;Creation date: 13-Feb-89
+.c;Last Revision: $$date
+.s 4
+COPYRIGHT (c) DIGITAL EQUIPMENT CORPORATION 1989.  
+.b0
+ALL RIGHTS RESERVED.
+.b
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND COPIED ONLY IN
+ACCORDANCE WITH THE TERMS OF SUCH LICENSE AND WITH THE INCLUSION OF THE ABOVE
+COPYRIGHT NOTICE.  THIS SOFTWARE OR ANY OTHER COPIES THEREOF MAY NOT BE
+PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY OTHER PERSON.  NO TITLE TO AND
+OWNERSHIP OF THE SOFTWARE IS HEREBY TRANSFERRED.
+.b
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE WITHOUT NOTICE AND SHOULD
+NOT BE CONSTRUED AS A COMMITMENT BY DIGITAL EQUIPMENT CORPORATION.
+.b
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR RELIABILITY OF ITS SOFTWARE ON
+EQUIPMENT THAT IS NOT SUPPLIED BY DIGITAL.
+.pa
+.c;TABLE OF CONTENTS
+.s 2
+.require "security-enhancements.rnt"
+
+.pa
+.hl1Summary of Functional Change
+.hl2Problem Discussion and History
+        It has been recognized that there are certain areas of the TOPS-20
+environment that need stronger security measures.  It will never be possible to
+make TOPS-20 (or any operating system) one hundred percent secure from outside
+break-ins, trojan horses, worms, viruses, and so on.
+        This document describes changes in TOPS-20 that were made to tighten
+security.  These changes are in areas of password management and in new
+functions that help monitor security and track privileged operations.
+
+.hl2Description and Goals
+        The goal of this project is to enhance known weak points in the TOPS-20
+monitor that can be penetrated by a skillful malicious user.  A summary of the
+changes:
+.list 'o'
+.le
+System ACJ: The ACJ fork can be run in system context in such a manner so that
+the _^ESPEAK command in the EXEC cannot be used to stop it.
+.le
+Password expiration: Password expiration was started in 6.1 and never
+completed.  A number of changes in the monitor and EXEC now track the date-time
+of both interactive and non-interactive logins; interactive and non-interactive
+login failures; and password expiration.
+.le
+Password dictionary: Any word in the password dictionary file is not allowed as
+a username password.
+.le
+Password penalty lock: Allow one fork at a time (per system) to execute the
+password penalty code.  This slows down any malicious user guessing passwords
+by using multiple forks or jobs.
+.le;More GETOK functions: GETOK calls need to be added to the the
+following monitor calls:
+.list '-'
+.le;TTMSG% (used to send messages to terminals)
+.le;SMON% (set monitor features)
+.le;HSYS% (shutdown system)
+.le;TLINK% (ADVISE and TALK commands)
+.le;GETAB% (Get system information)
+.le;SYSGT% (Get system information)
+.le;CRLNM% (system wide logical names)
+.le;DTACH% (detach job)
+.end list
+.le
+Secure Files: A file with a new file mode bit (FB%SEC) is considered secure.
+Attempts to access this file result in a GETOK function call for the ACJ.
+Four new GETOK functions are added:
+.list '-'
+.le;OPENF% (secure file only)
+.le;RNAMF% (secure file only)
+.le;DELF%/DELNF% (secure file only)
+.le;CHFDB% (only when changing FB%SEC bit)
+.els
+.le
+Enhance GETOK for CRDIR%: The monitor currently asks the ACJ for permission to
+perform a CRDIR% monitor call but there is no easy way for the ACJ to determine
+what directory parameters are being modified by the user.  The monitor now
+returns the directory name and user argument block.
+.le
+CTERM access: There is no way to tell where an incoming CTERM connection is
+coming from. When a CTERM connection is requested, the CTERM fork asks the ACJ
+for permission to accept or deny the connection. The CTERM fork passes
+NODE::USER to the ACJ.  NTINF% now returns "NODE::USER" rather than just
+"NODE".
+.le
+Connect time: GETJI% now returns a job's connect time and the EXEC displays 
+the connect time.
+.le
+Hangup on DETACH: When enabled this causes the monitor to drop a terminal
+line when a job is detached instead of remaining connected.
+.le
+Default to REFUSE LINKS: REFUSE LINKS is now the system default for job
+startup.
+.le
+New ACJ Program: An updated and supported ACJ is now distributed that
+implements all GETOK functions and is constructed so that a local site can
+easily modify it.  (See ACJFUN.MEM for more information.)
+.end list
+.tp 8
+        Two other more general goals of this project are:
+.list
+.le
+Each piece of this project has the ability to be controlled by the system
+manager.
+.le
+Each piece of this project is turned off by default (except the REFUSE LINKS
+part).  This is to maintain consistency for customers who do not wish to use
+the new features.
+.end list
+
+.hl2Limitations and Restrictions
+        This project is attempting to increase a system manager's control over
+certain items on his system and it is also attempting to strengthen weak areas
+in the monitor.  It is not a goal of this project to make TOPS-20 a secure
+operating system such that a government rating of "B1" could be issued.
+However, the implementation of the above suggestions is a step towards meeting
+the standards required for a "B1" rating from the government.
+
+.pa
+.hl1Terminology
+        It is assumed that the reader has a basic knowledge of terms
+relating to TOPS-20's monitor calls and EXEC commands.
+.list 'o'
+.le;ACJ - Access Control Job.  TOPS-20 allows a site to tailor access
+to various objects through the ACJ. This allows a system manager to
+write special code to make a decision of whether or not a user can
+perform certain tasks that ask permission from the ACJ first.
+.le;CTERM - Corporate protocol that implements network terminal support 
+using DECnet.
+.le;Directory page 0 - The first page of a directory contains information
+about the directory itself rather than information about the files in the 
+directory.
+.le;FDB - File Descriptor Block. Used in this document to refer to the
+block used to describe the contents and characteristics of a file.
+.le;GETOK - Action performed (usually by the monitor through the GTOKM
+macro) to ask the ACJ for permission to perform a certain function.
+The ACJ may allow or deny the request.
+.le;GETOK function - A unique function code is assigned to each GETOK
+that the monitor may perform.
+.le;SYSTEM: - When a file name is preceded by the SYSTEM: logical name
+throughout this document, it is assumed that the logical name translation
+of SYSTEM: is done for the system-wide definition not for the user's job
+wide definition.
+.le;Trojan Horse - Software is modified so that when users run it
+the malicious user gains access or information.  
+.le;Worm - Software that attempts to gain access multiple computer 
+systems using network software to replicate itself.
+.le;Virus - Software that attempts to infect and hide
+until some event occurs at which time it causes an unusual operation.
+.end list
+
+.pa
+.hl1Functional Description
+
+.hl2System ACJ
+
+        Currently, job 0 has a number of forks that are started and
+run during the life of a system. The ACJ fork is not one of them. It
+is started apart from the monitor. It is usually started in the x-SYSJOB.RUN
+command file.
+.tp 10
+.lit
+
++-----------------------------------------------------------------------+
+|                           Job 0                                       |
++-----------------------------------------------------------------------+
+       |        |       |        |        |          |       |    
+  +-------+ +------+ +------+ +------+ +--------+ +----+ +-------+
+  | DDMP  | | CHKR | | ENQ  | |CLUDGR| |Internet| | CI | | SYSERR|
+  | fork  | | fork | |forks | | fork | |  fork  | |fork| |  fork |
+  +-------+ +------+ +------+ +------+ +--------+ +----+ +-------+
+.el
+        The above diagram shows various forks that are started by the system
+during initialization. Other forks may be started under SYSJOB after the system
+has booted. This is done with a _^ESPEAK command at EXEC level. This is an
+example of how a system manager may choose to start his ACJ fork in the current
+TOPS-20 environment:
+.lit
+
+@ENABLE
+$^ESPEAK
+ [Please type SYSJOB commands - end with ^Z]
+RUN SYSTEM:ACJ.EXE
+^Z
+$
+.el
+        The above example produces a SYSJOB.COMMANDS file on SYSTEM: which gets
+read in by SYSJOB and processed.  The effect of the above example is to start
+another fork under job 0 (mainly, the ACJ fork).  However, the ACJ fork can
+then be killed by:
+.lit
+
+@ENABLE
+$^ESPEAK
+ [Please type SYSJOB commands - end with ^Z]
+KILL ACJ
+^Z
+.el
+        The ACJ may now be run under job 0.  The SMON% monitor call now has a
+new function (.SFACJ).
+.lit
+
+Code         Symbol         Meaning
+102          .SFACJ         This function only takes a valid argument of
+                            0 in AC 2. This will start up an ACJ process
+                            in the monitor if one is not already running.
+                            The monitor will get the program to run from
+                            DEFAULT-ACJ:. If the DEFAULT-ACJ: logical name 
+                            does not exist, the system will try to get the
+                            file from SYSTEM:ACJ.EXE.
+
+New error code for SMON%:
+
+SMONX5:   ACJ fork already running
+SMONX6:   Invalid request
+.el
+        Also, the .SFACJ function is a part of the TMON% monitor call:
+.lit
+
+Code         Symbol         Meaning
+102          .SFACJ         WHEEL or OPERATOR capability required to read
+                            the setting of this function.
+                            Returns:
+                              AC 2:  0 - ACJ is running, in monitor context
+                              AC 2:  1 - ACJ is running, not in monitor 
+                                         context
+                              AC 2: -1 - ACJ is not running
+.el
+        A new supporting command from the EXEC is:
+.lit
+
+^ESET SYSTEM-ACCESS-CONTROL-JOB
+.el
+        This command attempts to start the ACJ fork from monitor context if one
+is not already running somewhere.  There is be no corresponding _^ESET NO
+command because it is not desired to be able to kill the ACJ fork easily.
+        Similarly, there is a new SETSPD command that can be put into the
+x-CONFIG.CMD file. This command acts like the EXEC's _^ESET command and looks
+like this:
+.lit
+
+ENABLE SYSTEM-ACCESS-CONTROL-JOB
+.el
+
+
+.hl2Password Expiration
+        During 6.0/6.1 development, it was felt that TOPS-20 needed to have a
+password expiration of some sort.  The work done in 6.0/6.1 was not completed.
+Password expiration is a valuable security feature and now has been fully
+implemented.
+        The following changes were performed to make password expiration work:
+.list
+.le
+The LOGIN% and CRJOB% monitor calls now know the difference between
+"interactive" and "non-interactive" logins.  The current last login date-time
+word in directory page 0 and the JSB is now the last interactive login
+date-time.  New words have been added to directory page 0 and the JSB to store
+the last non-interactive login date-time.
+.le
+The EXEC now tells the user the last "interactive" login and the last
+"non-interactive" login.  This information is be returned by the LOGIN% monitor
+call, and is available from GETJI% for logged in jobs.
+.le
+The LOGIN% and CRJOB% monitor calls have been changed to keep track of failed
+login attempts (both interactive and non-interactive).  The number of failures
+are in a word in directory page 0 (half of a word for the number of interactive
+slogin failures and the other half for non-interactive login failures).  The
+LOGIN% monitor call returns the failures and clears them after each successful
+interactive login.
+.le
+The number of interactive and non-interactive login failures is displayed by
+the EXEC on each login.
+.le
+The monitor allows the user login interactive once after the password has
+expired.  The EXEC then forces the user to change his password.
+.le
+The EXEC gives a warning message when logging in interactively that a password
+will expire if the expiration time is within a week of the current time.
+.le
+It is hoped that passwords are going to have to be changed more often because
+of these changes.  Currently the SET DIRECTORY PASSWORD PS:_<user-name_> is
+used to change the password.  As this is very awkward, a new SET PASSWORD
+command has been implemented in the EXEC to make it easier for users to change
+their login passwords. Of course, this new command is identical to the old
+command except the PS:_<user-name_> is be implied in the SET PASSWORD
+command.
+.le
+A new SMON% function has been added to set password expiration time.  If the
+system manager wants passwords to expire every 30 days, then each time a
+password is changed, its expiration date is changes by the number of days
+specified.  The ENABLE PASSWORD-EXPIRATION N command has been added to SETSPD,
+and _^ESET PASSWORD-EXPIRATION command has been added to the EXEC.
+.els
+        In order to support password expiration, the LOGIN% monitor call must
+be changed.  Even though this dramatically changes the way the LOGIN% monitor
+call returns information to its caller, it is felt that this cannot cause user
+programs in the field to break.  The two supported programs that use the LOGIN%
+monitor call are the EXEC and RMSFAL.  These changes do not effect the RMSFAL
+program and the EXEC is changed to take advantage of the new information
+returned by LOGIN%.
+        The LOGIN% monitor call now returns information as follows:
+.lit
+
+RETURNS:      +1:  Failure, error code in AC1
+              +2:  Success with:
+                   AC1:  Date and time of last interactive login
+                   AC2:  Date and time of last non-interactive login
+                   AC3:  Password expiration date (0 if none, -1 of this
+                         is the last time a user can login - i.e. the
+                         password has expired)
+                   AC4:  Number of interactive login failures,,number
+                         of non-interactive login failures
+
+The LOGIN% monitor call will allow one and only one login after the user's
+password has expired (or the expiration date is set to zero).  It is the user's
+responsibility to then change the password.
+.el
+        The EXEC has code to change the user's password if it has expired.
+
+        The CRDIR% monitor call now has its argument block enhanced:
+.lit
+
+Code       Symbol        Meaning
+0          .CDLEN        <flag bits>,,<length of argblk>
+                         B8(CD%SNI)  Set last non-interactive login date
+                                     and time from argument block
+                         B9(CD%SFC)  Set number of failed logins 
+                                     (interactive and non-interactive)
+                                     from argument block
+
+12         .CDLLD        Date and time of last interactive login
+                         (Changed from date and time of last login)
+
+30         .CDNLD        Date and time of last non-interactive login
+
+31         .CDFPA        Count of failed interactive logins for this user
+                         in the left half,,count of failed non-interactive
+                         logins in the right half
+
+New error codes for CRDIR%:
+
+CRDI31:   Password expiration date is too far in the future
+CRDI32:   Password expiration is not enabled on this system
+.el
+        The above error (CRDI31) occurs if the user attempts to set the
+password expiration date past a certain date. That date is the current time
+plus the number of days the system password expiration count has been set.
+        Note that the above changes for the CRDIR% monitor call are reflected
+in the GTDIR% monitor call since GTDIR% uses the same argument block that
+CRDIR% uses.
+        The EXEC was changed to use the new information returned by the LOGIN%
+monitor call.  The EXEC currently displays the following when a user logs in:
+.page
+.lit
+
+         Unauthorized Access is Prohibited
+
+ Cloyd, no longer taking a dirt nap, TOPS-20 Monitor 7(21233)
+@LOG RASPUZZI (PASSWORD) 
+ Job 202 on TTY241 31-Aug-88 14:33:41, Last Login 30-Aug-88 11:42:37
+@
+.el
+        For this portion of the project, the EXEC has been modified to display
+the following:
+.lit
+
+         Unauthorized Access is Prohibited
+
+ Cloyd, no longer taking a dirt nap, TOPS-20 Monitor 7(21233)
+@LOG RASPUZZI (PASSWORD) 
+ Job 214 on TTY243 GIDNEY::RASPUZZI(CTM) 31-Aug-88 14:36:47
+  Last interactive login 31-Aug-88 14:36:38
+  Last non-interactive login 31-Aug-88 14:36:38
+% 2 interactive login failures since last successful login     ***
+% 1 non-interactive login failure since last successful login  ***
+
+  Warning: Your password expires on 31-Aug-88 22:33:33         ***
+
+?Your password has expired.  Please change your password now.  ***
+
+Old password:                                                  ***
+New password:                                                  ***
+Retype new password:                                           ***
+.el
+        The lines marked with *** in the above example are items that would not
+be displayed all the time.  For example, the number of login failures (either
+interactive or non-interactive) since the user's last successful login would
+only appear if either count is 1 or more.  The warning about password
+expiration would be displayed at login time only if the user's password expires
+in seven days or less.  If the user's password had expired, and this is the
+first login attempt since the password expired, then the EXEC forces the user
+to change his password.
+        A new command is introduced in the EXEC to expedite changing the user's
+password for his login directory.
+.lit
+
+@SET PASSWORD (OF LOGIN DIRECTORY)
+Old password:
+New password:
+Retype new password:
+.el
+        The above is an example of how this new command looks.  It defaults the
+directory being changed to PS:_<username_>.
+        There is a new BUILD subcommand so that a system manager may explicitly
+set the password expiration date.
+.lit
+
+$BUILD PS:<BADUSER>
+$$EXPIRATION-OF-PASSWORD date-time
+      or
+$$[NO] EXPIRATION-OF-PASSWORD
+      or
+$$EXPIRE (USER PASSWORD)
+$$
+.el
+        Setting EXPIRATION-OF-PASSWORD "date-time" is used to set the
+expiration of the password to either the date and time or the number of days in
+the future to expire the password.  Setting NO EXPIRATION-OF-PASSWORD sets the
+word to 0, which means that the user will only be able to login once and should
+set a new password at that time.
+        The EXPIRE subcommand sets the password expiration date to -1.  This
+means that the user cannot to login to the account interactively because the
+account has been expired.
+        If an existing system turns on password expiration on the fly, all
+users will have a password expiration date of 0.  This will immediately force
+all users to change their passwords the next time they login.
+        DLUSER has been modified to know about the new words in the directory
+(CRDIR% arguments) but there is no functional change to this program.  However,
+this leads to an incompatibility between the new DLUSER and the old one. The
+new DLUSER will not work with old monitors. The old DLUSER will still work with
+the new monitor that will contain the changes for this project.  The new DLUSER
+will also be able to read old DLUSER output files.
+        There are no visible effects of this project on CHECKD.  However, when
+the new directory words are defined in PROLOG, CHECKD has to be reassembled
+with the new PROLOG.UNV.
+        The INFORMATION DIRECTORY command is enhanced to show password
+expiration, last non-interactive login, and failure counts:
+.lit
+
+$INFORMATION (ABOUT) DIRECTORY (DIRECTORY NAME) PS:<RASPUZZI>
+ Name PUBLIC:<RASPUZZI>
+ Working disk storage page limit 500
+ Permanent disk storage page limit 500
+ WHEEL
+ IPCF
+ ARPANET-WIZARD
+ ABSOLUTE-ARPANET-SOCKETS
+ ARPANET-ACCESS
+ Number of directory 75
+ Account default for LOGIN GARK
+ Protection of directory 770000
+ Maximum subdirectories allowed 5
+*Last interactive login 13-Sep-88 20:57:07
+*Last non-interactive login 12-Sep-88 15:22:48
+*Password expires on 18-Oct-88 07:01:00
+*Number of interactive login failures 1
+*Number of non-interactive login failures 2
+ TOPS10 project-programmer number - none set
+$
+.el
+        The lines marked with a '*' are added or changed for this project.
+This is the convention throughout the rest of the document.
+        The INFORMATION SYSTEM command has a new line:
+.lit
+
+$INFORMATION (ABOUT) SYSTEM-STATUS 
+ Operator is in attendance
+ Remote logins allowed
+ Local logins allowed
+ Pseudo-terminal logins allowed
+ ARPANET terminal logins are not allowed
+ DECnet terminal logins allowed
+ LAT terminal logins allowed
+ Console terminal login allowed
+ Accounting is being done
+ Account validation is enabled
+ Working set preloading is disabled
+ Sending of system level zero messages is enabled
+ Sending of system level one messages is enabled
+ Job zero CTY output is enabled
+ Tape-drive allocation is enabled
+ Automatic file-retrieval-waits allowed
+ Maximum offline-expiration is 90 days
+ Scheduler bias-control setting is 11
+ Class scheduling is disabled, batch jobs being run on dregs queue
+ Offline structures timeout interval is 0 minutes and 5 seconds
+ Cluster information is enabled
+ Cluster sendalls are enabled
+ Minimum password length is 8 characters
+*Password expiration is 45 days
+$
+.el
+        The SMON% monitor call has a new function added to enable or disable
+password expiration (a corresponding TMON% call reads the password expiration
+setting):
+.lit
+
+Code      Symbol        Meaning
+103       .SFPEX        Controls password expiration
+                            AC2:    0 - Disable password expiration
+                                1-366 - Number of days a password 
+                                        remains valid.
+
+New SMON% error code:
+
+SMONX6:  Password expiration day count must be between 1 and 366
+.el
+        The .SFPEX function sets a system wide parameter that is used to
+determine the expiration date and time when a user changes his password.  For
+example, if a password was set on May 6, 1988 at 14:03 and the system had
+password expiration enabled for 10 days, then the password that was just set
+would expire on May 16, 1988 at 14:03.
+        Two new commands for the x-CONFIG.CMD file for SETSPD are:
+.lit
+
+ENABLE PASSWORD-EXPIRATION xxx
+DISABLE PASSWORD-EXPIRATION
+.el
+        Where xxx is the number of days to be used for password expiration and
+xxx must be between 1 and 366 (the default is 30).
+        The EXEC has a similar command to control password expiration:
+.lit
+
+^ESET [NO] PASSWORD-EXPIRATION (TO) xxx
+.el
+        Where xxx is the number of days to be used for password expiration and
+xxx must be between 1 and 366 (the default is 30).
+
+
+.hl2Password Dictionary
+
+        TOPS-20 had no way to regulate the words utilized by users for
+passwords.  A user can do a CRDIR% monitor call to change his password but the
+monitor simply changes the password after checking its length but without
+checking to see if this password is reasonable.
+        The file SYSTEM:PASSWORD.DICTIONARY contains all words in alphabetical
+order that are to be disallowed as passwords.  The first time a user attempts
+to set a password, the monitor builds an index to this file.  This index is
+used as long as the write date of SYSTEM:PASSWORD.DICTIONARY does not change,
+and contains the point at which the first letter in the dictionary word
+changes.  This is used to greatly speed up dictionary searches.
+        With this feature enabled, the monitor looks in
+SYSTEM:PASSWORD.DICTIONARY each time a password is changed to see if the
+password that the user supplied is in the dictionary.  The password dictionary
+contains words that the system manager deems too easy to guess and therefore,
+any word in the PASSWORD.DICTIONARY file is not useable as a legal password on
+the system.  The supplied PASSWORD.DICTIONARY file is an actual dictionary of
+several thousand words.
+        The password dictionary is turned on by the _^ESET PASSWORD-DICTIONARY
+EXEC command and ENABLE PASSWORD-DICTIONARY SETSPD command.  The SMON% monitor
+call has have a new function to support the turning on and off of the password
+dictionary feature.  There is a corresponding TMON% function to read the
+current system's setting (whether or not the password dictionary is enabled).
+The new function is shown below:
+.lit
+
+Code       Symbol       Meaning
+104        .SFPWD       Used to enable or disable the password
+                        dictionary feature. If enabled, words listed
+                        in SYSTEM:PASSWORD.DICTIONARY are not allowed
+                        as valid passwords.
+                              AC2:  0 - Disable password dictionary
+                                    1 - Enable password dictionary
+.el
+        A new error code for the CRDIR% monitor call is also introduced.
+it is:
+.lit
+
+CRDI33:   Password found in system password dictionary
+.el
+        A new EXEC command is introduced to turn this feature on or off:
+.lit
+
+^ESET [NO] PASSWORD-DICTIONARY
+.el
+        And supporting SETSPD commands are:
+.lit
+
+ENABLE PASSWORD-DICTIONARY
+DISABLE PASSWORD-DICTIONARY
+.el
+        The INFORMATION SYSTEM command has its display modified slightly to
+show whether or not the password dictionary is enabled:
+.lit
+
+@INFORMATION (ABOUT) SYSTEM-STATUS 
+ Operator is in attendance
+ Remote logins allowed
+ Local logins allowed
+ Pseudo-terminal logins allowed
+ ARPANET terminal logins are not allowed
+ DECnet terminal logins allowed
+ LAT terminal logins allowed
+ Console terminal login allowed
+ Accounting is being done
+ Account validation is enabled
+ Working set preloading is disabled
+ Sending of system level zero messages is enabled
+ Sending of system level one messages is enabled
+ Job zero CTY output is enabled
+ Tape-drive allocation is enabled
+ Automatic file-retrieval-waits allowed
+ Maximum offline-expiration is 90 days
+ Scheduler bias-control setting is 11
+ Class scheduling is disabled, batch jobs being run on dregs queue
+ Offline structures timeout interval is 0 minutes and 5 seconds
+ Cluster information is enabled
+ Cluster sendalls are enabled
+ Minimum password length is 8 characters
+ Password expiration is 45 days
+*Password dictionary is enabled
+.el
+        The following examples are shown to help illustrate the format of the
+password dictionary file. The file is similar to the one used by the SPELL
+program.
+.lit
+
+ABORT, S, ED, ING
+ABUSE, S, D, \ING
+ACQUIT, S, "ED, "ING
+ADMIRAL, S, 'S
+.el
+        Each line in the above example demonstrates something special about the
+entries in the password dictionary file.
+        The first line shows the word ABORT. The entries in this line separated
+by commas indicates suffixes that are added to ABORT. Therefore, the first line
+contains the following words that cannot be used as passwords: ABORT, ABORTS,
+ABORTED, or ABORTING.
+        In the second example, the "_\" character is seen in one of the
+entries. This character means that you take the base word and remove the last
+character and add the suffix. The base word is ABUSE. After removing the final
+"e" and adding ING the word ABUSING is formed and cannot be used as a password.
+        The third line shows the quote character. This character indicates
+that you must duplicate the last letter of the word before adding the
+suffix; ACQUIT becomes ACQUITTED and ACQUITTING.
+        The final line shows the apostrophe. This character is taken as is.
+Therefore, the base word ADMIRAL becomes ADMIRAL'S.
+
+.hl2System Wide Password Penalty Lock
+        TOPS-20 has a password penalty lock which prevents more than one
+attempt at a bad password each three seconds.  However a malicious user can
+write a program that attempts to guess someone else's password by using the
+CFORK% JSYS to make many copies of a password guessing program.  Each guess
+would still get the 3 second password penalty, but if multiple forks are
+running, then each fork gets the penalty in parallel with the other forks.
+Therefore, the malicious user's effectiveness in guessing passwords has
+increased by the number of forks he has running.
+        The solution to this problem is simple.  Since the password penalty is
+served in one routine in the monitor, this routine has been modified to get a
+system-wide lock before serving the three second password penalty.  That way,
+only 1 fork per system is allowed to go through the password penalty code at a
+time.  This significantly slows down any attempts to guess a password in
+multiple forks or jobs, since only one password guess could happen each three
+seconds no matter how many forks or jobs were trying to guess a password.
+
+.hl2More GETOK Functions
+
+        The monitor already asks for ACJ's permission on a number of monitor
+calls.  There are a number of "dangerous" monitor calls that do not have ACJ
+controls.  The following new GETOK functions have been added, and are
+supported in the new ACJ program.
+.lit
+
+Code      Symbol      Meaning
+
+27        .GOTTM      Allow use of TTMSG% monitor call
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GEDTY    AC1 as given to the TTMSG% JSYS
+
+30        .GOSMN      Allow system parameters to be set with SMON%
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GESMF    SMON% function number
+                      2       .GESMV    New value for function
+
+31        .GOHSY      Allow use of the HSYS% monitor call
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GESDT    Shutdown time (internal format)
+                      2       .GERES    System resume time (internal
+                                        format)
+
+32        .GOSGT      Allow access of information via SYSGT%
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GETBN    SIXBIT table name
+
+33        .GOGTB      Allow access of information via GETAB%
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GETBN    Index into table,,table number
+
+37        .GOTLK      Allow use of the TLINK% monitor call
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GETTB    TLINK% flags,,object designator
+                      2       .GERMT    Remote designator
+
+40        .GOCRL      Allow use of the .CLNS1, .CLNSA or .CLNSY
+                      functions of the CRLNM% monitor call
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GECFN    CRLNM% function
+                      2       .GELNM    Block of 16. words that contain
+                                        the logical name for .CLNS1 and
+                                        .CLNSY functions
+
+41        .GODTC      Inform access control job of DTACH%
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+
+
+.el
+
+.hl2Secure Files
+        A feature that has been desired by many TOPS-20 customers has been the
+ability to restrict access to files based on the type of access and the user
+doing the accessing.  In order to avoid calling the ACJ for each file access,
+the notion of SECURE files has been implemented.
+        The monitor only asks ACJ's permission on marked files.  These files
+have a bit set in their FDB status word (FB%SEC) and this bit would be settable
+using the CHFDB% monitor call.  A supporting EXEC command (SET FILE SECURE
+filename) has been added to set the files [NO] SECURE.  A subcommand to the
+BUILD command and a SET DIRECTORY command has been added to set a directory
+SECURE.  Any files created in a SECURE directory would be made SECURE by
+default.
+        When accessing a SECURE file (at the time of the OPENF%, RNAMF%, or
+DELF%/DELNF%) the monitor gets some freespace and pass that as an argument for
+the GTOKM macro.  The freespace contains the name of the file being opened.
+The type of access desired is provided with the GTOKM call.  When the ACJ does
+a RCVOK%, the monitor copies the name of the file into the ACJ's user address
+space out of the freespace indicated.
+        The ACJ then does a GIVOK% JSYS to allow or deny access to the file.
+If the access is denied, the usual error code is returned to the user.  Since
+the policy implementation of secure files would be in the ACJ, documentation of
+the policy does not make sense in this document.  
+        The changes done to support SECURE files are documented here.  There
+are four new GETOK functions having to do with SECURE files:
+.lit
+
+Code      Symbol      Meaning
+
+34        .GOOPN      Allow opening a file that is set secure
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GEOAC    AC 2 of OPENF%
+                      2       .GEFIL    226 (octal) words containing
+                                        STR:<DIRECTORY>NAME.EXT.VER
+                                        of file being opened
+
+35        .GORNF      Allow renaming a file that is set secure
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       ------    Not used
+                      2       .GEFIL    226 (octal) words containing
+                                        STR:<DIRECTORY>NAME.EXT.VER
+                                        of file being renamed
+
+36        .GODLF      Allow deleting a file that is set secure (either
+                      through DELF% or DELNF% monitor calls)
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GEDAC    Bits selected in user's AC 1
+                      2       .GEFIL    226 (octal) words containing
+                                        STR:<DIRECTORY>NAME.EXT.VER
+                                        of file being deleted
+
+42        .GOCFD      Allow CHFDB% to set or clear FB%SEC on a file
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GESFS    Contents of .FBCTL in file's FDB
+                      2       .GEFIL    226 (octal) words containing
+                                        STR:<DIRECTORY>NAME.EXT.VER
+                                        of file being deleted
+
+.el
+        A new command to the EXEC is needed to specify which files are
+SECURE.  This command is:
+.lit
+
+$SET FILE [NO] SECURE name.extension.version
+.el
+        The SET FILE command marks the file as needing to be checked by the ACJ
+the next time the file is opened.  This will also be the case if the file is to
+be renamed or deleted.
+        The SET DIRECTORY (or BUILD) command sets a bit in the directory's mode
+word (CD%SEC in _.FBCTL) to indicate that any files created in this directory
+be set SECURE by default.  This bit is defined for the CRDIR% monitor call so
+that a directory can be set secure.  The format of this command is:
+.lt
+
+$SET DIRECTORY [NO] SECURE str:<directory>
+             or
+$BUILD str:<directory>
+$$[NO] SECURE
+$$
+.el
+        The INFORMATION DIRECTORY command looks like this for a secure
+directory:
+.lit
+
+$INFORMATION (ABOUT) DIRECTORY (DIRECTORY NAME) PS:<SYSTEM>
+ Name PUBLIC:<SYSTEM>
+ Working disk storage page limit +INF
+ Permanent disk storage page limit +INF
+ FILES-ONLY
+*SECURE
+ Number of directory 2
+ Default file protection 777752
+ Account default for LOGIN - none set
+ Protection of directory 777740
+ Generations to keep 0
+ TOPS10 project-programmer number 3,4
+$
+.el
+
+.hl2Enhance GETOK Function for CRDIR%
+        As it stands now, when a user executes the CRDIR% monitor call, the
+monitor simply asks the ACJ whether or not the user can do the CRDIR%.
+However, no additional information is passed to the ACJ and it has no way of
+determining what the user wants to change in the directory and which directory
+is being changed.  The new data returned changes the GETOK function from
+CRDIR%; since additional information is being furnished, it does not disturb
+current configurations.  Those sites that do not wish to change the way their
+ACJ currently works do not have to.
+        The GETOK function block created by the CRDIR% monitor call now
+contains the following:
+.lit
+
+Code     Symbol       Meaning
+11       .GOCRD       Allow directory creation
+
+                      Argument block (user-specified):
+
+                      Word    Symbol    Contents
+                      0       .GEERB    Error block address
+                      1       .GECFL    CRDIR% flags (this is the argument
+                                        the user has passed into CRDIR%
+                                        in AC 2)
+                      2       .GEDIR    Block of 11. words containing
+                                        STR:<DIRECTORY>
+                      15      .GECAB    Block of 25. words containing
+                                        the actual CRDIR% argument block.
+                                        Note any byte pointers in the
+                                        argument block are meaningless
+                                        since they point to addresses in
+                                        the user's own address space.
+.el
+
+.hl2CTERM Access
+        Previous to the implementation of this project, the monitor simply
+accepts all incoming CTERM connections, It is possible to prevent CTERM
+connections by disabling LOGINs over DECnet but this is an all or nothing case.
+There is no way to check who is on the other end of the link.
+        The solution is to make the CTERM fork perform a GETOK function when it
+is handling incoming CTERM requests. The information passed to the ACJ is
+NODE::USER and the ACJ can choose to accept or deny the connection as well as
+make a log of who attempted the connection from the remote system.
+        Note: this solution is not one hundred percent accurate.  It could be
+possible for someone to have compromised the remote system in such a manner
+that the incoming data of NODE::USER may be inaccurate. However, there is no
+way to prevent a remote system from giving the TOPS-20 system incorrect
+information.
+        A new GETOK function is therefore added:
+.lit
+
+Code        Symbol           Meaning
+26          .GOCTM           Allow incoming CTERM connection
+
+                             Argument block format (user-specified):
+
+                             Word   Symbol   Contents
+                             0      .GEERB   Error block address
+                             1      .GEWHO   13 (octal) words containing
+                                             the string NODE::USER who is
+                                             attempting the incoming CTERM
+                                             connection. If the username is
+                                             not easily determined, then the
+                                             string will simply be the node
+.el
+	The NTINF% monitor call was also enhanced.  The username string from
+the remote system will be returned through NTINF%.  This is accomplished by
+changing a word in the NTINF% argument block:
+.lit
+
+             Word      Symbol      Contents
+               3       .NWNNP      Destination designator; byte pointer
+                                   to location for monitor to write the
+                                   name and username if possible of the
+                                   originating node in user address space.
+                                   For CTERM terminals, the monitor will
+                                   write NODE::USER.
+.el
+        The .NWNNP word used to be a byte pointer for the monitor to 
+write the node name only. It will be modified so that NODE::USER will be
+returned for CTERM terminals only.
+        The new NTINF% feature will be taken advantage of by all programs using
+the NTINF% JSYS.  All users of NTINF% to return the DECnet node name for the
+CTERM host will now also get the username as specified in the CTERM connection
+data.  The DECnet node name will be separated from the CTERM supplied user name
+by two colons.  Here is an example of how the origin will be displayed for
+CTERM connections as shown by a SYSTAT command:
+.lit
+
+@SYSTAT NO OPERATOR NO CONNECT
+ Tue 13-Sep-88 13:15:28  Up 27:57:41
+ 7+6 Jobs   Load av (class 1)   0.25   0.17   0.25
+
+ Job  Line Program  User              Origin
+   6   DET  RMSFAL  Not logged in
+   9   426  EXEC    GSCOTT            LAT1(LAT)
+  10   427  EXEC    CONDOR            LAT394(LAT)
+  11*  340  SYSTAT  RASPUZZI          TOPS20.DEC.COM(TCP)
+  13   DET  RMSFAL  Not logged in
+  16   314  EMACS   JROSSELL          THEP::JROSSELL(CTM)
+.el
+        Note how the last line has NODE::USER(CTM) in the origin column.  If
+the remote username is not known by the local system, then no username will be
+displayed.  The old display simply contained NODE(CTM) in the origin field.
+
+.hl2Connect Time
+        There is no way for a system manager to easily obtain how long a
+specific user has been connected to the system.  Adding a new word that is
+returned by the GETJI% monitor call will solve this problem.
+        The connect time is stored in the job's JSB for system accounting
+purposes, so code was added to retrieve this word and pass it on to the calling
+user.  The GETJI% monitor call was modified such that another word will be
+returned in the argument block:
+.lit
+
+Word     Symbol      Meaning
+34       .JICT       Job's connect time
+35       .JINLD      Job's last non-interactive login
+.el
+        The new .JICT word returned by GETJI% implies that the INFO% monitor
+call will have a new word returned in the .INSYS argument block:
+.lit
+
+Word     Symbol      Meaning
+15       .SYJCT      Job's connect time
+.el
+        The SYSTAT command has been modified to take advantage of displaying a
+user's connect time.  A new column appears in the SYSTAT display:
+.lit
+
+@SYSTAT,
+@@CONNECT-TIME
+@@NO OPERATOR
+@@
+ Tue 13-Sep-88 13:05:54  Up 303:54:45
+ 10+7 Jobs   Load av   0.08   0.10   0.09
+
+ Job  Line Program Connected  User              Origin
+ 199   436  EXEC     0:10:14  JBREWER           LAT73(LAT)
+ 200*  434  SYSTAT   0:11:12  RASPUZZI          GIDNEY::RASPUZZI(CTM)
+ 206   435  EXEC    20:00:51  GSCOTT            TOPS20.DEC.COM(TCP)
+ 207     3  EXEC     0:00:22  DUSSEAULT
+ 209   440  RONCO    1:15:26  JROSSELL          LAT71(LAT)
+ 210   441  SED      0:30:32  LOMARTIRE         LAT393(LAT)
+ 211   445  EXEC     1:21:45  MCCOLLUM          LAT32(LAT)
+ 212   443  OPR    113:23:44  WONG              LAT394(LAT)
+ 214   442  EXEC     0:00:02  WADDINGTON        LAT394(LAT)
+.el
+
+.hl2Hangup on DETACH
+        When a user detaches from a DECSYSTEM-20, the terminal line is not hung
+up. This leaves a terminal line attached and in use by the physical terminal
+connected to the DECSYSTEM-20 (or virtual terminals).  This is a small security
+problem and an annoyance for people who use DECSERVERs because you must then
+break and disconnect your session.
+        The LGOUT% monitor call already handles a hangup on logout through a
+command implemented in SETSPD.  The DTACH% monitor call has been to hangup
+depending on a variable.  A new SETSPD command (ENABLE HANGUP-ON-DETACH) is
+used to set this system-wide parameter.
+
+        This feature is enabled or disabled with the following SETSPD commands:
+.lit
+
+ENABLE HANGUP-ON-DETACH
+DISABLE HANGUP-ON-DETACH
+.el
+        In turn, the SETSPD program uses a new SMON% function to set this
+feature.  The TMON% monitor call uses the same function to allow a user to read
+the state of hangup on DETACH.  The new function is defined below:
+.lit
+
+Code      Symbol       Meaning
+105       .SFHDT       Used to enable or disable hanging up when a
+                       user DETACHes a job.
+                            AC 2:  0 - Enable hangups on DETACH
+                                   1 - Disable hangups on DETACH
+.el
+        Note that the monitor defaults this function as disabled so that it is
+consistent with older versions of TOPS-20.  If a system manager wishes to use
+this feature, he must do something extra to enable it (adding the SETSPD
+command to the x-CONFIG.CMD file).
+        When a job becomes detached because carrier has dropped or because of a
+network interruption, a 5 minute timer is started.  There is no easy way to
+change this 5 minute limit.  In particular, five minutes may not be enough for
+some sites.  Previously the monitor had to be patched to change this value.
+
+Two new SETSPD commands and SMON%/TMON% functions are added to control this
+interval.  The SETSPD commands are:
+.lit
+
+DISABLE DETACH-CARRIER-OFF
+ENABLE DETACH-CARRIER-OFF xxx
+.el
+        Where xxx is a number of minutes. The DISABLE command sets the minutes
+to 0 and this causes jobs to get logged out immediately upon carrier loss
+or network interruption.
+
+.hl2Default to REFUSE LINKS
+
+        When a potential user connects to a TOPS-20 system, his terminal is set
+to RECEIVE LINKS by default.  Since there are naive users in the world it is
+possible for them to be harassed because of this feature.  One would hope that
+privileged users would want to REFUSE LINKS themselves but why leave it up to
+chance?
+        All that needs to be changed is the state of the RECEIVE/REFUSE LINKS
+bit setting during job creation.  This is a simple change in the monitor.
+        This change is visible to the user because when a job is activated on a
+terminal, it is be set to REFUSE LINKS rather than RECEIVE LINKS as in
+previous monitors.  All changes to initiate this are internal to the monitor
+and require no monitor call or EXEC modifications.
+        Like all pieces of this project, this feature has some way of turning
+this off.  If a system manager would rather have jobs with the RECEIVE LINKS as
+the default, the EXEC command RECEIVE LINKS can be inserted in the
+SYSTEM:LOGIN.CMD file.  This file is always taken during job login.  Of course,
+this does not make this part of the project one hundred percent turned off (not
+logged in jobs have REFUSE LINKS by default until they LOGIN, but RECEIVE
+LINKS command can be entered at a not-logged-in job if desired).
+
+
+.hl2 New ACJ Program
+
+        Currently, customers are supplied with a template to show them how an
+access control job might look.  This is a macro program that is distributed as
+ACJ.MEM.  However, this file has not been updated since release 5.0 was under
+development, so it is extremely outdated.
+        A new ACJ is being distributed with the other software.  This new ACJ
+supports all of the new GETOK functions documented here as well as
+implementation of reasonable policy for each function.  This support 
+includes controlled access to SECURE files.  Documentation is shipped with the
+ACJ as ACJFUN.MEM.
+
+.pa
+.hl1Performance Expectations
+        It is expected that there are certain performance degradations for some
+of the parts of this project.  There is not a big performance impact although
+there may be some noticeable delay in the areas that are affected by the
+changes introduced by this project.
+.list 'o'
+.le
+The ACJ fork should be slightly more responsive running under job 0 if the
+_^ESET SYSTEM-ACCESS-CONTROL-JOB is used.  Since most sites run the ACJ
+under SYSJOB, there will be no overall system performance impact.
+.le
+There may be a noticeable delay when changing a password on a directory if the
+system has the password dictionary enabled.  In particular it takes up to 10
+CPU seconds the first time that the PASSWORD.DICTIONARY file is read to build
+the index entries to this file.  Successive password checks happen in less than
+2 seconds after the indexes are built.  Since the password dictionary file is
+not changed often, and since the delay in searching the password dictionary is
+small, there is little impact.
+.le
+Opening, renaming, or deleting a SECURE file may take a little more time than a
+regular open, rename, or delete.  This only affects the files that have been
+set SECURE and does not affect all file accesses.
+.le
+There is a severe performance decrease in programs that are run in multiple
+forks to attempt to guess passwords.  However, this is the intended effect.
+.end list
+
+.pa
+.hl1Error Handling
+        All pieces of this project report any errors via the error return for
+the appropriate monitor call.
+        If a system manager has decided to run his ACJ as a system fork, and
+there happens to be a fatal error in the ACJ, the system gives its usual GIVTMR
+and RCVTMR BUGCHKs, and issues a ACJDIE BUGCHK.  This new BUGCHK is reported by
+CHKR when it notices that something has happened to the ACJ fork.  CHKR notices
+this when the software interrupt system issues an inferior fork termination
+interrupt.  The ACJ is not restarted.  The system manager has to restart the
+ACJ by hand (_^ESET SYSTEM-ACCESS-CONTROL-JOB).
+        There is also the possibility that the system manager has not defined
+DEFAULT-ACJ: and the file SYSTEM:ACJ.EXE does not exist.  In this case, the
+system issues a NOACJF BUGCHK when attempting to start the ACJ in monitor
+context and does nothing.
+        There is also special consideration for the password dictionary.  If
+the system manager enables this feature project and has no
+SYSTEM:PASSWORD.DICTIONARY file, then the system issues a NOPWDF BUGCHK.  This
+occurs any time the system attempts to do a GTJFN% on the password dictionary
+file and the GTJFN% fails.  The CRDIR% proceeds and the password is not
+checked.
+
+.lt
+[End of SECURITY-ENHANCEMENTS.MEM]
+.el

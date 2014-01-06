@@ -1,0 +1,657 @@
+
+
+
+                     USING FPAINT SCREENS: AN EXAMPLE APPLICATION
+                                                                     Page 1
+
+
+     Using FPaint Screens - general considerations
+
+
+          FPaint builds a  package  of  FORTRAN  subroutines  that  may  be
+     considered  the  abstraction  of a data entry screen.  Each screen has
+     the following characteristics:
+
+          - A five character name ( referred to below as <NAME> )
+
+          - A specific height (in rows) and width (in columns)
+
+          - A number of fixed text fields
+
+          - A number of data fields of varying characteristics
+
+          - A screen help line
+
+
+
+     In addition, the following operations may be performed on a screen:
+
+          - Clear        - clear the area occupied by the screen
+
+          - Display Text - display screen text
+
+          - Display Data - display screen data field contents
+
+          - Edit         - begin edit of screen data fields
+
+          - Validate     - validate all screen data fields
+
+
+          Using an FPaint screen successfully therefore depends on invoking
+     the  above routines properly and in the correct order.  The first task
+     is thus to examine each routine in detail.
+
+
+     FPaint Screen Operations - A Detailed Description
+
+
+     Clear
+
+     The Clear operation is invoked as
+
+     call <NAME>Clear( Row, Col )
+
+          where Row and Col give the origin of the upper left of the screen
+          in rows and cloumns on the CRT relative to the upper left corner.
+
+     Clear causes the rectangular area of the CRT occupied by the screen to
+     be erased.  The given area extends from rows "Row" to "Row"+Height and
+     from columns "Col" to "Col"+Width.
+                                                                     Page 2
+
+
+     Text Display
+
+     The Text Display operation is invoked as
+
+     call <NAME>TextDsp( Row, Col )
+
+          where Row and Col give the origin of the upper left of the screen
+          in rows and cloumns on the CRT relative to the upper left corner.
+
+     Text Display causes all screen text fields to be displayed on the  CRT
+     relative the the screen origin.
+
+
+     Data Display
+
+     The Data Display operation is invoked as
+
+     call <NAME>DataDsp( Row, Col, {Data} )
+
+          where Row and Col give the origin of the upper left of the screen
+          in rows and cloumns on the CRT relative to the upper left corner,
+          and {Data} is the list of variables that correspond to the FPaint
+          data fields.
+
+     Data Display causes the current values of all screen data fields to be
+     displayed  on  the  CRT relative the the screen origin.  Note that all
+     data should be initialized prior to invoking this routine.
+
+
+     Edit
+
+     The Edit operation is invoked as
+
+     call <NAME>Edit( Row, Col, CurrentField, TermKeys, {Data},
+                      Next, Previous, Refresh, Exit, LastKey )
+
+          where,
+
+          Row and Col give the origin of the upper left of  the  screen  in
+          rows and cloumns on the CRT relative to the upper left corner;
+
+          CurrentField is, on input, the field at which editing is to begin
+          and, on output, the last field edited;
+
+          TermKeys is a 30 element integer*2 array to be discussed later;
+
+          {Data} is the list of variables that  correspond  to  the  FPaint
+          data fields;
+
+          Next is a termination flag that indicates a  carraige  return  or
+          down arrow was pressed during edit of the last field;
+
+          Previous is a termination flag that indicates  an  up  arrow  was
+          pressed during edit of the first field;
+                                                                     Page 3
+
+
+          Refresh       is a termination flag  that  indicates  the  screen
+          image should be refreshed;
+
+          Exit is a termination flag that indicates the edit is complete;
+
+          LastKey is the last key typed by the operator.
+
+     The Edit operation initiates data entry or edit of the  entire  screen
+     beginning  with  the  current  field.   This operation continues until
+     terminated by the operator.
+
+     Edit is terminated by any one of the following events:
+
+        - The operator presses a carriage return  or  a  down  arrow  while
+          editing the last field of the screen.  In this case, Next is set,
+          which, for multi screen  applications,  means  "go  to  the  next
+          screen".
+
+        - The operator presses an up arrow while editing the first field of
+          the  screen.   In  this  case,  Previous is set, which, for multi
+          screen applications, means "go to the previous screen".
+
+        - The operator presses control R.  In this case,  Refresh  is  set,
+          which  means  "refresh  the  entire  screen  image".  This may be
+          necessary if, during data entry, a system message  covers  up  an
+          area of the screen.
+
+        - The operator presses control Z.  In this case, Exit is set, which
+          means "data entry/edit is complete".
+
+        - The operator presses a programmer defined termination key ( named
+          TermKeys  in  the  Edit  parameter  list ).  No flags are set but
+          LastKey holds the ASCII value of the pressed key.
+
+
+     Programmer Defined Termination Keys
+
+
+          As mentioned above, a special set  of  keys,  called  termination
+     keys,  may  be  defined  by the programmer.  During an edit operation,
+     pressing one of these keys causes the edit  to  terminate.   A  thirty
+     element integer array contains the termination key information.
+
+          As if to complicate things, two types  of  termination  keys  may
+     reside in the array simultaneously as separate lists.  These two types
+     will be refered to as edit termination keys and immediate  termination
+     keys.
+
+          When an edit  termination  key  is  pressed,  FPaint  checks  the
+     validity  of  the  current  field  being  edited.   If valid, the edit
+     terminates, otherwise an error message is issued and edit continues.
+
+          An immediate termination key, as  its  name  implies,  causes  an
+     immediate  and  unconditional termination of the edit.  A possible use
+     for such a device might be that of popping up a help screen to give an
+                                                                     Page 4
+
+
+     operator  additional  assistance  upon  demand.   Another  obvious use
+     includes the aborting of an operation.
+
+          The  result  of  immediate  termination  is  slightly   different
+     depending  on whether or not the current field is numeric.  If, during
+     the edit of a numeric data field,  an  immediate  termination  key  is
+     pressed,  the  edit  is,  in  effect, aborted and the partially edited
+     value lost.  A non-numeric data field  retains  the  partially  edited
+     value.
+
+     Important:  It is the programmers responsibility to reenter  the  edit
+     routine after processing an immediate termination key without changing
+     the edit state.
+
+          The structure of the termination key array is best  described  by
+     example.   Figure  1 shows the logical contents of the termination key
+     array.  In addition, an example is given below.
+
+
+     Example 1  A possible array of termination keys
+
+     TermKeys(1) = 4           { 4 edit termination keys }
+     TermKeys(2) = 1           { ^A }
+     TermKeys(3) = 141         { PF1 }
+     TermKeys(4) = ichar('?')  { ? }
+     TermKeys(5) = 4           { ^D }
+
+     TermKeys(6) = 2           { 2 immediate termination keys }
+     TermKeys(7) = 142         { PF2 }
+     TermKeys(8) = 143         { PF3 }
+
+     Appendix III contains the numeric values of function and keypad keys.
+
+
+     Integrating the Operations
+
+
+          Having fully described each screen operation, the next  objective
+     is  the  synthesis  of  a  working  FPaint  screen.   In  general, the
+     following logic is employed:
+
+          - Choose an appropriate origin for the screen.
+
+          - Define all termination keys.
+
+          - Initialize all screen data fields.
+
+          - Clear the screen.
+
+          - Display the screen text.
+
+          - Display the screen data.
+
+          - Perform the edit operation starting with a given field number.
+            On return from the edit, process the termination flags and
+
+
+
+	   Array Element	Contents
+	   -------------	--------
+
+	        1               Number of Edit Termination Keys, NE
+		2		Edit Termination Key 1
+		3		Edit Termination Key 2
+		.			.
+		.			.
+		.			.
+	       1+NE		Edit Termination Key NE
+
+	      (NE+2)		Number of Immediate Termination Keys, NI
+	      (NE+2)+1		Immediate Termination Key 1
+	      (NE+2)+2		Immediate Termination Key 2
+		.
+		.
+		.
+	      (NE+2)+NI		Immediate Termination Key NI
+
+
+                       Figure 1. Termination Key Array.
+
+
+
+
+
+	   Program Profilometer
+
+	   Initialize Terminal Routines
+
+	   Display Specimen Group Information
+
+	   Repeat
+
+	     Get Specimen Group Information
+
+	     Repeat
+
+	       Display and Get Specimen Information
+
+	       Collect and Plot Test Data
+
+	       More Specimens?
+	         if Yes then Display Specimen Group Information
+
+	     Until No More Specimens
+
+	     Another Specimen Group?
+
+	   Until No More Specimen Groups
+
+	   Program End
+
+
+                       Figure 2. Main program pseudo code.
+                                                                     Page 5
+
+
+            keys.
+
+          - Insure that all data is valid ( If not, repeat the edit
+            operation starting with the invalid field ).
+
+     Rather than elaborating on the above, a specific example will be
+     considered in detail.
+
+
+     Example Program Description
+
+
+          Appendix I contains the listing of a  program  that  incorporates
+     two FPaint screens to perform operator input.  It is based on a system
+     that is used to acquire data from a device capable  of  measuring  the
+     surface  roughness  of  a  steel specimen.  The example presented here
+     serves  merely  to  illustrate  the  use  of  FPaint  screens  in   an
+     application;   the  routine  that would perform any useful work is, of
+     course, a stub.
+
+          Presumably, an operator runs the program to measure the roughness
+     of  a group of replicate specimens.  Data entry is made at two levels.
+     First, information common to all  specimens  is  entered  through  the
+     FPaint  screen  named Group.  Then, before each specimen is processed,
+     the specimen ID and orientation is entered through the  FPaint  screen
+     named Spec.
+
+          The operator may enter individual specimen information repeatedly
+     until all replicates of a given group have been processed.  The choice
+     is then made either to exit the program or  repeat  the  process  with
+     another group of specimens.
+
+          Figure 2 outlines the program logic and processes.
+
+
+
+     The FPaint Screens
+
+
+          Before considering the details of the  FPaint  interface,  it  is
+     worthwhile to examine the screens individually.
+
+          Group is the specimen group screen and  Spec  is  the  individual
+     specimen screen.
+
+          The final composite screen (from the operator's  point  of  view)
+     includes  Group  with  the  upper left corner origin at (1,1) and Spec
+     with origin at (11,39).
+
+
+     A Detailed Examination of the Example
+
+
+          As mentioned previously, Appendix I contains the  listing  of  an
+     example program, Profil.For.  The following is detailed examination of
+                                                                     Page 6
+
+
+     the FORTRAN source code.
+
+     Lines 10-180 contain declarations  for  the  Group  screen  variables.
+     Notice the similarity to the declarations given in the Group auxillary
+     file listed in Appendix II.
+
+     Lines 210-290 contain declarations  for  the  Spec  screen  variables.
+     Notice  the  similarity to the declarations given in the Spec auxilary
+     file listed in Appendix II.
+
+     Lines 320-350 contain declarations for local variables.
+
+     Lines 620-930 serve to initialize  constants  and  variables.   Notice
+     that screen variables must be initialized in the application.
+
+     Lines 1220-1250 deserve special attention.
+
+          TTYinit must be called before any FPaint  operation  is  invoked.
+     This  is especially true for a VAX hosted system.  TTYinit initializes
+     both the display and a package of display routines.  It  may  also  be
+     called during program exit to clean up the display state.
+
+          EchoOff  should  be  called  in  DEC-10  environments.   It  will
+     eliminate any problems associated with echoed type ahead.
+
+          KpdOn may be called to place the terminal in  keypad  application
+     mode.  Note that it is not necessary in this application.
+
+     Line 1300:  First field to edit for Group screen is 3.
+
+     Line 1320:  Clear the Group screen.
+
+     Line 1340:  Display the Group screen text.
+
+     Lines 1360-1390:  Display the Group screen data.
+
+     Line 1430:  Start of loop "repeat until no more specimen groups".
+
+     Lines 1470-1690:  Edit the Group screen  starting  with  field  three.
+     Process the termination state as follows:
+
+          [1520] if the operator pressed PF1 ( abort ) then  turn  off  the
+          key pad, clear the screen, and stop program;
+
+          [1570] if "go to next screen" ( i.e.  Next is set )  then  simply
+          wrap to field number three of the same screen;
+
+          [1600] if "go to previous screen" ( i.e.  Previous is set )  then
+          simply wrap to the last field;
+
+          [1630] if "screen needs to  be  refreshed"  goto  100  to  clear,
+          redisplay, and continue the edit of Group.
+
+          [1690] if "data entry/edit is not complete" goto 300 to  continue
+          the edit.
+                                                                     Page 7
+
+
+     Line 1830:  First field to edit for Spec screen is 1.
+
+     Line 1860:  Start of loop "repeat until no more specimens".
+
+     Line 1900:  Clear the Spec screen.
+
+     Line 1920:  Display the Spec screen text.
+
+     Lines 1940-1960:  Display the Spec screen data.
+
+     Lines 1980-2000:  Edit  the  Spec  screen  starting  with  field  one.
+     Process the termination state as follows:
+
+          [2020] if "go to next screen" ( i.e.  Next is set )  then  simply
+          wrap to field number one of the same screen;
+
+          [2050] if "go to previous screen" ( i.e.  Previous is set )  then
+          simply wrap to the last field;
+
+          [2080] if "screen needs to be refreshed" then clear and redisplay
+          the  Group  screen  and  then  goto  400 to clear, redisplay, and
+          continue the edit of Spec.
+
+          [2200] if "data entry/edit is not complete" goto 500 to  continue
+          the edit.
+
+     Line 2230:  This is the call to some routine that  would  utilize  the
+     FPaint  input  and perform some useful work.  The routine is a stub in
+     this example ( see the listing of Subs.For in Appendix I ).
+
+     Line 2260:  Ask operator if more specimens are to be tested  for  this
+     group ( see the listing of Subs.For in Appendix I ).
+
+     Lines 2280-2360:  If more specimens for  this  group  then  clear  and
+     redisplay  the  group  screen ( just for looks ).  As the loop repeats
+     the specimen screen will again be overlayed on the group screen.
+
+     Line 2440:  End of loop "repeat until no more specimens".
+
+     Line 2470:  Ask operator if more groups of specimens are to be  tested
+     ( see the listing of Subs.For in Appendix I ).
+
+     Line 2500:  End of loop "repeat until no more specimen groups".
+
+     Lines 2530-2550:  Key pad off, clear screen, and terminate program.
+
+
+     Custom Validation of FPaint Data Fields
+
+
+          Appendix I contains a listing of the file Subs.For, a  collection
+     of  subroutines  called  by  the example program.  Of interest to this
+     discussion is the routine ValScr.
+
+          Whenever the edit of an FPaint data field is  completed  ( either
+                                                                     Page 8
+
+
+     as  a  result  of  moving  to another field or terminating the edit ),
+     validation is performed as prescribed when the field was created.   In
+     addition,  if  the  data  field  passes  the  FPaint  validation,  the
+     subroutine ValScr is called in order that  custom  validation  may  be
+     performed by the application.
+
+          ValScr is present in the standard FPaint library as a  stub  that
+     sets  the  Valid  flag  true,  thus  imposing no additional validation
+     constraints on the data.
+
+          If a subroutine named ValScr is included in the  application,  it
+     will  supersede  the  library  stub,  enabling custom validation to be
+     performed.  See the example in  Subs.For  for  a  description  of  the
+     parameters.   The  logic  of  any such custom routine should always be
+     similar to the pseudocode given below:
+
+       if Name is equal to the screen to be validated then
+
+          if Field is equal to the field to be validated then
+
+             check the value of Intg, Rl, or Str  depending  on  the  field
+             type ( which is known a priori )
+
+             if the value is OK then
+               Valid = .true.
+             else
+               Valid = .false.
+               display some appropriate error message via
+               the routine ErrMsg
+             end if
+
+          end if
+
+       end if
+
+
+     FPaint From the User's Viewpoint
+
+
+          Up to this point, the description of FPaint has  been  programmer
+     oriented.   The application user, of course, is interested in the ease
+     with which data may be entered and edited.
+
+          Editing is performed at  two  levels.   Screen  editing  involves
+     moving  from one field to another.  This is accomplished with the keys
+     described below.
+
+          Up arrow        - Move to the previous data field.
+          Down arrow      - Move to the next data field.
+          Carriage Return - Move to the next data field.
+
+          Editing may also occur at the individual field level.   The  keys
+     listed below perform field edit functions.
+
+          Control B       - Move to beginning of field
+                                                                     Page 9
+
+
+          Control E       - Move to end of field
+          Tab             - Move to next word
+          Control X       - Move to previous word
+          Control W       - Toggle insert/overwrite
+          Control U       - Abort edit ( restore original value )
+          Control J       - Delete to end of line
+          Control K       - Delete word
+
+          [Dec-10 or IBM PC]
+          Backspace       - delete one character backward
+          Del             - delete character at cursor
+
+          [Vax]
+          Del             - delete one character backward
+          Key pad ,       - delete character at cursor
+                            ( if the key pad is on )
+
+
+          In addition to the editing keys, the function of  Control  R  and
+     Control  Z  are worth repeating at this point.  They have the meanings
+     given below.
+
+          Control R       - Refresh screen image
+          Control Z       - Data entry/edit is complete
+
+
+
+
+
+
+		                  APPENDIX I
+
+
+                           EXAMPLE PROGRAM LISTINGS
+
+
+
+
+
+
+
+		See the files Profil.for and Subs.for
+
+
+
+
+
+
+		                 APPENDIX II
+
+
+                        FPAINT AUXILIARY FILE LISTINGS
+
+
+
+
+
+
+		See the files Group.aux and Spec.aux
+
+
+
+
+
+
+		                  APPENDIX III
+
+
+                  NUMERIC CODES FOR FUNCTION AND KEY PAD KEYS
+
+
+
+
+
+
+       KEY              NUMERIC CODE
+
+       Up Arrow            128
+       Down Arrow          129
+       Left Arrow          130
+       Right Arrow         131
+
+       PF1                 141
+       PF2                 142
+       PF3                 143
+       PF4                 144
+
+       Key Pad 0           157
+       Key Pad 1           158
+       Key Pad 2           159
+       Key Pad 3           160
+       Key Pad 4           161
+       Key Pad 5           162
+       Key Pad 6           163
+       Key Pad 7           164
+       Key Pad 8           165
+       Key Pad 9           166
+       Key Pad -           167
+       Key Pad ,           168       	( 8 for VAX version )
+       Key Pad .           169
+       Key Pad Enter       170
+
+       Back Tab            132          ( generated by ^X )
+       Del Char at Cursor  127		( generated by Del or Backspace )
+       Del Char Backward     8		( generated by Backspace or key pad , )
+
+
+	For IBM PC
+
+	Keypad Keys
+
+	Insert		    23	(^W)
+	Delete		   127	(Del)
+	Home		     2	(^B)
+	End		     5	(^E)
+	PgUp		   133
+	PgDn		   134
+
+	Function Keys	Un-Shifted	Shifted
+
+	F1		   141	   	  151
+	F2		   142	   	  152
+	F3		   143       	  153
+	F4		   144       	  154
+	F5		   145       	  155
+	F6		   146       	  156
+	F7		   147       	  157
+	F8		   148       	  158
+	F9		   149       	  159
+	F10		   150		  160
+
+  

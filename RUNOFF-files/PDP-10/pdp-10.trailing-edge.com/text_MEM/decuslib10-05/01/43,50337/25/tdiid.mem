@@ -1,0 +1,505 @@
+
+
+
+
+
+
+
+
+
+
+
+
+                              APPENDIX D
+
+           SIMULA FOR DEC SYSTEM 10             TD, COMPILER
+
+
+
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-1
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+ II.D    DETAILS OF THE HIDDEN/PROTECTED IMPLEMENTATION
+
+
+         The  implementation  details  are  described  below  as  SIMULA
+         algorithms  approximating  the  actual  assembly  code and data
+         structures.
+
+         The  current  implementation  of   HIDDEN/PROTECTED   has   the
+         following main properties:
+
+         - Whether or not an entity is visible, is entirely  decided  by
+         ZQU.INVISIBLE.
+
+         - The flag ZQU.INVISIBLE  is  only  changed  at  entry/exit  of
+         class/prefixed block.
+
+         - Thus, the visibility of an element is not  dependent  on  the
+         access method, only from where access is made.
+         ;
+
+         BEGIN
+
+           CLASS zqu(idno,no,hid,prot,next);
+             INTEGER idno; COMMENT identifier number;
+             BOOLEAN no,hid,prot; COMMENT not hidden protected;
+             REF(zqu) next;
+             BEGIN
+               BOOLEAN invisible,match,virtual_match;
+             END zqu ;
+
+           CLASS zhe;
+             BEGIN
+               REF(zqu) declarations;
+             END zhe;
+
+           zhe CLASS zhb;
+             COMMENT  ZHB is used for classes, procedures,
+                      connections and prefixed blocks;
+             BEGIN
+               REF(zhb) prefix; COMMENT to this class or block;
+               REF(zqu) hspec; COMMENT HIDDEN specifications;
+             END zhb ;
+
+           PROCEDURE error(message);VALUE message;TEXT message;;
+
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-2
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+           BEGIN COMMENT  pass 1;
+
+             CLASS level(head);
+               REF(zhe) head;
+               BEGIN
+                 REF(level) environment;
+                 REF(zqu) pspec; COMMENT  protected specifications;
+                 environment:-c_level;
+               END level;
+
+             REF(level) c_level;
+
+             PROCEDURE class_entry(idno);
+               INTEGER idno ;
+               BEGIN
+                 normal_declaration(idno);
+                 c_level:-NEW level(NEW zhb);
+               END class_entry;
+
+             PROCEDURE class_exit;
+               INSPECT c_level DO BEGIN
+                 IF pspec=/=NONE THEN BEGIN
+                   REF(zqu) pzqu;
+                   IF pspec.no THEN BEGIN
+                     pzqu:-head.declarations;
+                     WHILE pzqu=/=NONE DO BEGIN
+                       pzqu.prot:=pzqu.invisible:=TRUE;
+                       pzqu:-pzqu.next;
+                     END;
+                     WHILE pspec=/=NONE DO BEGIN
+                       BOOLEAN found;
+                       pzqu:-head.declarations;
+                       WHILE pzqu=/=NONE AND NOT found DO
+                         IF pzqu.idno=pspec.idno
+                         THEN found:=TRUE
+                         ELSE pzqu:-pzqu.next;
+                       IF found THEN
+                         pzqu.prot:=pzqu.invisible:=FALSE
+                       ELSE error(
+                         "Attribute XXXX not found.");
+                       pspec:-pspec.next;
+                     END;
+                   END ELSE
+                     WHILE pspec=/=NONE DO BEGIN
+                       BOOLEAN found;
+                       pzqu:-head.declarations;
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-3
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+                       WHILE pzqu=/=NONE AND NOT found DO
+                         IF pzqu.idno=pspec.idno
+                         THEN found:=TRUE
+                         ELSE pzqu:-pzqu.next;
+                       IF found THEN
+                         pzqu.prot:=pzqu.invisible:=TRUE
+                       ELSE error(
+                         "Attribute XXXX not found.");
+                       pspec:-pspec.next;
+                     END;
+                 END;
+                 c_level:-environment;
+               END class_exit;
+
+             PROCEDURE normal_declaration(idno);
+               INTEGER idno;
+               c_level.head.declarations:-
+                 NEW zqu(idno,FALSE,FALSE,FALSE,
+                 c_level.head.declarations);
+
+             PROCEDURE hidden_protected_specification
+               (idno,no,hid,prot);
+               INTEGER idno;
+               BOOLEAN no,hid,prot;
+               BEGIN
+                 IF hid THEN
+                   (c_level.head QUA zhb).hspec:-
+                     NEW zqu(idno,no,TRUE,FALSE,
+                     (c_level.head QUA zhb).hspec);
+                 IF prot THEN c_level.pspec:-NEW zqu
+                   (idno,no,FALSE,TRUE,c_level.pspec);
+               END hidden_protected_specification;
+
+           END pass 1 ;
+
+
+
+
+
+           BEGIN COMMENT  pass 2;
+
+             CLASS level(pzhe);
+               REF(zhe) pzhe;
+               BEGIN
+                 REF(level) environment;
+                 REF(display_stack) sobj;
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-4
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+                 environment:-c_level;
+               END level;
+
+             REF(level) c_level;
+
+             CLASS display_stack(idno,pzqu);
+               COMMENT  Here all redeclarations are saved;
+               INTEGER idno;
+               REF(zqu) pzqu;
+               BEGIN
+                 REF(display_stack) prev;
+                 prev:-c_level.sobj;
+               END display_stack;
+
+             REF(zqu) ARRAY display_array[1:3072];
+               COMMENT  Contains declared items;
+
+             PROCEDURE hide(pzhb);
+               REF(zhb) pzhb;
+               INSPECT pzhb DO BEGIN
+                 REF(zqu) phid,pzqu;
+                 hide(prefix);
+                 unprotect(THIS zhb);
+                 IF hspec=/=NONE THEN BEGIN
+                   WHILE pzhb=/=NONE DO BEGIN
+                     pzqu:-pzhb.declarations;
+                     WHILE pzqu=/=NONE DO BEGIN
+                       IF NOT pzqu.invisible THEN BEGIN
+                         BOOLEAN found;
+                         phid:-hspec;
+                         WHILE phid=/=NONE AND NOT found DO
+                           IF pzqu.idno=phid.idno
+                           THEN found:=TRUE
+                           ELSE phid:-phid.next;
+                         IF hspec.no THEN BEGIN
+                           IF NOT found THEN BEGIN
+                             IF pzqu.match THEN
+                               pzqu.match:=FALSE
+                             ELSE BEGIN
+                               IF pzqu.prot THEN
+                                 pzqu.invisible:=TRUE;
+                               IF NOT pzqu.virtual_match THEN BEGIN
+                                 INTEGER idno;
+                                 REF(zhb) rzh;
+                                 REF(zqu) rzq;
+                                 idno:=pzqu.idno;
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-5
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+                                 rzh:-pzhb.prefix;
+                                 WHILE rzh=/=NONE DO BEGIN
+                                   rzq:-rzh.declarations;
+                                   WHILE rzq=/=NONE DO BEGIN
+                                     IF idno=rzq.idno AND NOT
+                                       rzq.invisible
+                                     THEN rzq.match:=TRUE;
+                                     rzq:-rzq.next;
+                                   END;
+                                   rzh:-rzh.prefix;
+                                 END;
+                               END;
+                             END;
+                           END;
+                         END ELSE
+                           IF found AND NOT phid.match THEN BEGIN
+                             IF pzqu.prot THEN
+                               pzqu.invisible:=TRUE;
+                             IF NOT pzqu.virtual_match THEN
+                               phid.match:=TRUE;
+                           END;
+                       END;
+                       pzqu:-pzqu.next;
+                     END;
+                     pzhb:-pzhb.prefix;
+                   END;
+                   phid:-hspec;
+                   WHILE phid=/=NONE DO BEGIN
+                     phid.match:=FALSE;
+                     phid:-phid.next;
+                   END;
+                 END;
+               END hide;
+
+             PROCEDURE check_hidden(pzhb);
+               REF(zhb) pzhb;
+               INSPECT pzhb DO
+                 IF hspec=/=NONE THEN BEGIN
+                   REF(zqu) pzqu,phid;
+                   WHILE pzhb=/=NONE DO BEGIN
+                     pzqu:-pzhb.declarations;
+                     WHILE pzqu=/=NONE DO BEGIN
+                       IF NOT pzqu.invisible THEN BEGIN
+                         BOOLEAN found;
+                         phid:-hspec;
+                         WHILE  phid=/=NONE AND NOT found DO
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-6
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+                           IF phid.idno=pzqu.idno
+                           THEN found:=TRUE
+                           ELSE phid:-phid.next;
+                         IF found AND NOT phid.match THEN BEGIN
+                           phid.match:=TRUE;
+                           IF NOT(pzqu.prot OR phid.no) THEN
+                             error("Attribute HIDDEN"
+                             " but not PROTECTED");
+                         END;
+                       END;
+                       pzqu:-pzqu.next;
+                     END;
+                     pzhb:-pzhb.prefix;
+                   END;
+                   phid:-hspec;
+                   WHILE phid=/=NONE DO BEGIN
+                     IF NOT phid.match THEN
+                       error("No attribute XXXX visible");
+                     phid.match:=FALSE;
+                     phid:-phid.next;
+                   END;
+                 END hidden check;
+
+             PROCEDURE unprotect(pzhb);
+               REF(zhb) pzhb;
+               BEGIN
+                 REF(zqu) pzqu;
+                 pzqu:-pzhb.declarations;
+                 WHILE pzqu=/=NONE DO BEGIN
+                   pzqu.invisible:=false;
+                   pzqu:-pzqu.next
+                 END
+               END unprotect;
+
+             PROCEDURE display(pzhe);
+               REF(zhe) pzhe;
+               INSPECT pzhe DO BEGIN
+                 REF(zqu) pzqu;
+                 INSPECT THIS zhe WHEN zhb DO display(prefix);
+                 pzqu:-declarations;
+                 WHILE pzqu=/=NONE DO BEGIN
+                   IF NOT pzqu.invisible THEN BEGIN
+                     c_level.sobj:-NEW display_stack
+                       (pzqu.idno,display_array[pzqu.idno]);
+                     display_array[pzqu.idno]:-pzqu;
+                   END;
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-7
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+                   pzqu:-pzqu.next;
+                 END;
+               END display;
+
+             PROCEDURE undisplay;
+               WHILE c_level.sobj=/=NONE DO BEGIN
+                 display_array[c_level.sobj.idno]:-
+                   c_level.sobj.pzqu;
+                 c_level.sobj:-c_level.sobj.prev;
+               END undisplay;
+
+             PROCEDURE protect(pzhb);
+               REF(zhb) pzhb;
+               INSPECT pzhb DO BEGIN
+                 REF(zqu) pzqu;
+                 pzqu:-declarations;
+                 WHILE pzqu=/=NONE DO BEGIN
+                   IF pzqu.prot THEN pzqu.invisible:=TRUE;
+                   pzqu:-pzqu.next;
+                 END;
+                 protect(prefix);
+               END protect;
+
+             PROCEDURE class_declaration(pzhb);
+               COMMENT Called for all new classes when a declaration
+               segment has been read;
+               REF(zhb) pzhb;
+               BEGIN
+                 hide(pzhb.prefix);
+                 unprotect(pzhb);
+                 check_hidden(pzhb);
+                 protect(pzhb);
+               END class_declaration;
+
+             REF(zqu) PROCEDURE normal_access(idno);
+               INTEGER idno;
+               IF display_array[idno]==NONE
+               THEN error("Identifier not declared")
+               ELSE normal_access:-display_array[idno];
+
+             REF(zqu) PROCEDURE remote_access(idno,pzhb);
+               INTEGER idno;
+               REF(zhb) pzhb; COMMENT Qualifying class;
+               BEGIN
+                 REF(zqu) pzqu;
+                 BOOLEAN found;
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-8
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+                 WHILE pzhb=/=NONE AND NOT found DO BEGIN
+                   pzqu:-pzhb.declarations;
+                   WHILE pzqu=/=NONE AND NOT found DO
+                     IF pzqu.idno=idno AND NOT pzqu.invisible
+                     THEN found:=TRUE
+                     ELSE pzqu:-pzqu.next;
+                   pzhb:-pzhb.prefix;
+                 END;
+                 remote_access:-pzqu;
+               END remote_access;
+
+             PROCEDURE class_entry(pzhb);
+               REF(zhb) pzhb;
+               BEGIN
+                 c_level:-NEW level(pzhb);
+                 hide(pzhb.prefix);
+                 unprotect(pzhb);
+                 display(pzhb);
+               END class_entry;
+
+             PROCEDURE class_exit;
+               BEGIN
+                 undisplay;
+                 protect(c_level.pzhe QUA zhb);
+                 c_level:-c_level.environment;
+               END class_exit;
+
+             PROCEDURE entry_prefix_block(pzhb);
+               REF(zhb) pzhb;
+               BEGIN
+                 c_level:-NEW level(pzhb);
+                 hide(pzhb.prefix);
+                 display(pzhb);
+               END entry_prefix_block;
+
+             PROCEDURE exit_prefix_block;
+               BEGIN
+                 undisplay;
+                 protect((c_level.pzhe QUA zhb).prefix);
+                 c_level:-c_level.environment;
+               END exit_prefix_block;
+
+             PROCEDURE entry_connection(pzhb);
+               REF(zhb) pzhb;
+               BEGIN
+                 c_level:-NEW level(pzhb);
+SIMULA FOR DEC SYSTEM 10             TD, COMPILER               II.D-9
+
+780302                6                           Claes Wihlborg
+
+
+
+
+
+
+
+
+                 display(pzhb.prefix);
+               END entry_connection_block;
+
+             PROCEDURE exit_connection;
+               BEGIN
+                 undisplay;
+                 c_level:-c_level.environment;
+               END exit_connection_block;
+
+           END pass 2;
+
+         END Declaration handling: DECsystem-10;
+
+         COMMENT The  algorithms  above  show  only  the  logic  of  the
+         implementation.   In  reality  they are more complicated due to
+         some lists  being  merged  together  and  some  pointers  being
+         substituted  with  the  relation  "placed  in  the  immediately
+         following  memory  location".   As  these  details  only  would
+         clutter  up  the  description they are not given here.  For the
+         same reason, a lot of details which  are  irrelevant  here  are
+         missing.  ;

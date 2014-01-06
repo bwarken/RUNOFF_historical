@@ -1,0 +1,214 @@
+
+DISMOUNT Command
+
+Function
+
+     The DISMOUNT command relinquishes ownership of a device.  It does
+     not  affect  your  allocation  requests,  if  you  have  used the
+     ALLOCATE command, and you can MOUNT the device again.   Once  you
+     have  dismounted  a  volume set, the device is available to other
+     users.  However, if the  resource  was  not  allocated  with  the
+     ALLOCATE command DISMOUNT performs an implicit DEALLOCATE.
+
+     If you used the ALLOCATE command for the resource, the DISMOUNTed
+     resource  remains  in  an  allocated  state  until  you issue the
+     DEALLOCATE command.  Once you have dismounted a volume set,  your
+     programs can no longer reference the resource by the logical name
+     except with the MOUNT and DEALLOCATE commands.
+
+Format
+
+     DISMOUNT resource-name/switch,resource-name/switch,...
+
+     Where:    For disk volume sets, the resource-name is  the  volume
+               set-name or the logical name.
+
+               For tape volume sets, the resource-name is the  logical
+               name.
+
+     You can use the following switches in the command string:
+
+      Switch                            Function
+
+     /HELP          Prints a short description of the command.  If you
+                    specify  any resource names with this switch, they
+                    will be ignored.
+
+     /NONOTIFY      Does not set the system to notify  your  job  when
+                    the  dismount  is  complete.   This is the default
+                    function if you have not specified /NOWAIT.
+
+     /NOTIFY        Sets the  system  to  notify  your  job  when  the
+                    dismount  is  complete.   If  you specify /NOWAIT,
+                    this is the default function.
+
+     /NOWAIT        Allows your job to return to monitor level  before
+                    the dismount is complete.  This implies /NOTIFY.
+
+     /REMOVE        Removes the specified  file  structure  from  your
+                    job's search list.  If no other jobs are accessing
+                    the  structure,  and  if  it  is  not   a   system
+                    structure, the operator physically dismounts it.
+
+     /WAIT          Holds your job until  the  dismount  is  complete.
+                    This is the default function.
+
+Associated Commands
+
+     ALLOCATE         Informs the system of your  future  need  for  a
+                      resource.
+
+     DEALLOCATE       Removes the resource from  your  job's  list  of
+                      allocated  resources.   If  the resource has not
+                      been dismounted, DEALLOCATE dismounts it.
+
+     MOUNT            Requests ownership of the resource(s).
+
+     SHOW ALLOCATION  Prints  a  list  of  the  resources   that   are
+                      allocated and mounted for your job.
+
+     SHOW QUEUE       Prints a list of  the  requests  in  the  system
+                      queues.
+
+Characteristics
+
+     Runs the QUEUE program.
+
+     Destroys your core image.
+
+     Requires LOGIN.
+
+Examples
+
+     1.  The  following  example  shows  the  use  of  the   ALLOCATE,
+         DEALLOCATE,  MOUNT,  DISMOUNT,  and SHOW ALLOCATION commands.
+         The resources are reserved for a multivolume tape volume  set
+         with  the  ALLOCATE  command.   The name of the volume set is
+         TAPE-SET, and it contains three volumes.  The logical name TS
+         is  assigned to the tape set.  The tape is write enabled, and
+         it does not have standard labels.
+
+         .ALLOCATE TAPE-SET(VOL1,VOL2,VOL3):TS/WRITE-ENABLE
+         /LABEL:NONE<RET>
+         [ALLOCATE REQUEST TS QUEUED, REQUESTS #672]
+
+         A file structure named DSKR: is mounted for the job:
+
+         .MOUNT DSKR:<RET>
+         [MOUNT REQUEST DSKR QUEUED, REQUEST #673]
+         [STRUCTURE DSKR MOUNTED]
+
+         The job's resources are displayed using the  SHOW  ALLOCATION
+         command:
+
+         .SHOW ALLOCATION<RET>
+
+         ALLOCATION FOR JOB 59 MARY MAROTTA [27,5434]
+              VOLUME SET          RESOURCES         TYPE      ALL  OWN
+         -------------------- -----------------  ------------ ---  ---
+         ---                  9 TK 800/1600      MAGTAPE UNIT  1    0
+         ---                  RP06               DISK UNIT     2    2
+         ---                  RP20               DISK UNIT     1    1
+         DSKB                 DSKB               STRUCTURE     1    1
+         DSKC                 DSKC               STRUCTURE     1    1
+         DSKR                 DSKR               STRUCTURE     1    1
+         TAPE-SET             VOL1               MAGTAPE VOL.  1    0
+         TAPE-SET             VOL2               MAGTAPE VOL.  1    0
+         TAPE-SET             VOL3               MAGTAPE VOL.  1    0
+
+
+         The  tape  set  is  mounted,  and  the  resources  are  again
+         displayed:
+
+         .MOUNT TS<RET>
+         [MOUNT REQUEST TS QUEUED, REQUEST #673]
+         [MAGTAPE TS MOUNTED]
+
+         .SHOW ALLOCATION<RET>
+
+         ALLOCATION FOR JOB 59 MARY MAROTTA [27,5434]
+              VOLUME SET          RESOURCES         TYPE      ALL  OWN
+         -------------------- -----------------  ------------ ---  ---
+         ---                  9TK 800/1600       MAGTAPE UNIT  1    1
+         ---                  RP06               DISK UNIT     2    2
+         ---                  RP20               DISK UNIT     1    1
+         DSKB                 DSKB               STRUCTURE     1    1
+         DSKC                 DSKC               STRUCTURE     1    1
+         DSKR                 DSKR               STRUCTURE     1    1
+         TAPE-SET             VOL1               MAGTAPE VOL.  1    1
+         TAPE-SET             VOL2               MAGTAPE VOL.  1    0
+         TAPE-SET             VOL3               MAGTAPE VOL.  1    0
+
+
+         After work with the tape set and the structure  is  finished,
+         the  structure  is dismounted.  Because the structure was not
+         explicitly allocated, it is automatically deallocated.
+
+         .DEALLOCATE DSKR<RET>
+         [STRUCTURE DSKR DISMOUNTED]
+
+         The tape volume set is dismounted:
+
+         .DISMOUNT TS<RET>
+         [VOLUME SET TS DISMOUNTED]
+
+
+         The job's resources are displayed:
+
+         .SHOW ALLOCATION<RET>
+
+         ALLOCATION FOR JOB 59 MARY MAROTTA [27,5434]
+              VOLUME SET          RESOURCES         TYPE      ALL  OWN
+         -------------------- -----------------  ------------ ---  ---
+         ---                  9 TK 800/1600      MAGTAPE UNIT  1    0
+         ---                  RP06               DISK UNIT     1    1
+         ---                  RP20               DISK UNIT     1    1
+         DSKB                 DSKB               STRUCTURE     1    1
+         DSKC                 DSKC               STRUCTURE     1    1
+         TAPE-SET             VOL1               MAGTAPE VOL.  1    0
+         TAPE-SET             VOL2               MAGTAPE VOL.  1    0
+         TAPE-SET             VOL3               MAGTAPE VOL.  1    0
+
+         At this point, the tape set can again be mounted, or  it  can
+         be deallocated.  The tape set is deallocated:
+
+         .DEALLOCATE TS<RET>
+         [VOLUME SET TS HAS BEEN DEALLOCATED]
+
+         .SHOW ALLOCATION<RET>
+
+         ALLOCATION FOR JOB 59 MARY MAROTTA [27,5434]
+              VOLUME SET          RESOURCES         TYPE      ALL  OWN
+         -------------------- -----------------  ------------ ---  ---
+         ---                  RP06               DISK UNIT     1    1
+         ---                  RP20               DISK UNIT     1    1
+         DSKB                 DSKB               STRUCTURE     1    1
+         DSKC                 DSKC               STRUCTURE     1    1
+
+
+         .
+
+     2.  In this example, you knew that the job was the only one using
+         the  structure  BLKJ:  and included a /REMOVE switch, so that
+         the operator would remove the disk pack from the drive.   The
+         message  "BLKJ  DISMOUNTED" means that BLKJ:  is no longer in
+         your search list, and that a request has been queued  to  the
+         operator to remove the pack from the drive.  The message does
+         not mean that  BLKJ  has  already  been  physically  removed.
+         Because  this  command  implies /NOWAIT, you will not receive
+         notification of the physical removal of the disk pack.
+
+         .DISMOUNT BLKJ/REMOVE<RET>
+         [BLKJ DISMOUNTED]
+
+     3.  The following DISMOUNT/WAIT command causes the job to suspend
+         further  processing  until all pending dismount requests from
+         it have been  completed.   There  were  no  pending  dismount
+         requests  from  this job, so the job returns to monitor level
+         immediately.
+
+         .DISMOUNT/WAIT<RET>
+         NONE PENDING FOR YOUR JOB
+
+         .
+

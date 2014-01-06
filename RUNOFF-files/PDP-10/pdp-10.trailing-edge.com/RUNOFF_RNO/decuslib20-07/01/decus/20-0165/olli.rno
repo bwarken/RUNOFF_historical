@@ -1,0 +1,173 @@
+ UNIVERSITY OF TURKU
+. ; DEPARTMENT OF MATHEMATICAL SCIENCES
+. ; COMPUTER SCIENCE
+. ; ADDR. SF - 20500 TURKU 50, FINLAND
+.S 12
+.center
+ TWO EFFICIENT HYBRID SORTING PROGRAMS: DSORT AND DSOPE
+.s 1
+.center
+ by
+.center
+ J. Ernvall and O. Nevalainen
+.center
+ 30.11.1981
+.s 3
+.i 5
+ABSTRACT: By the FORTRAN-subroutine DSORT the user can sort an array
+A(I), I=1,..,N, to an increasing order.  The subroutine DSOPE additionally
+determines a permutation array IR of the elements: IR(I)=K means that the
+Ith element of the final ordering was the Kth in the original one.  The
+programs apply the distributive sorting technique but they can also be used
+as Quicksort by a setting of a switch.  When operating as Quicksort the programs
+DSORT and DSOPE are somewhat faster than the IMSL-subroutines VSTRA and VSRTR,
+respectively.  As distributive versions, the programs are for large files of
+uniformly distributed keys considerably faster than Quicksort.  The growth of
+the running time is then linear.  The same is true also for other smooth
+distributions.  For worst case distributions the running time is dominated
+by the time of Quicksort.  Then the additional loss of the time due to the
+bucketing is about one fourth of the total running time.
+.s 1
+.i 5
+KEY-WORDS: Internal sorting, Distributive sorting, Quicksort, Insertionsort.
+.page
+.lm 5.hl 1 DSORT (A,N,NP,LL,P)
+.hl 2 GENERAL NOTICES
+.lm 0.I 5
+DSORT is a FORTRAN IV subroutine by which one can internally sort an
+array A of N real numbers.  The values of the parameters N and NP quide the
+operation of the program:
+.i 5
+Mode 1: If N is less than 500 or NP is less than N, the array A is 
+sorted by Quicksort.  The Quicksort-program is a FORTRAN version of the Algol
+procedure outlined by R. Sedgewick /Sed/.  The arrays LL and P are then dummy
+and must be defined in the calling program to contain at least one element.
+.i 5
+Mode 2: If N is greater than 500 and NP is greater than or equal to N the
+distributive sorting technique (method 2 of /NeE/) is used.  The technique
+is following: Search from A the maximal and minimal value.  The interval from
+minimum to maximum is divided into floor(N/5) intervals of equal length.
+Each interval corresponds to a bucket of keys.  Array A is rearranged so that
+the keys reside in their correct buckets and the buckets are in increasing
+order of the lower limits.  The array LL acts as a pointer array of the
+buckets and P as a temporary area of the N elements.  Finally the buckets are
+sorted by a combined Quick/Insertion sort /Sed/, /NeE/.  The arrays LL and P
+must be defined in the calling program to be of the length NP/5 and NP.
+.i 5
+The array A must be defined to be of length N+1: the actual keys are
+stored in A(1),..,A(N) and A(N+1) must contain a value greater than any of
+the key values.
+.lm 5.hl 2 PERFORMANCE
+.lm 0.i 5
+Mode 1: When N=10,000 the ratio R(D,V) of the running times of DSORT
+to that of DEC-20 IMSL program VSTRA is ca. 683/782 (msec/msec) and when
+N=100 ca. 3.52/3.92.
+.i 5
+Mode 2: The performance of DSORT depends on the distribution of the key
+values.  For uniformly distributed keys the method works most efficiently.
+When N=10,000 the ratio R(D,V) is 510/782.  The method is efficient also for
+other smooth distributions.  The worst case occurs when all keys but one
+are inside a single bucket.  The ratio R(D,V) is then for N=10,000 ca. 1072/782.
+Thus if one suspects that there exist some very large clusters in the data,
+one should use Mode 1 of the program (NP=0).  For further information, see
+/ErN/.
+.s 1
+.lm 5.hl 2 EXAMPLES
+. ;The main program, Mode 2:
+.s 1
+. ; DIMENSION A(1001),LL(200),P(1000)
+. ; .
+. ; .
+. ; A(1)=..
+. ; .
+. ; A(1000)=..
+. ; A(1001)=999999.
+. ; CALL DSORT(A,1000,1000,LL,P)
+. ; .
+. ; .
+.lm 0
+.lm 5
+.s 1
+The main program, Mode 1:
+.s 1
+. ; DIMENSION A(50),LL(1),P(1)
+. ; .
+. ; .
+. ; A(1)=..
+. ; .
+. ; A(10)=..
+. ; A(11)=999999.
+. ; CALL DSORT(A,10,0,LL,P)
+. ; .
+. ; .
+.hl 1 DSOPE(A,IR,N,NP,LL,P)
+.hl 2 GENERAL NOTICES
+.lm0.i5
+DSOPE is a permutation array version of DSORT.  By DSOPE one can
+sort internally an array A of N real numbers into an increasing order and
+also get a permutation array IR which tells for each element of the final
+sequence the index in the original input array.  The program is useful
+for example when multified vectors are internally sorted in the FORTRAN
+environment.
+.i 5
+IR must be defined in the calling program to be of length N.
+Further it must be initialized so that IR(I)=I for I=1,..,N.
+.lm 5.hl 2 PERFORMANCE
+.lm 0.i 5
+Mode 1: When N=10,000 the ratio R(D,V) of the running times of
+DSOPE and the DEC-20 IMSL library program VSRTR is ca. 963/1131 
+(msec/msec) and when N=100 ca. 5.20/5.88.
+.i 5
+Mode2: For uniformly distributed random keys R(D,V) is ca.
+620/1131, when N=10,000.  In the worst case R(D,V) is ca. 1355/1131.  See
+also the notes in Section 1.2. and in /ErN/.
+.lm 5.hl 2 EXAMPLES
+The main program, Mode 2:
+.s 2
+. ; DIMENSION A(1001),IR(1000),LL(200),P(1000)
+. ; .
+. ; .
+. ; A(1)=...
+. ; .
+. ; A(1000)=...
+. ; DO 1 I=1,N
+. ;.i -3
+1##IR(I)=I
+. ; A(1001)=999999.
+. ; CALL DSOPE(A,IR,1000,1000,LL,P)
+. ; .
+. ; .
+.lm 0
+.lm 5
+.s 1
+The main program, Mode 1:
+.s 1
+DIMENSION A(10),IR(10),LL(1)
+. ; .
+. ; .
+. ; A(1)=15.; A(2)=1.; A(3)=7.; A(4)=17.; A(5)=2.; A(6)=9.
+. ; A(7)=999999.
+. ; DO 1 I=1,6
+. ;.i -3
+1##IR(I)=I
+. ; CALL DSOPE(A,IR,6,0,LL,P)
+. ; .
+. ; .
+. ; The result:
+. ; A: 1.,2.,7.,9.,15.,17.
+. ; IR 2,5,3,6,1,4
+.lm 0.s 3
+.lm 10
+REFERENCES
+.s 1
+.I -10
+/ErN/#### J. Ernvall and O. Nevalainen: Performance Tests with
+Distributive Sorting Programs, Technical report A-31, Dept. of
+Comp. Sci., Univ. of Turku, Finland, 1981.
+.I -10
+/NeE/#### O. Nevalainen and J. Ernvall: Implementation of a Hybrid
+Sorting Algorithm, manuscript, 1981.
+.i -10
+/Sed/#### R. Sedgewick: Implementing Quicksort Programs,
+CACM 21:10, 1978.
+.lm 0

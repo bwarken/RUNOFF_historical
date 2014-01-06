@@ -1,0 +1,246 @@
+
+
+
+FLX17.DOC -- Changes from V16 to V17(52)
+March 1979
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1974,1978,1979 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+FLX17.DOC                                                       Page 2
+
+
+1.0  SUMMARY
+
+This release supports .EXE format save  files  for  the  6.02  monitor
+release.   It  also  reworks  the  /R  logic to enable more consistent
+operation.  The command scanning is standardized including support for
+SFD's  and  default  project and programmer numbers.  The sources have
+been cleaned up and rearranged into many subroutines.   FILEX  is  now
+reentrant.
+
+This release runs on all monitors since 5.04 and has  been  tested  on
+5.07 and 6.02.  It fully supersedes all previous versions.  It answers
+all SPR's received before June, 1975.
+
+FILEX is documented in Software Notebook 9.
+
+
+
+2.0  EXTERNAL CHANGES
+
+None.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+None.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+Compile with C.UNV and JOBDAT.UNV on UNV:  and load with HELPER.REL on
+REL:.   Ssave  as  a  sharable  program  and  place  FILEX.SHR on SYS:
+together with FILEX.HLP on HLP:.  Remove the old FILEX.SAV.
+
+
+
+5.0  INTERNAL CHANGES
+
+Edit #
+
+11     Remove the special logic which put a special set of protections
+       on  files  being  written to SYS:, since this logic has been in
+       the monitor since 5.03.
+
+12     Rework the /R logic so that the DECtape need  not  be  mounted.
+       This does not change the specification.
+
+13     Internally, clean up the I/O logic to be consistent.
+
+14     Convert the sources to use C.MAC.
+
+15     Support /P and /R  on  the  output  DECtape.   Both  reuse  the
+       scratch  file  unless  there  is  also a /Z.  /R suppresses the
+       final write to the tape.  Thus, on output, /Q writes a  scratch
+FLX17.DOC                                                       Page 3
+
+
+       and  copies  it  to  tape;   /P  reuses an existing scratch and
+       writes it to tape;  and /R reuses an existing scratch and saves
+       it  for  subsequent  commands without accessing the tape.  Note
+       that this edit together with 12 mean that /R does not touch the
+       DECtape.
+
+16     Internally rework the /L logic to be easier to follow the code.
+
+17     Drop the obsolete usage of _ and 175 and 176.   Thus,  commands
+       must be separated by =.
+
+20     Make reentrant and call HELPER to print the  help  text.   Make
+       the help text be a separate file instead of being built in.
+
+21     Internally, reformat the sources with PGRFMT  to  be  lined  up
+       consistently.  Convert all messages to be upper and lower case.
+
+22     Change the DEVPPN UUO to PATH. in  order  to  support  all  the
+       ersatz devices.
+
+23     Implement SFD's.  Support missing project or programmer numbers
+       to  default  to  the  logged  in  directory.   Allow < and > as
+       equivalent to [ and ].
+
+24     Allow /Z even if no equal sign.  Thus, to  zero  a  tape,  just
+       type "TAPE:/Z".
+
+25     On output if /Q or if the .XFO file is  absent,  assume  /Z  by
+       default.
+
+26     If /R, use the device as the temporary file name and  use  .DTA
+       as  the  extension.   Thus,  the  user  can keep several pseudo
+       DECtapes in his disk area and reference them by name.
+
+27     Make any device specified be the default on the remaining files
+       specified  (input  side  only).   Extend  the syntax to allow a
+       second device in the same specification to be the scratch  file
+       name if /Q or /R or /P.
+
+30     Add support for .HGH, .SHR, and  .EXE  files.   The  compressed
+       file  format  is  specified  by /C as before with the extension
+       indicating which format.  Thus, .EXE or .SHR or .HGH will force
+       the  specified  format;  any other extension will force the old
+       compressed save file format.  If converting from .EXE  to  .HGH
+       or  .SHR,  a .LOW file will also be created in exactly the case
+       that the monitor used to (namely if there is non-zero  low  seg
+       data  after  140).   If converting from .SHR or .HGH to .EXE, a
+       .LOW file will be read also if the monitor would have.
+
+31     Support the device NUL:.
+
+32     PDP-11 directories were listed wrong.
+
+33     DTAX-/Q=A,B did write a zero tape but forgot to  enter  a  zero
+       structure.
+FLX17.DOC                                                       Page 4
+
+
+34     DTAX:/Q/Z/L=A,B tries to list from  a  scratch  file  which  no
+       longer exists use instead the real dectape.
+
+35     DSK:=DTAX:/Q does no longer work as READBZ clobbers I/O status.
+
+36     DTAX:/Q/L=FOO was broken for PDP10 files.
+
+37     All ten to ten transfers with devices having  different  buffer
+       sizes do not work.
+
+40     Change EXEFLG definition to a  block  1  statement  so  no  low
+       segment is created.
+
+41     Conversion from SHR(HGH) & LOW to EXE format does not work when
+       the save files IOWDS do not fill up the last pages.
+
+42     =DTA0:/L used to list only directory  now  it  copies  all  the
+       files on the tape causing files to disappear.
+
+43     DTA0:/L will list the directory of the dectape and  after  some
+       waiting  a  file  DTA0  will  be  in  the  disk area.  This was
+       introduced by Edit 42.
+
+44     A.XPN=A.EXE the expanded file created was wrong.  The first  20
+       locations are non zero causing grief to FILDDT e.g.
+
+45     A.SAV=A.EXE did not work correctly.
+
+46     A.EXE=A.SHR did not always work correctly.
+
+47     The explicit specification of  extensions  on  converting  save
+       files is bothersome, therefore the following was done:
+
+       Conversion of save files can be done using the C switch  and  a
+       blank  input extension.  Old save file are files with extension
+       SHR HGH SAV or LOW (OEX).  New save  files  have  an  extension
+       EXE.   As  LINK  produces old save files the default conversion
+       mode is from old type save files to new type save files else an
+       explicit  output extension must be used to force the conversion
+       type.  Note no scratch output is  accepted.   Examples  of  the
+       various conversion commands are:
+
+   1      A.EXE=A/C      Convert old format save file A to EXE format.
+   2      A=A/C          If A is an old save file then convert  it  to
+                         EXE.   Format else if A is an EXE format file
+                         ten transfer it to the old save file format.
+   3      A.OEX=A/C      Convert A.EXE to old save file format.
+   4      *=*/C          Convert all old save files to EXE format  and
+                         all  EXE  files  for  which  no old save file
+                         exists.
+   5      A:*=B:*/C      If A EQL B then as (4) else convert all  save
+                         files.
+   6      A:*.EXE=B:*/C  Convert all old save format files.
+   7      A:*.OEX=B:*/C  Convert  all  EXE  files  to  old  save  file
+                         format.
+FLX17.DOC                                                       Page 5
+
+
+In case 2 a warning will be given if  the  extension  implied  by  the
+content of the EXE file differs from the specified one E.G.  A.SHR=A/C
+where A.HGH would be generated.
+
+50     Conversion of SHR files to EXE  files  without  a  low  segment
+       results in EXE files, which on a run result in " ILLEGAL MEMORY
+       REFERENCE ".
+
+51     Conversion of an EXE file to a compressed  file  can  create  a
+       file,  which  gives  the error message "not a save file" when a
+       get of the save file is being done.
+
+52     Files created by FILEX do not contain the creation time.
+
+
+
+[End of FLX17.DOC]

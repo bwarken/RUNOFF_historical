@@ -1,0 +1,318 @@
+					figure.hlp page 1:9
+
+
+
+
+
+
+
+FIGURE,
+======
+
+SOME BASIC PLOTTING FEATURES IN DEC SYSTEM 10 SIMULA
+====================================================
+
+LANGUAGE DESIGNED FOR TEKTRONIX 4012 GRAPHIC TERMINAL
+=====================================================
+
+
+
+
+Version 2, January 1975
+
+Author: Ake Blomberg, National Defence Research Institute
+	Stockholm, Sweden
+
+
+					page 2
+The Tektronix 4012 terminal is equipped with a screen
+divided into 1024*760 raster points, between which an
+electron beam can draw visible lines. 
+1 cm = 48 or 49 raster points approximately.
+
+The raster points are addressed modulo 1024 in both di-
+rections  and the addresses should be transformed to 
+characters before transmission to the terminal.
+
+The quality and sharpness of lines may vary over the
+screen, but should be adjustable.
+Further details concerning the terminal's mode of ope-
+ration can be found in the terminal's Users Guide.
+
+The user of a hard copy unit should notice that the
+size and shape may be altered on the copy.
+
+Special tty settings may cause failure (e. g. crlf).
+
+
+The following files contain the code described:
+
+source code:
+figure.sim, graph.sim, getch.sim, getch.mac,
+rubout.sim, rubout.mac, cosys.sim, cosysf.sim,
+macsim.mac, all contained in DTA:DEQZ34 figsim.src.
+
+object code is contained in the library sys:libsim.
+(use the search switch when loading, but notice the automatic
+ search performed by the Simula RTS).
+attribute files are found in sys:libsim.atr.
+					page 3
+Plotting is achieved in two ways, by using class
+figure or class graphics.
+
+Using class figure, one generates figure objects
+which in principle consist of text objects each
+containing a sequence of plotting commands. The
+figure objects can then be plotted, saved on ex-
+ternal disk files, reread or transformed.
+
+Class graphics is rather used as a block prefix,
+thus allowing the user to operate directly on the
+screen, without constructing figure objects.
+Class graphics also contains a procedure for con-
+trolling the terminals geometric cursor.
+
+Neither class is highly optimized or far developed.
+The user should not find it difficult to include
+his own special procedures according to diffe-
+rent requirements and some optimization may be
+achieved by rewriting some procedures in assembly
+language or perhaps by turning the security swit-
+ches off at compile time.
+
+When drawing lines the terminal is in geometric
+mode and cannot produce characters before it is 
+reset to alpha-numeric mode. Therefore, runtime
+errors during drawing may result in non readable
+error messages.
+
+To save some time at execution, the addresses are
+not calculated modulo 1024 and therefore runtime
+errors may result when attempt is made to plot 
+outside screen (usually ZYQ006 error message).
+					page 4
+Class graphics description
+__________________________
+
+Contained in the files graph.*. Class graphics
+requires external character procedure getch,
+which accepts single characters from the termi-
+nal. Getch is coded in Macro-10 language and
+uses macro instructions from the universal
+macsim when compiled. Observe that a dummy pro-
+cedure in simula is required to generate the
+attribute file.
+
+
+To use graphics, one has to declare
+
+external class graphics=graph;
+external character procedure getch;
+graphics begin ...
+
+Then the following procedures are available:
+
+move(i,j);	(integer i,j) moves the turned
+		off electron beam to the point 
+		(i,j) on the screen. Also sets
+		geometric mode.
+
+draw(i,j);	draws a line from the previous
+		position to (i,j). Assumes that
+		geometric mode has been set.
+
+reset_tty;	resets alpha-numeric mode. To
+		be used before writing.
+
+getpos(i,j);    gets current location of beam
+
+cursor(c,i,j);	(character c, integer i,j) calls
+		the geometric cursor. When push-
+		ing a character key this charac-
+		ter is sent to c and the address
+		of the cursor to (i,j).
+					page 5
+Class figure description.
+________________________
+
+Contained in the files figure.*. Written
+entirely in the Simula language.
+
+Should be declared as follows, for the case
+of two figure objects:
+
+external class figure;
+ref(figure) a,b;
+a:-new figure; b:-new figure;
+
+Then the following operations are available
+on a and b:
+
+a.origin(ox,oy);  (real ox,oy) sets origin to
+		  (ox,oy) measured in raster
+		  points. (0,0) is default.
+
+a.scale(sx,sy);   (real sx,sy) sets scale mul-
+		  tipliers to (sx,sy) in x- and
+		  y-direction. Scale does not
+		  affect origin. Default (1,1).
+
+a.checkon;	  turns the sizecheck on.
+a.checkoff;
+		  When the sizecheck is on, the
+		  numbers a.xmin, a.xmax, a,ymin
+		  a.ymax are calculated in each
+		  following plotstep, measuring
+		  the size of a in raster points.
+		  Boolean procedure a.on_screen
+		  returns true if a is contained
+		  within the screen.
+		  Checkoff is default.
+					page 6
+a.moveto(x,y);	(real x,y) moves the turned off
+		electron beam to the raster point
+		(ox+sx*x,oy+sy*y)
+
+a.drawto(x,y);	(real x,y) draws a lline to the
+		raster point (ox+sx*x,oy+sy*y)
+
+a.plot;		plots a on the screen. Does not
+		affect the contents of a.
+
+a.addfig(b);	(ref(figure) b) concatenates the
+		figure b to a. Does not affect the
+		contents of b.
+
+a.write(s);	(text s, text constant allowed)
+		writes s into a.
+
+a.savefig(s);	(text s, text constant allowed)
+		writes the contents of a onto a
+		disk file named s. Does not affect
+		the contents of a.
+a.getfig(s);	(text s, text constant allowed)
+		reads a disk file named s previously
+		written by savefig, into a. Old
+		contents of a destroyed.
+
+a.recompute;	unpacks the plot characters of a
+		into real numbers and transforms
+		them again with the current ori-
+		gin and scale. Can be used to chan-
+		ge origin or scale. Contains the
+		decoding procedure for figure ob-
+		jects and can be used as a model
+		for other tranformations.
+
+					page 7
+The formulas for transformation between coordi-
+nates and plot characters are contained in the
+procedures trans_to_plotchar and recompute. The
+plot characters are contained in the text object
+T and the integer variable CC is a character
+count for T. Most of the time CC = T.pos-1.
+
+The user is recommended not to alter T, T.pos
+or CC, which are qualified candidates for the
+Hidden declaration, if anytime included in the
+Simula language.
+
+
+To erase the screen the procedure rubout can be
+used. It is coded in Macro-10, but does not re-
+quire macsim when compiled.
+
+
+To make a pause in the execution after having
+drawn a figure one can write setpos(0); inimage;
+Nothing will happen before the Return key is
+pushed.
+
+
+Ref(figure) procedure cosys can be used to con-
+struct coordinate systems with tic marks. The
+source code contains description.
+
+
+Ref(figure) procedure cosysfor(xmin,xmax,ymin,ymax)
+constructs a coordinate system suitable for the
+given extremes.
+
+
+
+It should be possible to use the principles of Figure
+for other graphic equipments than the Tektronix
+4010 series.
+					page 8
+Example of the use of class graphics
+------------------------------------
+
+
+
+The procedure cursor can be used to transmit
+commands to a program without having the com-
+mands echoed on the screen and together with
+geometric data.
+The following program will allow the user to 
+draw straight line figures by adjusting the
+geometric cursor and sending a one character
+command for moving, drawing or erasing.
+It is not difficult to extend the program to
+simulate the tools of Euclidean geometry, viz.
+ungraded ruler and compasses.
+
+
+Begin external procedure rubout;
+External character procedure getch;
+External class Graphics;
+Character c; integer x,y;
+Graphics begin rubout;
+	 while c \= 's' do
+	    begin
+	    if c='m' then move(x,y)
+	    else if c='d' then draw(x,y)
+	    else if c='r' then rubout;
+	    cursor(c,x,y);
+	    end;
+	 end*graphics*;
+end
+
+					page 9
+Examples of the use of class figure
+-----------------------------------
+
+
+Let f denote an already constructed figure.
+
+1. Translate f with (tx,ty) raster points, kee-
+   ping the scale:
+   f.origin(tx,ty); f.scale(1,1); f.recompute;
+
+
+2. Change the scale with the factors (sx,sy)
+   with fixed origin:
+   f.scale(sx,sy);
+   f.origin(ox*(1-sx),oy*(1-sy)); f.recompute;
+
+
+3. Example of a program that will draw six con-
+   centric ellipses:
+
+
+Begin external class figure;  ref(figure) f;
+Real w, dw;  Integer i;
+f:-new figure; 
+f.origin(510,380); f.scale(240,240); f.moveto(1,0);
+w:=0; dw:=3.1415926/50;
+for i:=1 step 1 until 100 do
+begin w:=w+dw; f.drawto(cos(w),sin(w)); end;
+f.plot;
+for i:=1 step 1 until 5 do
+    begin
+    f.scale(0.9,0.6); f.origin(510*0.1, 380*0.4);
+    f.recompute; f.plot;
+    end;
+end
+
+--------------------End of Figure.hlp-----------------
+  

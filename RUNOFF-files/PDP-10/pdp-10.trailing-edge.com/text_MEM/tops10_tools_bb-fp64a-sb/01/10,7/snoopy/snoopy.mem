@@ -1,0 +1,503 @@
+
+
+
+Program Specification
+
+
+
+                    SNOOPY/TATTLE
+
+
+                    Programs for studying
+                    CPU time usage
+
+
+
+                    Copyright 1979,1972 by:
+                        Digital Equipment Corp.
+                        Maynard, Mass.  01754
+
+
+
+                    AUTHOR:  Jud Leonard
+                    DATE:  May 31, 1972
+                    FILE:  SNOOPY.RNO
+                    EDITION:  1
+
+
+The information in this document is subject to change  without  notice
+and  should  not  be  construed  as  a  comitment by Digital Equipment
+Corporation.  Digital Equipment Corporation assumes no  responsibility
+for and errors that may appear in this document.
+
+The software described in this document is furnished under  a  license
+and  may  be  used or copied only in accordance with the terms of such
+license.
+
+Digital Equipment Corporation assumes no responsibility for the use or
+reliability  of  its  software  on  equipment  that is not supplied by
+DIGITAL.
+
+     Copyright (C) 1972,1979 by Digital Equipment Corporation
+
+The following are trademarks of Digital Equipment Corporation:
+
+DIGITAL        DECsystem-10   MASSBUS
+DEC            DECtape        OMNIBUS
+PDP            DIBOL          OS/8
+DECUS          EDUSYSTEM      PHA
+UNIBUS         FLIP CHIP      RSTS
+COMPUTER LABS  FOCAL          RSX
+COMTEX         INDAC          TYPESET-8
+DDT            LAB-8          TYPESET-10
+DECCOMM        DECsystem-20   TYPESET-11
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                          Page 2
+
+
+1.0 INTRODUCTION SNOOPY is a program which samples the PC  at  regular    ____________
+time  intervals,  building  a histogram which describes the areas of a
+program in which it spent CPU time.  After sampling for  a  period  of
+time,  the collected histogram is written as a disk file, for analysis
+and listing by the companion program TATTLE.  Options permit SNOOPY to
+collect  data on the monitor and/or interrupt service routines for all
+jobs on the system, or to collect data on the performance of some  job
+or  system  program, including time spent in the monitor servicing the
+selected job or cusp.  The sampling frequency may be controlled either
+by  the  DK10  real-time  clock, or by the line-frequency clock in the
+APR.  The data may be collected for a single period  under  controlled
+conditions,  or  SNOOPY  may  be  set  up  to  write  histogram  files
+cyclically, so that data may be  collected  over  an  entire  day,  if
+desired, without operator intervention.  The resulting histogram files
+are given unique extensions, and  may  be  processed  individually  by
+TATTLE,  or  combined  as  desired  by  programs written in FORTRAN or
+MACRO.
+
+1.1 REQUIREMENTS SNOOPY must lock itself in core,  and  must  use  the    ____________
+RTTRP  feature  to  work properly.  It must, therefore, be run under a
+PPN with LOCK and RTTRP privileges, on a monitor assembled  for  those
+features.   In addition, the TRPSET feature and privilege are required
+to sample using the APR clock.  While sampling may be  performed  from
+the  line-frequency APR clock, it is subject to severe bias due to the
+fact that the system scheduling is also syncronized to line frequency.
+Results  obtained  with the DK10 real-time clock are more useful, both
+because of the bias problem, and because  the  DK10  can  be  made  to
+interrupt  much  more  frequently,  thereby  increasing  the number of
+samples taken in a  given  time  period,  and  the  precision  of  the
+results.
+
+1.2 RESTRICTIONS SNOOPY does oot recognize  dual  processor  (1055  or    ____________
+1077)  systems.  It does not operate correctly when DK10 accounting is
+used, or, for that matter, the DK10 is in use by any other program.
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                          Page 3
+
+
+2.0 Using SNOOPY Run SNOOPY.  It will ask:    _____ ______
+
+SNOOP ON?(INTERRUPTS, MONITOR, JOB#, CUSP)
+
+Answer with one of the words in parenthesis (first letter will do) and
+carriage  return (hereafter abbreviated <CR>).  The sequence from that
+point will depend on this answer, which determines the qualifiers  for
+entering any sample into the histogram.
+
+2.1 INTERRUPTS This response to the first question means that the user    __________
+wants to study the time spent in the monitor during interrupt service,
+and ignore any samples taken with no  PI  in  progress.   The  default
+histogram file name is set to INTRPT.HST.  The next question is:
+
+PI LEVEL TO WATCH?(2-7 OR *)
+
+The user may respond with any digit between  2  and  7  inclusive,  to
+indicate  that  samples are to be taken only when the CPU is servicing
+the specified level, or * to indicate that all time in PI  service  is
+to be entered into the histogram.  It is not posible to study PI level
+1, because the sampling routine must be at a higher priority than  the
+program  being  studied,  and 1 is the highest level.  From this point
+the questions and answers are  the  same  as  described  in  2.11  and
+following, below.
+
+2.2 MONITOR This response to the first question means the  user  wants    _______
+to  study  the  time  spent  in the monitor for all jobs.  The default
+histogram file name is set to MONITR.HST.  The next question is:
+
+INCLUDE PI TIME?(N,Y)
+
+The user may respond with YES or NO.  The default is NO,  which  means
+that the histogram will include time spent in UUO service, but not the
+time spent servicing interrupts.  An answer of YES includes  interrupt
+service  time  in  the  histogram.   From this point the questions and
+answers are the same as 2.11 and following, below.
+
+2.3 JOB# This response to SNOOPY's initial question is used  to  study    ____
+the performance of some particular job.  The next question is:
+
+JOB #?
+
+to which the user should respond with the decimal number of the job he
+wishes to study.  SNOOPY then asks:
+
+NAME OF CUSP?
+
+The user should respond with the (up to) six  character  name  of  the
+cusp  running  in  the  specified  job.  SNOOPY does not use this name
+during the sampling process, but saves it in the histogram file as the
+default  name  TATTLE  should  use  in looking for a symbol table with
+which to list the histogram data.   The  name  is  also  used  as  the
+default file name for the histogram file, with the extension .HST From
+this point the questions and answers are the same as  those  described
+in 2.7 and following, below.
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                          Page 4
+
+
+2.4 CUSP This response to SNOOPY's initial question indicates that the    ____
+histogram  is  to  reflect  the  time  used  by some specified program
+whenever it is run by any job.  Program is taken to mean  a  job  with
+one  of  the  following combinations:  a named low segment and a named
+(possibly different) high segment or no  high  segment,  a  named  low
+segment  and  any  or no high segment, or any low segment with a named
+high segment.  The next question is:
+
+LOW SEG NAME?(* IF ANY)
+
+The user may type the (up to) six character  name  of  a  low  segment
+which  must  match  to  include  a  sample  in  the histogram, or * to
+indicate that any low segment  name  is  acceptable.   If  a  name  is
+specified, go to 2.6.
+
+2.5 Any low segment If * is specified as the  low  segment  name,  the    ___ ___ _______
+next question is:
+
+HIGH SEG NAME?
+
+The user must specify the name of a high segment to match for  samples
+to  be  included  in the histogram.  Whenever a job contains the named
+high segment,  samples  will  be  taken  on  that  job.   The  default
+histogram  file  name is set to the name specified, with the extension
+.HST.  From this point, the questions and answers are as described  in
+2.8 and following, below.
+
+2.6 Named low segment If an explicit low segment name is given, it  is    _____ ___ _______
+stored  as  the  default  histogram file name with extension .HST, and
+samples are included in the histogram only for jobs whose low  segment
+name matches that given.  The next question is:
+
+HIGH SEGMENT NAME?(CR IF SAME)
+
+The user may type <CR> if the high segment name to be matched  is  the
+same  as  the  low  segment  name  given,  *  if  any  high segment is
+acceptable, or the name of the only high segment which may be  in  the
+job's addressing space for samples to be taken.
+NOTE:  A job whose low segment name matches that given, but which  has
+no  high  segment,  is  considered  eligible  for sampling, even if an
+explicit high segment name was specified.
+
+2.7 Low segment size Whenever a job number or cusp  is  specified  for    ___ _______ ____
+snooping, the following questions may be asked:
+
+LOW SEG SIZE IN K?
+
+The user may respond with 0 or just <CR> to indicate that  he  is  not
+interested  in  a breakdown of time spent in the low segment (in which
+case the questions continue at 2.8), or the size in K  (=1024  decimal
+words)  of  the  portion of the low segment starting at relative 0 for
+which he wishes to collect samples.  Samples  taken  when  the  PC  is
+greater   than  the  specified  limit  will  be  counted  together  as
+out-of-range.  If a non-zero size was specified for the  low  segment,
+the next question is:
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                          Page 5
+
+
+LOW SEG RESOLUTION?  2**
+
+The user should answer with a decimal number indicating the number  of
+words  in  a  group  which  will be counted together in the histogram.
+SNOOPY shifts the low segment size right by this  number  to  get  the
+size  of  the  low  segment  histogram.   (One  additional location is
+allowed for samples out of range.) The PC is divided by the resolution
+when  each  sample  is  taken  to  determine  the table location to be
+incremented.
+
+2.8 High segment size If  the  high  segment  name  specified  was  *,    ____ _______ ____
+questions continue at 2.9.  Otherwise, the next question is:
+
+HIGH SEG SIZE IN K?
+
+This question is answered in  the  same  way  as  2.7,  above.   If  a
+non-zero size is specified, the next question is:
+
+HIGH SEG RESOLUTION?  2**
+
+This question is analogous to the low seg resolution question in  2.7,
+above, and is answered in the same way.
+
+2.10 Monitor or UUO breakdown When the size and  resolution  questions     _______ __ ___ _________
+have been answered for a job or cusp, SNOOPY asks:
+
+FULL MONITOR BRKDWN, OR BY UUO?(U,M)
+
+This question allows the user to choose whether the time spent in  the
+monitor by a program is broken down by monitor addresses or by the UUO
+which invoked the monitor.  If UUO is chosen  (the  default),  monitor
+time  spent  for  the job is included in a histogram by UUO code, with
+CALLI broken down separately.  The questions continue at 2.13.
+NOTE:  Due to the mechanisms by which  re-scheduling  can  take  place
+during UUO processing, this option can cause UUO time to be attributed
+to a job which did not perform the UUO.  This time will ordinarily  be
+small,  but  the  user  should  not  be surprised to see certain UUO's
+(particularly HIBER, SLEEP, DAEMON, and I/O UUO's) attributed  to  the
+program being watched even though it has no such UUO's.  If MONITOR is
+chosen, monitor time spent for the job is broken down by address.
+NOTE:  The monitor symbol table is quite large (often  30K  or  more),
+and  TATTLE  must  have  it  entirely  in  core  to produce a symbolic
+histogram listing.  Obviously, this may  represent  a  restriction  to
+users  with small core configurations.  Therefore, TATTLE will produce
+a histogram by absolute address only if it is unable to get sufficient
+core  for the symbol table, and the user must refer to the load map to
+determine symbolic locations.
+
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                          Page 6
+
+
+2.11 Monitor size Unless the UUO breakdown option is chosen  in  2.10,     _______ ____
+above,  the  following question is asked for any choice on the initial
+question:
+
+MONITOR SIZE IN K?
+
+This question is answered in the same  way  as  2.7,  above.   If  the
+response is non-zero, the next question is:
+
+MONITOR RESOLUTION?  2**
+
+This question is analogous to the low seg resolution question in  2.7,
+above, and is answered in the same way.
+
+2.12 UUO timing If the response to the initial question  was  anything     ___ ______
+but  MONITOR,  the  dialog continues at 2.13.  If monitor snooping was
+selected, however, the next question is:
+
+WATCH UUO TIMES?(N,Y)
+
+If the user responds NO (the default), time spent in  the  monitor  is
+not broken down by UUO.  If the answer is YES, however, a histogram is
+built which breaks down monitor time by the UUO being serviced, with a
+separate table for CALLI.
+
+2.13 Clock to use The following question will always be asked next:     _____ __ ___
+
+USE DK10?(N,Y)
+
+If the user's response is NO (the  default),  the  line-frequency  APR
+clock  will  be  used  to define the sampling interval, and the dialog
+will continue at 2.14 (see note in 1.1).  If the answer  is  YES,  the
+next question will be:
+
+INTERVAL IN USEC'S?(200-1000000)
+
+The user must type  a  decimal  number  between  200  and  a  million,
+specifying  the  sampling interval in micro-seconds.  The smaller this
+number, the more samples will be taken,  but  the  system  performance
+will be degraded by the time spent sampling.
+
+2.14 Opcode breakdown The following question gives the user the option     ______ _________
+of  analyzing  opcode  usage,  unless  the  sampling is done on a KI10
+processor, in which case the dialog continues at 2.15:
+
+WATCH OPCODE USAGE?(N,Y)
+
+If the user answers NO (the default), dialog continues at 2.15.  A YES
+response  causes  a histogram of 9-bit opcodes to be built, displaying
+the time spent in the watched program by each instruction.
+
+2.15 Histogram file The next question is:     _________ ____
+
+OUTPUT FILE NAME?  DSK:
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                          Page 7
+
+
+The user may specify a file name  and/or  extension  to  override  the
+default (as defined above), or may type <CR> to use the default.
+
+2.16 Cycle time The next question is:     _____ ____
+
+CYCLE TIME?(MINUTES)
+
+The user may type 0 or just <CR> to specify that only one histogram is
+to be built, or he may type a decimal number which will be interpreted
+as the number of minutes during which SNOOPY  will  sample  before  it
+writes a histogram file, clears the tables, and resumes sampling.  The
+first file written has the name specified in 2.15, above.  Thereafter,
+characters  in  the  extension  are forced numeric, and incremented in
+decimal to 999, after which SNOOPY exits.  The user may stop SNOOPY at
+any time during a cycling run by typing <CR>.
+
+2.17 Starting sampling SNOOPY will type:     ________ ________
+
+DATA SIZE IS nnnn WORDS.
+TYPE COMMENTS<CR> TO GO:
+
+Where nnnn is the (decimal) size of the histogram, and represents  the
+minimum  usable  dimension of the array DATA in TATTLE.  Sampling will
+begin when the user types <CR>.  Before that, he may enter  up  to  50
+characters  of  comments,  which  SNOOPY  will  save  as  part  of the
+histogram file to be printed with the listing by TATTLE.  This  allows
+the  user  to  note the particular conditions under which the sampling
+was done, if any.
+
+2.18 Stopping SNOOPY SNOOPY will type:     ________ ______
+
+TYPE <CR> TO STOP:
+
+The user may type <CR> at any time to stop sampling and exit.   SNOOPY
+will write the histogram file to disk, and type:
+
+HISTOGRAM FILE file.ext WRITTEN
+WITH nn/mm SAMPLES.
+
+where mm is the total number of interrupts taken, and nn is the  total
+number  of samples included in the histogram.  This message is printed
+each time SNOOPY writes a file,  whether  in  single  or  cycle  mode.
+Typing  ^C's  while  SNOOPY  is  sampling  will  stop sampling without
+writing a histogram.  This is intended  as  an  emergency  abort,  and
+should not be used under ordinary circumstances.
+
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                          Page 8
+
+
+2.19 SNOOPY errors The following error messages may  be  generated  by     ______ ______
+SNOOPY:
+
+    ?TRAP LOC NOT A JSR
+            Attempting to setup for the APR clock, the  trap  location
+            for  the  APR  channel  was not a JSR instruction.  Should
+            never happen.
+    ?CANT DO TRPSET
+            The TRPSET UUO gave an  error  return,  indicating  either
+            that  the  user  did  not  have  TRPSET privileges, or the
+            monitor did not include the TRPSET feature.
+    ?TRAP LOC CHANGED!!
+            Should never happen.  The location  on  which  TRPSET  was
+            done has changed during setup.
+    ?CANT RESTART TIMESHARING
+            Should never happen.  SNOOPY was unable  to  restart  time
+            sharing after the TRPSET UUO.
+    ?CANT START DK10
+            Probably indicates there is no DK10 clock on  the  system.
+            After  attempting  to  start  it, SNOOPY found the run bit
+            off.
+    ?CANT INIT DISK
+            When trying to write the  histogram  file,  the  INIT  UUO
+            failed.
+    ?  ENTER FAILURE ON name.ext
+            The ENTER UUO failed  while  trying  to  write  the  named
+            histogram file.
+    SHUT DOWN
+            SNOOPY has trapped a monitor-detected  error  or  ^C,  and
+            disabled  the  interrupt  code.   SNOOPY  exits to monitor
+            mode.
+    ?SORRY, NEED PRIVILEGES
+            SNOOPY was run under a PPN without real-time trap and lock
+            privileges.
+    ?x UNKNOWN
+            The response "x"  is  not  recognized  as  valid  for  the
+            question.
+    ?CANT GET JBTPRG
+            GETTAB returned an  error  while  attempting  to  get  the
+            address of the monitor table JBTPRG.
+    ?CANT GET JBTSGN
+            Same as above, except JBTSGN table.
+    ?CANT GET JBTADR
+            Same as above.
+    ?CANT GET CORE
+            SNOOPY was unable to get  sufficient  core  to  build  the
+            histogram tables.
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                          Page 9
+
+
+            ?CANT LOCK
+            The LOCK UUO gave an error return.
+    ?CANT GET USER IO MODE
+            An RTTRP UUO which attempted to get user I/O mode  failed.
+            Probably  indicates  that  the  monitor  does not have the
+            RTTRP feature.
+    ?  APR PRIORITY TOO LOW
+            The APR clock is assigned  to  a  lower  priority  (higher
+            channel number) than the interrupt channel to be watched.
+    ?  APR CLOCK UNASSIGNED
+            Should never happen.  The conditions read by a  CONI  APR,
+            returned a PI assignment of zero.
+    ?CANT GET A CHANNEL
+            SNOOPY was unable to place  itself  on  a  appropriate  PI
+            channel by using the RTTRP UUO.
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                         Page 10
+
+
+    3.0 Using TATTLE TATTLE requires a symbol table for  each  program        _____ ______
+    on which SNOOPY did a PC breakdown in expanded save (.XPN) format.
+    For the  monitor,  this  usually  exists  as  SYS:SYSTEM.XPN.   An
+    appropriate  file  can  be  created  for any cusp by the following
+    command sequence, where "cusp" represents the name of the cusp:
+
+    LOAD %S%B cusp ;INCLUDE ANY NECESSARY SUBROUTINES
+    SAVE cusp
+    R FILEX
+    cusp.XPN_cusp.SAV ;USE .LOW INSTEAD OF .SAV
+                      ;IF 2-SEG PROGRAM
+
+    3.1 Running TATTLE When expanded files have been created for  each        _______ ______
+    cusp on which snooping was done, assign LPT:  or spool it, and run
+    TATTLE.  It will ask:
+
+    HISTOGRAM FILE:
+
+    The user should respond  with  the  name  of  the  histogram  file
+    written  by  SNOOPY  (defaults  are  DSK:MONITR.HST).  TATTLE will
+    print the symbolic histogram listing, and return to the  question.
+    When all desired files have been processed, type <CR> to return to
+    monitor mode.
+PROGRAM SPECIFICATION -- SNOOPY/TATTLE                         Page 11
+
+
+    3.2 TATTLE Errors The following error messages may be  printed  by        ______ ______
+    TATTLE:
+
+    ?CANT INIT
+    HISTOGRAM FILE:
+            The  INIT  UUO  failed  when  TATTLE  tried  to  read  the
+            histogram file.
+    ?CANT LOOKUP
+    HISTOGRAM FILE:
+            The LOOKUP UUO  failed  when  TATTLE  tried  to  read  the
+            histogram file.  Type the device, filename, extension, and
+            PPN of the histogram file.
+    ?CANT INIT dev
+    WHERE IS EXPANDED FILE?
+            The INIT UUO failed when TATTLE was  trying  to  read  the
+            symbol   table.   Type  the  file  specification  for  the
+            expanded file containing the symbol table, or <CR> to list
+            the histogram without symbols.
+    ?LOOKUP FAILURE ON dev:file.ext
+    WHERE IS EXPANDED FILE?
+            The LOOKUP UUO failed when TATTLE tried to read the symbol
+            table.  Respond as above.
+    ?CANT FIND SYMBOL TABLE IN dev:file.ext
+    WHERE IS EXPANDED FILE?
+            The file in which TATTLE expected to find the symbol table
+            does not have one.  Respond as above.
+    ?INSUFFICIENT CORE TO READ dev:file.ext SYMBOL TABLE
+            The symbol table of the specified file is too big  to  fit
+            in  the  available  core.   The  listing  of the histogram
+            continues without symbols.
+    HISTOGRAM FILE FORMAT IS INCORRECT
+            The specified histogram file is not in the proper  format.
+            This  may  be  due  to  different  versions  of SNOOPY and
+            TATTLE, or may be caused by specifying the wrong  file  to
+            TATTLE.
+    HISTOGRAM FILE IS TOO BIG.  ENLARGE DATA TO nnnn
+            The histogram file is larger than  the  space  allowed  in
+            TATTLE  for it.  Change the dimension of the array DATA in
+            TATTLE to at least the number  given.   (also  change  the
+            call to RHIST at statement 100, and the IF statement about
+            14 lines below it.)
+
+    [END OF SNOOPY.DOC]

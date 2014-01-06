@@ -1,0 +1,473 @@
+
+
+
+     DOC file for GALAXY version 5
+
+     COPYRIGHT (C), 1984, DIGITAL EQUIPMENT CORPORATION
+
+
+
+     1.0  SUMMARY
+
+     GALAXY version 5 is  a  release  primarily  aimed  at  supporting
+     changes  in  TOPS-20  version  6.  The major areas include QUEUE%
+     JSYS support, CI support, CFS  support  and  password  encryption
+     support.   Due  to  these needs, a significant amount of work was
+     also done to MOUNTR to improve its internal operations.  Finally,
+     GALAXY 5 also contains published changes to GALAXY 4.2.
+
+
+
+     2.0  QUEUE% JSYS SUPPORT
+
+     This release has  a  new  mechanism  for  sending  certain  queue
+     requests and operator messages to GALAXY components under program
+     control.  For further information see the Monitor Calls Reference
+     manual.
+
+
+
+     3.0  SYSTEM INFORMATION MESSAGES TO OPR
+
+     The first use of the QUEUE% JSYS is by the  monitor  which  sends
+     BUGCHK,  BUGINF,  and system messages to ORION/OPR.  In addition,
+     output  of  these  classes  of  messages   can   be   selectively
+     enabled/disabled with new ENABLE/DISABLE OUTPUT-DISPLAY options.
+
+
+
+     4.0  MOUNT/DISMOUNT STRUCTURES
+
+     With CFS, structures may be used by more than one system.   As  a
+     result, there are more possible states of a particular structure.
+     Some examples include:
+
+      o  A  structure  can  be  mounted  by  all  systems  in  a   CFS
+         configuration.
+
+      o  A structure can be mounted  by  only  one  system  in  a  CFS
+         configuration.
+
+      o  It may be desirable to remove a structure  from  use  by  one
+         system  in  a  CFS  configuration while leaving the structure
+         available for use by other systems in a CFS configuration.
+
+      o  It may be desirable to remove a structure physically  from  a
+         CFS configuration.
+
+                                                                Page 2
+
+
+     Additional functions have been added to OPR to  aid  in  managing
+     these states.
+
+
+
+     4.1  MOUNT
+
+     There is now a MOUNT STRUCTURE FOO:  command  available  in  OPR.
+     Its  behavior  is  different  from the user mount command in some
+     respects.  It does not increment the mount count.   It  does  not
+     cause  a specific request to be made of the operator to mount the
+     structure.  Its actions are:
+
+     1.  If the structure is not available to the  system,  i.e.   not
+         physically  mounted  or explicitly set unavailable, it sets a
+         pending request.  When the structure becomes available, it is
+         mounted.
+
+     2.  If the structure is "being dismounted", it clears that state.
+
+     3.  If the structure is then available to be mounted,  the  mount
+         is be performed.
+
+
+
+
+     4.2  OPR>DISMOUNT With REMOVAL/NO-REMOVAL
+
+     OPR>DISMOUNT with REMOVAL is to perform the  action  in  previous
+     releases, i.e.  dismount and physically remove the structure from
+     the system.  REMOVAL is now an option to the  DISMOUNT  STRUCTURE
+     command  in  OPR.  In a non-CFS environment, the command performs
+     as in the past.  In a  CFS  configuration,  the  removal  has  an
+     additional  step.  This is because the structure may be in use by
+     another system.  As a result, MOUNTR on the system performing the
+     request  internally  attempts  to  set the structure exclusive to
+     this system (more  on  exclusive  later).   If  successful,  then
+     MOUNTR  on  this system has complete control of the structure and
+     can ask the operator to remove the structure safely.   If  MOUNTR
+     is unable to set the structure exclusive to this system, then the
+     operator is asked to dismount the structure from other systems in
+     the  CFS  configuration  with  no-removal.   After  that  task is
+     accomplished, the  operator  returns  to  the  first  system  and
+     indicates  proceed.  When MOUNTR believes it has complete control
+     of the structure, the dismount will be completed and the operator
+     (through OPR) will be instructed to remove the structure.
+
+     Dismount with NO-REMOVAL is the new action.  Due to CFS it may be
+     desirable  to dismount a structure from a system without removing
+     the structure (That is, halt one system's use of  the  structure)
+     thus allowing another system in the CFS configuration to continue
+     using the structure and/or gain complete control of the structure
+     (exclusive).   This function is required to support dismount with
+     removal in CFS.  In the NO-REMOVAL case,  the  operator  will  be
+     informed  that the structure has been dismounted from this system
+                                                                Page 3
+
+
+     but the structure is not to be  removed  (since  other  users  on
+     another   system  may  be  actively  using  the  structure).   In
+     addition, the structure cannot be used  from  this  system  until
+     either  the structure has been removed (through action by another
+     system in the  CFS  configuration)  or  the  structure  has  been
+     mounted  with the OPR>MOUNT STRUCTURE FOO:  command.  This action
+     of preventing furtuer use also occurs in the remove case  if  the
+     structure is not physically removed.
+
+
+
+     4.3  Default Actions With Dismount
+
+     If no option is given, and if the system is not  part  of  a  CFS
+     configuration,  the DISMOUNT STRUCTURE command proceeds as in the
+     past and the structure processing requests the operator to remove
+     the structure.  If however, the system is determined by MOUNTR to
+     be part of a CFS configuration, the default  is  NO-REMOVAL.   In
+     the  case  of  the  user dismount request, the action of the EXEC
+     DISMOUNT STRUCTURE /REMOVE command is the same  as  the  operator
+     DISMOUNT   REMOVAL   command   with   the  additional  action  of
+     decrementing the mount count for the structure.
+
+
+
+     5.0  NEW STRUCTURE ATTRIBUTE EXCLUSIVE/SHARED
+
+     With CFS a structure can be set to be available  to  one  system.
+     If a structure is set this way with the OPR command SET STRUCTURE
+     FOO:  EXCLUSIVE, only users on the system where  the  command  is
+     executed  are  able  to access the structure.  SET STRUCTURE FOO:
+     SHARED allows either system in the CFS configuration to  use  the
+     structure.   Note  that the set structure exclusive command fails
+     if the system is unable to get it  exclusive,  i.e.   if  another
+     system  is  already  using  the  structure.   In  that  case, the
+     structure must be  dismounted  with  no-removal  from  the  other
+     system  before  the SET STRUCTURE EXCLUSIVE command is allowed to
+     succeed.
+
+     Note that this exclusive to system is different from the previous
+     to  release  6  attribute exclusive to job.  The exclusive to job
+     attribute is used/has been used by CHECKD to maintain control  of
+     a  structure  during  certain  operations.   The exclusive to job
+     attribute has a CFS wide effect, that is, no other system in  CFS
+     will be able to use the structure.  GALAXY offers no control over
+     the exclusive to job attribute.
+                                                                Page 4
+
+
+     6.0  STATIC STRUCTURE ATTRIBUTES
+
+     The way structure attributes are managed has been changed.   When
+     a  structure attribute is set through an OPR command (such as SET
+     STRUCTURE FOO:  DOMESTIC), the structure retains  that  attribute
+     across   system  crashes.   This  information  is  maintained  in
+     SYSTEM:DEVICE-STATUS.BIN by MOUNTR.
+
+
+
+     6.1  MOUNTR.CMD
+
+     Since MOUNTR maintains the structure  attributes  in  a  separate
+     file,  MOUNTR.CMD is no longer supported or referenced by MOUNTR.
+     It is however, reasonable to take the  information  contained  in
+     MOUNTR.CMD  and convert it into an OPR command file.  This can be
+     used for a starting point should some disk failure occur  causing
+     the DEVICE-STATUS.BIN file to be damaged.
+
+
+
+     6.2  OPR>SHOW STATUS STRUCTURE Display
+
+     All of the structure  information  has  been  moved  into  a  new
+     structure   display.    This  was  particularly  needed  since  a
+     structure can now have attributes assigned to it  whether  it  is
+     currently   mounted   or   not.    There   are   three  switches,
+     /ALL(default), /MOUNTED and /UNMOUNTED.  For each structure,  the
+     following information is provided:
+
+      o  Structure alias
+
+      o  Structure name (if mounted)
+
+      o  Mount state
+
+      o  Mount count (if mounted)
+
+      o  Open file count (if mounted)
+
+      o  Status - Avail, Unavail or Ignored
+
+      o  Shared/Exclusive access
+
+      o  Domestic/Foreign access
+
+      o  Regulated/Unregulated
+
+     Note that the data base is keyed off the  structure  alias  only.
+     As  a result, mounting any structure name with a particular alias
+     gives that disk pack  the  correct  attributes.   Attributes  are
+     associated only with the alias.  Also, since the public structure
+     cannot  have  the  domestic/foreign   and   regulated/unregulated
+     attributes  changed,  those fields are overwritten with a message
+     indicating the structure is the primary public structure.
+                                                                Page 5
+
+
+     6.3  OPR>SHOW STATUS STRUCTURE FOO:  Display
+
+     In  addition  to  displaying  multiple  structures,  it  is  also
+     possible  to  display  only  a  single structure.  In addition to
+     containing a single line with headers from the normal SHOW STATUS
+     STRUCTURE  display,  a number of other items are included.  Lines
+     containing a partial SHOW STATUS DISK display, which contains the
+     packs  of  the structure is included.  Also included is a list of
+     users that have currently MOUNTed, ACCESSed, or CONNECTed to this
+     structure.  This display should contain sufficient information to
+     make decisions about the structure.
+
+
+
+     6.4  OPR>UNDEFINE STRUCTURE
+
+     Even though  structure  information  is  not  deleted  due  to  a
+     structure  dismount,  it  may be desirable to remove a particular
+     structure from the structure data base.   (Dropped  pack  on  the
+     floor,  gone  forever)  To  accomplish this, use the OPR>UNDEFINE
+     STRUCTURE foo:  command.  It removes all  information  about  the
+     structure  and  its  attributes  from  MOUNTR's  data base.  This
+     command fails if the structure is currently in use.
+
+
+
+     7.0  NEW OPR>SHOW STATUS DISK-DRIVE DISPLAY
+
+     This command now presents a reorganized display.  The  left  half
+     of  the  display  concerns  the  status of the disk drive and the
+     right half concerns the status of the disk pack contained on  the
+     drive.  Much of the structure specific information has been moved
+     to the SHOW STATUS STRUCTURE display.
+
+     The drive information contains the type of drive, the path to the
+     drive  (channel,  controller,  unit), and the status of the drive
+     (avail/unavail).   Note  that   this   available/unavailable   is
+     different  from  a  structure available/unavailable.  If the disk
+     drive is unavailable, any structure pack mounted  on  that  drive
+     causes   the  entire  structure  to  be  unusable.   A  structure
+     unavailable (indicated in  the  SHOW  STATUS  STRUCTURE  display)
+     indicates  the structure is unavailable no matter where the packs
+     for the structure are placed.
+
+     The disk pack information in  the  display  contains  information
+     regarding  the  use  of  the  pack.  The mount status (mounted or
+     offline), and mount count and the name of the pack  are  included
+     as  in  the past.  The usage options only contain attributes that
+     may impact use of the disk pack (exclusive, unavailable,  ignored
+     and alias if different from pack name).
+                                                                Page 6
+
+
+     In addition to the normal  display,  there  are  some  additional
+     lines that may be included as needed:
+
+      o  Channel 7 indicates CI channel
+
+      o  (*)  indicates  potential  external  port  -   This   message
+         indicates  there are massbus disk drives that are dual ported
+         and  have  the  port  switch  in  the  dual  position.   This
+         information is important if this is a CFS configuration.
+
+
+
+
+     8.0  MOUNTR ENFORCEMENT OF STRUCTURE ATTRIBUTES
+
+     A significant  behavior  change  is  MOUNTR's  use  of  structure
+     attribute  information.   In  previous  releases,  MOUNTR  simply
+     accepted the state of a structure as presented  by  the  monitor.
+     With  this  release,  MOUNTR  maintains  its  own  data  base and
+     enforces structure and disk attributes  where  appropriate.   For
+     example, if MOUNTR detects that structure FOO is domestic when it
+     is to be foreign, MOUNTR  corrects  the  attribute,  as  well  as
+     notifying  the operator of the event and change.  There are three
+     exceptions:
+
+     1.  If the structure is supposed to be exclusive and has been set
+         shared  through  some  other means, MOUNTR will try to return
+         the structure to exclusive.  But another system  may  already
+         be using the structure so MOUNTR may fail in the attempt.  In
+         any case, the operator is notified.
+
+     2.  If a structure is mounted or dismounted by some other  means,
+         MOUNTR  only  notes  the  event  and  notifies  the operator.
+         Dismounting a structure mounted by  some  other  means  could
+         have a serious effect.
+
+     3.  If a structure is set ignored MOUNTR  notes  changes  in  the
+         state  of  the  structure  but makes no attempt to change the
+         state of the structure until set acknowledged.
+
+
+
+
+     9.0  MINOR CHANGES TO OPR
+
+     9.1  OPR>PUSH Command
+
+     OPR now obtains an EXEC using  the  logical  name  "DEFAULT-EXEC"
+     which permits users to identify their own EXECs.
+                                                                Page 7
+
+
+     9.2  OPR>SET TERMINAL TYPE Command
+
+     Rather than continuing  to  update  this  command  with  the  new
+     terminal  types,  support  for this command is being dropped with
+     this release.  The command as it exists has  been  set  invisible
+     thereby  allowing  previous  use  to  continue.   The  EXEC has a
+     complete set of commands for setting terminal attributes.
+
+
+
+     9.3  OPR>SET DISK-DRIVE AVAILABLE/UNAVAILABLE Command
+
+     An optional controller field has been added to  this  command  to
+     allow  control  of  disks  that  have  explicit  controllers.  If
+     ommitted, channel and drive are sufficient and  work  as  in  the
+     past.
+
+
+
+     10.0  VERSION NUMBERS ETC.
+
+     A number of changes have been made in the version numbers and the
+     edit numbers of GALAXY components.
+
+
+
+     10.1  Version Numbers
+
+     To eliminate some confusion that has existed, the  major  version
+     number  of  all  GALAXY  components  has  been standardized.  The
+     following table shows the version number changes:
+
+     Component  old version     new version
+     ---------  -----------     -----------
+     QUASAR             4               5
+     ORION              4               5
+     OPR                4               5
+     GLXLIB             1               5
+     CDRIVE             1               5
+     LPTSPL             104             5
+     SPROUT             4               5
+     SPRINT             104             5
+     PLEASE             104             5
+     MOUNTR             5               5       Already version 5!
+     GALGEN             5               5       Already version 5!
+     BATCON             104             5
+
+
+
+     10.2  Edit Numbers
+
+     With this release, all modules (.MAC files) have their  own  edit
+     numbers.   The  edit  number of a process is generally the sum of
+     the edit numbers of the modules used to build the component.   In
+     addition,  the  mechanism  to  manage that has been standardized.
+                                                                Page 8
+
+
+     One ramification is that GLXVER has been eliminated with the edit
+     information returned to the respective .MAC files.
+
+     Each  module  has  2  edit  numbers.   One  edit  number,  xxxMAN
+     generally  contains  the highest 4.2 edit number.  The other edit
+     number, xxxDEV contains the version 5  number.   This  shows  the
+     number   of  maintenance  edits  that  have  been  applied  to  a
+     particular component  even  while  we  continue  development  and
+     manage a second set of edits.  The actual edit number of the .MAC
+     file is xxxEDT which  is  the  greater  of  the  other  two  edit
+     numbers.
+
+
+
+     10.3  Version Vector
+
+     Now that we have all these neat edit numbers floating around,  we
+     have   produced   a   simple  vector  that  quickly  enables  the
+     determination of the versions of the components used to produce a
+     particular GALAXY component.  The vectors are made up of two word
+     entries that contain the name of the macro file used in sixbit in
+     the  first  word, and the edit numbers in the form xxxMAN,,xxxDEV
+     in the second word of the entry.  For example, OPR  contains  its
+     vector  at  OPRVEC  and  contains  two  word  entries for GLXMAC,
+     ORNMAC, OPR, OPRPAR, OPRCMD and NCPTAB.  The components  and  the
+     names for their vectors are:
+
+     Component        Vector Name
+     ---------        -----------
+     OPR              OPRVEC
+     ORION            ORNVEC
+     QUASAR           QSRVEC
+     BATCON           BATVEC
+     LPTSPL           LPTVEC
+     CDRIVE           RDRVEC
+     SPRINT           SPTVEC
+     SPROUT           SPOVEC
+     MOUNTR           MTRVEC
+     PLEASE           PLSVEC
+     GLXLIB           GLXVEC
+
+
+
+     11.0  SYSTEM PROCESSES
+
+     The following GALAXY processes are now set  to  system  processes
+     for scheduling purposes:  QUASAR, ORION, BATCON and LPTSPL.  This
+     should provide more consistant service from these components.  In
+     addition, any process with sufficient privileges using GLXLIB can
+     set itself as a  system  process  with  the  bit  IB.SYS  in  the
+     initialization  block  flag  word  (IB.FLG).  This bit causes the
+     process to be set as system process (JP%SYS)  unless  part  of  a
+     private  world.   Its use depends on the setting of the debugging
+     bits.  See next section.
+                                                                Page 9
+
+
+     12.0  PRIVATE WORLD CHANGES
+
+     The use of the debugging word (DEBUGW, location 135) has  changed
+     with  GALAXY  5.   In the past, setting DEBUGW to non-zero caused
+     the GALAXY component to be treated as a private world.  This  has
+     not changed.  What has changed is that the bits in DEBUGW can now
+     have specific meanings.  The QUEUE% JSYS permits only one user to
+     become  the debugging user of the JSYS.  There is a bit in DEBUGW
+     that sets this private world as the debugging user.   Note,  that
+     this  changes  the  use of private worlds somewhat since only one
+     user may use a GALAXY debugging world to work on the QUEUE  JSYS.
+     Also,  it  may  be  desirable  to  allow  a  private world to set
+     components to system processes overriding the default conditions.
+     There  is also a bit to support this.  The following bits are now
+     defined for DEBUGW.  Note that -1 in DEBUGW  gets  the  user  all
+     functions.
+
+      o  DB.IPC -- use the system wide debugging  PIDs  (for  QUEUE%).
+         (1B0)
+
+      o  DB.SYS -- set as a system process if indicated by IB.  (1B1)
+
+      o  DB.NOR -- normal debugging world.  (1B35)
+
+
+
+     [END OF GALAXY.DOC]
+  

@@ -1,0 +1,446 @@
+                             MIC Help File
+                             -------------
+
+                               8-May-1980
+                               ----------
+
+        1.0     SUMMARY  . . . . . . . . . . . . . . . . . . . . . . 1
+        2.0     COMMAND FORMAT . . . . . . . . . . . . . . . . . . . 1
+        2.1       @DO (/optional-switches) Command-file Parameters . 1
+        2.2       @KMIC  . . . . . . . . . . . . . . . . . . . . . . 1
+        2.3       @GOTO Label  . . . . . . . . . . . . . . . . . . . 1
+        2.4       @BACKTO Label  . . . . . . . . . . . . . . . . . . 1
+        2.5       @ERROR Ch  . . . . . . . . . . . . . . . . . . . . 1
+        2.6       @NOERROR . . . . . . . . . . . . . . . . . . . . . 1
+        2.7       @OPERATOR Ch . . . . . . . . . . . . . . . . . . . 1
+        2.8       @NOOPERATOR  . . . . . . . . . . . . . . . . . . . 1
+        2.9       @IF (ERROR) And @IF (NOERROR)  . . . . . . . . . . 1
+        3.0     MIC COMMAND FILE FORMAT  . . . . . . . . . . . . . . 1
+        3.1       Special Characters . . . . . . . . . . . . . . . . 1
+        3.2       Control Characters . . . . . . . . . . . . . . . . 1
+        3.3       Labels . . . . . . . . . . . . . . . . . . . . . . 1
+        4.0     INTERACTING WITH MIC . . . . . . . . . . . . . . . . 1
+        4.1       Suspending A MICRO . . . . . . . . . . . . . . . . 1
+        4.2       Continuing A MICRO . . . . . . . . . . . . . . . . 1
+        4.3       Aborting A MICRO . . . . . . . . . . . . . . . . . 1
+        4.4       Single Stepping A MICRO. . . . . . . . . . . . . . 1
+        5.0     INFORMATION, WARNING AND ERROR MESSAGES. . . . . . . 1
+        5.1       Information, Warning And Error Messages From MIC.  1
+        5.2       Information, Warning And Error Messages From EXEC. 1
+
+
+
+1.0  SUMMARY
+
+MIC (Macro Interpreted Commands) provides  the  TOPS-20  user  with  a
+method  of storing command files on the disk and having them performed
+on his terminal.  It provides more capability than the  standard  TAKE
+command, in that it can have user input as well as EXEC commands.
+
+The format of the command file is similar to that of a  batch  control
+file.   That  is  to  say  that  it uses the "@" character to indicate
+command lines and "*" to indicate user input.  In addition it provides
+a  means  of substituting parameters at "execution" time.  The command
+file has parameter calls embedded within it and the actual values  are
+supplied by the user when he invokes the macro.
+
+
+
+2.0  COMMAND FORMAT
+
+2.1  @DO (/optional-switches) Command-file Parameters
+
+Where:
+
+/optional-switches are:
+
+     1.  /SUPPRESS:YES - suppress the end of file message
+
+     2.  /SUPPRESS:NO - does not suppress  the  end  of  file  message
+         (default)
+
+     3.  /LABEL:label - start processing MIC file at label "label"
+
+
+Command-file:  is the name of the MIC file containing  EXEC  and  user
+input.
+
+Parameters:   is  a  list  of  parameters  separated  by  commas   and
+terminated  by  a  carriage-return.   Commas  may  be  included  in  a
+parameter by using the braces { and }, e.g.  {a,b}  is  one  parameter
+with the value a,b.
+
+MIC commands can be nested by simply including a "DO"  command  within
+the  outer  macro.   Note:   the  nested  command  file  will  have  a
+completely new set of parameters and will not have  direct  access  to
+the previous set.  This means that any parameters of the outer command
+file which need to be accessed by the inner  macro  will  have  to  be
+passed as parameters in the "DO" command.
+
+At the termination of a MIC macro (or the outer macro if  several  are
+nested), MIC will print the message:
+
+          [MICEMF - End of MIC File:  FILE.TYP.GEN]
+
+where FILE.TYP.GEN is the filename used in the "DO" command.
+
+This message can be suppressed by the /SUPPRESS:YES switch.
+
+
+
+2.2  @KMIC
+
+Kills MIC processing.  Closes all open MIC files  and  kills  the  MIC
+fork.
+
+
+
+2.3  @GOTO Label
+
+Causes MIC to search for the label  "label"  and  continue  processing
+from  that point.  MIC will only search forward from the current point
+in the MIC file.  This command is usually  contained  within  the  MIC
+file but may be typed by the user during a MIC "break".
+
+
+
+2.4  @BACKTO Label
+
+Causes MIC to search for the label "label" from the beginning  of  the
+MIC file.  Otherwise acts the same as @GOTO.
+
+
+
+2.5  @ERROR Ch
+
+Causes MIC to watch for errors.  An  error  is  indicated  by  a  line
+starting with either the character "ch" or a "?".  The default "ch" is
+non is typed is "?".
+
+What happens when an error occurs depends  on  the  next  monitor-mode
+line  (i.e.  "@" line) in the MICRO.  If the next monitor-mode line is
+a @IF command (see below), it is obeyed.  Otherwise, MIC searches  for
+either  a  %ERR::   or  a  %FIN::   label  in  the MICRO and continues
+executing from there.
+
+
+
+2.6  @NOERROR
+
+Causes mic to stop looking for errors.  Any line starting with  a  "?"
+is  not  taken  as  an  error.   This  is  the default when a MICRO is
+started.  Note:  this is different from Batch where @ERROR ?   is  the
+default.
+
+
+
+2.7  @OPERATOR Ch
+
+Causes MIC to treat any output line starting with "ch" to  be  treated
+as  an  "operator"  line.  When the first occurance of "ch" is seen at
+the start of an output line, MIC puts itself into "break"  state  (see
+below).   The  user  may  now  type characters to EXEC or to a program
+without having to worry about interference  from  MIC.   A  subsequent
+line  having "ch" as its first character will automatically cancel the
+"break".  This will repeat on the third and fourth occurances  and  so
+on.  The default "ch" is none is supplied is "$".
+
+
+
+2.8  @NOOPERATOR
+
+This causes MIC to  stop  treating  any  character  as  an  "operator"
+character, and is the default mode when a MICRO is started.
+
+
+
+2.9  @IF (ERROR) And @IF (NOERROR)
+
+These two commands are used to check whether an error has  occured  or
+not.   An  error  occurs whenever an @ERROR command has been given and
+either the special character or a "?" appears as the  first  character
+of  an  output  line.  If the first monitor-mode command following the
+error is an @IF command, it will be interpreted.
+
+How the @IF command is interpreted is described below:
+
+
+Statement       Error Condition True    Error Condition False
+---------       ----- --------- ----    ----- --------- -----
+
+@IF (ERROR)     Remainder of line will  Remainder of line will
+                be executed             not be executed
+
+@IF (NOERROR)   Remainder of line will  Remainder of line will
+                not be executed         be executed
+
+The execution of the remainder of the line will depend on what that is
+contained  there.  Effectively, the first non-space, non-tab character
+following the ")" is considered to be in the first column of the input
+line, so the characters "@", "*", "=", "!", and ";" have their special
+effect.  Typically the remainder of the line  will  contain  either  a
+@GOTO, a @BACKTO or nothing (to simply ignore the condition).
+
+
+
+3.0  MIC COMMAND FILE FORMAT
+
+3.1  Special Characters
+
+The MIC command file (or MICRO) is similar to a batch .CTL file.   The
+special  characters  have  the same meaning as they do in a batch .CTL
+file.  Thus  the  following  characters  have  the  following  special
+meaning  when  they  appear  in  the first column of the input file or
+immediately after a label:
+
+     1.  @      This  indicates  monitor  mode.   MIC  will  force   a
+         control-C  if  necessary  to ensure that the remainder of the
+         line is "typed" to EXEC.
+
+     2.  *      This indicates the rest of the line is to be typed  to
+         a user program.  MIC will NOT type a CONTINUE if currently in
+         monitor (or EXEC) mode.
+
+     3.  =      This suppresses the <CR><LF> at the end of the line.
+
+     4.  !      This indicates a comment.  The rest of the  line  will
+         be  displayed  to the terminal but will not be "typed" to any
+         program or to the EXEC.
+
+     5.  ;      This is an alternative comment.  It acts the  same  as
+         the !.
+
+
+If the character is repeated, it has acts as if only one character had
+appeared;   thus  @@  will  cause  a  single @ to be "typed" to a user
+program or to the EXEC.
+
+
+
+3.2  Control Characters
+
+The following characters have special meaning wherever they appear  in
+the MICRO:
+
+     1.  ^      This character when followed by either  an  alphabetic
+         character  or  one of the special characters "\", "[", "]" or
+         "_" causes the appropriate control character to be generated.
+         If  followed  by  a  single  "^"  it cause the up-arrow to be
+         generated.  If followed by "^^" it causes a control-^  to  be
+         generated.   If  it  is followed by any other character it is
+         treated as a normal character.
+
+     2.  '      This character signifies parameter  substitution.   If
+         it  is  followed  by  an  alphabetic  character it causes the
+         appropriate parameter from the original @DO command  line  to
+         be  substituted,  where  'A  is  the first parameter, 'B, the
+         second, and so on.  If the "'" is followed by a  second  "'",
+         then  a  single "'" is typed.  If it is followed by any other
+         character, it is treated as a normal character.
+
+
+
+
+3.3  Labels
+
+Labels may appear on any line of a MICRO.  They have the format:
+
+	label::text
+
+where label may consist of any combination of alphanumeric  characters
+or   the   "%"  character  and  only  the  first  six  characters  are
+significant.  "Text" is any text to be typed to a user program  or  to
+the EXEC.  The first character of "text" is considered to be in column
+one so the characters "@", "*" "=", "!" and  ";"  have  their  special
+meanings.   If  there is no text on the line a single ":" will suffice
+to terminate the label.  Note:  if there are two colons (":")  but  no
+text, a blank line will be typed to the user program or EXEC.
+
+
+
+4.0  INTERACTING WITH MIC
+
+It is possible to interact with MIC in a limited fashion.  A MIC macro
+can be suspended, continued or aborted.
+
+
+
+4.1  Suspending A MICRO
+
+A macro can be suspended by typing a Control-B (^B).  A Control-B will
+suspend  the current MIC macro (and any outer macros) and place MIC in
+a "break" state.  I.e.  no more commands from the control file will be
+"typed".   MIC  will  indicate that it will no longer type by printing
+the message:
+
+          [MICBRK - MIC is breaking]
+
+on the users terminal.  During a "break"  state,  the  user  can  type
+commands  and/or  user  input without having to worry about MIC typing
+anything.  Note:  if MIC is not in a "break" state, the user can still
+type  characters ahead but input from the user and input from MIC will
+be mixed in an undefined way if the  terminal  is  in  an  input  wait
+state.
+
+
+
+4.2  Continuing A MICRO
+
+A suspended MIC macro can be continued by typing a Control-P (^P).  To
+indicate that MIC will now type, it prints the message:
+
+          [MICPRC - MIC is proceeding]
+
+on the users terminal and will continue from the point  in  the  macro
+file  at  which  it was suspended (unless the user has given a GOTO or
+BACKTO command).
+
+
+
+4.3  Aborting A MICRO
+
+A MIC macro can be aborted at any time by the use of a Control-A (^A).
+On intercepting this control character MIC will display the message:
+
+          [MICABT - MIC is aborting]
+
+on the user's terminal and will close the current file without  typing
+any  more.   Note:   a Control-A will only terminate the current macro
+file.  It will not affect any outer macro  in  process  so  if  it  is
+desired  to  abort all macros in progress it would be necessary either
+to use a Control-A to abort each level or, alternatively, to  use  the
+"KMIC" command to kill MIC completely.
+
+Note:  If MIC is in a "break" state when a  Control-A  is  typed,  the
+next  outer macro will be automatically placed in the "break" state as
+well.
+
+
+
+4.4  Single Stepping A MICRO.
+
+During a "break" state, it is possible to execute  single  lines  from
+the MICRO by typing a Control-X (^X).  Each time a Control-X is typed,
+the next line from the MICRO will be executed.
+
+
+
+5.0  INFORMATION, WARNING AND ERROR MESSAGES.
+
+5.1  Information, Warning And Error Messages From MIC.
+
+There are a few messages which may  be  output  by  MIC  (rather  than
+EXEC).  These are documented below:
+
+     1.  [MICFES - %FIN::  Encountered while Searching for %ERR::]
+
+         This message will be printed if an error  occured,  the  next
+         monitor-mode  line  was  not an @IF command and a %FIN::  was
+         encounter before a %ERR::.  MICRO execution will proceed from
+         the %FIN::  line.
+
+     2.  %MICCGP - Couldn't get a PTY
+
+         This error message will appear if either  a  @ERROR ch  or  a
+         @OPERATOR ch  command  has  been  given, and MIC is unable to
+         find a PTY to log output in order to check for  thhe  special
+         characters on output.
+
+         The MICRO will  continue  to  be  executed,  but  errors  and
+         operator responses will not be trapped.
+
+     3.  %MICICL - Illegal character in label - Command ignored
+
+         This message will appear if an illegal character appears in a
+         @GOTO  or a @BACKTO command interpreted by MIC (as opposed to
+         EXEC).  The command will be ignored.
+
+     4.  %MICUIC - Unimplemented Command:  "error line"
+
+         This message will be printed if a  Batch  command  which  MIC
+         cannot   implement  is  found  in  the  MICRO.   The  current
+         unimplemented Batch commands are:  CHKPNT, MESSAGE,  REQUEUE,
+         REVIVE and SILENCE.
+
+         Note:  the Batch command @PLEASE is  implemented  by  running
+         the PLEASE program.
+
+     5.  ?MICPND - Parameters Nested too Deeply - Aborting
+
+         This error message means that a  parameter  call  has  nested
+         (perhaps  by  calling  itself)  beyond  the  limit  allowed -
+         currently 40 deep.
+
+     6.  ?MICFEF - Found End of File While Searching For "label"
+
+         This error message is given if the label given in a  GOTO  or
+         BACKTO command cannot be found in the file.
+
+     7.  ?MICFEF - Found End of File while searching  for  %ERR::   or
+         %FIN::
+
+         This variation on the above message is given  when  an  error
+         line has been output, the next monitor-mode command was not a
+         @If command and MIC cannot find either a %ERR::  or a  %FIN::
+         label in the MICRO.
+
+     8.  ?MICIIC - Invalid IF Condition:  "error line"
+
+         This error message will be  printed  if  an  @IF  command  is
+         neither  a  @IF (ERROR)  or  a @IF (NOERROR) command.  "Error
+         line" is the line in error.
+
+     9.  ?MICJSE - JSYS Error:
+
+         This is a general trap for unexpected  errors.   It  will  be
+         followed  by  some diagnostic from the monitor indicating the
+         cause of the error.
+
+
+
+
+5.2  Information, Warning And Error Messages From EXEC.
+
+There are some messages which are output by  EXEC  when  handling  MIC
+commands:
+
+     1.  ?MIC not found
+
+         This error indicates that  the  file  MIC.EXE  could  not  be
+         found.  EXEC will look for the file on SYS:, and if not found
+         there on the users DSK:.  If it cannot  be  found  on  either
+         area, this error message will occur.
+
+     2.  ?MIC Macros nested too deeply
+
+         This error will occur if  a  user  has  tried  to  nest  "DO"
+         commands  beyond the limit that EXEC permits.  Currently this
+         limit is approximately fourty.
+
+     3.  ?MIC is not running
+
+         This error message will be printed if any command other  than
+         a @DO command is typed when MIC is not active for the user.
+
+     4.  ?Label is more than 6 characters
+
+         This will be output if a label  supplied  an  a  @GOTO  or  a
+         @BACKTO  executed  by the EXEC (rather than MIC) is more than
+         six characters in length.
+
+         Note:  this will only occur when a @GOTO or a @BACKTO command
+         is  typed by the user, for example during a MIC "break".  MIC
+         normally interpretes such commands when they are  encountered
+         in a MICRO.
+
+     5.  ?Only Single Character Permitted
+
+         This message will be given of  more  than  one  character  is
+         supplied on a @ERROR or a @OPERATOR command executed by EXEC.
+
+         Note:  As in the previous message, this will not occur if MIC
+         interpretes the command, but only if it is typed by the user.
+
+
+[End of MIC.HLP]
+ 

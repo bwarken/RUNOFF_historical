@@ -1,0 +1,244 @@
+			DECOM
+			-----
+
+DECOM is a SIMULA SAFMIN subclass designed for
+interpretation of "standard" DEC command format:
+
+outspec/switch1/switch2....=inspec/switch3/switch4...
+
+
+Included procedures:
+--------------------
+
+DECCOM for initial separation of the input command
+and opening of the files.
+
+INTSWITCH for interpreting switch giving integer value.
+
+BOOLSWITCH for interpreting switch giving boolean value.
+
+ILLEGALSWITCH for finding if there are any uninterpretable
+switches.
+
+The DECCOM procedure helps interpreting a DEC standard file
+command.
+
+The CREATEFILES procedure is used to create the file
+objects for the input and and output files.
+
+
+Parameters to DECOM:
+
+(I)	COMMAND		The string to be interpreted
+(O)	OHEAD		Output file specifications
+(O)	IHEAD		Input file specifications
+
+Parameters to CREATEFILES:
+
+(IO)	OHEAD		Output file specifications
+(IO)	IHEAD		Input file specifications
+(I)	OEXTENSION	Default extension for output file name
+(I)	IEXTENSION	Default extension for input file name
+			(Extension is only set if file spec lacks extension)
+[O]	OFILE		Outfile object reference
+[O]	IFILE		Infile object reference
+
+Global data in the class DECOM:
+
+(O)	SWARRAY    	TEXT ARRAY [1:LIMIT] saving switch values
+(I)	LIMIT		Maximum number of  switches
+(O)	NSWOUT		Number of received switch values on the output side
+(O)	NSWIN		Ditto input side
+
+Format of COMMAND:
+
+<command>::= [<outpart>] <inpart>
+<outpart>::= [<spec>] =
+<spec>:= [<filespec>] [/<switches>]
+<filespec>::= [<device>:] filename [ . [ext] ]
+<switches>::= <switches> / <switch> | <switch>
+<switch>::= <anything not containing '=' or '/'>
+
+The <spec> for the <outpart> will be returned through OHEAD,
+and through IHEAD for the <inpart>.
+
+The switches on the outpart side will be stored in the array
+SWARRAY[1:NSWOUT] and those on the inside side in the
+elements [NSWOUT+1,NSWOUT+NSWIN].
+
+I.e.
+A/B=C/D/E
+will return
+OHEAD = "A"
+IHEAD = "C"
+SWARRAY [1] = "B"
+	[2] = "D"
+	[3] = "E"
+NSWOUT = 1
+NSWIN  = 2
+
+If the number of switches exceeds LIMIT a warning message is issued and
+the rest of the switches will be ignored.
+Note that the unused SWARRAY elements will NOT be set to NOTEXT.
+
+CREATEFILES will assert that OHEAD and IHEAD
+are legal output and input file specifications respectively.
+References to the files will be returned through OFILE and IFILE.
+
+PROCEDURE INTSWITCH(id,result,default,okay,errmess,help)
+Intswitch should be called after the call to DECCOM,
+once for each allowed switch returning integer result. Parameters:
+
+(I)     ID               User name of the switch (without /)
+(O)     RESULT           Integer where switchvalue is returned
+(I)     DEFAULT          Text containing default value, to be
+			 used if switch is not given by the user
+(I)     OKAY             Boolean condition, TRUE for valid results
+(I)     ERRMESS          Message to be given if OKAY is FALSE
+(I)     HELP             Boolean expression giving help message.
+
+BOOLEAN PROCEDURE BOOLSWITCH(id,okay,errmess,help)
+Boolswitch should be called after the call to deccom,
+once for each allowed switch returning boolean result. The
+parameters are a subset of the parameters for intswitch(see above).
+Boolswitch returns TRUE if the switch is present, false if it is not
+present. Okay is the condition under which a TRUE result is legal.
+
+BOOLEAN PROCEDURE ILLEGALSWITCH(errmess,help)
+This should be called after all legal switches have been interpreted.
+Will give an error message for each duplicate switch or switch
+which has not been interpreted, and will return TRUE
+if there was any such switch.
+Help is called if the illegal switch is /H or /HE or /HEL or /HELP.
+
+Examples of use:
+
+OPTIONS(/L);
+BEGIN
+  EXTERNAL TEXT	PROCEDURE rest, scanto, frontstrip, upcase,
+  front, conc, checkextension;
+  EXTERNAL REF (infile)	PROCEDURE findinfile;
+  EXTERNAL REF (outfile)	PROCEDURE findoutfile;
+  EXTERNAL BOOLEAN	PROCEDURE frontcompare;
+  EXTERNAL CHARACTER	PROCEDURE findtrigger;
+  EXTERNAL INTEGER	PROCEDURE scanint, search;
+  EXTERNAL LONG REAL	PROCEDURE scanreal;
+  EXTERNAL		PROCEDURE split;
+  EXTERNAL		CLASS safmin, decom;
+
+  COMMENT the following externals are only used by the demonstration
+  program, not necessary for decom;
+  EXTERNAL TEXT PROCEDURE from;
+  EXTERNAL BOOLEAN PROCEDURE dotypeout;
+  EXTERNAL BOOLEAN PROCEDURE sqhelp;
+
+  INTEGER max_number_of_lines;
+  BOOLEAN list_output, file_output;
+  TEXT command, infilename, outfilename;
+  REF (infile) infileref;
+  REF (outfile) outfileref;
+
+  decom(14) BEGIN
+    PROCEDURE do_something_useful;
+    BEGIN
+      outimage;
+      outtext("[COMDEM EXECUTION HAS STARTED]"); outimage;
+      outtext("LINES = "); outint(max_number_of_lines,5);
+      outimage;
+      IF list_output THEN outtext("LISTOUTPUT") ELSE
+      IF file_output THEN outtext("FILEOUTPUT") ELSE
+      outtext("NEITHER LISTOUTPUT NOR FILEOUTPUT");
+      outimage;
+      outimage;
+    END;
+
+
+    BOOLEAN PROCEDURE decom_help(selector);
+    VALUE selector; TEXT selector;
+    BEGIN
+      outimage;
+      outtext("outfil.ext=infil.ext/switch1/switch2....");
+      outimage;
+      outtext("SWITCH  DEFAULT  MEANING");
+      outimage;
+      outtext("/LINES     5     Number of lines");
+      outimage;
+      outtext("/LIST  FALSE     List output");
+      outimage;
+      outtext("/FILE  FALSE     File output");
+      outimage; outimage;
+      IF selector == NOTEXT AND sysin.image =/= NOTEXT THEN
+      BEGIN
+        command:- sysin.image.strip;
+        command.setpos(1); IF command.getchar = '?' THEN
+        selector:- command.sub(2,command.length-1);
+      END;
+      sqhelp("DECOM",selector,19,72);
+    END;
+
+    PROCEDURE interpret_integer_switches;
+    BEGIN
+      intswitch("LINES","5",max_number_of_lines,
+      max_number_of_lines >= 0 AND max_number_of_lines <= 11,
+      "Must be between 0 and 11",decom_help(""));
+      COMMENT etcetera;
+    END of interpret_integer_switches;
+
+    PROCEDURE interpret_boolean_switches;
+    BEGIN
+      list_output:= boolswitch("LIST",TRUE,NOTEXT,decom_help(""));
+      file_output:= boolswitch("FILE",NOT list_output,
+      "Only one kind of output",decom_help(""));
+      COMMENT etcetera;
+    END of interpret_boolean_switches;
+
+    BOOLEAN PROCEDURE interpret_legal_command;
+    BEGIN
+      IF NOT deccom(command,outfilename,infilename)
+      THEN GOTO out;
+      interpret_integer_switches;
+      interpret_boolean_switches;
+      IF outfilename = NOTEXT THEN outfilename:-copy("TTY:");
+      IF infilename = NOTEXT THEN
+      BEGIN
+        IF list_output THEN
+        BEGIN
+          infilename:- copy(outfilename);
+          IF findtrigger(infilename,dottext) = '.' THEN
+          infilename:- infilename.sub(1,infilename.pos-2);
+        END;
+      END;
+
+      IF NOT illegalswitch(
+      "Uninterpretable or duplicate switch: /",decom_help("")) THEN
+      BEGIN
+        createfiles(outfilename,infilename,
+        copy(IF list_output THEN ".LST" ELSE ".ADR"),copy(".ADR"),
+        outfileref,infileref,decom_help("CREATE"));
+        interpret_legal_command:= TRUE;
+      END;
+      out:
+    END;
+
+    PROCEDURE read_input_command;
+    BEGIN CHARACTER c;
+      prompt: image:= "*"; breakoutimage; inimage;
+      IF sysin.image.strip = NOTEXT THEN GOTO prompt;
+      lastitem; c:= inchar;
+      IF c = '/' OR c = '?' THEN
+      BEGIN
+        IF endfile THEN GOTO quit;
+        decom_help(""); GOTO prompt;
+      END;
+      sysin.setpos(sysin.pos-1);
+      command:- upcase(intext(sysin.length-sysin.pos+1).strip);
+      IF NOT interpret_legal_command THEN GOTO prompt;
+      do_something_useful;
+    END of read_input_command;
+
+    WHILE NOT sysin.endfile DO read_input_command;
+  END;
+  quit:
+END
+
+!            [END of DECOM.HLP]

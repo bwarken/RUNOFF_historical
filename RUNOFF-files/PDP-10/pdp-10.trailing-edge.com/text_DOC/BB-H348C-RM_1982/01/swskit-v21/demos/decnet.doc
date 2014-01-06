@@ -1,0 +1,537 @@
+	This is the TOPS-20 Cobol and Fortran callable DECnet interface. The
+interface allows the user to access the network via calls to macro
+subroutines. All subroutines are contained in the file DECNET.MAC which
+is conditionally assembled for either Cobol or Fortran.
+	Please consider this documentation and the subroutine itself
+as examples for your own implementations. This is unsupported code which
+has not been thoroughly tested.
+  The interface consists of a series of routines, all of which begin with "NF".
+These routines are:
+
+	NFGND - inquire about asynchronous network events
+	NFOPN - open a logical link (accomplish a connection)
+	NFINF - get information about the other end of a logical link
+	NFACC - accept a connection
+	NFREJ - reject a connection
+	NFSND - send data over a logical link
+	NFRCV - receive data over a logical link
+	NFINT - send an interrupt message over a logical link
+	NFRCI - receive an interrupt message over a logical link
+	NFCLS - close a logical link (release its resources for reuse)        
+
+The following sections describe each entry point.  A few general concepts
+are described below.
+
+		TASK - TO - TASK    OVERVIEW
+
+	A Cobol program on a DECsystem-20 can communicate with another
+program written in any language on any system which supports the
+task to task DECnet capability. The Cobol program on the TOPS-20
+system sends data to and from the other program in the network as if the
+network connection were a file.
+	The following is a typical sequence in which two programs
+communicate using the DECnet task-to-task capability.
+
+PROGRAM A			PROGRAM B
+---------			---------
+
+DECLARE THIS PROGRAM
+TO BE AVAILABLE FOR
+CONNECTIONS.
+
+		<-----		ASK FOR A CONNECTION TO
+				PROGRAM A.
+
+CHECK PROGRAM B'S
+IDENTITY AND SECURITY
+INFO AND ACCEPT THE
+CONNECTION.	----->
+
+INPUT AND/OR	----->		INPUT AND/OR
+OUTPUT.		<-----		OUTPUT.
+
+		<-----		BREAK THE CONNECTION
+				AND FREE NETWORK RESOURCES.
+
+FREE NETWORK RESOURCES.
+ 
+	In this example, program A is a passive or target task because it
+waits for connection requests. Program B is an active or source task
+because it makes the connection request. Either task can send or
+receive data, or both; the connection (logical link) is full
+duplex. Either task can disconnect the logical link.
+	Also, a program can participate in more than one logical link
+at once as either a passive or active task or both.
+		NFOPN - Open a logical link
+
+
+CALL NFOPN USING NETLN,TYPE,DESCRIPTOR,BYTES,WAIT,RETCOD
+
+Parameters:
+
+NETLN - 1 word comp item to be set by the routine, which will
+	identify the logical link to other interface routines.  This value
+	is called the "logical name" in other routine descriptions.
+
+TYPE -	a literal or 1 word comp item which specifies the type of the link.
+	A value of 0 means the link is to be opened as a "passive" link,
+	i.e., one which has to receive connections from another process.
+	The task which owns a passive link is called the server or target task.
+	A value of 1 means an "active" link is to be opened, i.e.,
+	a connection is to be initiated from this end to a specified target.
+	The task which owns the active link is called the source task.
+	The descriptor for a TYPE 0 link must specify SRV: as the device name
+	The descriptor for a TYPE 1 link must specify DCN: as the device name.
+
+
+DESCRIPTOR - a display-7 item containing the complete TOPS-20
+	     file specification which defines the characteristics of the
+	     passive object on this end (for a passive link) or the remote
+	     target (for an active link).
+
+BYTES -	a literal or comp item specifying the byte size. The
+	valid byte sizes are 7,8, and 36. If byte size 7 is specified
+	the data items sent and received must be entirely display-7
+	with no imbedded comp items.
+	If the byte size is 8, the data item must be
+	any data type containing 4 8 bit bytes per 36 bit word. Byte size of
+	8 is used to communicate with non DECsystem-20 nodes. A byte
+	size of 36 is used to transfer records of any type where both
+	sides of the link are DECsystem-20s. Note that the byte counts
+	are in units of the byte size. i.e. one 36 bit byte contains
+	5 display-7 characters.
+
+WAIT  - a literal or 1 word comp item interpreted as a wait flag.
+	If the value is 0, NFOPN
+	will return before the connect has completed.  In this case, the return
+	code will be 0, and the user must wait for the connect
+	to complete using the NFGND interface routine before using the link.
+	If the value is 1, NFOPN will wait for the connect to complete
+	before returning, and will pass a return code describing the success
+	or failure of the connect.  If NFOPN waits for the connect, NFGND   
+	will not return "connect" status for the link.                        
+        Note that upon successful completion of NFOPN for a passive task which
+        waits, the logical link is still not connected. The request must
+	still be accepted with NFACC.
+
+RETCOD - a one word comp item in which the status of the subroutine call
+	is returned:
+
+0 	The connection was successful (successful so far, if WAIT is 0).
+	If a passive link was requested, routine NFINF may be used to
+	find about the remote process.  For a passive link, the connection
+	must still be accepted or rejected by the user.
+
+1	Too many logical links are open for this task or no more interrupt
+	channels are available. The connection was unsuccessful.
+
+2	The connection was rejected by the target or aborted before the
+	open process could complete.  The reject (or abort) code may be
+	acquired through the NFINF interface routine.
+
+>2	The error code is the standard TOPS-20 JSYS error code returned
+	as the result of an unsuccessful JSYS.
+
+
+Description:
+
+If TYPE = 0 the local task will be declared as a server task to
+TOPS-20. If WAIT is 1, the routine will wait for
+a remote process to connect, and return when this occurs or when the system
+declares it impossible.  The routine will not accept or reject the connection.
+
+If TYPE = 1, a connection is attempted to the specified target object.  If
+WAIT is 0, a success-so-far or failure value is returned at this time, and
+the user is responsible for detecting the ultimate fate of the connect through
+NFGND.  If WAIT is 1, the routine will wait for the ultimate success or
+failure of the connection and will return an appropriate value.
+
+In any case, the contents of NETLN will be meaningful
+to the user only if NFOPN returns a 0 value.
+
+		NFGND - get information on network events
+
+
+CALL NFGND USING NETLN,WAIT,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item which contains the network logical name returned by
+	NFOPN, or -1 for "all active links".
+
+WAIT  - a literal or 1 word comp item used as a wait flag.
+	When WAIT is 1, the routine
+	does not return until a network event occurs on the specified link;
+	it never returns a value of 0.  When WAIT is 0, the routine returns
+	a positive value if a network event has occurred since the last time
+	NFGND was called for the link; if no event has occurred, it returns
+	0.
+
+RETCOD - status returned by this subroutine:
+
+0	No network events have occurred.
+1	A connect event has occurred.  For an active link, a connect request
+	has been accepted.  For a passive link, a connect request has been     
+	received from a process.
+2	The link has been aborted, if open, or has been rejected, if an active 
+	link being opened.  Subsequent calls to NFGND prior to closing the    
+	link with NFCLS will get this code only.
+3	An interrupt message has been received and is available to be read.
+4	Data may have been received; a read should be issued.                  
+5	The link has been disconnected.  Note that this indication will not be
+	returned until all other network events have been reported.
+> 5	TOPS-20 JSYS error code.
+
+Description:
+
+This routine may be called by the user to poll for asynchronous network events.
+There are five such events described: connect, interrupt data available, data
+available, disconnect and abort.  The interface together with the network
+software will store up these events until the user asks about them, after which
+time it will forget about them.  If more than one kind of event has occurred
+when a user calls NFGND, only the one with the lowest return value will be
+reported; the interface will remember the other event types for subsequent
+calls to the routine.  If more than one event of the same type occurs, they
+will all be lumped together into one notification.  (Any further events of that
+type after the user has called NFGND will of course be identified.)  There
+can be only one connect and one disconnect event for any link; however, more
+than one interrupt or data event may occur.  Therefore, a user using NFGND
+should do non-waiting reads until informed that no data is available, in order
+to get everything that is available.
+If this routine is called with a zero value of NETLN, the first network data   
+event encountered on any active link will be reported.  NETLN will be set to   
+the logical name for the link whose event is begin reported.                   
+	This routine is used in conjunction with other routines
+with the wait flag off in order to control multiple logical links:
+1.  Call NFGND, possibly with the WAIT flag on to suspend the process until
+    network activity.
+
+2.  NFGND will return a code from 1 to 5, indicating the most urgent network
+    event pending.  Call the proper routine to process that event:
+	1 - NFINF, then NFACC or NFREJ
+	2 or 5 - NFCLS
+	3 - NFRCI
+	4 - NFRCV
+
+3.  Process the information acquired from the routine.  When you are ready to
+    process another event, call NFGND again.
+
+
+		NFINF - get information on the remote user
+
+
+CALL NFINF USING NETLN,TYPE,COUNT,AREA,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item which is a logical name of an open link (see NFOPN)
+
+TYPE - a literal or 1 word comp item designating the type of information
+	requested.
+	1 - remote node name
+	2 - remote object type
+	3 - remote object descriptor's format (0,1,2 - see DECNET documentation)
+	4 - remote object descriptor
+	5 - remote process' user ID
+	6 - remote process' password
+	7 - remote process' account information
+	8 - remote process' optional data
+	9 - abort code
+
+COUNT - a 1 word comp item which contain the length of the data
+	returned.
+
+AREA - a display-7 item where the requested information is to
+       be put.
+
+RETCOD - the status returned by the subroutine
+
+0	Success; information returned in AREA=>
+1	this information is not available for this type of link
+2	Type is out of range.
+> 2	TOPS-20 JSYS error
+
+Description:
+
+The information available through this entry pertains to a "running" link,
+or to a passive link which has received a connection.
+
+	Data types 2-7 are available only for passive links.
+	Data type 8 (optional data) may  also be requested on:
+	      . a link that has gotten a disconnect event but has not been     
+		disconnected from this end (NFCLS), in which     
+		case the optional data returned will be that sent in the       
+		disconnect message; or                                         
+	      . an active link whose connect request has been rejected, in     
+		which case the reject optional data will be returned.          
+		NFACC - accept a connection
+
+
+CALL NFACC USING NETLN,COUNT,DATA,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item identifying the logical name of the link (see NFOPN).
+
+COUNT - a literal or 1 word comp item specifying the number of characters
+	of optional data
+	to be sent in the acceptance message.  If this value is 0, no optional
+	data is sent.
+
+DATA - a literal or display-7 item containing the optional data to be sent.
+	If COUNT is 0, this parameter is ignored.
+
+RETCOD -a 1 word comp item containing status returned by the subroutine:
+
+0	The connection has been accepted
+> 0	error code returned by a TOPS-20 JSYS.
+
+Description:
+
+This routine accepts a connection received on a passive link which has been
+OPNed and has had a connect event.
+		NFREJ - reject a connection
+
+
+CALL NFREJ USING NETLN,CODE,COUNT,DATA,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item indentifying the logical name of the link (see NFOPN).
+
+CODE - a literal or 1 word comp item specifying the abort or reject code.
+
+COUNT - a literal or 1 word comp item specifying the number of characters
+	of optional data to send. A value of zero indicates that no
+	optional data is to be sent.
+
+DATA - a literal or display-7 item containing the optional data to send.
+	If COUNT is 0 this parameter will be ignored.
+
+RETCOD - a one word comp item in which the status of the subroutine is returned.
+
+0	Connection rejected successfully
+> 0	the TOPS-20 JSYS error code for a JSYS error.
+
+Description:
+
+This routine rejects a connection on a passive link which has gotten a connect
+event.  The link specified by NETLN will not
+be available for use after this routine is called, whether it succeeds or not
+		NFSND - send data over a link
+
+
+CALL NFSND USING NETLN,COUNT,DATA,EOM-FLG,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item containing the logical name of the link (see NFOPN).
+
+COUNT - a literal or 1 word comp item defining the number of characters
+	of data to send. This value must be greater than 0.
+
+DATA - a literal or display-7 item containing the data to send if the byte
+	size is 7 or 8, or any item name if the byte size is 36.
+
+
+EOM-FLG - a 1 word comp item used as a "message mode" flag.  If the value is 1,
+	  the data will be sent in message mode. If the value is 0, the data
+ 	  will be sent in non-message mode.
+
+RETCOD - a 1 word comp item in which the status of the subroutine is returned.
+
+0	Data sent successfully
+> 0	TOPS-20 JSYS error code
+
+Description:
+
+This routine sends data over the specified logical link.
+		NFRCV - receive data over a link
+
+
+CALL NFRCV USING NETLN,COUNT,DATA,MSG-FLG,WAIT,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item identifying the logical name for the link (see NFOPN).
+
+COUNT - a 1 word comp item specifying the number of characters to
+	receive.  This is a maximum value if the read is in message mode (see
+	below) and an actual value otherwise. In some cases,
+	COUNT on return will contain the actual number of characters read.
+
+DATA - a display-7 item which is to receive the    
+       data.  This area  must be at least COUNT characters long.
+
+MSG-FLG - a literal or 1 word comp item used as a "message mode" flag.
+	  If the value is 1,
+	  one complete message (or remnant of a message) will be read.  If
+	  the value
+	  is 0, exactly COUNT characters will be read, if any are at all.
+
+WAIT  - a literal or 1 word comp item used as a wait flag. When WAIT is 1,
+	the routine will
+	not return until the requested message or the requested number of 
+	characters have been received (or the read fails).  When WAIT is 0
+	and MSG-FLG is 0, the routine will return either the requested number
+	of characters or an error code indicating that that amount is not cur-
+	rently available. Since the monitor will only report the number of
+	characters
+	available in the next buffer, if the sender has sent a
+	small message in message mode and then a large message
+	such that sufficient characters are available, but not in
+	the next buffer, then the caller of NFRCV will still be
+	told that there are insufficient characters. When WAIT is 0
+	and MSG-FLG is 1, the routine will
+	return either a message or fragment or an error code indicating that no
+	message is available.  In any case, when WAIT is 0 the routine will
+	return promptly.
+
+RETCOD - status returned by the subroutine:
+
+0	The requested amount of data has been read into DATA=>.
+	Count contains the number of characters read.
+1	Link was disconnected or aborted before requested data could be read,  
+	count contains the number of characters successfully read before
+	the disconnect or abort occured.
+2	An interrupt message has been received. The interrupt message must be
+	read with NFRCI before more data can be received. No data is returned
+	if this status is sent. Count is zero.
+	Note: If you call NFRCV with wait in non-message mode and an interrupt
+	message arrives for you, you will not get return code 2 until the
+	next time you call NFRCV. If the cooperating task does not send
+	enough data to satisfy the waiting NFRCV your task will not see
+	the interrupt message.
+3	Overrun: the available message or fragment being read in message mode
+	is longer than COUNT characters. Count contains the size of the large
+	message.
+4	The requested amount of data was not immediately available.
+	Count contains the number of bytes currently available.
+> 4	TOPS-20 JSYS error.
+Description:
+
+This routine reads data over the specified logical link.  If message mode is
+specified, the routine will read exactly one DECNET message (terminated by a
+DECNET segment with the EOM bit on).  If non-message mode is specified
+characters will be read from as many messages
+as necessary to get the requested number of characters, and the last (or only)
+message read from will not necessarily be exhausted.  If a read in non-message
+mode is followed by a read in message mode, the second read may get a message
+fragment, i.e., the last part of a message minus what the first read took out
+of it.
+		NFINT - send an interrupt message
+
+
+CALL NFINT USING NETLN,COUNT,DATA,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item identifying the logical name for the link (see NFOPN).
+
+COUNT - a literal or 1 word comp item defining the number of characters of
+	data to send.
+	This value must be greater than 0 and no greater than 16.
+
+DATA - a literal or display-7 item containing the data to send.
+
+RETCOD - a 1 word comp item in which the status is returned:
+
+0	Data sent successfully
+> 0	TOPS-20 JSYS error code.
+
+Description:
+
+This routine sends an interrupt message over the specified logical link.  Unlike
+routine NFSND, the data are always sent in message mode, and thus a prompt at-
+tempt to send the data is guaranteed.  Data sent in this mode are not sent in
+sync with data sent by NFSND; sequencing of messages between the two streams
+is not guaranteed.
+Only one interrupt message can be transmitted over a logical link at once.
+		NFRCI - receive an interrupt message
+
+
+CALL NFRCI USING NETLN,COUNT,DATA,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item identifying the logical name for the lnik (see NFOPN).
+
+COUNT - a 1 word comp item value specifying the number of characters read.
+	This value will be updated on successful completion of the routine.
+
+DATA - a display-7  data area to receive the interrupt
+       message.  This area must be at least 16 characters long.
+
+RETCOD - a 1 word comp item in which the status is returned:
+
+0	Interrupt message received successfully; COUNT contains message length.
+-1	No message available at this time (WAIT = 0 only)
+> 0	TOPS-20 JSYS error.
+
+Description:
+
+This routine reads a single interrupt message on the specified logical link.
+Receipt of an interrupt message is an asynchronous
+event. The normal
+way to access asynchronous events is through the NFGND interface routine.  
+NFGND will announce interrupt messages before data messages; such messages
+must be read by this routine before NFGND will announce any lower-level
+events (data messages or disconnection).
+Note that NFRCV will return error code 2 and refuse to return data
+if an interrupt message is available wich has not been read by NFRCI.
+
+		NFCLS - close a logical link
+
+
+CALL NFCLS USING NETLN,TYPE,CODE,COUNT,DATA,RETCOD
+
+Parameters:
+
+NETLN - a 1 word comp item identifying the logical name for the link (see NFOPN).
+
+TYPE - a literal or 1 word comp item describing the type of link
+	disconnect requested.  If the
+       value is 0, the link will be synchronously disconnected. DECnet
+       will quiesce activity on the link before disconnecting it.  If the   
+       value is 1, the link will be aborted; this method of disconnecting the 
+       link is immediate and gives no guarantees except that the link will
+       go away immediately.
+
+CODE - a literal or 1 word comp item specifying the disconnect or abort code
+       to pass to the the other end of the link.
+       Code may be non-zero only if TYPE is 1.
+
+COUNT - a literal or 1 word comp item specifying the number of characters
+	of optional data to
+	be sent in the disconnect/abort message.  If this value is 0, no option-
+	al data are sent.
+
+DATA - a display-7 item or literal containing the optional data to be sent.
+	if count is 0, this parameter is ignored.
+
+
+RETCOD - a 1 word comp item which gets status
+0	The specified link has been disconnected 
+> 0	TOPS-20 JSYS error code.
+
+Description:
+
+This routine disconnects a link.  A synchronous disconnect (TYPE=0) in theory  
+acts as a pipeline marker which will disconnect the link after all transmissions
+outstanding have been completed.  An abort instantaneously disconnects the link
+from the local end, as far as the user is concerned.  DECNET specifies an abort
+code to be passed in either case, but this feature is not universally implemen-
+ted in MACRO interfaces.
+This routine may be called either before or after receipt of a disconnect from
+the other end.
+
+Network event indications are cleared at various times, depending on the event.
+Connect and disconnect (NOT abort) are cleared when reported.  Abort is never
+cleared; any further invocation of NFGND for an aborted link will always get
+the "abort" code (until the link is disconnected by the user, in which case the
+NETLN becomes an invalid parameter).  A data event is cleared only when there
+is no more data to be gotten at the moment.  An interrupt event is cleared
+immediately for all implementations that allow only one outstanding interrupt
+message (at the moment, that's everybody); for other implementations, it is
+treated like a data event.
+

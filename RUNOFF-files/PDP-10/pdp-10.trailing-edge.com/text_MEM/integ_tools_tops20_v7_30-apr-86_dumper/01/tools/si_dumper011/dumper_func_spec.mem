@@ -1,0 +1,1622 @@
+
+
+
+
+                           DUMPER-32 Function Description
+
+
+                                      Draft #2
+
+
+                                   28-August-1985
+
+
+
+                          Stevens Institute of Technology
+
+                                  Computer Center
+   DUMPER-32 Function Specificaiton                                Page 2
+   Introduction                                           27 January 1986
+
+
+                                      CONTENTS
+
+           1       Introduction . . . . . . . . . . . . . . . . . . . . 6
+           2       Related Documents  . . . . . . . . . . . . . . . . . 6
+           3       Document Revision History  . . . . . . . . . . . . . 6
+           4       Modules  . . . . . . . . . . . . . . . . . . . . . . 6
+           5       Command Interface  . . . . . . . . . . . . . . . . . 8
+           5.1       Input-specification  . . . . . . . . . . . . . . . 8
+           5.2       Output-specification . . . . . . . . . . . . . . . 8
+           5.3       Qualifiers . . . . . . . . . . . . . . . . . . . . 8
+           5.3.1     BLOCKING_FACTOR=number . . . . . . . . . . . . . . 8
+           5.3.2     CREATEDIRECTORY  . . . . . . . . . . . . . . . . . 9
+           5.3.3     FORMAT[=Keyword] . . . . . . . . . . . . . . . . . 9
+           5.3.3.1   INTERCHANGE  . . . . . . . . . . . . . . . . . . . 9
+           5.3.3.2   BACKUP . . . . . . . . . . . . . . . . . . . . . . 9
+           5.3.3.3   DUMPER . . . . . . . . . . . . . . . . . . . . . . 9
+           5.3.4     LIST[=Output-file] . . . . . . . . . . . . . . . . 9
+           5.3.5     LOG[=Keyword]  . . . . . . . . . . . . . . . . . . 9
+           5.3.5.1   FILES  . . . . . . . . . . . . . . . . . . . . .  10
+           5.3.5.2   ALL  . . . . . . . . . . . . . . . . . . . . . .  10
+           5.3.5.3   DIRECTORIES  . . . . . . . . . . . . . . . . . .  10
+           5.3.6     REWIND . . . . . . . . . . . . . . . . . . . . .  10
+           5.3.7     SELECT[=Tape-specifications] . . . . . . . . . .  10
+           5.3.8     SKIP[=Number]  . . . . . . . . . . . . . . . . .  10
+           5.3.9     SSNAME[=Save-set-name] . . . . . . . . . . . . .  10
+           5.4       Examples . . . . . . . . . . . . . . . . . . . .  11
+           5.4.1     Getting a listing of a tape  . . . . . . . . . .  11
+           5.4.2     Restoring selected files . . . . . . . . . . . .  11
+           5.4.3     Restoring a complete tape creating directories .  11
+           6       Functional description . . . . . . . . . . . . . .  11
+           6.1       Overview . . . . . . . . . . . . . . . . . . . .  12
+           6.2       Converting file formats  . . . . . . . . . . . .  12
+           6.2.1     BACKUP-10 tapes  . . . . . . . . . . . . . . . .  12
+           6.2.2     DUMPER-20 tapes  . . . . . . . . . . . . . . . .  13
+           6.2.3     Non-7, 8, or 36-bit bytes  . . . . . . . . . . .  13
+           6.3       Known Problems/Restrictions  . . . . . . . . . .  14
+           6.4       Libraries and Required files . . . . . . . . . .  14
+           6.4.1     CHARACTER_DEFINITIONS.REQ  . . . . . . . . . . .  14
+           6.4.2     DUMPER_SYMBOLS.REQ . . . . . . . . . . . . . . .  14
+           6.4.2.1   $BYTE, $WORD, $LONGWORD  . . . . . . . . . . . .  14
+           6.4.2.2   $DESCRIPTOR_DECL and $DESCRIPTOR_INIT  . . . . .  14
+           6.4.2.3   $IOSB_DECL . . . . . . . . . . . . . . . . . . .  15
+           6.4.3     TAPE_FORMAT.REQ  . . . . . . . . . . . . . . . .  15
+           6.5       Routines . . . . . . . . . . . . . . . . . . . .  16
+           6.5.1     DUMPER.BLI . . . . . . . . . . . . . . . . . . .  16
+           6.5.1.1   DUMPER_MAIN  . . . . . . . . . . . . . . . . . .  16
+           6.5.1.2   MATCH_FILESPEC (FILE_SPEC) . . . . . . . . . . .  16
+           6.5.1.3   EXTRACT_FIELDS (STRING_DESC, RESULT) . . . . . .  16
+           6.5.1.4   MATCH_SINGLE_FILE (FILE_SPEC, TEMPLATE_SPEC) . .  16
+           6.5.1.5   MATCH_STRING (STRING_LENGTH, STRING_POINTER, 
+                     PATTERN_LENGTH, PATTERN_POINTER) . . . . . . . .  16
+           6.5.2     DUMPER_DRIVER.BLI  . . . . . . . . . . . . . . .  17
+           6.5.2.1   DRIVER_PROCESS_COMMAND . . . . . . . . . . . . .  17
+           6.5.2.2   CHECK_SAVE_SET_RECORD  . . . . . . . . . . . . .  17
+   DUMPER-32 Function Specificaiton                                Page 3
+   Introduction                                           27 January 1986
+
+
+           6.5.2.3   RESTORE_SAVE_SET . . . . . . . . . . . . . . . .  17
+           6.5.2.4   RESTORE_FILE   . . . . . . . . . . . . . . . . .  17
+           6.5.2.5   LIST_SAVE_SET  . . . . . . . . . . . . . . . . .  17
+           6.5.3     DUMPER_CVT.BLI . . . . . . . . . . . . . . . . .  18
+           6.5.3.1   CVT_INITIALIZE . . . . . . . . . . . . . . . . .  18
+           6.5.3.2   CVT_CONVERT_RECORD (CONVERSION_TABLE, 
+                     RECORD_36BIT, INITIAL_WORD_INDEX)  . . . . . . .  18
+           6.5.3.3   CVT_SIXBIT_2_ASCID (WORD_36BIT, BYTE_SIZE, 
+                     BYTE_POSITION, STORAGE, STORAGE_SIZE, 
+                     RECORD_BUFFER) . . . . . . . . . . . . . . . . .  18
+           6.5.3.4   CVT_FETCH_7BIT_CHARACTER (ASCII_STRING, 
+                     CHARACTER_OFFSET, LSN_FLAG)  . . . . . . . . . .  18
+           6.5.3.5   CVT_WORD_2_LONGWORD (WORD_36BIT, BYTE_SIZE, 
+                     BYTE_POSITION, LONG_WORD, STORAGE_SIZE, 
+                     RECORD_BUFFER) . . . . . . . . . . . . . . . . .  18
+           6.5.3.6   CVT_ASCIZ_2_ASCID (ASCIZ_STRING, BYTE_SIZE, 
+                     BYTE_POSITION, ASCID_STRING, STORAGE_SIZE, 
+                     RECORD_BUFFER) . . . . . . . . . . . . . . . . .  18
+           6.5.3.7   CVT_FIELD (WORD_36BIT, BYTE_SIZE, BYTE_POSITION, 
+                     STORAGE, STORAGE_SIZE, RECORD_BUFFER)  . . . . .  19
+           6.5.3.8   CVT_BPT_2_ASCID (WORD_36BIT, BYTE_SIZE, 
+                     BYTE_POSITION, STORAGE, STORAGE_SIZE, 
+                     RECORD_BUFFER) . . . . . . . . . . . . . . . . .  19
+           6.5.3.9   CVT_UDT_2_DATE_TIME (UDT_ADDRESS, BYTE_SIZE, 
+                     BYTE_POSITION, STORAGE, STORAGE_SIZE, 
+                     RECORD_BUFFER) . . . . . . . . . . . . . . . . .  19
+           6.5.3.10  CVT_NEG_FIELD (WORD_36BIT, BYTE_SIZE, 
+                     BYTE_POSITION, STORAGE, STORAGE_SIZE, 
+                     RECORD_BUFFER) . . . . . . . . . . . . . . . . .  19
+           6.5.4     DUMPER_BACKUP_TAPE.BLI . . . . . . . . . . . . .  19
+           6.5.4.1   BACKUP_INITIALIZATION  . . . . . . . . . . . . .  19
+           6.5.4.2   BACKUP_READ_AND_DECODE_RECORD 
+                     (BLOCKING_AND_DIR_FLAG, RECORD_ADDRESS)  . . . .  19
+           6.5.4.3   BACKUP_CHECK_SAVE_SET_RECORD (RECORD_ADDRESS)  .  20
+           6.5.4.4   BACKUP_PROCESS_FILE (RECORD_ADDRESS) . . . . . .  20
+           6.5.4.5   BACKUP_PROCESS_DATA (RECORD_ADDRESS) . . . . . .  20
+           6.5.4.6   BACKUP_SKIP_SAVE_SET (NUMBER_TO_SKIP, 
+                     RECORD_ADDRESS)  . . . . . . . . . . . . . . . .  20
+           6.5.4.7   BACKUP_LIST_RECORD (RECORD_ADDRESS)  . . . . . .  20
+           6.5.4.8   CVT_F_PTH_2_ASCID (WORD_36BIT, BYTE_SIZE, 
+                     BYTE_POSITION, STORAGE, STORAGE_SIZE, 
+                     RECORD_BUFFER) . . . . . . . . . . . . . . . . .  20
+           6.5.4.9   CVT_PATH_2_ASCID (WORD_36BIT, BYTE_SIZE, 
+                     BYTE_POSITION, STORAGE, STORAGE_SIZE, 
+                     RECORD_BUFFER) . . . . . . . . . . . . . . . . .  21
+           6.5.4.10  CVT_PATH_OR_F_PTH_2_ASCID (RECORD_BUFFER, 
+                     BYTE_SIZE, STORAGE, STORAGE_SIZE, GET_TYPE_RTN)   21
+           6.5.4.11  CVT_BACKUP_FILE_TYPE . . . . . . . . . . . . . .  21
+           6.5.4.12  CVT_PROT (PROT_FIELD)  . . . . . . . . . . . . .  21
+           6.5.4.13  CVT_PROT_2_ASCIC (PROT_STRING, PROT_BINARY)  . .  21
+           6.5.5     DUMPER_DUMPER_TAPE.BLI . . . . . . . . . . . . .  21
+           6.5.5.1   DUMPER_INITIALIZATION  . . . . . . . . . . . . .  22
+           6.5.5.2   DUMPER_READ_AND_DECODE_RECORD 
+                     (BLOCKING_AND_DIR_FLAG, RECORD_ADDRESS)  . . . .  22
+   DUMPER-32 Function Specificaiton                                Page 4
+   Introduction                                           27 January 1986
+
+
+           6.5.5.3   DUMPER_CHECK_SAVE_SET_RECORD (RECORD_ADDRESS)  .  22
+           6.5.5.4   DUMPER_PROCESS_FILE (RECORD_ADDRESS) . . . . . .  22
+           6.5.5.5   DUMPER_PROCESS_DATA (RECORD_ADDRESS) . . . . . .  22
+           6.5.5.6   DUMPER_SKIP_SAVE_SET (NUMBER_TO_SKIP, 
+                     RECORD_ADDRESS)  . . . . . . . . . . . . . . . .  22
+           6.5.5.7   DUMPER_LIST_RECORD (RECORD_ADDRESS)  . . . . . .  22
+           6.5.5.8   CVT_DUMPER_FILE_TYPE . . . . . . . . . . . . . .  23
+           6.5.6     DUMPER_TAPE_IO.BLI . . . . . . . . . . . . . . .  23
+           6.5.6.1   TAPE_ACCESS  . . . . . . . . . . . . . . . . . .  23
+           6.5.6.2   TAPE_DEACCESS  . . . . . . . . . . . . . . . . .  23
+           6.5.6.3   TAPE_REWIND  . . . . . . . . . . . . . . . . . .  23
+           6.5.6.4   READ_TAPE_BLOCK (TAPE_BUFFER_INDEX)  . . . . . .  23
+           6.5.6.5   READ_TAPE_BLOCK_BACKWARDS (TAPE_BUFFER_INDEX)  .  23
+           6.5.6.6   DEALLOCATE_BUFFERS . . . . . . . . . . . . . . .  24
+           6.5.6.7   TAPE_IO_OPEN (DEVICE_DESCRIPTOR, BLOCKING_FACTOR, 
+                     BLOCK_SIZE)  . . . . . . . . . . . . . . . . . .  24
+           6.5.6.7.1 OPEN_TAPE_DRIVE (DEVICE_NAME)  . . . . . . . . .  24
+           6.5.6.7.2 ALLOCATE_BUFFERS (SIZE_TO_ALLOCATE)  . . . . . .  24
+           6.5.6.8   TAPE_IO_CLOSE (DEVICE_DESCRIPTOR)  . . . . . . .  24
+           6.5.6.9   TAPE_IO_PEEK_RECORD (RECORD_ADDRESS) . . . . . .  24
+           6.5.6.10  TAPE_IO_READ_BACKWARDS_RECORD 
+                     (FORCE_RECORD_ZERO_FLAG, RECORD_ADDRESS) . . . .  24
+           6.5.6.11  TAPE_IO_READ_RECORD (FORCE_RECORD_ZERO_FLAG, 
+                     RECORD_ADDRESS)  . . . . . . . . . . . . . . . .  25
+           6.5.6.12  TAPE_IO_UNLOAD . . . . . . . . . . . . . . . . .  25
+           6.5.6.13  TAPE_IO_NEXT_VOLUME  . . . . . . . . . . . . . .  25
+           6.5.6.13.1 NEXT_TAPE_FOREIGN . . . . . . . . . . . . . . .  25
+           6.5.6.13.1.1 NEXT_TAPE_COMMAND_OPER  . . . . . . . . . . .  25
+           6.5.6.13.2 NEXT_TAPE_LABELED . . . . . . . . . . . . . . .  25
+           6.5.6.14  TAPE_IO_SKIP_FILE (FILES_TO_SKIP)  . . . . . . .  26
+           6.5.6.14.1 SKIP_FILES_FOREIGN (NUMBER_OF_FILES_TO_SKIP)  .  26
+           6.5.6.14.2 SKIP_FILES_LABELED (NUMBER_OF_FILES_TO_SKIP)  .  26
+           6.5.7     DUMPER_FILE.BLI  . . . . . . . . . . . . . . . .  26
+           6.5.7.1   FILE_INITIALIZE  . . . . . . . . . . . . . . . .  26
+           6.5.7.2   FILE_CREATE_DIRECTORY (DIRECTORY_DESCRIPTOR) . .  26
+           6.5.7.3   FILE_INITIALIZE_OUTPUT . . . . . . . . . . . . .  26
+           6.5.7.4   FILE_ATTRIB_BLOCK_SIZE (BLOCK_SIZE)  . . . . . .  26
+           6.5.7.5   FILE_ATTRIB_BYTE_SIZE (BYTE_SIZE)  . . . . . . .  27
+           6.5.7.6   FILE_ATTRIB_FRAME_SIZE (FRAME_SIZE)  . . . . . .  27
+           6.5.7.7   FILE_ATTRIB_FIRST_FREE_BYTE (FIRST_FREE_BYTE)  .  27
+           6.5.7.8   FILE_ATTRIB_FIXED_HEADER_SIZE (FIXED_HEADER_SIZE) 27
+           6.5.7.9   FILE_ATTRIB_RECORD_ATTRIB (RECORD_ATTRIBUTES)  .  27
+           6.5.7.10  FILE_ATTRIB_RECORD_FORMAT (RECORD_FORMAT)  . . .  27
+           6.5.7.11  FILE_ATTRIB_RECORD_SIZE (RECORD_SIZE)  . . . . .  27
+           6.5.7.12  FILE_ATTRIB_FILE_TYPE (FILE_TYPE_TO_WRITE) . . .  27
+           6.5.7.13  FILE_ATTRIB_CREATION_DTM (CREATION_DATE_TIME)  .  28
+           6.5.7.14  FILE_ATTRIB_ACCESS_DTM (ACCESS_DATE_TIME)  . . .  28
+           6.5.7.15  FILE_ATTRIB_GENERATION (FILE_GENERATION) . . . .  28
+           6.5.7.16  FILE_ATTRIB_PROTECTION (OWNER_PROTECTION, 
+                     GROUP_PROTECTION, SYSTEM_PROTECTION, 
+                     WORLD_PROTECTION)  . . . . . . . . . . . . . . .  28
+           6.5.7.17  FILE_ATTRIB_UIC (UIC)  . . . . . . . . . . . . .  28
+           6.5.7.18  FILE_ATTRIB_NAME (FILE_DESCRIPTOR) . . . . . . .  28
+           6.5.7.19  FILE_CREATE  . . . . . . . . . . . . . . . . . .  28
+   DUMPER-32 Function Specificaiton                                Page 5
+   Introduction                                           27 January 1986
+
+
+           6.5.7.19.1 ALLOCATE_RECORD_BUFFER  . . . . . . . . . . . .  28
+           6.5.7.19.2 SET_UP_FILE_NAME  . . . . . . . . . . . . . . .  29
+           6.5.7.20  DUMP_BUFFER  . . . . . . . . . . . . . . . . . .  29
+           6.5.7.21  FILE_WRITE_CHARACTER (CHARACTER) . . . . . . . .  29
+           6.5.7.21.1 EXPAND_BUFFER . . . . . . . . . . . . . . . . .  29
+           6.5.7.22  FILE_DATA_FILL (NUMBER_OF_FILL_CHARACTERS) . . .  29
+           6.5.7.23  CVT_FILE_DATA (WORD_36BITS, DATA_COUNT, 
+                     BYTE_FLAG) . . . . . . . . . . . . . . . . . . .  29
+           6.5.7.24  FILE_CLOSE . . . . . . . . . . . . . . . . . . .  29
+           6.5.7.25  INITIALIZE_XAB_LIST  . . . . . . . . . . . . . .  29
+           6.5.7.26  LINK_XAB_BLOCK_IN (XAB_TO_LINK_IN) . . . . . . .  30
+           6.5.8     DUMPER_LIST.BLI  . . . . . . . . . . . . . . . .  30
+           6.5.8.1   LIST_INITIALIZE  . . . . . . . . . . . . . . . .  30
+           6.5.8.2   LIST_OPEN  . . . . . . . . . . . . . . . . . . .  30
+           6.5.8.3   LIST_CLOSE . . . . . . . . . . . . . . . . . . .  30
+           6.5.8.4   LIST_LINE (LINE_DESC)  . . . . . . . . . . . . .  30
+           6.5.8.5   LIST_FAO (CTRSTR)  . . . . . . . . . . . . . . .  30
+           6.5.8.6   LIST_BLANK (LINE_COUNT)  . . . . . . . . . . . .  31
+           6.5.8.7   LIST_36_BIT_VERSION (VER_MAJOR, VER_MINOR, 
+                     VER_EDIT, VER_WHO, VER_DESC, VER_LENGTH) . . . .  31
+   DUMPER-32 Function Specificaiton                                Page 6
+   Introduction                                           27 January 1986
+
+
+   1  Introduction
+
+   This utility will provide  a  means  of  reading  magnetic  tapes  written  by
+   DUMPER-20  and BACKUP-10 on a VAX/VMS system.  The utility is invoked by a DCL
+   command line.
+
+
+
+   2  Related Documents
+
+   The following are various documents  that  related  to  the  support  of  this
+   utility.
+
+        1.  Command parser function specification.
+
+        2.  Dumper and Backup Tape Formats specification.
+
+
+
+
+   3  Document Revision History
+
+   The following is the revision history of this document.
+
+        1.  Draft 1 - Create this document.
+|  
+|       2.  Draft 2 - First inhouse review.
+
+
+
+
+   4  Modules
+
+   The utility is comprised of various BLISS-32 modules and a .MSG  file.   These
+   modules are linked together to provide the single utility.
+|  
+|       1.  DUMPER.BLI -  Main  routine.   Contains  the  calls  to  the  command
+|           processing, and some general subroutines.
+
+        2.  DUMPER.CLD - Command line definition file.  This is the file that  is
+            used with the DCL command SET COMMAND to define the command to invoke
+            this utility.
+
+        3.  DUMPER_DRIVER.BLI - Main restore and list driver routines.
+
+        4.  DUMPER_CVT.BLI - Main data type conversion routines.  Converts  36bit
+            text, numbers, bytes, etc into text descriptors, characters and valid
+|           32bit data.
+
+        5.  DUMPER_LIST.BLI - Main listing routines.
+
+        6.  DUMPER_TAPE_IO.BLI - Tape I/O processing  routines.   These  are  the
+            routines that will read the data from the tape.
+   DUMPER-32 Function Specificaiton                                Page 7
+   Modules                                                27 January 1986
+
+
+        7.  DUMPER_FILE.BLI - File output routines.  These routines  provide  for
+            setting of the various file attributes, creating the file and writing
+            the data into the file.
+
+        8.  DUMPER_BACKUP_TAPE.BLI - This module provides the basic  support  for
+            reading a BACKUP-10 written tape.
+
+        9.  DUMPER_DUMPER_TAPE.BLI - This module provides the basic  support  for
+            reading a DUMPER-20 written tape.
+
+       10.  CHARACTER_DEFINITIONS.REQ   -   Symbol   definitions   for    control
+            characters.
+
+       11.  DUMPER_SYMBOLS.REQ - Macro and symbol definitions used in all of  the
+            various modules found in the utility.
+
+       12.  TAPE_FORMAT.REQ - Macros and symbols that  define  the  format  of  a
+            tape.
+
+       13.  DUMPER_ERROR.MSG - Message file  that  contains  all  of  the  DUMPER
+            specific messages that are signalled.
+
+
+   Each of the BLISS-32 modules is compiled via the BLISS  DCL  command  and  the
+   message  file  is  compiled  via the MESSAGE DCL command.  The following is an
+   example of how to compile the various modules.
+
+   $ !
+   $ ! Command file to build the DUMPER-32 program
+   $ !
+   $ MESSAGE DUMPER_ERROR.MSG
+   $ BLISS DUMPER.BLI
+   $ BLISS DUMPER_DRIVER.BLI
+   $ BLISS DUMPER_BACKUP_TAPE.BLI
+   $ BLISS DUMPER_DUMPER_TAPE.BLI
+   $ BLISS DUMPER_FILE.BLI
+   $ BLISS DUMPER_CVT.BLI
+   $ BLISS DUMPER_TAPE_IO.BLI
+
+   Once the modules have been compiled, they can  be  linked  together  with  the
+   following command line.
+
+   $ LINK DUMPER, DUMPER_DRIVER, DUMPER_BACKUP_TAPE, DUMPER_DUMPER_TAPE, -
+    DUMPER_FILE, DUMPER_CVT, DUMPER_TAPE_IO, PARSER, PARERR, DUMPER_ERROR
+
+
+                                   Command Parser
+
+           The modules PARSER and PARERR are part of the  command  parser
+           and  are  discussed in detail in the Command Parser Functional
+           Specification.
+
+   DUMPER-32 Function Specificaiton                                Page 8
+   Command Interface                                      27 January 1986
+
+
+   5  Command Interface
+
+   This utility is invoked via a DCL command.  The DCL command is defined by  the
+   module  DUMPER.CLD.   The  DCL command defined by the .CLD file is DUMPER.  To
+   define the command the following DCL command is used.
+
+       _       $ SET COMMAND DUMPER /OUTPUT
+
+   Once that is done, the syntax of the command to restore files is:
+
+       _       $ DUMPER /Qualifiers Input-specification Output-specification
+
+   The command syntax to get a listing of the BACKUP-10/DUMPER-20 tape is:
+
+       _       $ DUMPER /Qualifiers Input-specification
+
+
+
+   5.1  Input-specification
+
+   The "input-specification" specifies the tape device to  use  for  reading  the
+   BACKUP-10/DUMPER-20  tape.   This would normally be a standard VMS tape device
+   (eg.  MFA0:).
+
+
+
+   5.2  Output-specification
+
+   The "output-specification" along with the file  specification  from  the  tape
+   will  be  used to produce the file specifications used for restoring the files
+   from tape.  The output-specification  will  override  any  of  the  tape  file
+   specifications.
+
+   If the user wanted to restore  a  file  from  a  tape  keeping  the  name  and
+   extension  from  the  tape, the output specification should just be the device
+   and the directory of where to store the file.  For example if the file on  the
+   tape  was  PS:<DOCUMENTATION>RFC940.TXT.1 and the user wanted to restore it as
+   DISK$DOC:[RFC]RFC940.TXT;1  the  output  specification  would  just   be   the
+   DISK$DOC:[RFC].
+
+
+
+   5.3  Qualifiers
+
+   The following are the legal qualifiers for the DUMPER command.
+
+
+
+   5.3.1  BLOCKING_FACTOR=number
+
+   This qualifiers specifies the number of logical blocks that were  written  per
+   physical  tape  block.  Some versions of BACKUP-10 and DUMPER-20 allow for the
+   writing of more than one logical block per physical tape block  for  increased
+   performance.  The default for this qualifier is a blocking factor of 1.
+   DUMPER-32 Function Specificaiton                                Page 9
+   Command Interface                                      27 January 1986
+
+
+   5.3.2  CREATEDIRECTORY
+
+   This qualifier will flag that directories are to be created when the files are
+   restored.  This will allow for the restoring of a DECsystem-10 or DECSYSTEM-20
+   tape with the same directory structure to a VAX/VMS system.  Directories  will
+   not be created by default.
+
+
+
+   5.3.3  FORMAT[=Keyword]
+
+   This qualifier will specify the type of tape that is being read.  The  default
+   for this qualifier is INTERCHANGE.
+
+
+
+   5.3.3.1  INTERCHANGE
+
+   The format of  the  tape  is  either  BACKUP  INTERCHANGE  mode  or  DUMPER-20
+   INTERCHANGE mode.
+
+
+
+   5.3.3.2  BACKUP
+
+   The format of the tape is BACKUP-10 format.
+
+
+
+   5.3.3.3  DUMPER
+
+   The format of the tape is DUMPER-20 format.
+
+
+
+   5.3.4  LIST[=Output-file]
+
+   This will specify that  a  listing  of  the  tape  is  to  be  made.   If  the
+   "Output-file"  is  not  specified then the listing of the tape will be done to
+   the user's terminal.
+
+
+
+   5.3.5  LOG[=Keyword]
+
+   The LOG qualifier will cause events to be logged to the  user  terminal.   The
+   events  that  are  logged  are  the creation of files.  The default keyword is
+   FILES.
+   DUMPER-32 Function Specificaiton                               Page 10
+   Command Interface                                      27 January 1986
+
+
+   5.3.5.1  FILES
+
+   All files that are restored are logged to the user's terminal.  The  tape  and
+   disk file specifications will be output.
+
+
+
+   5.3.5.2  ALL
+
+   All events will be logged to the  user  terminal.   This  includes  both  file
+   restoration and directory creation.
+
+
+
+   5.3.5.3  DIRECTORIES
+
+   Any directories that are created will be logged to the user's terminal.
+
+
+
+   5.3.6  REWIND
+
+   When the REWIND qualifier is present, the tape will rewind  before  attempting
+   to read the information from the tape.
+
+
+
+   5.3.7  SELECT[=Tape-specifications]
+
+   This option specifies which files on  the  tape  are  to  be  restored.   This
+   qualifier  is  similar  to  the  VMS BACKUP qualifier with the same name.  The
+   default tape specification is "*.*.*".
+
+
+
+   5.3.8  SKIP[=Number]
+
+|  The default if the qualifier is given without an argument is to  skip  1  save
+|  set.
+|  
+|  
+|  
+|  5.3.9  SSNAME[=Save-set-name]
+|  
+   This qualifier will specify the save set name  that  the  file(s)  are  to  be
+|  restored  from.   The default save set name is "ALL" if the qualifier is given
+|  without an argument of if the /LIST qualifier is given.  If the  qualifier  is
+|  not given, then the files will be restored from the next save set.
+   DUMPER-32 Function Specificaiton                               Page 11
+   Command Interface                                      27 January 1986
+
+
+   5.4  Examples
+
+   The following are examples of using the various qualifiers.
+
+
+
+   5.4.1  Getting a listing of a tape
+
+   The following command will request that the utility produce a listing  of  the
+   information on the tape and store the output into the file BACKUP_TAPE.LIS.
+
+       _       $ DUMPER /LIST=BACKUP_TAPE.LIS MFA0:
+
+   If a listing on the terminal is required then the file  specification  can  be
+   left off of the command line.
+
+       _       $ DUMPER /LIST MTA0:
+
+
+
+   5.4.2  Restoring selected files
+
+   The following example show how to select specific files from the tape  and  to
+   restore them to your area.
+
+       _       $ DUMPER MRA0:/SELECT=(*.INI) SYS$CC:[RMCQUEEN]
+
+
+
+
+   5.4.3  Restoring a complete tape creating directories
+
+   The following can be used to restore a complete tape,  creating  the  complete
+   directory structure that was saved on the tape.
+
+       _       $ DUMPER MRA0:  DISK$USER0:/CREATE
+
+   If a specific disk structure is to be restored from the tape, then it  can  be
+   selected.   The  following example show the restoring of the structure PS:  to
+   the disk structure DISK$USER1:.
+
+       _       $ DUMPER MFA0:/SELECT=(PS:[*]) DISK$USER1:/CREATE
+
+
+
+   6  Functional description
+
+   This section will give an overview of how the utility works, the major  macros
+   that  are used in the utility and the routines found in the different modules.
+   It is expected that the reader  is  familiar  with  either  the  BACKUP-10  or
+   DUMPER-20 utilities.
+   DUMPER-32 Function Specificaiton                               Page 12
+   Functional description                                 27 January 1986
+
+
+   6.1  Overview
+
+   The main logic in DUMPER is a two step processes.  The first step is  to  call
+   the  command  processor  to get the command and then to call the DUMPER_DRIVER
+|  module to process the command.  The command processing is handled by a general
+|  command processor used by both the ALTER utility and the DUMPER utility.
+
+   The driver module proceeds in a tape independent manner, since both the BACKUP
+   and DUMPER tape formats are structured in a similar manner.  The tape specific
+   routines are called via a dispatch  table  for  the  specific  routines.   The
+   current  dispatch vector is stored in OWN storage and is called PROCESS_VECTOR
+   with a FIELD definition of ROUTINE_DISPATCH.
+
+   The driver module will  first  call  the  proper  tape  format  initialization
+   routine  and  then  set  up  the  defaults  for the save set name and blocking
+   factor.  If there are any save sets to skip, the low  level  tape  routine  is
+   called to skip the save sets.  Once all of that is accomplished, the main loop
+   is entered to find the correct save set and  process  it.   The  save  set  is
+   processed by calling the routine to restore it or to list it.
+
+   Once a save set to restore  is  found,  the  save  set  will  be  searched  to
+   determine  if  any  of  the  files  in  the  save set match the selection file
+   specifications.  If  a  tape  file  specification  matches  a  selection  file
+   specification, then the file is restored.
+|  
+|  A save set is listed by calling the format dependent routines to list  a  tape
+   record.  Once a record is listed, the next record is read and listed until the
+   end of the tape or a fatal error occurs.
+|  
+|  
+|  
+|  6.2  Converting file formats
+|  
+|  This utility will attempt to make a proper "guess" at how  a  file  from  tape
+|  should  be  written  on a VAX/VMS system.  The next two sections will describe
+|  the methods of making the "guess" for a file.
+|  
+|  
+|  
+|  6.2.1  BACKUP-10 tapes
+|  
+|  As of version 5 of BACKUP-10 and version 7.03 of TOPS-10, there may be  enough
+|  real  information  on  file format to properly restore a file on a VMS system.
+|  The new information in the file's RIB that BACKUP-10 saves and DUMPER-32  uses
+|  is:   Carriage  Control  (RB.DCC field in .RBTYP word), logical data byte size
+|  (RB.BSZ in .RBBSZ), physical data frame size (RB.FSZ in .RBBSZ), fixed  header
+|  size (RB.HSZ in .RBBSZ), record format (RB.RFM in .RBBSZ), record organization
+|  (RB.RFO in .RBBSZ), record size (RB.RSZ in .RBRSZ) and block size  (RB.BLS  in
+|  .RBRSZ).   If  this  information  is  not  present in the file's RIB, then the
+|  pre-7.02 method of determining the file characteristics is used.
+|  
+|  Previous to version  5  of  BACKUP  and  version  7.03  of  TOPS-10  the  only
+|  information  available  to  determine the type of a file was the mode that the
+|  file was written in (RB.MOD field in the .RBPRV word of the RIB).
+   DUMPER-32 Function Specificaiton                               Page 13
+   Functional description                                 27 January 1986
+
+
+|  If the file byte size is 7 bit bytes, then it is assumed that the byte size is
+|  7, frame size is 7, no record size, no fixed header size, the record format is
+|  variable and the record attribute is set to implied carriage returns.
+|  
+|  If the file byte size is 8 bit bytes, then it is assumed that the byte size is
+|  8,  frame size is 8.  The record size is set to 510 byte records.  There is no
+|  fixed header size.  The record format is variable and with no attributes.
+|  
+|  If the file byte size is 36 bit bytes, then it is assumed that the  byte  size
+|  is  36,  frame  size  is 36.  There is no fixed record size, and there are not
+|  fixed headers on the records.  The record format is variable (FAB$C_VAR)  with
+|  no  record attributes.  The 36 bit data frames are stored into the output file
+|  as 4 7-bit bytes followed by a single 8-bit byte.  This is the same as if  the
+|  file were an ASCII file, except that the last byte will get bit 35 as the high
+|  order bit in the output byte.
+|  
+|  If the byte size is not 7, 8 or 36 then the byte size and frame size  will  be
+|  set  to  what is in the FDB.  There will be no record size set or fixed record
+|  header.  The record format will be variable length and the  record  attributes
+|  will not be given.
+|  
+|  
+|  
+|  6.2.2  DUMPER-20 tapes
+|  
+|  The format of DUMPER-20 files is determined from the byte size stored  in  the
+|  file's  FDB.   If  the  file byte size is 0 or 7 bit bytes, then it is assumed
+|  that the byte size is 7, frame size is 7.  There would be no record  size,  or
+|  fixed  header  for  the  file.  The record format will variable and the record
+|  attribute is set to implied carriage returns.
+|  
+|  If the file byte size is 8 bit bytes, then it is assumed that the byte size is
+|  8,  frame  size  is 8.  The record size will be 510 byte records with no fixed
+|  headers.  The record format would be variable with no record attributes.
+|  
+|  If the file byte size is 36 bit bytes, then it is assumed that the  byte  size
+|  is  36, frame size is 36, record size is 0, there is no fixed header size, the
+|  record format is variable and has no  record  attributes.   The  36  bit  data
+|  frames  are  stored into the output file as 4 7-bit bytes followed by a single
+|  8-bit byte.  This is the same as if the file were an ASCII file,  except  that
+|  the last byte will get bit 35 as the high order bit in the output byte.
+|  
+|  If the byte size is not 0, 7, 8 or 36 then the byte size and frame  size  will
+|  be  set  to  what  is  in  the FDB.  There will be no record size set or fixed
+|  record header.  The record format will  be  variable  length  and  the  record
+|  attributes will not be given.
+|  
+|  
+|  
+|  6.2.3  Non-7, 8, or 36-bit bytes
+|  
+|  When the BACKUP/DUMPER tape contains a file that indicates the data is not  in
+|  7-bit,  8-bit  or  36-bit  bytes  the  output  data will be stored in the next
+|  highest VAX storage unit that will accomidate it.  This means sizes 1 to 6 are
+   DUMPER-32 Function Specificaiton                               Page 14
+   Functional description                                 27 January 1986
+
+
+|  stored  in a byte (8-bits, 9 to 16 are stored in a word (16 bits) and 17 to 32
+|  are stored in a long word (32 bits), and 33 to 35 are treated as if they  were
+|  36 bit frames.
+
+
+
+   6.3  Known Problems/Restrictions
+
+   The following are the known problems and  restrictions  for  the  DUMPER  tape
+   utility.
+
+        1.  Files that are written as 36bit frames will be restored  without  any
+            record attributes.
+
+
+
+
+   6.4  Libraries and Required files
+
+   The source modules use the standard VMS libraries (STARLET)  and  three  local
+   require  files.  The local libraries provide local definitions and macros used
+   in the utility
+
+
+
+   6.4.1  CHARACTER_DEFINITIONS.REQ
+
+   This require file provides standard names for the various  control  characters
+   that can be encountered in the processing of tape files.
+
+
+
+   6.4.2  DUMPER_SYMBOLS.REQ
+
+   This file provides macro definitions  and  symbols  for  use  in  all  of  the
+   modules.   The  module defines fields for the representation of 36-bit data in
+   the 32-bit words and vectors, fields for the frames from the tape, fields  for
+   calling  the  BACKUP/DUMPER  specific  routines  and  others.   The  following
+   describe some of the macros found in this module.
+
+
+
+   6.4.2.1  $BYTE, $WORD, $LONGWORD
+
+   This macros are single entry vectors.  They are useful for using as  REF's  to
+   longwords, words and bytes.
+
+
+
+   6.4.2.2  $DESCRIPTOR_DECL and $DESCRIPTOR_INIT
+
+   These macros are used to define and initialize a string descriptor.
+   DUMPER-32 Function Specificaiton                               Page 15
+   Functional description                                 27 January 1986
+
+
+   6.4.2.3  $IOSB_DECL
+
+   This macro is used to define an IO  status  block  as  used  with  QIO  system
+   service  calls.   It  will  declare the block and associate with the block the
+   proper fields for fetching information from the block.  The  fields  that  are
+   defined are:  IOSB_START, IOSB_STATUS, IOSB_COUNT and IOSB_DEVDEPEND.
+
+
+
+   6.4.3  TAPE_FORMAT.REQ
+
+   This module contains the macro definitions that describe  the  format  of  the
+   various  tape  blocks.   It provides the record formats and symbol definitions
+   for the values found in various tape files.
+
+|  Each entry in the macros has a standard format.   The  format  for  entry  is:
+|  Field  name,  word  offset, field offset, field size, storage address, storage
+   size in bytes, conversion routine and any flags associated  with  this  entry.
+   The following is a brief list of some of the macros found in the module.
+
+        1.  BACKUP_STANDARD_RECORD_HEADER
+
+        2.  BACKUP_T_LBL_RECORD
+
+        3.  BACKUP_T_BEG_RECORD
+
+        4.  BACKUP_T_UFD_RECORD
+
+        5.  BACKUP_T_FIL_RECORD
+
+        6.  BACKUP_NON_DATA_BLOCK_HEADER
+
+        7.  BACKUP_NAME_BLOCK
+
+        8.  BACKUP_FILE_BLOCK
+
+        9.  BACKUP_DIRECTORY_BLOCK
+
+       10.  BACKUP_SYSTEM_NAME
+
+       11.  BACKUP_SAVE_SET_NAME
+
+       12.  DUMPER_STANDARD_RECORD_HEADER
+
+       13.  DUMPER_SAVESET_HEADER_RECORD
+
+       14.  DUMPER_SAVESET_BUFFER
+
+       15.  DUMPER_FILE_HEADER_RECORD
+
+       16.  DUMPER_FDB
+
+   DUMPER-32 Function Specificaiton                               Page 16
+   Functional description                                 27 January 1986
+
+
+   6.5  Routines
+
+   6.5.1  DUMPER.BLI
+
+   DUMPER-32 is a program to read BACKUP-10  tapes  from  the  DECsystem-10s  and
+   DUMPER-20 tapes from the DECSYSTEM-20s.  This program will read tapes only and
+   restore the information to disk.  It will not  write  BACKUP-10  or  DUMPER-20
+   tapes.
+
+   This module contains the command tables to call  the  parser  with,  the  main
+   routine that calls all of the other routines.
+
+
+
+   6.5.1.1  DUMPER_MAIN
+
+   This is the main routine for DUMPER-32.  It will cause the various modules  to
+   be initialized and then call the correct routine to process a command.
+
+
+
+   6.5.1.2  MATCH_FILESPEC (FILE_SPEC)
+
+   This routine is called to determine if a file should be restored  or  skipped.
+   It  will  match  the  file  specification  from the tape against the (possibly
+   wildcarded) file specifications from the user's  /SELECT  qualifier.   If  the
+   file spec matches, it will return true, otherwise it will return false.
+
+
+
+   6.5.1.3  EXTRACT_FIELDS (STRING_DESC, RESULT)
+
+   This  routine  will  return  pointers  to  the  various  part  of   the   file
+   specification.
+
+
+
+   6.5.1.4  MATCH_SINGLE_FILE (FILE_SPEC, TEMPLATE_SPEC)
+
+   This  routine  is  called  from  MATCH_FILESPEC  to  determine  if  the   file
+   specification  matches  the  template  specification.   It  will  handle  full
+   wildcarded templates using both "*" and "%".
+
+
+
+   6.5.1.5  MATCH_STRING    (STRING_LENGTH,    STRING_POINTER,    PATTERN_LENGTH,
+            PATTERN_POINTER)
+
+   This routine is called to match a field of a file spec against  the  wild-card
+   pattern  for  that field.  It the field fits the pattern, it will return true,
+   otherwise it returns false.  It handles both "*" as zero  or  more  characters
+   and "%" as any single character.
+   DUMPER-32 Function Specificaiton                               Page 17
+   Functional description                                 27 January 1986
+
+
+   6.5.2  DUMPER_DRIVER.BLI
+
+   This module contains the high-level driver  for  listing  and  restoring  both
+   BACKUP-10 and DUMPER-20 tapes.  It does the processing which is common to both
+   formats of tape.
+
+
+
+   6.5.2.1  DRIVER_PROCESS_COMMAND
+
+   This routine is called by the command parser to process the  command  received
+   from  the  user.   When  this  routine is called, all parameters and qualifier
+   values have already been stored in their permanent  storage  locations.   This
+   routine  will perform the requested action (either listing the contents of the
+   tape or restoring the files), and return when the action is finished.
+
+
+
+   6.5.2.2  CHECK_SAVE_SET_RECORD
+
+   This routine is called to check if a save set starting at the  current  record
+   should  be  restored.   The current record has already been read into the tape
+   buffer.  It will call the proper low  level  routine  to  perform  the  record
+   decoding  and  format specific checks, and will then decide whether to restore
+   the record.
+
+
+
+   6.5.2.3  RESTORE_SAVE_SET
+
+   This routine is called when it  is  determined  that  a  save  set  should  be
+   restored.   It  will process the entire save set, restoring all desired files.
+   When this routine is called, the save set header should be in the tape buffer.
+
+
+
+   6.5.2.4  RESTORE_FILE
+
+   This routine is called to restore a single file.  It will call the the  proper
+   low  level routines (format specific) to process the data from the file.  When
+   this routine is called, the file header data must have already been  processed
+   by calling the PROCESS_FILE entry and the file header record must still be the
+   current tape buffer.
+
+
+
+   6.5.2.5  LIST_SAVE_SET
+
+   This routine is called to list a single save set.
+   DUMPER-32 Function Specificaiton                               Page 18
+   Functional description                                 27 January 1986
+
+
+   6.5.3  DUMPER_CVT.BLI
+
+   This module will provide the data conversion routines required to convert  the
+   36 bit into something that this small machine can deal with.
+
+
+
+   6.5.3.1  CVT_INITIALIZE
+
+   This routine will initialize the data conversion routines.
+
+
+
+   6.5.3.2  CVT_CONVERT_RECORD          (CONVERSION_TABLE,          RECORD_36BIT,
+            INITIAL_WORD_INDEX)
+
+   This routine is called to process a record according to the conversion  table.
+   It  will  process  all  the  fields in the table, storing the results into the
+   specified storage locations.
+
+
+
+   6.5.3.3  CVT_SIXBIT_2_ASCID (WORD_36BIT,  BYTE_SIZE,  BYTE_POSITION,  STORAGE,
+            STORAGE_SIZE, RECORD_BUFFER)
+
+   This routine will convert a SIXBIT word into an ASCID string.  It will  return
+   the updated descriptor.
+
+
+
+   6.5.3.4  CVT_FETCH_7BIT_CHARACTER (ASCII_STRING, CHARACTER_OFFSET, LSN_FLAG)
+
+   This routine will return a  character  from  the  string  pointed  to  by  the
+   ASCII_STRING argument.  It will use the CHARACTER_OFFSET to determine which of
+   the characters to return to the caller.
+
+
+
+   6.5.3.5  CVT_WORD_2_LONGWORD (WORD_36BIT, BYTE_SIZE, BYTE_POSITION, LONG_WORD,
+            STORAGE_SIZE, RECORD_BUFFER)
+
+   This routine will attempt to convert a word (36-bit) into a VAX long word data
+   item.   It will return an error status if the high order four bits of the word
+   is non-zero.
+
+
+
+   6.5.3.6  CVT_ASCIZ_2_ASCID    (ASCIZ_STRING,     BYTE_SIZE,     BYTE_POSITION,
+            ASCID_STRING, STORAGE_SIZE, RECORD_BUFFER)
+
+   This routine will take  the  address  of  an  ASCIZ  string  and  convert  the
+   information into the ASCID descriptor that was given.
+   DUMPER-32 Function Specificaiton                               Page 19
+   Functional description                                 27 January 1986
+
+
+   6.5.3.7  CVT_FIELD    (WORD_36BIT,    BYTE_SIZE,    BYTE_POSITION,    STORAGE,
+            STORAGE_SIZE, RECORD_BUFFER)
+
+   This routine will fetch an arbitrary data item and convert it to  a  VAX  data
+   item.  This routine will only handle data that is 36bits long or 32 and less.
+
+
+
+   6.5.3.8  CVT_BPT_2_ASCID  (WORD_36BIT,  BYTE_SIZE,   BYTE_POSITION,   STORAGE,
+            STORAGE_SIZE, RECORD_BUFFER)
+
+   This routine will convert a relative byte pointer to an ASCIZ  string  in  the
+   current  tape  record  to  an  ASCID  string.  If all fields are zero, it will
+   assume no string.
+
+
+
+   6.5.3.9  CVT_UDT_2_DATE_TIME (UDT_ADDRESS, BYTE_SIZE, BYTE_POSITION,  STORAGE,
+            STORAGE_SIZE, RECORD_BUFFER)
+
+   This routine will convert a universal date/time (TOPS-10/20 format) to the VAX
+   format for Date/Time.
+
+
+
+   6.5.3.10  CVT_NEG_FIELD  (WORD_36BIT,   BYTE_SIZE,   BYTE_POSITION,   STORAGE,
+             STORAGE_SIZE, RECORD_BUFFER)
+
+   This routine will convert a negative number (36 bit) into a single long value.
+
+
+
+   6.5.4  DUMPER_BACKUP_TAPE.BLI
+
+   This module implements the reading of BACKUP-10 format  tapes  under  VAX/VMS.
+   This  module  also contains the BACKUP-10 specific conversion routines such as
+   O$NAME conversion.
+
+
+
+   6.5.4.1  BACKUP_INITIALIZATION
+
+   This routine will initialize the BACKUP tape processing.
+
+
+
+   6.5.4.2  BACKUP_READ_AND_DECODE_RECORD (BLOCKING_AND_DIR_FLAG, RECORD_ADDRESS)
+
+   This routine is called when a record has been read from a BACKUP tape.  It  is
+   expected  to  perform  whatever  decoding is necessary for every record on the
+   tape.  It will also return an indication  of  whether  the  record  should  be
+   processed or ignored.
+   DUMPER-32 Function Specificaiton                               Page 20
+   Functional description                                 27 January 1986
+
+
+   6.5.4.3  BACKUP_CHECK_SAVE_SET_RECORD (RECORD_ADDRESS)
+
+   This routine is called when processing a BACKUP tape to check if  the  current
+   record  is  a  save  set  header,  and if so, if the save set name matches the
+   desired save set(s).
+
+
+
+   6.5.4.4  BACKUP_PROCESS_FILE (RECORD_ADDRESS)
+
+|  This routine is called to process a record from a BACKUP save set when  it  is
+   expected  to be the first record of a file ("file header").  It will determine
+   if the record is one, and if so, convert the data into more useful form.
+
+
+
+   6.5.4.5  BACKUP_PROCESS_DATA (RECORD_ADDRESS)
+
+   This routine is called to process a record when it is expected to  be  a  data
+   record.   It  will  correctly  set  up  pointers to the actual data within the
+   record.
+
+
+
+   6.5.4.6  BACKUP_SKIP_SAVE_SET (NUMBER_TO_SKIP, RECORD_ADDRESS)
+
+   This routine is called to skip one save set.  This  is  done  differently  for
+   tapes which were written by BACKUP and those written by DUMPER.  BACKUP always
+   writes tape marks  between  save  sets,  so  that  we  can  use  file  spacing
+   operations to move the tape.  DUMPER does not write the tape marks, so that we
+   actually have to read the tape to find the save set header records!
+
+
+
+   6.5.4.7  BACKUP_LIST_RECORD (RECORD_ADDRESS)
+
+   This routine will list a single BACKUP format record.  It is called  once  for
+   each  record  in  a  save set.  When the end of a save set is reached, it will
+   return an indication that the record was the last in the save set.
+
+
+
+   6.5.4.8  CVT_F_PTH_2_ASCID  (WORD_36BIT,  BYTE_SIZE,  BYTE_POSITION,  STORAGE,
+            STORAGE_SIZE, RECORD_BUFFER)
+
+   This routine will convert the path in the T$FIL block  on  the  tape  into  an
+   ASCID  string.   This routine will use the CVT_FETCH_7BIT_CHARACTER routine to
+   read the actual information from the block.
+   DUMPER-32 Function Specificaiton                               Page 21
+   Functional description                                 27 January 1986
+
+
+   6.5.4.9  CVT_PATH_2_ASCID  (WORD_36BIT,  BYTE_SIZE,  BYTE_POSITION,   STORAGE,
+            STORAGE_SIZE, RECORD_BUFFER)
+
+|  This routine will convert a path from an O$NAME block to an ASCID string.
+
+
+
+   6.5.4.10  CVT_PATH_OR_F_PTH_2_ASCID   (RECORD_BUFFER,   BYTE_SIZE,    STORAGE,
+             STORAGE_SIZE, GET_TYPE_RTN)
+
+   This routine is called  by  both  CVT_F_PTH_2_ASCID  and  CVT_PATH_2_ASCID  to
+   convert  a backup style path specification to an ASCII string descriptor.  The
+   caller supplies the routine which picks up the item type, length and  position
+   of first character.
+
+
+
+   6.5.4.11  CVT_BACKUP_FILE_TYPE
+
+   This routine is called to determine the file  type  that  should  be  used  in
+   writing  the  current file from the tape.  It will determine this based on the
+   information stored in the file attributes block (O$FILE).  The best choice for
+   the  file  type  will be based on the file byte size stored in the A$FBSZ byte
+   size field.  Since this field is new with version 7.03 of TOPS-10 and  version
+   5  of BACKUP, we cannot count on using it.  If the byte size field is zero and
+   the file data type field is also zero, we must base the file  type  on  A$BSIZ
+   and/or  A$MODE.   Since this has never been a reliable way of determining what
+   type of data is in the file, we may need to provide a  way  for  the  user  to
+   either override our default action or ask him for each file.
+
+
+
+   6.5.4.12  CVT_PROT (PROT_FIELD)
+
+   This routine will convert one field of  a  file  protection  to  the  bit  map
+   required by VMS.
+
+
+
+   6.5.4.13  CVT_PROT_2_ASCIC (PROT_STRING, PROT_BINARY)
+
+   This routine is called to return the string which corresponds  to  the  BACKUP
+   format binary protection.
+
+
+
+   6.5.5  DUMPER_DUMPER_TAPE.BLI
+
+   This module implements the reading of DUMPER-20 format tapes under VAX/VMS.
+   DUMPER-32 Function Specificaiton                               Page 22
+   Functional description                                 27 January 1986
+
+
+   6.5.5.1  DUMPER_INITIALIZATION
+
+   This routine will initialize the DUMPER tape processing.
+
+
+
+   6.5.5.2  DUMPER_READ_AND_DECODE_RECORD (BLOCKING_AND_DIR_FLAG, RECORD_ADDRESS)
+
+   This routine is called when a record has been read from a DUMPER tape.  It  is
+   expected  to  perform  whatever  decoding is necessary for every record on the
+   tape.  It will also return an indication  of  whether  the  record  should  be
+   processed or ignored.
+
+
+
+   6.5.5.3  DUMPER_CHECK_SAVE_SET_RECORD (RECORD_ADDRESS)
+
+   This routine is called when processing a DUMPER tape to check if  the  current
+   record  is  a  save  set  header,  and if so, if the save set name matches the
+   desired save set(s).
+
+
+
+   6.5.5.4  DUMPER_PROCESS_FILE (RECORD_ADDRESS)
+
+|  This routine is called to process a record from a DUMPER save set when  it  is
+   expected  to be the first record of a file ("file header").  It will determine
+   if the record is one, and if so, convert the data into more useful form.
+
+
+
+   6.5.5.5  DUMPER_PROCESS_DATA (RECORD_ADDRESS)
+
+   This routine is called to process a record when it is expected to  be  a  data
+   record.   It  will  correctly  set  up  pointers to the actual data within the
+   record.
+
+
+
+   6.5.5.6  DUMPER_SKIP_SAVE_SET (NUMBER_TO_SKIP, RECORD_ADDRESS)
+
+   This routine is called to skip a number of save sets.  It will read  the  tape
+   in the correct direction looking for save set header records.
+
+
+
+   6.5.5.7  DUMPER_LIST_RECORD (RECORD_ADDRESS)
+
+   This routine is called to list a single DUMPER format record.   It  is  called
+   once  for each record in a save set.  When the end of the save set is reached,
+   it will return an indication that the record was the last one in the save set.
+   DUMPER-32 Function Specificaiton                               Page 23
+   Functional description                                 27 January 1986
+
+
+   6.5.5.8  CVT_DUMPER_FILE_TYPE
+
+   This routine is called to determine the file  type  that  should  be  used  in
+   writing  the  current file from the tape.  It will determine this based on the
+   information stored in the file attributes block.
+
+
+
+   6.5.6  DUMPER_TAPE_IO.BLI
+
+|  This module implements the tape I/O processing for reading  the  DUMPER-20  or
+|  BACKUP-10 tapes.  This module is the only module that does tape I/O.
+
+
+
+   6.5.6.1  TAPE_ACCESS
+
+   This routine will request access to a tape drive file from the  magnetic  tape
+   ACP.  It assumes that the tape drive channel has already be assigned.
+
+
+
+   6.5.6.2  TAPE_DEACCESS
+
+   This routine will deaccess a tape file.  It will  return  the  system  service
+   completion  code  to  the  caller.   It assumes that the tape drive channel is
+   open.
+
+
+
+   6.5.6.3  TAPE_REWIND
+
+   This routine will position the tape to the beginning of the volume set.
+
+
+
+   6.5.6.4  READ_TAPE_BLOCK (TAPE_BUFFER_INDEX)
+
+   This routine will force the next tape block to be read.  The routine will wait
+   until  the  QIO  finishes  before returning to the caller.  The buffer used is
+   specified by the argument TAPE_BUFFER_INDEX which is an offset into the buffer
+   table.
+
+
+
+   6.5.6.5  READ_TAPE_BLOCK_BACKWARDS (TAPE_BUFFER_INDEX)
+
+   This routine will force the previous tape block to be read.  The routine  will
+   wait  until  the QIO finishes before returning to the caller.  The buffer used
+   is specified by the argument TAPE_BUFFER_INDEX which is  an  offset  into  the
+   vector of buffer addresses.
+   DUMPER-32 Function Specificaiton                               Page 24
+   Functional description                                 27 January 1986
+
+
+   6.5.6.6  DEALLOCATE_BUFFERS
+
+   This routine will deallocate the buffers for  the  tape  I/O.   It  will  loop
+   through the vector BUFFER_ADDRESS and return any buffers that are allocated.
+
+
+
+   6.5.6.7  TAPE_IO_OPEN (DEVICE_DESCRIPTOR, BLOCKING_FACTOR, BLOCK_SIZE)
+
+   This routine will open the tape device.  The routine will  first  insure  that
+   the  device  specified  is really a tape drive, then open a channel to it.  It
+   will optionally call the TAPE_ACCESS routine if the tape  is  labeled,  rewind
+   the tape if requested and then allocate the buffers for the tape.
+
+
+
+   6.5.6.7.1  OPEN_TAPE_DRIVE (DEVICE_NAME)
+
+   This routine will open the tape drive  for  processing.   It  will  store  the
+   channel into the OWN storage TAPE_CHANNEL.
+
+
+
+   6.5.6.7.2  ALLOCATE_BUFFERS (SIZE_TO_ALLOCATE)
+
+   This  routine  will  allocate  all  of  the  buffers  required  for  the  tape
+   processing.   The  address of the buffers will be stored in the BUFFER_ADDRESS
+   vector and mark that the buffers do not contain valid data  (BUFFER_VALID  set
+   to false).
+
+
+
+   6.5.6.8  TAPE_IO_CLOSE (DEVICE_DESCRIPTOR)
+
+   This routine will release any buffers that were  assigned  by  TAPE_OPEN,  and
+   deassign  the tape channel.  If the tape is labeled it will call TAPE_DEACCESS
+   to first deaccess the file on the tape before closing the channel.
+
+
+
+   6.5.6.9  TAPE_IO_PEEK_RECORD (RECORD_ADDRESS)
+
+   This routine will peek ahead at the next tape  record.   It  will  return  the
+   address  of  the  record  to the caller.  It will read the buffer and mark the
+   buffer as being valid in the BUFFER_VALID vector.  The address of  the  buffer
+   read will be returned to the caller.
+
+
+
+   6.5.6.10  TAPE_IO_READ_BACKWARDS_RECORD               (FORCE_RECORD_ZERO_FLAG,
+             RECORD_ADDRESS)
+
+   This routine will cause a tape record to be read backwards.  It will flush any
+   records    that    have   been   peeked   and   read   the   tape   backwards.
+   DUMPER-32 Function Specificaiton                               Page 25
+   Functional description                                 27 January 1986
+
+
+   FORCE_RECORD_ZERO_FLAG is a flag to determine if the  record  to  be  returned
+   should be record 0 or not.  If true will return the next logical record 0 in a
+   blocked tape.  RECORD_ADDRESS is the address  of  the  buffer  that  was  read
+   (Returned to caller).
+
+
+
+   6.5.6.11  TAPE_IO_READ_RECORD (FORCE_RECORD_ZERO_FLAG, RECORD_ADDRESS)
+
+   This routine will return the address of the next tape record.  It will  handle
+   the  blocked  tapes,  by  advancing  with  in a physical block if required and
+   skipping to the next physical block when all the records  are  read  from  the
+   physical  block.   FORCE_RECORD_ZERO_FLAG is a flag to determine if the record
+   to be returned should be record 0 or  not.   If  true  will  return  the  next
+   logical  record  0  in  a  blocked tape.  RECORD_ADDRESS is the address of the
+   record of data we just read.
+
+
+
+   6.5.6.12  TAPE_IO_UNLOAD
+
+   This routine will cause the tape to be  unloaded  from  the  tape  drive.   It
+   assumes that the drive is mounted foreign.  If the tape is not mounted foreign
+   the routine will just return SS$_NORMAL and do nothing.
+
+
+
+   6.5.6.13  TAPE_IO_NEXT_VOLUME
+
+   This routine will force the tape being processed to skip to the next volume in
+   the volume set.  It assumes that the tape is already opened and accessed.
+
+
+
+   6.5.6.13.1  NEXT_TAPE_FOREIGN
+
+   This routine will request that the next volume for a tape mounted  foreign  be
+   mounted.
+
+
+
+   6.5.6.13.1.1  NEXT_TAPE_COMMAND_OPER - This routine will ask the  operator  to
+   mount  the  take  tape on the tape drive.  It will first open a mailbox to get
+   the response from the operator, then do a $SNDOPR system  service  to  request
+   the processing and then read the command that we got.
+
+
+
+   6.5.6.13.2  NEXT_TAPE_LABELED
+
+   This routine will request that the next volume in the volume set  be  mounted.
+   This routine is called for labeled tapes only.
+   DUMPER-32 Function Specificaiton                               Page 26
+   Functional description                                 27 January 1986
+
+
+   6.5.6.14  TAPE_IO_SKIP_FILE (FILES_TO_SKIP)
+
+   This routine will be called to skip N files on the tape.  For tapes  that  are
+   mounted  foreign,  we  will  just  use the system service to do the work.  For
+   labeled tapes we will first determine the file number we are currently at  and
+   add  the number of files to skip to the file number and then attempt to access
+   that file.
+
+
+
+   6.5.6.14.1  SKIP_FILES_FOREIGN (NUMBER_OF_FILES_TO_SKIP)
+
+   This routine will skip N files on a tape that is mounted foreign.  It will use
+   the system QIO function IO$_SKIPFILE to accomplish this.
+
+
+
+   6.5.6.14.2  SKIP_FILES_LABELED (NUMBER_OF_FILES_TO_SKIP)
+
+   This routine will  skip  files  on  a  labeled  tape.   It  will  do  this  by
+   determining the current file number and then deaccessing the tape.  After that
+   is done, it will access the new  file  by  calculating  the  new  file  number
+   (old_file_number + number_files_to_skip).
+
+
+
+   6.5.7  DUMPER_FILE.BLI
+
+   6.5.7.1  FILE_INITIALIZE
+
+   This routine will initialize the file processing module for DUMPER-32.
+
+
+
+   6.5.7.2  FILE_CREATE_DIRECTORY (DIRECTORY_DESCRIPTOR)
+
+   This routine will create the directories that are required in order to restore
+   the file we are currently processing.
+
+
+
+   6.5.7.3  FILE_INITIALIZE_OUTPUT
+
+   This routine will initialize the per file output.  It will reset  the  various
+   RMS  blocks  in  the low segment and will reset any and all variables used for
+   File output.
+
+
+
+   6.5.7.4  FILE_ATTRIB_BLOCK_SIZE (BLOCK_SIZE)
+
+   This routine will set the logical block size for the file that we are about to
+   restore to the user's disk area.
+   DUMPER-32 Function Specificaiton                               Page 27
+   Functional description                                 27 January 1986
+
+
+   6.5.7.5  FILE_ATTRIB_BYTE_SIZE (BYTE_SIZE)
+
+   This routine is called to set the byte size for the next file.  The byte  size
+   is  the actual number of data bits used in each frame in the file.  It must be
+   less than or equal to the frame size.
+
+
+
+   6.5.7.6  FILE_ATTRIB_FRAME_SIZE (FRAME_SIZE)
+
+   This routine is called to set the size (in bits) of the frames in  which  data
+   bytes are stored.
+
+
+
+   6.5.7.7  FILE_ATTRIB_FIRST_FREE_BYTE (FIRST_FREE_BYTE)
+
+   This routine will set the first free byte available  in  the  file.   It  will
+   store the information that was found in the BACKUP tape file information.
+
+
+
+   6.5.7.8  FILE_ATTRIB_FIXED_HEADER_SIZE (FIXED_HEADER_SIZE)
+
+   This routine will set the size of the fixed header.  The size is the number of
+   bytes in the header.
+
+
+
+   6.5.7.9  FILE_ATTRIB_RECORD_ATTRIB (RECORD_ATTRIBUTES)
+
+   This routine will set the  record  attributes  in  the  RMS  block.   It  will
+   overwrite the default value that is stored in the block.
+
+
+
+   6.5.7.10  FILE_ATTRIB_RECORD_FORMAT (RECORD_FORMAT)
+
+   This routine will set the RMS record format to use writing the data  into  the
+   file.
+
+
+
+   6.5.7.11  FILE_ATTRIB_RECORD_SIZE (RECORD_SIZE)
+
+   This routine will set the record size into the RMS blocks from the information
+   supplied on the BACKUP tape.
+
+
+
+   6.5.7.12  FILE_ATTRIB_FILE_TYPE (FILE_TYPE_TO_WRITE)
+
+   This routine will set the type of file to create.  It will be called with  the
+   FILE_TYPE_xxxx  symbols  as  the argument.  See DUMPER_SYMBOLS for the various
+   DUMPER-32 Function Specificaiton                               Page 28
+   Functional description                                 27 January 1986
+
+
+   file types.
+
+
+
+   6.5.7.13  FILE_ATTRIB_CREATION_DTM (CREATION_DATE_TIME)
+
+   This routine will set the creation date/time attribute for the  file  that  is
+   being created.
+
+
+
+   6.5.7.14  FILE_ATTRIB_ACCESS_DTM (ACCESS_DATE_TIME)
+
+   This routine will store the last access date/time in the  RMS  block  for  the
+   $CREATE call.
+
+
+
+   6.5.7.15  FILE_ATTRIB_GENERATION (FILE_GENERATION)
+
+   This routine will set the file generation for the file about to be created.
+
+
+
+   6.5.7.16  FILE_ATTRIB_PROTECTION     (OWNER_PROTECTION,      GROUP_PROTECTION,
+             SYSTEM_PROTECTION, WORLD_PROTECTION)
+
+   This routine will set the output file protection.
+
+
+
+   6.5.7.17  FILE_ATTRIB_UIC (UIC)
+
+   This routine will set the owner UIC for the file that is being created.
+
+
+
+   6.5.7.18  FILE_ATTRIB_NAME (FILE_DESCRIPTOR)
+
+   This routine will set the file name to use for the creation of the file.
+
+
+
+   6.5.7.19  FILE_CREATE
+
+   This routine will create the output  file.   This  routine  assumes  that  the
+   FILE_ATTRIB_xxx routines have already been called.
+
+
+
+   6.5.7.19.1  ALLOCATE_RECORD_BUFFER
+
+   This routine will allocate the buffer for the user's record.  It will use  the
+   value from the tape (if there is one) or it will make a guess.
+   DUMPER-32 Function Specificaiton                               Page 29
+   Functional description                                 27 January 1986
+
+
+   6.5.7.19.2  SET_UP_FILE_NAME
+
+   This routine  will  set  up  for  the  file  creation.   It  will  create  any
+   directories  that  need  creating,  beat the file specification into something
+   that VMS will approve of, etc.
+
+
+
+   6.5.7.20  DUMP_BUFFER
+
+   This routine will dump the current record to disk.  It doesn't care what  type
+   of file you are writing, unlike FILE_DUMP.
+
+
+
+   6.5.7.21  FILE_WRITE_CHARACTER (CHARACTER)
+
+   This routine will store a character into the  buffer  to  be  written  to  the
+   output file.
+
+
+
+   6.5.7.21.1  EXPAND_BUFFER
+
+   This routine will expand  the  ASCII  character  buffer.   It  will  move  the
+   characters from the current buffer to the next buffer.
+
+
+
+   6.5.7.22  FILE_DATA_FILL (NUMBER_OF_FILL_CHARACTERS)
+
+   This routine will write fill characters to the output file.  It will be called
+   with the number of characters to write into the file.
+
+
+
+   6.5.7.23  CVT_FILE_DATA (WORD_36BITS, DATA_COUNT, BYTE_FLAG)
+
+   This routine will take the data from the tape buffer and  write  it  into  the
+   file.  This routine will do the three different file data conversions.
+
+
+
+   6.5.7.24  FILE_CLOSE
+
+   This routine will close the file that we have created.
+
+
+
+   6.5.7.25  INITIALIZE_XAB_LIST
+
+   This routine is called to initialize the XAB list.  It will clear the pointers
+   in the XAB blocks.
+   DUMPER-32 Function Specificaiton                               Page 30
+   Functional description                                 27 January 1986
+
+
+   6.5.7.26  LINK_XAB_BLOCK_IN (XAB_TO_LINK_IN)
+
+   This routine will link in a new XAB block into the XAB chain.  The  new  block
+   to link in will be the XAB_TO_LINK_IN argument.
+
+
+
+   6.5.8  DUMPER_LIST.BLI
+
+   This module implements the tape listing routines.
+
+
+
+   6.5.8.1  LIST_INITIALIZE
+
+   This routine will initialize the listing processing for DUMPER-32.
+
+
+
+   6.5.8.2  LIST_OPEN
+
+   This routine is called to open the listing file requested by the user.  If  no
+   /LIST  switch was given, it will just return, otherwise it will open the given
+   file (using a default of SYS$OUTPUT).
+
+
+
+   6.5.8.3  LIST_CLOSE
+
+   This routine is called to close the file being used for /LIST  (if  any).   It
+   will just call RMS to close the file.
+
+
+
+   6.5.8.4  LIST_LINE (LINE_DESC)
+
+   This routine will write a single line (record) to the  listing  file.   It  is
+   called with the descriptor for the line to be written.  If the listing file is
+   not open, it will output  it  to  SYS$OUTPUT  by  use  of  the  LIB$PUT_OUTPUT
+   routine.
+
+
+
+   6.5.8.5  LIST_FAO (CTRSTR)
+
+   This routine is called to output a string to the listing file.  The string may
+   be  a  standard FAO format string with any number of arguments.  The string is
+   output as a single record into  the  listing  file,  therefore,  in  order  to
+   provide for easily read (and edited) listing files, each string should only be
+   one line - no CR's, LF's, etc.
+   DUMPER-32 Function Specificaiton                               Page 31
+   Functional description                                 27 January 1986
+
+
+   6.5.8.6  LIST_BLANK (LINE_COUNT)
+
+   This routine will list some number of blank lines (empty records).
+
+
+
+   6.5.8.7  LIST_36_BIT_VERSION   (VER_MAJOR,   VER_MINOR,   VER_EDIT,   VER_WHO,
+            VER_DESC, VER_LENGTH)
+
+   This routine is called to convert the fields of a standard TOPS style  version
+   number into the standard text format (nnnxx(eeee)-w).

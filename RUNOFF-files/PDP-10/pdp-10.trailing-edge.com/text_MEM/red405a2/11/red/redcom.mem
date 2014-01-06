@@ -1,0 +1,1949 @@
+
+
+
+
+
+
+
+
+
+
+
+
+                                                        CHAPTER 1
+
+                                                  COMMUNICATIONS IOP-DUP
+
+
+
+COMMUNICATIONS IOP-DUP                                                                                            Page 1-2
+
+
+INTRODUCTION
+------------
+
+
+
+
+     The sychronous communications options on the 2020 are comprised of a KMC11  and  either  one  or  two  DUP11s.   This
+combination can also be referred to as COMM IOP-DUP.  
+
+     The DUP11 forms an interface between a synchronous modem and the UNIBUS.  Eight bit bytes of data are transferred  to
+the DUP over the UNIBUS and are serialized and formatted for transmission.  The format of the data stream is controlled by
+registers in the DUP which are read and written by either the CPU or a local IO Processor.  (IOP)
+
+     The 2020 utilizes the KMC11 as the local IOP for the DUP11.  The KMC is a microprogrammed  auxilliary  microprocessor
+designed  for  communications  functions.  The microprogram in the KMC is held in a writable control store memory (CRAM 16
+bits x 1K) which is loaded over the UNIBUS by the 2020.  This allows changes in protocols etc.  to be  nearly  transparent
+to the CPU.
+
+     The KMC transfers data between 2020 memory and the DUP using DMA and NPR transfers.  The DUP11 is  operated  in  flag
+mode  (interrupts  disabled) and is interrogated by the KMC11 periodically to determine if the character being transmitted
+is done or if a character has been assembled by the receiver.  This relieves the CPU of the extensive  interrupt  handling
+which would otherwise be necessary to maintain the synchronous data stream.
+
+
+
+REFERENCES
+----------
+
+
+
+     1.  KMC11 Users Manual EK-KMC11-OP-001
+
+     2.  COMM IOP-DUP Programming Manual AA-5670A-TC
+
+     3.  DSKMA Diagnostic Microfiche AH-E373A-DD
+
+     4.  DSDUA Diagnostic Microfiche AH-E371A-DD
+
+     5.  DUP11 Maintenance Manual EK-DUP11-MM-002
+
+     6.  KS10 Maintenance Guide EK-OKS10-MG-001
+
+     7.  Terminals and Communications Handbook
+
+COMM IOP-DUP                                                                                                      Page 1-3
+KMC11
+
+
+     The functional operation of the KMC11 is totally dependent on  the  microcode  internal  to  the  unit.   Since  this
+microcode  is  in  a  writable  control store, no attempt will be made to present internal operations of the KMC11 in this
+course.  We will deal with the functional interface between the KMC11, DUP11, and the UNIBUS.  
+
+     The KMC11 has 4 UNIBUS addressable registers.  (REFER to Fig.  1) All communications between the CPU  and  the  KMC11
+are  accomplished  using  these  registers.  The KMC11 views these as 8 byte size registers.(BSEL 0-7, addresses 76XXX0-7)
+They appear to the UNIBUS as 4, word or byte addressable, registers.(SEL 0, 2, 4, and 6)
+
+     Only the high byte of register SEL 0 (BSEL 1) has a fixed function.  This is the Maintenance Register.  The remainder
+of the UNIBUS register functions are controlled by the KMC11 microcode and the CPU software.
+
+     The Maintenance Register can be used to alter the KMC11 internal data paths  for  loading  the  CRAM  and  for  other
+maintenance functions.
+
+     For most maintenance functions,  the  RUN  bit  of  the  maintenance  Register  will  be  cleared.   This  stops  the
+microprocessor clock which allows the CPU to manipulate the UNIBUS registers without interference from the KMC11.
+
+     Bit 10 of the maintenance register ,when set, causes the 10 low order bits of SEL 4 to be  used  as  an  address  for
+CRAM.   SEL 6 can then be used for either reading or writing the addressed CRAM location.  The read or write is controlled
+by maintenance register bits 10 and 9 + 10 + 13 respectively.
+
+     To access CRAM, the 2020 CPU will clear the RUN bit of the Maintenance Register.  It will then load the desired  CRAM
+address  into bits 0 -> 9 of SEL 4.  If the operation is to write CRAM, the CPU will load SEL 6 with the new CRAM data and
+write the Maintenance Register, setting bits 9, 10 and 13.  This will cause the KMC11 to write the data in SEL  6  to  the
+CRAM  location  specified  by  SEL 4 bits 0 -> 9.  To read CRAM, the CPU will write the Maintenance Register bit 10.  This
+will cause the data in the CRAM location specified by bits 0->9 of SEL 4 to be transferred to SEL 6.  The  CPU  will  then
+read SEL 6 to determine the contents of the CRAM location.
+
+     The Maintenance Register can be used to single step through instructions supplied by the CPU, read CRAM,  and  single
+step through the microcode for diagnostic purposes.
+
+     The KMC11 has its own internal memory (1k x 8 bits) which it uses for data storage and computation.  This memory  can
+not be used for instruction storage nor can the CRAM contents be modified by the KMC11.
+
+
+COMM IOP-DUP                                                                                                      Page 1-4
+KMC11 - UBA - MEMORY DATA TRANSFER
+
+
+The KMC11 receives commands from the CPU through it's UNIBUS registers.  The microcode interprets  the  command  and  then
+takes  the  proper  actions  to  process  the command.  The KMC11 can also send commands to the CPU by writing it's UNIBUS
+registers and posting an interrupt to the UNIBUS.
+
+     There are 3 commands which must occur before transmit and receive operations can take place.
+
+
+     1.  INITIALIZATION;  This command must be performed after loading KMC11 microcode to initiate operation.
+
+
+     2.  A BASE IN command for each DUP11;  This command informs the KMC of  the  line  number  assignment  and  CSR  base
+         address of each DUP11.
+
+
+     3.  A CONTROL IN command for each DUP11;  This command sets up the line parameters for each  DUP11  and  the  polling
+         rate to be used in interrogating the DUP CSRs.
+
+
+
+The COMM IOP-DUP handles the modem handshaking and monitoring with the exception of the RING and CARRIER lines.  The  COMM
+IOP-DUP  does  all of the memory to transmitter and receiver to memory data handling.  The CPU informs the COMM IOP-DUP of
+the areas in memory to be used for transmit and receive data.  This is done  through  BUFFER  DESCRIPTOR  LISTS  for  each
+transmit and receive channel.
+
+     Each buffer descriptor list points to the start of a series of 3 word (16 bit  word  length)  buffer  descriptors  in
+contiguous  memory  locations.   Each  buffer  descriptor  contains;  a starting address for the buffer, a byte count, and
+control fields for the starting and stopping of messages etc..  The buffers may be scattered throughout main  memory  with
+the descriptors pointing to them.
+
+     The major requirement is that the buffer descriptor list be in a series of continuous  memory  locations.   Up  to  2
+lists  may  be  sent to the KMC11 for each transmit and receive line.  The lists are sent to the COMM IOP-DUP when the CPU
+desires to transmit or receive messages.
+
+     This is done with a BUFFER ADDRESS IN command.  This command has the starting address of the buffer descriptor  list,
+the line number the list applies to, and a bit controlling whether it is a transmit or receive buffer.
+
+
+                                                           NOTE
+
+               The CPU will also have to set up the UBA pager for the buffer areas in  memory  for  address
+               translation from 18 bit UNIBUS to KS10 addressing.
+
+
+
+     The KMC11 uses the buffer descriptor lists to set up it's DMA addressing for each transmit and  receive  line.   Once
+the lists are in the KMC11, the actual data transfer operations are transparent to the CPU.
+
+
+                                                           NOTE
+
+               All transfers initiated by the KMC11 over the UNIBUS are NPRs.   The  only  time  the  KMC11
+               "talks"  to  the  2020  CPU  is  when  the CPU writes the KMCs registers, or when posting an
+               interrupt on the UNIBUS.
+
+
+COMM IOP-DUP                                                                                                      Page 1-5
+KMC11 - UBA - MEMORY DATA TRANSFER
+
+
+TRANSMIT
+--------
+
+
+                                                           NOTE
+
+               The following description is for DDCMP operation of the COMM IOP-DUP.
+
+
+
+     The CPU will compile the message to be sent in memory and transfer the buffer descriptor list to the KMC11.
+
+     The KMC11 receives the buffer descriptor list with the command to transmit and retreives the first buffer  descriptor
+from  memory.   The  KMC  then  does the required handshaking with the modem via the RXCSR register of the DUP11.  The KMC
+initiates the message by setting the SEND bit in TXCSR of the DUP and transferring a SYNC character and the  TSOM  bit  to
+the TXDBUF.  
+
+     As each character is transferred from the TXDBUF to the transmitter shift register in the DUP, TXDONE will be set  in
+TXCSR.  The KMC checks the TXCSR for TXDONE by periodically reading the register.
+
+     The rate at which the DUP11 registers are polled by the KMC is controlled by one of the set up commands sent  to  the
+KMC by the CPU at system initialization.
+
+     When the KMC detects TXDONE, it will transfer another character to the TXDBUF of the DUP.  This will continue until 8
+SYNC characters have been transferred, when the KMC will reset the TSOM bit.
+
+
+                                                           NOTE
+
+               The COMM IOP-DUP microcode in the KMC11 can send 8 sync characters  automatically  in  DDCMP
+               mode,  depending  on  a control bit within the buffer descriptor.  If the control bit is not
+               set, the sync characters (if any) must be included with the message.
+
+
+
+     At this point the KMC will begin transferring message data from 2020 memory using NPRs.   The  transfer  sequence  is
+similar to the NPR slow mode transfer used for the tape unit, but 36 bit mode is not set.
+
+     As each data word is received from the system, the KMC places it in it's internal memory and waits for TXDONE to set.
+When  the  KMC  detects TXDONE on a polling cycle, it transfers an 8 bit character to the DUP TXDBUF register using a byte
+mode NPR.
+
+     This process is repeated until the number of characters transferred is equal to the  byte  count  within  the  buffer
+descriptor.   Depending  on  the state of control bits in the buffer descriptor , the KMC will either;  start transmitting
+data from a second buffer descriptor or buffer descriptor list and interrupt the CPU , or terminate the message.
+
+     When the last character of the message is transferred to the DUP, the KMC will set the TEOM bit in the  TXCSR.   This
+causes the accumulated CRC to be transmitted immediately after the last character.
+
+     A second message may start immediately after the first, using another buffer descriptor or  buffer  descriptor  list.
+Messages  may  be  strung together this way until no buffer descriptor list is pending in the KMC.  Alternately, a message
+may be distributed among several buffer descriptors or descriptor lists, terminating only when  the  bit,  in  the  buffer
+descriptor, controlling the setting of the TEOM bit, is set.
+COMM IOP-DUP                                                                                                      Page 1-6
+KMC11 - UBA - MEMORY DATA TRANSFER
+
+
+RECEIVE
+-------
+
+
+                                                           NOTE
+
+               The following discussion assumes that the COMM IOP-DUP has been initialized and  that  DDCMP
+               is the protocol.
+
+
+
+     The COMM IOP-DUP receive operation is initiated when the CPU assigns a buffer descriptor list or lists to  a  receive
+line.   The  buffer  descriptor  list  tells the KMC11 where in memory to place received data.  If data is received by the
+DUP11 and no buffer descriptor list is assigned, the COMM IOP-DUP will post an error to the CPU via an interrupt.
+
+     When the first non-sync character is received and in the RXDBUF, the DUP11 sets RXDONE.   This  is  detected  by  the
+KMC11 on the next polling cycle and the character is transferred to the KMC with a byte mode NPR.
+
+     If the first character following the leading sync characters is not an SOH, ENQ or DLE character the associated DUP11
+is resynchronized.  In this case no interrupt is sent to the CPU.
+
+     The KMC will assemble the characters into 16 bit words for transfer to main memory.  As each word is  assembled,  the
+KMC  will  issue  an  NPR  transfer,  through  the UBA, to main memory.  The transfer sequence resembles the NPR slow mode
+transfers used for tape system data transfer with 36 bit mode disabled.
+
+     The first six bytes in DDCMP protocol are the HEADER.  This is treated as a discrete message by the hardware and  CRC
+is  done on these six bytes.  If a header CRC error occurs, the KMC aborts reception, posts an error interrupt to the CPU,
+and resumes searching for sync characters.
+
+     The HEADER is analyzed by the KMC11 for the BYTE COUNT and the DDCMP quick sync bit.  The byte count allows  the  KMC
+to  discern the message CRC characters from the last data character in the message.  If the quick sync bit is set, the KMC
+will place the applicable DUP11 in sync search mode immediately following the end of the message.  If the quick  sync  bit
+is  not set, the KMC11 assumes the next message is either abutted to the current message or is preceded by at least 8 sync
+characters.
+
+     The KMC will continue transferring data from the DUP at each assertion  of  RXDONE,  assembling  16  bit  words,  and
+transferring the words to memory until the number of bytes received equals the byte count in the header.
+
+     The KMC11 will not post a completion interrupt to the CPU until the entire  message  has  been  received  unless  the
+message  is  larger than the currently assigned message buffer.  If the message is larger than the current buffer, the KMC
+will post an interrupt to the CPU and continue transferring data to the next buffer defined in the buffer descriptor list.
+
+     When the last character of the message has been received, the KMC will check the CRC and do one of three things:
+
+     1.  If CRC was bad, the KMC will post an error interrupt to the CPU and immediately enter sync search mode.
+
+     2.  If CRC was good and the quick sync bit was set in the header, the KMC will  start  looking  for  another  message
+         preceded by less than 8 sync characters.
+
+     3.  If CRC was good and the quick sync bit wasn't set, the KMC will examine the next character after the CRC and,  if
+         it is a start of header (SOH), continue reception of the next message, placing the data in the next buffer.
+
+COMM IOP-DUP                                                                                                      Page 1-7
+KMC11 - UBA - MEMORY DATA TRANSFER
+
+
+     There are two output commands issued by the KMC11 to the CPU.  The first is a CONTROL OUT  command  and  is  used  in
+posting  error  conditions  to  the CPU.  The second is the BUFFER ADDRESS OUT command used to indicate that that a buffer
+assigned by a buffer descriptor has been filled or its' contents transmitted.  The buffer address out command is also used
+when  a  complete  message has been received, whether or not it has filled a buffer.  In any case, the KMC will shift its'
+memory NPR operations to the next buffer in the  buffer  descriptor  list  or  to  the  next  buffer  descriptor  list  as
+applicable.
+
+COMM IOP-DUP                                                                                                      Page 1-8
+DUP11
+
+
+INTRODUCTION
+------------
+
+
+     The DUP11, together with the  KMC11,  forms  a  synchronous  communications  subsystem  for  the  2020.   High  speed
+synchronous communications capability allows the 2020 to be used in computer networking applications such as DECNET.  This
+type of application may be a major factor in a buyer's decision on which computer system he will purchase.
+
+     BASIC BLOCK FUNCTIONS 
+---------------------
+
+The DUP11 basic block can be broken down into three major areas;
+
+     1.  THE UNIBUS INTERFACE comprised of the UNIBUS tranceivers, the interrupt control logic, the address select  logic,
+         the reset logic, and the UNIBUS multiplexer.
+
+     2.  THE REGISTERS AND CONTROL LOGIC comprised of the five registers and part of the TX control and RX control logic.
+
+     3.  THE MODEM INTERFACE comprised of the remainder of the TX control and RX control logic and the clock logic.
+
+UNIBUS INTERFACE
+----------------
+
+
+     This section of the DUP11 is responsible for getting data into and out of the unit to the UNIBUS.  The address select
+logic decodes the UNIBUS address lines and determines if the address on the lines matches the switch settings on the DUP11
+and what type of data cycle is required.  
+
+     The interrupt control logic will issue a BR when conditions internal to the  DUP11  require  processor  intervention.
+The interrupt logic can be enabled or disabled under software control.
+
+     The reset logic initializes the DUP11 when a UNIBUS initialize signal occurs.  The reset logic will  also  initialize
+the DUP11 under software control when TXCSR bit 8 is set.
+
+     The UNIBUS tranceivers and multiplexer receive and transmit data between the UNIBUS and  the  DUP11  registers  under
+control of the address select logic.
+
+DUP11 REGISTERS
+---------------
+
+There are 5 registers in the DUP11 which are used to control it's operation and communicate with the UNIBUS.
+
+     1.  The RXCSR register is used to control the operation of the receiver section of the DUP11 and  to  interface  with
+         the modem.  The register is R/W and is word and byte addressable.
+
+     2.  The RXDBUF is a read only register which holds the received data in the low byte and status  information  in  the
+         high byte.  The RXDBUF shares the same address with PACSR and is word addressable.
+
+     3.  The PACSR is a write only register which controls the overall mode of the DUP11.  This register contains the  DEC
+         mode  bit,  the bit which determines whether CRC is to be used or not, the secondary address mode bit, and either
+         the secondary address or the SYNC character in the low byte.  The PACSR and the RXDBUF share the same address and
+         are word addressable only.
+COMM IOP-DUP                                                                                                      Page 1-9
+DUP11
+
+
+     4.  The TXCSR register is used to control the operation of the transmitter  section  of  the  DUP11  and  to  control
+         maintenance functions.  The register is read/write and word and byte addressable.
+
+     5.  The TXDBUF register contains the remainder of the control and status bits for the transmitter and  the  low  byte
+         holds the data to be transmitted.  The register is word and byte addressable and is a read/write register.
+
+TX CONTROL LOGIC
+----------------
+
+The transmit control logic is responsible for:
+
+     1.  Serializing data to be transmitted and transferring it to the modem.
+
+     2.  Transmission of FLAG and ABORT sequences in bit oriented protocols.  (DEC MODE reset)
+
+     3.  Bit stuffing when in bit oriented protocols.
+
+     4.  Signaling when the character currently being transmitted is done by setting TXDONE in TXCSR.
+
+     5.  Computing CRC in either CRC-16 or CRC/CCITT format on transmitted data.
+
+RX CONTROL LOGIC
+----------------
+
+The receiver control logic is responsible for:
+         LE;Synchronizing the receiver logic with the received signal.
+
+     1.  Assembling the received serial data in the receiver shift register and transferring it to the RXDBUF.
+
+     2.  Signaling when the latest assembled character is available in the RXDBUF by asserting RXDONE.
+
+     3.  "Stripping" extra leading SYNC characters after synchronization when in DEC mode.  LE;Deleting "stuffed" "0" bits
+         from the data stream when not in DEC mode.
+
+     4.  Detecting FLAG and ABORT sequences when not in DEC mode.
+
+     5.  Checking received CRC characters against computed CRC characters in CRC-16 or CRC/CCITT formats.
+
+FUNCTIONAL DESCRIPTION
+----------------------
+
+
+     The transmit operation of the DUP11 is somewhat dependent on whether a bit oriented protocol (SDLC type protocols) or
+a byte oriented protocol (DDCMP etc.) is being used.
+
+BYTE ORIENTED OPERATION (DDCMP and BISYNC)
+------------------------------------------
+
+
+     For byte mode operation the DEC mode bit in PACSR must be set.  This will cause the CRC circuits to  use  the  CRC/16
+format  to  check  and  generate  CRC.  This bit also controls whether "0" bits are "stuffed" into or stripped from a data
+stream containing more than 5 consecutive "1" bits.  When the DEC mode bit is set, bit stuffing is not done.
+COMM IOP-DUP                                                                                                     Page 1-10
+DUP11
+
+
+     The CRC PAR INH bit in PACSR is used to enable or disable CRC generation or error detection.  This bit  will  usually
+be set on BISYNC protocols and reset for DDCMP.
+
+     All "handshaking" with the modem must be completed prior to the start of transmission.   This  is  done  through  the
+RXCSR register.  The "handshaking" is not automatic and must be done by the program.
+
+     The insertion of Sync characters is  also  a  program  function.   The  DUP11  has  no  provision  for  automatically
+transmitting sync characters.
+
+     Transmission begins when the program sets the SEND bit in TXCSR and loads a sync character into the TXDBUF along with
+the Transmit Start Of Message bit.  All sync characters must be loaded by the program and the TSOM bit held asserted until
+the start of the last sync character.  As each character is sent out, the TXDONE bit is set in TXCSR.   The  program  will
+get  another  sync  character,  load  it into TXDBUF and repeat until the proper number of sync characters have been sent.
+After the start of the last sync character the program will clear TSOM.  At the next assertion of TXDONE  the  first  data
+character  will  be  loaded into TXDBUF and the CRC circuit will start to compute the CRC code for the data portion of the
+message.
+
+
+                                                           NOTE
+
+               The CRC calculation can be inhibited by bit 09 of PACSR.  This will usually be the case  for
+               BISYNC type protocols.
+
+
+
+     The program will continue to load characters into the TXDBUF, at each transition of TXDONE,  until  the  end  of  the
+message.   When the last character is loaded, the TEOM bit will also be set by the program.  This will cause the CRC check
+character to be transmitted immediately following the last data character.  (If the CRC is enabled)
+
+BIT ORIENTED OPERATION (SDLC etc.)
+----------------------------------
+
+     For operation in SDLC or other bit oriented protocols the DEC MODE bit in PACSR  must  be  reset.   This  allows  bit
+stuffing  (The  insertion  of  a "0" bit after each 5 consecutive "1" bits in a data stream of more than 5 consecutive "1"
+bits) to prevent confusing data with FLAG and ABORT sequences.
+
+     The DEC MODE bit being reset also alters the CRC computation so that the CRC  conforms  to  CRC/CCITT  format.   Some
+protocols  may  compute the CRC differently and if one of those is in use the CRC will be disabled using bit 09 of PARCSR.
+If CRC is disabled the program must compute any required CRC for the protocol in use.
+
+
+                                                           NOTE
+
+               The following discussion assumes that all required "handshaking" with  the  modem  has  been
+               completed and the DUP11 has been initialized.
+
+
+
+     To start transmission, the SEND bit must be set in TXCSR and the TSOM bit in TXDBUF.  This will cause an initial FLAG
+character to be transmitted.  FLAGs will continue to be transmitted until the TSOM bit is reset.  The transmission of FLAG
+characters in this mode is automatic and the characters do not have to be loaded into the TXDBUF by the  processor.   When
+the TSOM bit is reset, the TXDONE bit will be asserted at the conclusion of the character in transmission.
+COMM IOP-DUP                                                                                                     Page 1-11
+DUP11
+
+
+     When the program "sees" TXDONE, it will start transferring data to the TXDBUF.  At each assertion of TXDONE,  another
+character  of data will be loaded.  The CRC computation (if enabled) starts with the transfer of the first data to TXDBUF.
+The transmitter also enters the "transparent" state (bit stuffing is enabled) when the transmitter starts sending data.
+
+     At the conclusion of the message the program sets the TEOM bit in TXDBUF and, at  the  end  of  the  character  being
+serialized, (if CRC is enabled) the CRC character is transmitted.  At the conclusion of the CRC character a FLAG character
+is automatically transmitted.
+
+     The program has three options at this point:  SEND may be cleared, which allows the FLAG character  to  be  completed
+and  after  a  delay  of  1  1/2  bit times the transmitter enters the IDLE state.  TEOM may be held set, which will cause
+continuous FLAG characters to be transmitted.  TEOM may be cleared and a second data message started without setting TSOM.
+
+     The receiver section operates differently for byte oriented  and  bit  oriented  protocols  and  the  two  modes  are
+discussed separately in the following section.
+
+BYTE ORIENTED RECEIVER (DDCMP, BISYNC etc.)
+-------------------------------------------
+
+
+     For BYTE mode operation, the DEC MODE bit and the SYNC character to be used must be loaded into the  PACSR  prior  to
+enabling  the  receiver.   The DEC MODE bit causes the low byte of PACSR to be recognized as a SYNC character, and the CRC
+circuitry of both the receiver and transmitter to use CRC-16 for generating and checking CRC.
+
+     The STRIP SYNC bit of RXCSR may also be set, which allows SYNC characters occuring after receiver synchronization  to
+be  automatically deleted.  Synchronization is considered complete when 2 succesive characters which match the low byte of
+PACSR have been recognized.  The STRIP SYNC bit causes any other leading SYNC characters to be ignored.
+
+     After the initialization and any needed modem handshaking has been done, the RCVEN bit in RXCSR  may  be  set.   This
+enables  the  receiver  to  search  the  incoming signals until 2 successive SYNC characters are detected.  All characters
+following the detection of the 2 successive SYNC characters are interpreted as data.  (Unless the STRIP SYNC bit  is  set,
+when  it  is  the  detection of the first non-SYNC character that will cause all following characters to be interpreted as
+data.) When this has occured, the RXACT bit will be asserted and the RXDONE bit set.  (Also this will  disable  the  STRIP
+SYNC logic until the receiver logic is reinitialized.)
+
+     All data following the SYNC characters is included in the CRC calculation.  For some protocols in the  BISYNC  family
+the CRC logic must be disabled due to possible control characters in the data field.
+
+     Once RXDONE is set the program will read the assembled character in the RXBUF, reseting RXDONE.   This  process  will
+repeat  until  the  expected  number of characters has been received.  The program will then sample the CRC PAR ERR bit to
+determine if there was an error in the data received.  (If CRC was enabled) After the CRC is sampled, the RCVEN  bit  will
+be cleared to reinitialize the receiver.
+
+     At this point the entire process may repeat to receive another message.
+
+BIT MODE RECEIVE OPERATION (SDLC etc.)
+--------------------------------------
+
+
+     For SDLC family protocols the DEC MODE bit must be reset.  This changes the CRC checking to CRC/CCITT and enables the
+"stuffed"  "0"  bits  in  the  data  stream to be stripped out, restoring the original data.  The "0" bits were originally
+inserted to avoid confusion of data with FLAG or ABORT characters.  These characters are detected by the  DUP11  when  the
+DEC MODE bit is not set.
+COMM IOP-DUP                                                                                                     Page 1-12
+DUP11
+
+
+     The reset DEC MODE bit also causes a different function to be assigned to the low byte of PACSR.  This  byte  may  be
+used as a secondary station address for protocols supporting this option.  This is under the control of bit 12 of PACSR.
+
+     After initialization and any necessary handshaking with the modem, the RCVEN bit is set.  After this bit is set,  the
+receiver  searches  the  incoming  data  for  FLAG characters.  If the receiver is operating in the primary mode, all data
+subsequent to the last initial FLAG character is presented to the program.  The RSOM bit is set with the reception of  the
+initial data character and RXDONE is set when the data is in the RXDBUF.
+
+     If the receiver is in the secondary address mode, the character  immediately  following  the  last  initial  FLAG  is
+compared  with  the  low  byte  of  PACSR.   If the character matches the contents of that byte, the character immediately
+following is taken as the start of the data field and TSOM is set.  If the contents do not  match,  the  receiver  resumes
+looking for FLAG characters and TSOM is not set.
+
+     When the start of the data field is detected, RXACT is set in RXCSR.  The data continues to be  assembled  (with  any
+"stuffed" zeros removed) and transferred to the RXDBUF with each transfer setting RXDONE.  The program reads the data from
+RXDBUF (which resets RXDONE) with each assertion of RXDONE.
+
+     This process continues until the detection of a FLAG character which signifies the end of the message.  The detection
+of the FLAG will cause REOM and RXDONE to set.  The contents of the RXDBUF is invalid when REOM is set.
+
+     If CRC checking is enabled, the check will be valid only when REOM is  set.   The  entire  contents  of  the  message
+between the FLAG characters is included in the CRC check.
+
+INTERRUPT OPERATION
+--------------------
+
+     The DUP11 can be operated in two modes;  flag mode, and interrupt mode.
+
+     In flag mode, the DUP11 does not interrupt the processor.  The RXCSR and TXCSR must be interrogated to determine  the
+state  of  the  respective  DONE  bits and the modem control or status bits.  The interrogation must occur often enough to
+ensure that characters are removed from, or written into, the  respective  DBUF  without  causing  data  late  or  overrun
+conditions.
+
+     In the interrupt mode, the DUP11 interrupts the processor when either DONE bit is set  and  when  the  modem  changes
+status.  
+
+     There are two discrete types of  interrupt  which  generate  different  vector  addresses.   Receiver  and  data  set
+interrupts  generate vector adress XX0.  Transmitter interrupts generate vector address XX4.  The XX portion of the vector
+is switch selectable.
+
+     Whether the DUP11 is in interrupt or flag mode is determined by bits 5 and 6 of RXCSR and bit 6 of TXCSR.  These  are
+the  interrupt  enable  bits.  Bit 5 of RXCSR controls data set interrupts.  Bit 6 of RXCSR and TXCSR control receiver and
+transmitter interrupts respectively.  When each of these bits are set, the corresponding interrupt is enabled.
+
+     Receiver and transmitter interrupts are initiated by the RXDONE and TXDONE bits respectively.  If a DONE bit  is  set
+by the DUP11, and the corresponding interrupt is enabled, an interrupt is gated to the UNIBUS.
+
+     In the 2020 the DUP11 is operated in the flag mode for data communications.  The servicing of the DUP11 registers  is
+done  by  the  KMC11  which  relieves the KS10 CPU of the overhead.  In diagnostics for the DUP11 on the KS10 the DUP11 is
+operated in the interrupt mode.
+
+
+
+
+
+
+
+
+
+
+
+
+                                                        CHAPTER 2
+
+                                                   (IBM COMMUNICATIONS)
+
+
+
+(IBM COMMUNICATIONS)                                                                                              Page 2-2
+DN22
+
+
+INTRODUCTION
+------------
+
+     The DN22 is an IBM 2780/3780 and HASP emulator/terminator for use with the 2020.  A 2020 with a DN22 can  emulate  an
+IBM  2780/3780  style terminal for use in submitting batch jobs to an IBM type mainframe computer.  It can also act as the
+mainframe for a remote job entry terminal using 2780, 3780, or HASP (Houston Automatic SPooler) protocols.
+
+     The DN22 is used exclusively with BATCH jobs in either emulation or termination mode.
+
+REFERENCES
+----------
+
+
+     1.  IBM EMULATION-TERMINATION MANUAL AA-5095B-TM
+
+     2.  RED20.HLP - LISTING
+
+     3.  REDIAG.HLP - LISTING
+
+     4.  MICROFICHE LIBRARY
+
+     5.  RED20.MEM - LISTING
+
+     6.  TOPS-10 AND TOPS-20 SYSERR MANUAL AA-D533A-TK
+
+
+OVERVIEW
+--------
+
+
+     The DN22 consists of a PDP-11/04 with 32k of core memory, a DMC11, KY11-LB, M9312, DL11-WB, and 2 DUP11s.
+
+     The DMC11 and DL11 are used to communicate with the 2020 and the two DUP11s are used to communicate with the IBM type
+equipment.
+
+     All software must be down line loaded from the 2020.  There is no provision for an alternate load path on the DN22.
+
+     All down line loading takes place through the DMC11.  The files are  stored  on  the  2020  system's  disk  as  PDP11
+executable binary files.  At system initialization, the PDP11/04's operating software is transferred from the 2020 disk to
+the DN22 via the 2020's KMC11/DUP11 synchronous line.  The load path is from the KS10 CPU through the KMC11/DUP11  in  the
+2020 , through a null modem, to the DMC11 in the DN22 then to the DN22's memory.
+
+     All communications between the KMC/DUP in the 2020 and the DMC11 in the DN22 use DDCMP protocol at 19.2  Kbaud  (full
+duplex).  The DL11 is used for communicating status and control information between the DN22 and the 2020.
+
+     2780, 3780, and HASP are BISYNC protocol variants.  All communications between the IBM equipment  and  the  DN22  are
+half duplex.  Full duplex is not utilized by the DN22.
+
+     The DN22 runs the DS65 software.  This is a separate version of the DN65 software used by the DN20.  The 2020 must be
+running TOPS-20 Version 4 and GALAXY Version 4 to support the DN22.
+
+     In emulation mode, the DN22 and the 2020 emulate a remote job entry terminal, using 2780, 3780 or HASP protocol,  for
+connection  to  an  IBM  360/370  type  mainframe.  All jobs must be regular batch jobs with the program in an IBM 360/370
+language.
+(IBM COMMUNICATIONS)                                                                                              Page 2-3
+DN22
+
+
+     The major advantage of using the 2020 instead of a remote job entry terminal is in generating programs to  be  stored
+and manipulated on line in disk instead of card decks.  This makes manipulating programs and data files much easier.
+
+     Each line of the file is treated as a "card image" with the line length limited to  80  characters.   The  programmer
+builds his program on line on the 2020 with a text editor such as EDIT using an IBM language.  Once the program is written
+and a data file is constructed, the job may be sent to the IBM type mainframe for processing.  The operator or  programmer
+will construct a TOPS-20 job control file and submit the job ,with any control statements/cards required, to the mainframe
+through the DN22/DS65.
+
+     The mainframe will run the program and send the results back to the 2020 in the form of a log file.   Options  within
+the job control file determine whether the log file is printed or stored or both.
+
+     In Termination Mode the 2020 acts as the mainframe for a remote job entry  terminal.   The  operator  at  the  remote
+terminal  assembles  a  job  deck in a DECsystem 20 programming language.  The operator dials up the 2020 and then sends a
+SIGNON card.  When the 2020 acknowledges the signon it will cause the remote terminal printer to print a message  to  that
+effect.   The  operator will then place the TOPS-20 job deck into the remote terminal's card hopper and start transmission
+of the job to the 2020.
+
+     When the job is received from the remote terminal, it is treated much like any other BATCH job on the 2020.  The  job
+will  be  queued  and  run  similarly to a local BATCH job.  The output will usually be sent back to the remote terminal's
+printer instead of to the local line printer.  When the output has been received  at  the  remote  terminal,  the  job  is
+complete.
+
+     For a more detailed description of the software operation refer to the  IBM  EMULATION-TERMINATION  software  manual,
+order no.  AA-5095B-TM.
+
+DIAGNOSTICS             NOTE: Examples of how to run the DN22 diagnostics are
+-----------                   included in the document PS:<RED>REDIAG.HLP. 
+                              Reference the DN22 section.               
+
+
+     The diagnostics for the DN22 are the PDP-11 diagnostics for each device which is part of the DN22.  They  are  stored
+on  disk  as binary files which are down line loaded into the DN22 via the KMC-11/DUP-11 in the 2020 and the DMC-11 in the
+DN22.
+
+     The diagnostics are controlled through the TTY (DZ11 line connected to the DN22) defined by the DLOAD command of  the
+down  line  loading program DNLOAD.  This TTY must be defined when you build the REDPACK used on the system with the DN22.
+The DNLOAD commands will normally be transparent to you while running diagnostics using  the  "DO"  command.   The  DNLOAD
+commands are contained within the .MIC files on the REDPACK.
+
+     The path of control information is, from your logged on TTY to the 2020, to the DZ11 line connected to the DN22, (TTY
+designated  during  REDPACK configuration) to the DL11 in the DN22, and then to the PDP-11/04.  Status and error reporting
+from the diagnostics follow the same path in reverse order.
+
+     There is a command (DO), which is implemented only on the TOPS-20 monitor resident on the REDPACK,  that  allows  the
+setup of the diagnostics to be nearly automatic.  The DO command has as it's argument a filename with the type .MIC (Macro
+Interpreted Commands).  This file contains commands which are executed by the DO command to set up  the  DN22  diagnostics
+and  then  start  them.  This .MIC file may be thought of as analogous to the LOGIN.CMD file which is taken as a source of
+system level commands when a user logs in.  Remember that this command is implemented ONLY on the REDPACK TOPS-20  release
+4 MONITOR.  The regular release 4 MONITOR does not implement this command.
+
+     Don't do any typing on your terminal while a .MIC file is being executed.  Anything typed is merged with the  type-in
+done by the file.  You must wait until you see the end message before typing anything on your terminal.
+(IBM COMMUNICATIONS)                                                                                              Page 2-4
+DN22
+
+
+The end of a .MIC file will be signaled by:
+
+                                           [MICEMF - End of MIC File: filename]
+
+To abort a MIC file in progress, type "Control B Control B".
+
+                                               RESULT => [MIC is breaking]
+
+Followed by "Control A Control A".
+
+                                                 RESULT => [MIC aborted]
+
+
+     This should never be necessary, since all MIC-files are delivered in two forms:   a)  SET  a  condition  b)  Unset  a
+condition.
+
+     For typical operation of the DN22 diagnostics, get a printout of REDIAG.HLP from the version 404 REDPACK.
+
+     For REDPACK configuration information, get a printout of RED20.HLP from the version 404 REDPACK.
+
+     These printouts should be obtained as part of a lab project or they should be given out with the reference  materials
+for the course.
+
+     Information on the individual DN22 diagnostics is available on microfiche.  The microfiche should be consulted when a
+diagnostic encounters an error for proper interpretation of the printout.
+
+     There are also microcoded diagnostics run by the PDP-11/04 when it is powered up.  These diagnostics are resident  on
+the M9312 module and give a go no-go indication on the PDP-11/04 processor and its memory.
+
+     The operational software has a cursory hardware diagnostic available called CHK11.  CHK11 is automatically  run  when
+DNLOAD  has  loaded  the  operational  software.  For a description of CHK11 refer to the IBM EMULATION-TERMINATION manual
+appendix F.
+
+     SYSERR reports for the DN22 are lumped in with network statistics.  The report format and typical content is given in
+the TOPS-10 and TOPS-20 SYSERR manual Chapter 3 .
+
+     The following excerpt is from a "GOOD STUFF" article by Pete Marie of M.E.G.  in Marlboro.
+
+     The DN64 software available with TOPS20 release 3A automatically made entries  in  the  system  log  file,  ERROR.SYS
+providing notification of the enabling and disabling of lines and periodic statistics reports.  In Release 4 of TOPS20 the
+DN6x software has been integrated into GALAXY, but the code to enter  statistics  into  the  system  error  file  was  not
+included.  The program IBMCON provides this service in Release 4 of TOPS20 for both the KS and KL processors.
+(IBM COMMUNICATIONS)                                                                                              Page 2-5
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+DN22 EXAMPLE
+------------
+
+
+     Here is an example of how to configure the "RED PACK" for a DN22 without modem eliminators.  This example also  shows
+how  to  start  the  DECX11-TEST  package  on one job and then shows how to start the UETP system hardware acceptance on a
+seperate job.  This example should only be followed if the DN22 DOES NOT have modem eliminators.  In the case  of  a  DN22
+with  sufficient  modem  eliminators,  the  UETP tests DN22IN and DN22OU will be used.  If you are just building your "RED
+PACK" from back up tapes you will have to bring the system down then back up before you can start  acceptance.   All  DN22
+diagnostics should be run prior to starting the acceptance test.  Reference PS:RED>REDIAG.HLP.1 for examples.
+
+     Once you start the DECX11-TEST you should verify that there are no HARD ERRORS.  You can check this by  entering  the
+"SUM"  command  to  the DECX11-TEST.  SOFT ERRORS are allowed because they are recoverable.  In the case of the UETP tests
+DN22IN and DN22OU, no UETP errors are allowed.  You can check this by entering the "STATUS" command  to  UETP.   The  DN22
+hardware  acceptance  test  will  be  run  for  4 HOURS.The UETP tests Algol,Basic,Cblsrt,mta0, etc.  are optional, if you
+already have run the 2020 SYSTEM HARDWARE ACCEPTANCE TEST and do not wish to exercise the hardware any further.
+
+*************HERE'S THE EXAMPLE*****************
+The easiest way to configure and start acceptance on a already built
+"RED PACK" is to:
+                 1.BRING THE SYSTEM UP
+                 2.IF THE UETP JOBS START ATTACH TO OPERATOR 1 
+                   (PASSWORD IS DEC-20)
+                 3.ABORT THE UETP JOBS AND EXIT
+                 4.ENTER THE DO NO-UETP.MIC COMMAND
+                 5.BRING THE SYSTEM DOWN BY DOING A CNTRL-/ THEN TYPE "SH"
+                   (C.R.)
+                 6.BRING THE SYSTEM BACK UP AGAIN AND THEN DO THE FOLLOWING!!!!
+;*****FIRST WE MUST LOGIN!!!
+ sys 4145 release 4, TOPS-20 Monitor 4(3247)
+@LOG F-S 
+ Job 6 on TTY52 6-Mar-80 18:13:33
+ Thu 6-Mar-80 18:13:37  Up 23:28:18
+ 4+7 Jobs   Load av   0.19   0.29   0.38
+
+APR-Serial Nr.: 4145   Micro-Code Ver.: 117      HSB-Adr.: 400      (enabled) 
+Interrupts enabled:  power fail  NXM  Interv. timer 
+ TOPS20 paging on  trap + paging enabled 
+
+ Errors which occurred:  Soft ( ECC ) Mem Err.  Adr.: 27163    Bit 34 failed 
+ End of LOGIN.CMD.1
+
+;*****NEXT CONFIGURE THE "RED PACK" FOR WHICH 2020 DUP IT IS CONNECTED TO
+;*****AND WHICH DZ11 LINE. IN THIS CASE IT IS DUP#0 AND LINE #21.
+
+$DO 22-CONFIG.MIC.1 (PARAMETERS) 0,21
+$;<UETP.LIB>22-CONFIG.MIC.1,  8-Aug-79 15:44:10, EDIT BY EIBEN
+;This file needs dup-nr as first parameter and tty-nr as second one
+DAYTIME
+ Friday, March 7, 1980 13:58:30
+$ENA
+$TV
+
+*;Y$$
+(IBM COMMUNICATIONS)                                                                                              Page 2-6
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+INPUT FILE: <UETP.LIB>22-DECX11-TEST.MIC
+181 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 DECX11.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DECX11-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DL11-TEST.MIC
+170 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 ZDLDB0.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DL11-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DMC1-TEST.MIC
+178 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 DZDMCB.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DMC1-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DMC2-TEST.MIC
+184 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 DZDMEB.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DMC2-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DMC3-TEST.MIC
+187 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 DZDMFB.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DMC3-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DMC4-TEST.MIC
+182 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 CZDMGD.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DMC4-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DMC5-TEST.MIC
+115 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 DZDMHB.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DMC5-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-LOAD.MIC
+227 CHARS
+*SSET TER$0LK$I@$5I$ISET TER 21 SP 300$13I$10I$$
+*
+S*LOA$0LK$I*LOAD DN22 0 <UETP.LIB>DS65B.BIN TTY21:$13I$10I$$
+(IBM COMMUNICATIONS)                                                                                              Page 2-7
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-LOAD.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DUP1-TEST.MIC
+185 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 ZDPBBX.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DUP1-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DUP2-TEST.MIC
+370 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 ZDPCBX.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DUP2-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DUP3-TEST.MIC
+192 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 ZDPDBX.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DUP3-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-DUP4-TEST.MIC
+182 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 ZDPEA0.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-DUP4-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-M9312-TEST.MIC
+175 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 CZM9BA.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-M9312-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-CPU1-TEST.MIC
+180 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 GKAAA0.BIC TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-CPU1-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-CPU2-TEST.MIC
+180 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 GKABC0.BIC TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-CPU2-TEST.MIC.1
+*;Y$$
+INPUT FILE: <UETP.LIB>22-MEMORY-TEST.MIC
+(IBM COMMUNICATIONS)                                                                                              Page 2-8
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+173 CHARS
+*S*DLOA$0LK$I*DLOAD DN22 0 CZQMCF.BIN TTY21:$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>22-MEMORY-TEST.MIC.1
+*;Y$$
+INPUT FILE: PS:<SYSTEM>SYSJOB.RUN.1
+492 CHARS
+*SBATCON$2L$8K
+IJOB 2 \LOG OPERATOR XX OPERATOR$13I$10I$$
+*
+IENA$13I$10I$$
+*
+IRUN SYS:FAL$13I$10I$$
+*
+I\$13I$10I$$
+*
+IJOB 3 \LOG OPERATOR XX OPERATOR$13I$10I$$
+*
+IENA$13I$10I$$
+*
+IRUN SYS:NETCON$13I$10I$$
+*
+I\$13I$10I$$
+*
+;U$$
+OUTPUT FILE: PS:<SYSTEM>SYSJOB.RUN.1
+*;Y$$
+INPUT FILE: <UETP.LIB>RELIAB.CMD
+842 CHARS
+*SDN22-TEST$L$2K$IENA DN22IN$13I$10I$$
+*
+IENA DN22OU$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>RELIAB.CMD.1
+*;Y$$
+INPUT FILE: <UETP.LIB>DN22IN.VER
+2336 CHARS
+*S/PO:1$0L$K$I*SET SIM/PO:10/LI:0/DE:0$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>DN22IN.VER.1
+*;Y$$
+INPUT FILE: <UETP.LIB>DN22OU.VER
+2891 CHARS
+*S/PO:1$0L$K$I*SET SUP/PO:10/LI:1/DE:0$13I$10I$$
+*
+;U$$
+OUTPUT FILE: <UETP.LIB>DN22OU.VER.1
+*;Y$$
+INPUT FILE: <SYSTEM>PTYCON.ATO
+713 CHARS
+*SDN22-TEST$L7K$I^X$13I$10I$$
+(IBM COMMUNICATIONS)                                                                                              Page 2-9
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+*
+IDEFINE $27I$IDN22$13I$10I$$
+*
+ICONN DN22$13I$10I$$
+*
+ILOG OPERATOR FOO OPERATOR$13I$10I$$
+*
+IDO <UETP.LIB>22-LOAD$13I$10I$$
+*
+I^X$13I$10I$$
+*
+ICONN OPR$13I$10I$$
+*
+;X$$
+OUTPUT FILE: <SYSTEM>PTYCON.ATO.1
+
+$DISABLE
+@DAYTIME
+ Friday, March 7, 1980 14:00:42
+@
+[MICEMF - End of MIC File: 22-CONFIG.MIC.1 ]
+@KMIC
+
+;*****NOW WE MUST CONFIGURE THE "RED PACK" FOR NO MODEM ELIMINATORS ON THE 
+;*****DN22!!
+
+@DO NO-MODEM.MIC.1 (PARAMETERS) 
+@;PS:<UETP.LIB>NO-MODEM.MIC.1   3-6-80          EDIT BY HOLEWA
+;Run this file if you have a DN22 but DO NOT have modem eliminators
+ENA
+$TERMINAL NO PAGE
+$TV
+
+*;Y$$
+INPUT FILE: <UETP.LIB>RELIAB.CMD
+840 CHARS
+*SENA DN22IN$0LK$I;ENA DN22IN$13I$10I$$
+*
+SENA DN22OU$0LK$I;ENA DN22OU$13I$10I$$
+*
+;X$$
+OUTPUT FILE: PS:<UETP.LIB>RELIAB.CMD.1
+
+$DISABLE
+@TY PS:<UETP.LIB>RELIAB.CMD.1
+;<UETP.LIB>RELIAB.CMD.1, 10-May-79 12:14:40, EDIT BY EIBEN
+!ENABLE THE TESTS TO BE RUN FOR 48 HOURs 
+DEFAULT /CYCLE:48:00/TIME:1:30:00/DEPTH:VERIFICATION
+!take semi-colon out of next line, if loopback connector on line 0 for  KMC/DUP
+;ENABLE DUPA
+!take semi-colon out of next line if loopback connector on line 1 for KMC/DUP
+ENABLE DUPB
+!take semi-colon out of next line, if loopback connector on both lines KMC/DUP
+;ENABLE DUPAB
+(IBM COMMUNICATIONS)                                                                                             Page 2-10
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+!take semi-colon out of next line, if either loopback tests enabled
+ENABLE TEST72
+!take semicolon out of next two lines , if DN22-tests desired ( see documentation )
+;ENA DN22IN
+;ENA DN22OU
+ENABLE MTA0
+;ENABLE MTA1
+;ENABLE MTA2
+;ENABLE MTA3
+ENABLE ALGOL
+ENABLE BASIC
+ENABLE CBLSRT
+ENABLE DBMS
+ENABLE RANCBL
+ENABLE RANFOR
+ENABLE MEMORY
+ENABLE DIAGS
+;ENABLE LPT0
+MESSAGE
+BEGIN
+STATUS
+@DAYTIME
+ Friday, March 7, 1980 14:01:16
+@KMIC
+@
+
+;*****SINCE WE ARE DONE CONFIGURING THE RED PACK FOR THE DN22, WE CAN PROCEED
+;*****TO START THE DN22 HARDWARE ACCEPTANCE TEST. SINCE WE WILL BE RUNNING TWO
+;*****JOBS, WE'LL HAVE TO RUN PTYCON TO LOGIN AND START THEM BOTH.
+
+@ENA
+$PTYCON
+PTYCON>DISCARD ALL
+PTYCON>C 0 [CONNECTED TO SUBJOB 0]
+
+;*****HERE WE'LL LOGIN THE FIRST JOB
+
+ sys 4145 release 4, TOPS-20 Monitor 4(3247)
+@LOG F-S 
+ Job 6 on TTY52 6-Mar-80 18:13:33
+ Thu 6-Mar-80 18:13:37  Up 23:28:18
+ 4+7 Jobs   Load av   0.19   0.29   0.38
+
+APR-Serial Nr.: 4145   Micro-Code Ver.: 117      HSB-Adr.: 400      (enabled) 
+Interrupts enabled:  power fail  NXM  Interv. timer 
+ TOPS20 paging on  trap + paging enabled 
+
+ Errors which occurred:  Soft ( ECC ) Mem Err.  Adr.: 27163    Bit 34 failed 
+ End of LOGIN.CMD.1
+
+;*****NOW WE'LL START THE DN22 ACCEPTANCE TEST WITH "MIC"
+
+@DO 22-DECX11-TEST.MIC.1 (PARAMETERS) 
+@;<UETP.LIB>22-DECX11-TEST.MIC.1,  9-Aug-79 13:03:48, EDIT BY EIBEN
+(IBM COMMUNICATIONS)                                                                                             Page 2-11
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+;RUNNING DECX11 EXERCISER FOR A DN22
+DAYTIME
+ Thursday, March 6, 1980 18:13:55
+@TER NO PAGE
+@ENABLE
+$DNLOAD
+DNLOAD>DLOAD DN22 0 DECX11.BIN TTY21:
+[Enter ^E to return to DNLOAD]
+
+[MICEMF - End of MIC File: <UETP.LIB>22-DECX11-TEST.MIC.1 ]
+
+DEC/X-11 EXERCISER (MONITOR V02.1) MD-ZZ-CXMON-B
+MONITOR:  B   
+SYSTEM SIZE: 00028 K
+WRITE BUFFER ROTATION ON
+CMD>MAP         ;****THIS COMMAND DISPLAYS AVAILABLE MODULES!!
+CMD>
+DMCB0 AT VA: 051514 STAT: 140000
+DPBB0 AT VA: 062454 STAT: 140000
+DPBB1 AT VA: 064676 STAT: 140000
+BMHB0 AT VA: 057640 STAT: 040020
+CPAG0 AT VA: 060572 STAT: 040020
+CMD>DES         ;****NOW ENTER THE DES COMMAND TO DISABLE RUNNING OF MODULES
+CMD>MAP         ;****LET'S CHECK WHAT HAPPENED WITH THE MAP COMMAND
+CMD>
+DMCB0 AT VA: 051514 STAT: 100000
+DPBB0 AT VA: 062454 STAT: 100000
+DPBB1 AT VA: 064676 STAT: 100000
+BMHB0 AT VA: 057640 STAT: 000020
+CPAG0 AT VA: 060572 STAT: 000020
+CMD>SWR 10000           ;****SET SWITCH TO SHOW END OF PASS             
+SWR/ 010000
+CMD>SEL         ;****ENTER THE SEL COMMAND TO SELECT ALL MODULES FOR TEST
+CMD>RUN         ;****THIS MEANS RUN ALL SELECTED MODULES
+BSY>SYSTEM CLOCK NOT AVAILABLE
+
+BMHB0 END PASS #00001. RUNTIME:           PSTIME:          
+
+CPAG0 END PASS #00001. RUNTIME:           PSTIME:          
+SUM             ;****LET'S TRY THE SUM COMMAND TO SEE WHAT HAS HAPPENED
+BSY>
+SUMMARY AT RUNTIME:          
+DMCB0 AT VA: 051514 STAT 144014 PASS #00000 HRDERRS 00000 SFTERRS 00000
+DPBB0 AT VA: 062454 STAT 144014 PASS #00000 HRDERRS 00000 SFTERRS 00000
+DPBB1 AT VA: 064676 STAT 144014 PASS #00000 HRDERRS 00000 SFTERRS 00000
+BMHB0 AT VA: 057640 STAT 040024 PASS #00001 HRDERRS 00000 SFTERRS 00000
+CPAG0 AT VA: 060572 STAT 040024 PASS #00001 HRDERRS 00000 SFTERRS 00000
+SYSTEM ERRORS: 00000     POWER FAILS: 00000
+
+BSY>
+DPBB1 END PASS #00001. RUNTIME:           PSTIME:          
+
+DPBB0 END PASS #00001. RUNTIME:           PSTIME:          
+^X              ;****WE'LL ENTER CNTRL-X TO GET BACK TO PTYCON!!
+(IBM COMMUNICATIONS)                                                                                             Page 2-12
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+                ;****WE NEED TO LOGIN ANOTHER JOB SO WE CAN START UETP
+PTYCON> C 1 [CONNECTED TO SUBJOB 1]
+
+ sys 4145 release 4, TOPS-20 Monitor 4(3247)
+@LOG F-S
+ Job 10 on TTY53 6-Mar-80 18:18:37
+ Thu 6-Mar-80 18:18:41  Up 23:33:22
+ 5+7 Jobs   Load av   0.26   0.26   0.34
+
+
+
+APR-Serial Nr.: 4145   Micro-Code Ver.: 117      HSB-Adr.: 400      (enabled) 
+Interrupts enabled:  power fail  NXM  Interv. timer 
+ TOPS20 paging on  trap + paging enabled 
+
+ Errors which occurred:  Soft ( ECC ) Mem Err.  Adr.: 27163    Bit 34 failed 
+ End of LOGIN.CMD.1
+
+;*****THE DO CLEAN COMMAND STARTS UETP FOR US.----BEFORE YOU ENTER THIS COMMAND
+;*****MAKE SURE YOU DIDN'T START UETP PREVIOUSLY!!
+
+@DO CLEAN.MIC.1 (PARAMETERS) 
+@;<UETP.LIB>CLEAN.MIC.1,  7-Jun-79 16:40:39, EDIT BY EIBEN
+;cleans up UETP-directory and starts UETP via RELIAB.CMD
+DAYTIME
+ Thursday, March 6, 1980 18:18:56
+@TER NO PAGE
+@TER WIDTH 80
+@ENABLE
+$CANCEL BATCH */USER:F-S
+[No Jobs Canceled]
+$DISABLE
+@CONN <UETP>
+@DIR *.ERL
+%No such file type - *.ERL
+@DEL *.LOG
+ EXCEPT.LOG.2 [OK]
+ EXCEPT.LOG.3 [OK]
+ EXCEPT.LOG.4 [OK]
+ EXCEPT.LOG.5 [OK]
+ RUN.LOG.2 [OK]
+ RUN.LOG.3 [OK]
+ RUN.LOG.4 [OK]
+ RUN.LOG.5 [OK]
+@DEL *.ERL
+%No such file type - *.ERL
+@UND RUN.LOG
+ RUN.LOG.2 [OK]
+ RUN.LOG.3 [OK]
+ RUN.LOG.4 [OK]
+ RUN.LOG.5 [OK]
+@UND EXCEPT.LOG
+ EXCEPT.LOG.2 [OK]
+ EXCEPT.LOG.3 [OK]
+(IBM COMMUNICATIONS)                                                                                             Page 2-13
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+ EXCEPT.LOG.4 [OK]
+ EXCEPT.LOG.5 [OK]
+@EXP <UETP>
+ PS:<UETP> [No pages freed]
+@ENABLE
+$DAYTIME
+ Thursday, March 6, 1980 18:19:22
+$UETP
+[ 6-Mar-80 18:19:30         User Environment Test Package ]
+ 
+ 
+UETP>TAKE RELIAB.CMD
+UETP>DEFAULT /CYCLE:48:00/TIME:1:30:00/DEPTH:VERIFICATION
+[18:19:47  DEFAULT COMPLETED]
+
+UETP>ENABLE DUPB
+[18:19:49  ENABLE COMPLETED]
+
+UETP>ENABLE TEST72
+[18:19:50  ENABLE COMPLETED]
+
+UETP>ENABLE MTA0
+[18:19:51  ENABLE COMPLETED]
+
+UETP>ENABLE ALGOL
+[18:19:52  ENABLE COMPLETED]
+
+UETP>ENABLE BASIC
+[18:19:53  ENABLE COMPLETED]
+
+UETP>ENABLE CBLSRT
+[18:19:54  ENABLE COMPLETED]
+
+UETP>ENABLE DBMS
+[18:19:55  ENABLE COMPLETED]
+
+UETP>ENABLE RANCBL
+[18:19:57  ENABLE COMPLETED]
+
+UETP>ENABLE RANFOR
+[18:19:58  ENABLE COMPLETED]
+
+UETP>ENABLE MEMORY
+[18:19:59  ENABLE COMPLETED]
+
+UETP>ENABLE DIAGS
+[18:20:00  ENABLE COMPLETED]
+
+UETP>MESSAGE
+UETP>BEGIN
+[18:20:08  BEGIN COMPLETED]
+
+UETP>STATUS
+
+(IBM COMMUNICATIONS)                                                                                             Page 2-14
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+[ 6-Mar-80 18:20:09]
+
+   Test   Depth   Status    Cycle   Times   Error   Error   Start
+   name                             run     count   limit   time
+  ======  =====   =======   =====   =====   =====   =====   =====
+  DUPB    VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  TEST72  VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  MTA0    VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  ALGOL   VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  BASIC   VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  CBLSRT  VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  DBMS    VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  RANCBL  VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  RANFOR  VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  MEMORY  VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  DIAGS   VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+
+
+UETP>
+[MICEMF - End of MIC File: <UETP.LIB>CLEAN.MIC.1 ]
+
+
+;****ENTER CNTRL-X TO GET TO PTYCON AND CONNECT TO SUBJOB 1
+
+^X
+PTYCON>C 1 [CONNECTED TO SUBJOB 1]
+
+;****AND WE'LL ENTER THE "ST" COMMAND (SHORT FOR STATUS) TO UETP TO SEE
+;****IF ANYTHING HAS PASSED YET. NOTICE THE TIMES RUN COLUMN . 
+
+UETP>ST
+
+[ 6-Mar-80 18:35:28]
+
+   Test   Depth   Status    Cycle   Times   Error   Error   Start
+   name                             run     count   limit   time
+  ======  =====   =======   =====   =====   =====   =====   =====
+  DUPB    VER     Running   48:00       0       0       0    6-Mar-80 18:20:02
+  TEST72  VER     Running   48:00       0       0       0    6-Mar-80 18:20:02
+  MTA0    VER     Running   48:00       0       0       0    6-Mar-80 18:20:02
+  ALGOL   VER     Running   48:00       0       0       0    6-Mar-80 18:20:02
+  BASIC   VER     Queued    48:00       1       0       0    6-Mar-80 18:20:02
+  CBLSRT  VER     Queued    48:00       1       0       0    6-Mar-80 18:20:02
+  DBMS    VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  RANCBL  VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  RANFOR  VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  MEMORY  VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+  DIAGS   VER     Queued    48:00       0       0       0    6-Mar-80 18:20:02
+;****NOW WE'LL MODIFY THE UETP STRING TO RUN FOR 4 HOURS.
+UETP>MODIFY ALL/DEPTH:VER/CYCLE:4:00/TIME:1:30
+[18:21:30  MODIFY COMPLETED]
+;****WE CAN CHECK WHAT WE DID WITH THE UETP "STATUS" COMMAND.
+UETP>ST
+
+(IBM COMMUNICATIONS)                                                                                             Page 2-15
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+[6-Mar-80 18:21:40]
+   Test   Depth   Status    Cycle   Times   Error   Error   Start
+   name                             run     count   limit   time
+  ======  =====   =======   =====   =====   =====   =====   =====
+  DUPB    VER     Running    4:00       0       0       0    6-Mar-80 18:21:50
+  TEST72  VER     Running    4:00       0       0       0    6-Mar-80 18:21:50
+  MTA0    VER     Running    4:00       0       0       0    6-Mar-80 18:21:50
+  ALGOL   VER     Running    4:00       0       0       0    6-Mar-80 18:21:50
+  BASIC   VER     Running    4:00       0       0       0    6-Mar-80 18:21:50
+  CBLSRT  VER     Queued     4:00       0       0       0    6-Mar-80 18:21:50
+  DBMS    VER     Queued     4:00       0       0       0    6-Mar-80 18:21:50
+  RANCBL  VER     Queued     4:00       0       0       0    6-Mar-80 18:21:50
+  RANFOR  VER     Queued     4:00       0       0       0    6-Mar-80 18:21:50
+  MEMORY  VER     Queued     4:00       0       0       0    6-Mar-80 18:21:50
+  DIAGS   VER     Queued     4:00       0       0       0    6-Mar-80 18:21:50
+
+;****AT THE END OF 4 HOURS ALL UETP TESTS WILL END EXCEPT FOR TEST72. THAT
+;****TEST WILL NEVER END SO WE WILL USE THE ABORT ALL COMMAND TO COMPLETE THE
+;****TESTING.
+
+UETP>STATUS
+[6-Mar-80 22:25:32]
+
+
+   Test   Depth   Status    Cycle   Times   Error   Error   Start
+   name                             run     count   limit   time
+  ======  =====   =======   =====   =====   =====   =====   =====
+  DUPB    VER     Ended      4:00       7       0       0    6-Mar-80 22:25:32
+  TEST72  VER     Running    4:00       0       0       0    6-Mar-80 22:25:32
+  MTA0    VER     Ended      4:00       2       0       0    6-Mar-80 22:25:32
+  ALGOL   VER     Ended      4:00       6       0       0    6-Mar-80 22:25:32
+  BASIC   VER     Ended      4:00      10       0       0    6-Mar-80 22:25:32
+  CBLSRT  VER     Ended      4:00      13       0       0    6-Mar-80 22:25:32
+  DBMS    VER     Ended      4:00       9       0       0    6-Mar-80 22:25:32
+  RANCBL  VER     Ended      4:00      13       0       0    6-Mar-80 22:25:32
+  RANFOR  VER     Ended      4:00      12       0       0    6-Mar-80 22:25:32
+  MEMORY  VER     Ended      4:00      11       0       0    6-Mar-80 22:25:32
+  DIAGS   VER     Ended      4:00      12       0       0    6-Mar-80 22:25:32
+
+UETP>ABORT ALL
+[14:01:10  ABORT OF ALL VERIFICATION TESTS COMPLETED]
+UETP>STATUS
+
+[6-Mar-80 22:27:20]
+
+   Test   Depth   Status    Cycle   Times   Error   Error   Start
+   name                             run     count   limit   time
+  ======  =====   =======   =====   =====   =====   =====   =====
+  DUPB    VER     Ended      4:00       7       0       0    6-Mar-80 22:27:20
+  TEST72  VER     Aborted    4:00       0       0       0    6-Mar-80 22:27:20
+  MTA0    VER     Ended      4:00       2       0       0    6-Mar-80 22:27:20
+  ALGOL   VER     Ended      4:00       6       0       0    6-Mar-80 22:27:20
+  BASIC   VER     Ended      4:00      10       0       0    6-Mar-80 22:27:20
+  CBLSRT  VER     Ended      4:00      13       0       0    6-Mar-80 22:27:20
+(IBM COMMUNICATIONS)                                                                                             Page 2-16
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+  DBMS    VER     Ended      4:00       9       0       0    6-Mar-80 22:27:20
+  RANCBL  VER     Ended      4:00      13       0       0    6-Mar-80 22:27:20
+  RANFOR  VER     Ended      4:00      12       0       0    6-Mar-80 22:27:20
+  MEMORY  VER     Ended      4:00      11       0       0    6-Mar-80 22:27:20
+  DIAGS   VER     Ended      4:00      12       0       0    6-Mar-80 22:27:20
+;****WE'LL DO A CNTRL-X TO GET BACK TO PTYCON SO WE CAN CHECK HOW THE
+;****DECX11-TEST DID. AFTER WE GET TO PTYCON WE MUST CONNECT TO
+;****SUBJOB 0 SO WE CAN TALK TO DECX11!!
+
+^X
+PTYCON> C 0 [CONNECTED TO SUBJOB 0]
+BSY>SUM
+BSY>
+SUMMARY AT RUNTIME:          
+DMCB0 AT VA: 051514 STAT 144014 PASS #00167 HRDERRS 00000 SFTERRS 00000
+DPBB0 AT VA: 062454 STAT 144014 PASS #00204 HRDERRS 00000 SFTERRS 00000
+DPBB1 AT VA: 064676 STAT 144014 PASS #00211 HRDERRS 00000 SFTERRS 00000
+BMHB0 AT VA: 057640 STAT 040024 PASS #00001 HRDERRS 00000 SFTERRS 00000
+CPAG0 AT VA: 060572 STAT 040024 PASS #00001 HRDERRS 00000 SFTERRS 00000
+SYSTEM ERRORS: 00000     POWER FAILS: 00000
+
+BSY>
+DPBB0 END PASS #00205. RUNTIME:           PSTIME:          
+
+DPBB1 END PASS #00212. RUNTIME:           PSTIME:          
+;****SINCE THE DECX-11 TEST RAN FOR 4 HOURS WITHOUT ANY HARD ERRORS
+;****WE'LL DO A "CNTRL E" TO GET BACK TO DNLOAD AND THEN WE'LL EXIT!!
+;****ALL TESTS PASSED WE MADE IT!!!
+****************END OF NO MODEM EXAMPLE*****************
+
+^E
+DNLOAD>EXIT
+$LOGO
+Killed Job 13, User F-S, Account F-S, TTY 52,
+  at 10-Mar-80 16:03:04,  Used 0:02:57 in 4:23:48
+(IBM COMMUNICATIONS)                                                                                             Page 2-17
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+
+****************ACCEPTANCE EXAMPLE WITH MODEM ELIMINATORS!!*****************
+Here's what you have to do for DN22 hardware acceptance with modem eliminators
+                1.BRING THE SYSTEM UP
+                2.IF THE UETP JOBS START ATTACH TO OPERATOR 1
+                  (PASSWORD IS DEC-20)
+                3.ABORT THE UETP JOBS THEN EXIT
+                4.ENTER THE DO NO-UETP.MIC COMMAND
+                5.BRING THE SYSTEM DOWN BY DOING A CNTRL-/ THEN TYPE "SH"
+                6.BRING THE SYSTEM UP AGAIN
+                7.LOGIN AND ENTER DO 22-CONFIG.MIC (DON'T FORGET THE PARAMETERS)
+                  AT THE CTY
+                8.THEN FOLLOW THIS EXAMPLE!!!
+;**********HERE'S THE EXAMPLE*************
+;**********FIRST WE MUST LOGIN !!
+ sys 4145 release 4, TOPS-20 Monitor 4(3247)
+@LOG F-S 
+ Job 13 on TTY52 15-Mar-80 12:44:26
+ Sat 15-Mar-80 12:44:30  Up 233:59:11
+ 3+7 Jobs   Load av   0.19   0.13   0.08
+
+ No operator in attendance
+
+
+APR-Serial Nr.: 4145   Micro-Code Ver.: 117      HSB-Adr.: 400      (enabled) 
+Interrupts enabled:  power fail  NXM  Interv. timer 
+ TOPS20 paging on  trap + paging enabled 
+
+ Errors which occurred:  Soft ( ECC ) Mem Err.  Adr.: 27163    Bit 34 failed 
+ End of LOGIN.CMD.1
+;****NOW WE MUST ENTER THE "DO 22-LOAD" COMMAND FOR UETP TESTS.
+
+@DO 22-LOAD.MIC.1 (PARAMETERS) 
+@;<UETP.LIB>22-LOAD.MIC.1,  9-Aug-79 13:06:31, EDIT BY EIBEN
+;LOADS COMMUNICATION-SOFTWARE INTO DN22 FOR UETP-TESTS
+@DAYTIME
+ Saturday, March 15, 1980 12:44:56
+@ENA
+$^ESET TER 21 SP 300
+$RUN <UETP.LIB>DNLOAD 
+DNLOAD>LOAD DN22 0 <UETP.LIB>DS65B.BIN TTY21:
+
+INITIALIZING DS65DP IBM HASP/3780/2780 DECSYSTEM-20 FRONT END,
+      WITH DMC INTERFACE ON A DEC-2020 V4(114)
+     KD11-D (11/04)
+   160000 BYTES OF MEMORY
+     KW11-L
+   1 DL11-A
+   2 DUP11'S
+   1 DMC11
+STARTING DS65DP IBM HASP/3780/2780 DECSYSTEM-20 FRONT END,
+      WITH DMC INTERFACE ON A DEC-2020
+DNLOAD>EXIT
+$
+(IBM COMMUNICATIONS)                                                                                             Page 2-18
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+[MICEMF - End of MIC File: <UETP.LIB>22-LOAD.MIC.1 ]
+@KMIC
+;****WE'LL CONNECT TO <UETP> AND START UETP
+
+$CONN <UETP>
+$UETP
+[15-Mar-80 12:46:43         User Environment Test Package ]
+;*****ENTER THE UETP "MESSAGE" COMMAND THEN ENABLE THE TESTS AS SHOWN!! 
+ 
+UETP>MESSAGE
+UETP>ENA DN22IN/CYCLE:4:00/TIME:1:30
+[12:47:39  ENABLE COMPLETED]
+UETP>ENA DN22OU/CYCLE:4:00/TIME:1:30
+[12:47:58  ENABLE COMPLETED]
+
+;****NEXT ENTER THE "BEGIN" COMMAND TO START THE UETP TESTS.
+
+UETP>BEG
+[12:48:05  BEGIN COMPLETED]
+
+;****ENTER THE "STATUS" COMMAND TO SEE WHAT HAS HAPPENED!!
+
+UETP>ST
+
+[15-Mar-80 12:48:10]
+
+   Test   Depth   Status    Cycle   Times   Error   Error   Start
+   name                             run     count   limit   time
+  ======  =====   =======   =====   =====   =====   =====   =====
+  DN22IN  VER     Queued     4:00       0       0       0   15-Mar-80 12:48:04
+  DN22OU  VER     Queued     4:00       0       0       0   15-Mar-80 12:48:04
+;****THESE TESTS WILL RUN FOR A TOTAL OF 4 HOURS
+
+UETP>
+    START DN22OU   12:48:27 DN22OU=>USER1:
+    START DN22IN   12:48:29 
+    END   DN22OU   12:51:18 
+    END   DN22IN   12:51:28 
+
+;****THIS MESSAGE WILL COME OUT AFTER 4 HOURS. THIS LETS YOU KNOW
+;****THAT THE DN22 TESTING IS COMPLETE!!
+
+
+UETP>
+[All tests complete on processor # 4145]
+
+[15-Mar-80 16:52:15]
+
+   Test   Depth   Status    Cycle   Times   Error   Error   Start
+   name                             run     count   limit   time
+  ======  =====   =======   =====   =====   =====   =====   =====
+  DN22IN  VER     Ended      4:00      39       0       0   15-Mar-80 12:48:04
+  DN22OU  VER     Ended      4:00      39       0       0   15-Mar-80 12:48:04
+
+(IBM COMMUNICATIONS)                                                                                             Page 2-19
+DN22-CONFIGURATION AND ACCEPTANCE EXAMPLE
+
+
+
+;****NEXT EXIT OUT OF UETP AND LOGO
+
+UETP>EXIT
+$LOGO
+Killed Job 13, User F-S, Account F-S, TTY 52,
+  at 15-Mar-80 16:52:41,  Used 0:01:44 in 4:08:14
+
+;****END OF CONFIGURATION AND ACCEPTANCE EXAMPLE!!
+(IBM COMMUNICATIONS)                                                                                             Page 2-20
+DN22-IBMCON
+
+
+REASON FOR IBMCON (3A VS. 4)
+----------------------------
+
+
+     The DN64 software available with TOPS20 Release 3A automatically made entries  in  the  system  log  file,  ERROR.SYS
+providing notification of the enabling and disabling of lines and periodic statistics reports.  In release 4 of TOPS20 the
+DN6x software has been integrated into Galaxy, but the code to enter  statistics  into  the  system  error  file  was  not
+included.  The program IBMCON provides this service in release 4 of TOPS20 for both the KS and KL processors.  
+USING IBMCON
+------------
+
+
+     IBMCON obtains the status of the front end solely by use of the monitor interface to the DTE.  Since IBMCON does  not
+rely  on  other  DN6x  components  running  in the mainframe it must periodically examine or poll the front end to collect
+statistics and determine status changes.  This polling can affect performance.  Only run IBMCON periodically when you need
+to collect statistics or when the hardware is suspect.
+
+     To run IBMCON you must be an enabled user with wheel or operator capabilities.  If you are not enabled or you do  not
+have  wheel  or  operator  capabilities,  the enable command will always report that the front end is not running.  IBMCON
+provides command recognition and prompting and defaults most arguments.  The minimum interaction necessary to  begin  data
+gathering is the enable command and port number.
+
+
+COMMANDS
+--------
+
+DISABLE (polling on port) port number
+
+
+     The DISABLE command stops IBMCON from polling the specified port,
+thus stopping all data gathering for all lines on that port.
+The port number must be specified, it has no default. When IBMCON
+is run on a KS processor, the port number is restricted to 10 or 11.
+Ports 10 and 11 refer to the DN22 running on synchronous lines
+KDP_0_0 and KDP_0_1 respectively. When running on a KL, the port
+number is restricted to the range 11-13. Ports 11-13 refer to the
+DN20 running on DTE'2 1-3 respectively.
+
+ENABLE (polling on port) port number (interval) minutes between polling
+
+
+     The ENABLE command starts polling on the specified port for the specified interval.  After each interval has  passed,
+IBMCON examines all lines on the front end associated with the specified port to determine if they have become active (the
+node to which they connect has become enabled) or inactive (the node to which they connect has become disabled).   When  a
+line  becomes  active  or inactive an entry is made in ERROR.SYS.  Statistics entries are made in ERROR.SYS for all active
+lines.  The default polling interval is 10 minutes.  Note that when IBMCON is started it will  make  a  NODE  HAS  ENABLED
+entry  even  if the node had been up for some time.  Also note that the timestamp for the NODE ENABLED or DISABLED entries
+reflects the time that IBMCON first saw the node active, not the exact time at which the node was enabled.
+
+
+EXIT
+
+(IBM COMMUNICATIONS)                                                                                             Page 2-21
+DN22-IBMCON
+
+
+     The EXIT command causes IBMCON to exit to EXEC command level.
+
+
+SET (logging interval on line) line number (port) port number
+     (interval) minutes between logging
+
+
+     The SET command changes the default logging interval on a line by line basis.   The  logging  interval  is  the  time
+between  statistics entries for all active lines on enabled ports.  The default logging interval is 60 minutes.  Note that
+this command must be entered separately for each line which is to have a logging interval different from the default.
+
+
+WAIT (forever)
+
+
+     The wait command causes IBMCON to run without an outstanding input wait for commands.  Following the wait command, no
+prompt is issued and no command will be processed.  The WAIT command allows the user to run IBMCON in batch.
+
+
+EXAMPLES
+--------
+
+
+     Run IBMCON to collect hourly statistics for all active lines on the DN20 on DTE  1 on a KL.  Poll every 10 minutes to
+look for changes in line status.
+
+@ENABLE
+$IBMCON
+IBMCON>ENABLE (polling on port) 11
+IBMCON>
+
+
+     Run IBMCON to collect statistics for all active lines on the DN22 on KDP_0_1 on a KS every 30 minutes.  Poll every  5
+minutes to look for changes in line status.  Only lines 0 and 1 are installed in the DN22.
+
+@ENABLE
+$IBMCON
+IBMCON>SET (logging interval on line) 0 (port) 11 (interval) 30
+IBMCON>SET (logging interval on line) 1 (port) 11 (interval) 30
+IBMCON>ENABLE (polling on port) 11 (interval) 5
+IBMCON>
+
+
+ERROR MESSAGES
+--------------
+
+PORT port number IS NOT ENABLED
+
+     An attempt was made to disable a port which was not enabled.
+
+     PORT port number IS ALREADY ENABLED
+(IBM COMMUNICATIONS)                                                                                             Page 2-22
+DN22-IBMCON
+
+
+     An attempt was made to enable a port which was already enabled.
+
+     MORE LINES actual number of lines ON PORT THAN ALLOWED max number
+
+     More lines were found on the enabled port than are allowed for by
+IBMCON. IBMCON will truncate the number of lines watched to its
+own maximum number (6).
+
+     PORT port number NOT RUNNING
+
+     This error message is printed whenever IBMCON cannot determine the status of the front end.  It  is  printed  if  the
+port is not running or if the user is not an enabled wheel or operator.
+
+     SYERR JSYS FAILED
+
+     The JSYS failed which enters entries into the system error file, ERROR.SYS.
+
+     UNABLE TO SET TIMER INTERRUPT
+
+The TIMER JSYS failed.
+
+
+SYSERR ENTRY FORMATS
+--------------------
+
+
+     Following are the formats of the entries made in the system error file.
+
+     This is a description of the SYSERR entry header.  The body descriptions follow later.
+
+    +===================================================+
+    !   Code   !   n/u   ! T ! Version ! 4  !  Length   !
+    +---------------------------------------------------+
+    !    Date and time in Universal date/time format    !
+    +---------------------------------------------------+
+    !                 System uptime                     !
+    +---------------------------------------------------+
+    !             Processor serial number               !
+    +===================================================+
+
+
+        DEFSTR  (SYCOD,0,8,9)   ; Event code
+        DEFSTR  (SYT20,0,17,1)  ; Entry was created by TOPS20
+        DEFSTR  (SYVER,0,23,6)  ; SYSERR entry type version number
+        DEFSTR  (SYHLN,0,26,3)  ; Header length (currently 4)
+        DEFSTR  (SYLEN,0,35,9)  ; Length of entry (w/o header)
+        DEFSTR  (SYDAT,1,35,36) ; Date and time of this entry
+        DEFSTR  (SYUPT,2,35,36) ; System uptime  days,,fraction of day
+        DEFSTR  (SYPSN,3,35,36) ; Proc. serial number of recording CPU
+        .SYDAT==4               ; Offset to data portion of entry
+(IBM COMMUNICATIONS)                                                                                             Page 2-23
+DN22-IBMCON
+
+
+Data format for SYSERR code 233
+-------------------------------
+
+    +===================================================+
+    !      Port number      !       Line number         !
+    +---------------------------------------------------+
+    !                   Status string                   !
+    /                                                   /
+    /                                                   /
+    +===================================================+
+
+
+     The line status string is returned as an 8 bit byte string packed 4 bytes left justified in a 36 bit word.   In  each
+byte  the  bit  numbering is bit 0 to the right (LSB) and bit 7 to the left (MSB).  Any 16 bit values have the 8 bit bytes
+that make it up swapped.  So before these bits defined below are valid, the bytes have to be swapped back again.
+
+
+         7       0 15      8 7       0 15      8        Bit no.'s in
+         !       ! !       ! !       ! !       !        11's word
+        +------------------------------------------+
+        ! byte 0  ! byte 1  ! byte 2  ! byte 3  !  !    Byte no. in
+        +------------------------------------------+      11's word
+         !    11-word 0    ! !     11-word 1   !  !     11 word no.'s
+         0                15 16                31 35    Bit no.'s in
+                                                         -10's word
+
+Line status  [ 70 (8 bit) bytes, 18 (36 bit) words ]
+
+ Byte           Meaning
+ ----           -------
+
+ 0              Terminal type: 0 = unknown, 1 = 3780, 2 = 2780, 3 = HASP
+ 1-2            Flags:  bit 0 set = simulate, clear = support
+                        bit 1 set = primary BSC protocol,
+                              clear = secondary
+                        bit 2 set = signed on
+                        bit 3 set = transparent
+                        bit 4 set = disable in progress
+                        bit 5 set = line enable complete
+                        bit 6 set = line abort complete
+                        bit 7 set = off line (2780/3780 only)
+                        bit 8 set = line disable complete
+                        bit 9 set = disable done by DTE failure
+                        bit 10 set = Line aborted by hardware failure
+                        bit 11 set = Communications established
+ 3              Line info:
+                        bit 0 set = line is enabled
+                        bit 1 set = DTR (data terminal ready)
+                        bit 2 set = DSR (data set ready)
+ 4-5            Count of DQ11/DUP11 error interrupts
+ 6-7            DQ11/DUP11 status register 1 at last error
+ 8-9            DQ11/DUP11 status register 2 at last error
+ 10-11          Count of times receiver wasn't fast enough
+ 12-13          Count of times transmitter wasn't fast enough
+(IBM COMMUNICATIONS)                                                                                             Page 2-24
+DN22-IBMCON
+
+
+ 14-15          Count of CTS (clear to send) failures
+ 16-17          Count of message sent and ACK'ed
+ 18-19          Count of NAK's received (+wrong ack after timeout)
+ 20-21          Count of invalid responses to TTD
+ 22-23          Count of invalid responses to messages
+ 24-25          Count of TTD's sent
+ 26-27          Count of WACK's received in response to messages
+ 28-29          Count of EOT's (aborts) in response to messages
+ 30-31          Count of invalid bids of responses to bids
+ 32-33          Count of RVI's received while transmitting
+ 34-35          Count of message received ok
+ 36-37          Count of bad BCC's
+ 38-39          Count of NAK's sent in response to data messages
+ 40-41          Count of WACK's sent
+ 42-43          Count of TTD's received
+ 44-45          Count of EOT's sent or received which abort the stream
+ 46-47          Count of messages ignored (out of chunks, unrecognizable
+                 or timeout)
+ 48-49          Count of transparent msg with an invalid char after DLE
+ 50-51          Count of attempts to change between transparent and
+                normal mode in a blocked message
+ 52-53          Count of transmitter timeouts
+ 54-55          Clear to send delay in jiffies
+ 56-57          Count of silo overflows
+ 58-59          Number of bytes in silo warning area (usually 64,
+                must be even)
+ 60-61          Max number of bytes used in silo warning area since
+                set last
+ 62-63          Max bytes per message
+ 64-65          Number of records per message
+ 66-67          Line signature
+ 68-69          Line driver type: 1=DQ11, 2=KMC11/DUP11, 3=DUP11 w/o KMC
+(IBM COMMUNICATIONS)                                                                                             Page 2-25
+DN22-IBMCON
+
+
+Format for SYSERR code 234
+--------------------------
+
+
+Node enable/disable
+
+        +=======================================================+
+        !                       !       Enable/disable code     !
+        +-------------------------------------------------------+
+        !               Node name in sixbit     *               !
+        +-------------------------------------------------------+
+        !       Port            !       Line                    !
+        +=======================================================+
+        !       Flags           !       Station type            !
+        +-------------------------------------------------------+
+        !               Clear to send delay (in jiffies)        !
+        +-------------------------------------------------------+
+        !               Silo warning level (in bytes)           !
+        +-------------------------------------------------------+
+        !               Bytes per message                       !
+        +-------------------------------------------------------+
+        !               Records per message                     !
+        +-------------------------------------------------------+
+        !               Line signature                          !
+        +=======================================================+
+
+        Where
+
+         Enable/disable code is:
+
+                .CNENB = 1      Enable the line
+                .CNDIS = 2      Disable the line (hang-up)
+
+         Node name is the sixbit name that GALAXY uses for the node
+  *     IBMCON cannot determine the node name, because it does
+        not communicate with Galaxy. The contents of this field
+        are indeterminate.
+
+         Port and line number uniquely describe the synchronous line
+          talking to IBM node
+
+         Flags are:
+
+                CN$TRA = 1b15           Transparency enabled
+                CN$PSP = 1b16           Primary protocol if 1,
+                                         secondary if 0
+                CN$ETF = 1b17           Emulation mode if 1,
+                                        termination if 0
+
+         Station type is:
+
+                SL378 = 1               3780 protocol
+                SL278 = 2               2780 protocol
+                SLHSP = 3               HASP multileaving protocol
+(IBM COMMUNICATIONS)                                                                                             Page 2-26
+DN22-IBMCON
+
+
+         Clear to send delay is a 16 bit value in jiffies.
+
+         Bytes per message and silo warning level are 16 bit values
+        in bytes.
+
+         Records per message is a 16 bit value in records.
+
+         Line signature is a 16 bit value of no dimensions, used for
+          identification only.
+
+
+        NED.CD==.SYDAT+0                ; Enable/disable code
+        NED.NM==NED.CD+1                ; Node name
+        NED.ID==NED.NM+1                ; Port,,line (ID)
+        NED.FL==NED.ID+1                ; Flags,,type
+        NED.CS==NED.FL+1                ; Clear to send delay
+        NED.SW==NED.CS+1                ; Silo warning level
+        NED.BM==NED.SW+1                ; Bytes per message
+        NED.RM==NED.BM+1                ; Records per message
+        NED.SG==NED.RM+1                ; Line signature
+
+        NED.SZ==^d9                     ; Size of entry w/o header
+        NED.SH==^d3                     ; Short entry for disable
+
+
+INSTALLATION
+------------
+
+
+     Following the installation procedures described in the IBM Emulation/Termination manual (AA-5095B-TM)  is  sufficient
+for  installing  IBMCON.   IBMCON  requires  no  setup  procedure  or  data files;  only the executable file IBMCON.EXE is
+required.
+
+     Rebuilding IBMCON requires that the following files from the Galaxy distribution  tape  can  be  found  in  the  DSK:
+search  path.   The versions of the files from the Galaxy tape used to build IBMCON must correspond to the versions of the
+files used to build the Galaxy which runs on the same system as IBMCON.
+
+GLXINI.REL
+OPRPAR.REL
+GLXMAC.UNV
+QSRMAC.UNV
+ORNMAC.UNV
+
+
+     Rebuilding IBMCON also requires that these files from the DN6x tape can be found in the DSK:  search path:
+
+IBMCON.MAC
+D60HOK.MAC
+D60UNV.UNV
+D60JSY.MAC
+
+(IBM COMMUNICATIONS)                                                                                             Page 2-27
+DN22-IBMCON
+
+
+     Executing the following steps will rebuild IBMCON.EXE:
+
+@COMPILE D60HOK+D60JSY D60HOK.REL
+@LOAD IBMCON
+@SAVE
+                                                                                                              Page Index-1
+
+
+
+                                                   (IBM COMMUNICATIONS)
+
+
+
+
+DN22 . . . . . . . . . . . . . . . . . . . . . . . . . . . .  2-2
+DN22-CONFIGURATION . . . . . . . . . . . . . . . . . . . . .  2-5
+DN22-IBMCON  . . . . . . . . . . . . . . . . . . . . . . . .  2-20
+DUP11  . . . . . . . . . . . . . . . . . . . . . . . . . . .  1-8
+
+IOP-DUP  . . . . . . . . . . . . . . . . . . . . . . . . . .  1-1
+
+KMC11  . . . . . . . . . . . . . . . . . . . . . . . . . . .  1-3 to 1-4
+

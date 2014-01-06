@@ -1,0 +1,155 @@
+Commands to CRSCPY are of the general form:
+
+     COMMAND argument
+
+and are  of  three  types,  Action,  Status  setting,  and  Report  or
+Disposition selection.
+
+
+1. Action commands
+
+The action commands are:
+
+CLEAR filespec          Mark  the  specified  file  as   having   been
+                        processed  so  that  MONBTS  can  dump  on  it
+                        without operator intervention.
+
+COPY filespec=filespec  Copy input filespec to output filespec, make a
+                        log entry, and clear the unprocessed dump bit.
+
+DISPOSTION filespec     Give a one line disposition  of  the  crash(s)
+                        specified  by  filespec  after  the  crash  is
+                        analyzed.   Note  that  filespec  is  the  one
+                        stored in CRASH.SYS by the COPY command.  Both
+                        the filename and extension may  be  wildcarded
+                        and  a  device  of  DSK:,  ALL:, or XPN:  will
+                        match any entry.  It is much more efficient to
+                        dispose   using   a   command   of   the  form
+                        DISPOSITION/SEQUENCE:nn  since  the   sequence
+                        number  allows  CRSCPY  to index directly into
+                        CRASH.SYS.
+
+PURGE FILE              Delete  the  contents  of  SYS:CRASH.SYS   but
+                        retain  the  header so that the crash sequence
+                        numbers do not start at 1.  The  use  of  this
+                        command  is  prefered  to  simply deleting the
+                        file for this reason.  The argument "FILE"  is
+                        required to insure that the user does not type
+                        the command by accident.
+
+REPORT filespec         Generate a report on the specified file of the
+                        contents of SYS:CRASH.SYS.
+
+The action commands cause something to happen as opposed to setting  a
+flag  or  value  for later processing.  All action commands except the
+DISPOSITION command will fully  default  the  arguments  if  they  are
+omitted.  Defaults are as follows:
+
+     CLEAR SDL:CRASH.EXE[1,4]
+     COPY STR:sssnnn.EXE[10,1]=SDL:CRASH.EXE[1,4]
+     REPORT TTY:CRASH.LOG[-]
+
+where SDL:  is all structures in the system dump list,  STR:   is  the
+structure  with  the  most  free  space  selected  from  the STRUCTURE
+command, sss is the STOPCD name, and nnn is a sequence number obtained
+from  the  header of SYS:CRASH.SYS and incremented each time a dump is
+copied.
+
+
+2. Status setting commands
+
+The status setting commands are:
+
+INFORM name             Select  destination  of  all  output.    Legal
+                        values  of name are USER and OPR.  USER is the
+                        default if CRSCPY is run manually, OPR is  the
+                        default if CRSCPY is run by the system.
+
+STRUCTURE <str:blk,str:blk,...>,<str:blk,str:blk,...>,...
+
+                        Select the structures  to  which  CRSCPY  will
+                        copy   crashes   if  no  output  structure  is
+                        specified in the COPY command or if it is  run
+                        by the system.  str is the name of a structure
+                        and blk is the number  of  blocks  which  must
+                        remain  on  the  structure  after  the copy in
+                        order for CRSCPY  to  copy  a  crash  to  that
+                        structure.     The    angle   brackets   group
+                        structures into  sets.   CRSCPY  will  copy  a
+                        crash  to  the  structure in a set which meets
+                        the block restrictions and  will  contain  the
+                        most  space  after the copy.  If no structures
+                        in a set meet the restrictions, CRSCPY goes on
+                        to the next set.  This command usually appears
+                        in SWITCH.INI with a line of the form:
+
+     CRSCPY/STRUCTURE:(<str:blk,str:blk,...>,<str:blk,...>,...)
+
+The status selection commands simply set flags or values for use  when
+one of the action commands is typed.
+
+
+3. Report or disposition selection commands/switches
+
+The report or disposition selection commands are:
+
+BEGIN date:time         Process only those crashes which  were  dumped
+                        after the specified date and time.
+
+CBEGIN date:time        Process only those crashes which  were  copied
+                        after the specified date and time.
+
+CEND date:time          Process only those crashes which  were  copied
+                        before the specified date and time.
+
+DELETE                  Delete the crash file  when  it  is  disposed.
+                        NODELETE  is the complement and the default if
+                        no value is specified.
+
+DETAIL value            Generate reports with  more  detail  than  the
+                        default  report.   Legal  values  are  ALL and
+                        DISPOSITION.
+
+END date:time           Process only those crashes which  were  dumped
+                        before the specified date and time.
+
+HEADER                  Give a header  line  on  the  REPORT  command.
+                        NOHEADER  is  the  complement  and  causes the
+                        header to be suppressed.
+
+MONVER n                Process only those crashes which were  running
+                        the specified monitor version.
+
+PRIMETIME               Process  only  those  crashes  which  occurred
+                        during prime time (0800-1700).
+
+SEQUENCE m:n            Process  only  those  crashes  with   sequence
+                        numbers  between  m and n, inclusive.  If only
+                        one number is specified it is taken to be both
+                        the lower and upper bounds.
+
+STOPCD xxx              Process  only  those  crashes  which  occurred
+                        because of the specified STOPCD.
+
+UNDISPOSED              Process only those crashes which have not  yet
+                        been  disposed.   NOUNDISPOSED  restricts  the
+                        command to those crashes  which  have  already
+                        been disposed.
+
+The report or disposition selection commands simply restrict the scope
+of  which  entries  in  SYS:CRASH.SYS  are  processed by the REPORT or
+DISPOSTION commands.  They have no effect on any action command  other
+than  REPORT  or  DISPOSITION.   Any  report  or disposition selection
+command may also be given as a switch on  the  REPORT  or  DISPOSITION
+commands.   If  this  is done, the switch only applies to this command
+and any sticky defaults specified will apply to the next command.
+
+
+Any non-action command may be specified in SWITCH.INI with a  line  of
+the form:
+
+     CRSCPY/COMMAND:argument
+
+
+For more information on CRSCPY commands and  it's  internal  workings,
+refer to CRSCPY.MEM and CRSCPY.DOC.

@@ -1,0 +1,262 @@
+
+
+
+
+                        COPYRIGHT (c) 1978,1979
+                     DIGITAL EQUIPMENT CORPORATION
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE  USED  AND  COPIED
+ONLY IN ACCORDANCE WITH THE TERMS OF SUCH LICENSE AND WITH THE INCLUSION
+OF THE ABOVE COPYRIGHT  NOTICE.   THIS  SOFTWARE  OR  ANY  OTHER  COPIES
+THEREOF  MAY  NOT  BE  PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY OTHER
+PERSON.   NO  TITLE  TO  AND  OWNERSHIP  OF  THE  SOFTWARE   IS   HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE WITHOUT NOTICE AND
+SHOULD   NOT   BE   CONSTRUED  AS  A  COMMITMENT  BY  DIGITAL  EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE  USE  OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+CARDREADER-BATCH.DOC -- Changes from version 3 to version 4       Page 2
+SUMMARY
+
+
+1.0  SUMMARY
+
+This document describes the changes in the cardreader handling and batch
+processing for release 4 of the TOPS20 batch and spooling subsystem.
+
+
+                                  NOTE
+
+               This is one of 5 documentation files  that
+               exist for the batch and spooling software.
+               Refer to the GAL4.DOC file for an overview
+               of this release.
+
+
+This document primarily discusses the following programs:
+
+     1.  CDRIVE.EXE
+
+     2.  SPRINT.EXE
+
+     3.  BATCON.EXE
+
+In the area of cardreader handling and general batch processing  release
+4 is primarily concerned with performance issues.  There are, however, a
+significant number of functional enhancements and a few changes.
+
+Note that CDRIVE is a new program.  The card-reader handling and control
+card  interpretation  task  which both previously resided in SPRINT have
+now been split  with  the  former  going  into  CDRIVE  and  the  latter
+remaining in SPRINT.
+CARDREADER-BATCH.DOC -- Changes from version 3 to version 4       Page 3
+EXTERNAL CHANGES
+
+
+2.0  EXTERNAL CHANGES
+
+2.1  Changes Applicable To All Batch Users
+
+     1.  Each job placed in the batch queue either by a  SUBMIT  command
+         or   by   a  card  deck  gets  a  unique  identifier  called  a
+         'request-id' assigned  to  it.   This  request-id,  unlike  the
+         existing  'sequence'  number,  uniquely  identifies  the  queue
+         request.  The request-id may be used on the CANCEL  and  MODIFY
+         commands  and  they appear in the queue listing rather than the
+         sequence number.  Note that request-ids are reassigned whenever
+         the  system  is  restarted  and  therefore they should never be
+         built into automated procedures.  A sequence number  may  still
+         be  assigned  to  each  job  by  the  user  and may be used for
+         automated procedures.  Sequence numbers are  displayed  in  the
+         queue listing if the /ALL option is requested.
+
+     2.  Log File Handling - More flexibility is  provided  in  how  the
+         batch  log  file  is  handle.   There is a switch on the SUBMIT
+         command and on the $JOB card called  /BATCH-LOG  which  accepts
+         one of the following keywords:
+
+         1.  APPEND - This is the default.  If a log file  by  the  same
+             name  already exists in the user's connected directory, the
+             new batch log is appended to it.  This method of  log  file
+             handling  is  the  only  method which has been available in
+             previous releases.
+
+         2.  SUPERSEDE - A new log file will always be created.  On  the
+             -20  this  implies that the next generation will be created
+             if a log file with the same name exists  in  the  connected
+             directory  and  on the -10 an existing log file will simply
+             be superseded.
+
+         3.  SPOOL - This is a totally new type of  log  file  handling.
+             If  this  option  is chosen, the batch log file will not be
+             created in the user's directory at all.  A log file will be
+             created  in  the  spooling  directory and maintained by the
+             system.  This option is recommended for all users who don't
+             require  having  the  log  file  available to them on disk.
+             This option resolves most quota problems, and  also  allows
+             the user to submit the same control file many times without
+             having to specify unique log files.
+
+         In all cases,  the  /OUTPUT  switch  value  is  still  used  to
+         determine whether the log file actually gets printed.
+CARDREADER-BATCH.DOC -- Changes from version 3 to version 4       Page 4
+EXTERNAL CHANGES
+
+
+     3.  There is a new switch on the SUBMIT command and the  $JOB  card
+         called  /ASSISTANCE  which  accepts  YES and NO as values.  The
+         default is YES.  This switch indicates  whether  the  job  will
+         require  any  explicit  operator  interaction like PLEASE (with
+         response), OPERATOR dialog, MOUNT commands which  will  require
+         device  mounting,  or  program  generated  WTORs.   If a job is
+         submitted  with  /ASSIST:NO  and   operator   intervention   is
+         requested for any reason, the job is canceled automatically.
+
+         The advantage of specifying /ASSIST:NO is that an  installation
+         can (if it so desires) dedicate batch streams to these jobs, in
+         effect giving them a higher priority.  In addition, these  jobs
+         will  be allowed to run if no operator is in attendence whereas
+         others may not.
+
+
+
+
+2.2  Changes Applicable To The Timesharing User Of Batch
+
+     1.  A new switch called /NOTIFY exists on the SUBMIT  command.   If
+         this  switch  is  given,  a message is typed on the submitter's
+         terminal when the batch job completes.
+
+     2.  A new switch called /READER exists on the SUBMIT  command.   If
+         this  switch  is  given, The specified file is submitted to the
+         control card interpreter rather  than  directly  to  the  batch
+         processor.  The file is expected to begin with a $JOB card, and
+         may contain any valid control cards.  SPRINT will process  this
+         file and create a control file for submission to batch.
+
+
+
+         2.3  Changes Applicable To The Card User
+
+         1.  The /WIDTH and /SUPPRESS now revert to their default values
+             at the end of each file within a job.
+
+         2.  The $MODE card has been removed.
+
+         3.  The $SEQUENCE card may no longer be the very first card  in
+             a  job.   This  card  may  be place anywhere 'within' a job
+             (i.e.  after the $PASSWORD but before the $EOJ).   This  is
+             the  first  step  in  removal  of this card.  The /SEQUENCE
+             switch on the $JOB card is preferred.
+
+         4.  All    filespecifications    may     be     full     TOPS20
+             filespecifications.
+
+         5.  The user name on the $JOB card may be terminated by a space
+             or a slash.
+CARDREADER-BATCH.DOC -- Changes from version 3 to version 4       Page 5
+EXTERNAL CHANGES
+
+
+         6.  $ERROR  and  $NOERROR  are  different.    Previously   they
+             generated  IF(ERROR) and IF(NOERROR) command in the control
+             file.  Now they generate just ERROR and NOERROR commands.
+
+         7.  Control cards have been added for the other batch  specific
+             commands:    $IF,   $GOTO,  $SILENCE,  $REVIVE,  $OPERATOR,
+             $NOOPERATOR, $BACKTO $REQUEUE,  $CHKPNT.   The  formats  of
+             these   cards  are  the  same  as  their  respective  batch
+             commands.  This removes the need  to  code  these  commands
+             under a $TOPS20 card.
+
+         8.  The maximum allowable value on the /PRIORITY switch on  the
+             $JOB card is now 20 rather than 62.
+
+         9.  Previous to this release, SPRINT always included a %ERR  at
+             the end of the control file.  This caused a problem in that
+             jobs never terminated with the error  condition  true  (the
+             error   condition   is   cleared  on  %ERR)  and  therefore
+             /OUTPUT:ERROR never printed the log file.  [SPR 10-24080].
+
+        10.  /OUTPUT is now obeyed for log files queued  up  by  SPRINT.
+             Previously  it  was  obeyed  only for log files produced by
+             batch jobs.
+
+        11.  /DEADLINE has been removed from  the  $JOB  card.   It  was
+             never  implemented anyway.  /CHARGE was also removed on the
+             -10.
+
+
+
+
+         3.0  KNOWN BUGS AND DEFICIENCIES
+
+         None
+
+
+
+         4.0  INSTALLATION INSTRUCTIONS
+
+         4.1  Files Needed To Run Cardreader And Batch Support Programs
+
+         Given a running release 4 TOPS20 system with QUASAR, ORION, and
+         OPR,  an  installation  requires  SPRINT.EXE  and BATCON.EXE in
+         order to  run  batch  processing  and  in  addition  to  these,
+         CDRIVE.EXE is needed to support card-oriented batch jobs.
+
+
+
+         4.2  Instructions For Installing Cardreader And Batch Support Programs
+
+         SPRINT.EXE, BATCON.EXE, and CDRIVE.EXE are all supplied on  the
+         SYS  area  of  the  TOPS20  release  tape and will be installed
+         automatically during system installation.
+CARDREADER-BATCH.DOC -- Changes from version 3 to version 4       Page 6
+INSTALLATION INSTRUCTIONS
+
+
+         4.3  Files Needed To Build Cardreader And Batch Support Programs
+
+         Normally, any change to the GALAXY subsystem  will  be  include
+         running  the  GALGEN  program  to  generate  a  new  GALCNF.MAC
+         configuration file.
+
+
+
+         4.4  Instructions For Building Cardreader And Batch Support Programs
+
+         5.0  INTERNAL CHANGES
+
+         Release 4  contains  a  number  of  changes  to  virtually  all
+         components  of  the batch and spooling subsystem.  These common
+         changes include:
+
+         1.  Full conversion of all programs to run in 'native' mode  on
+             both the TOPS10 and TOPS20 operating systems.  (Note:  some
+             programs like LPTSPL already ran in  native  mode  on  both
+             systems).
+
+         2.  Use of the GALAXY runtime library by all components.
+
+         3.  Removal of explicit operator  interfaces  in  all  relevant
+             programs and inclusion of an OPR/ORION interface.
+
+         4.  Increased modularization of many programs.
+
+         In addition to these changes, the Cardreader and Batch  Support
+         Programs had the following internal changes:
+
+         1.  The SPRINT program which (in previous releases) read  cards
+             from   the  card-reader,  interpreted  control  cards,  and
+             created batch jobs, has been broken up into  two  programs.
+             The  CDRIVE  program is the physical card-reader driver.  A
+             single  job  running   CDRIVE   will   drive   all   system
+             card-readers  (including  DN200  and  DN64/5 card-readers).
+             The data is spooled to disk and requests are queued  up  to
+             what  is  now  the SPRINT program.  SPRINT now simply reads
+             spooled card data, does all control card interpretation and
+             creates batch jobs as required.
+

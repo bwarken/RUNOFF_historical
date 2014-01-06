@@ -1,0 +1,200 @@
+
+
+
+                               SOS MACROS
+
+
+
+1.0  INTRODUCTION
+
+SOS provides a  powerful  macro  capability  to  the  experienced  user.
+Macros  expand into text which can be some or part of a command, or even
+multiple commands.  A facility is also available to repeat a given macro
+n  times, or until it fails, and also to allow variable parameters to be
+included in the macro definition.  The key to  understanding  and  using
+SOS  macros  is  to  remember  that  they are purely a text substitution
+facility.
+
+
+
+2.0  SYNTAX
+
+SOS uses the special characters < and > to  denote  a  macro  name.   By
+default  <  and  >  are  treated as regular characters wherever they are
+encountered.  However, to use macros SOS  must  recognize  <  and  >  as
+special  characters.   To enable this use the switch /MACRO.  To disable
+special treatment of macros and <>, specify the switch /NOMACRO.
+
+
+
+2.1  Simple Macros
+
+2.1.1  Expansion - A macro name consists of a letter followed by  up  to
+five  more  letters  and digits (i.e., a standard variable name).  It is
+specified in the command line (anywhere) by enclosing  its  name  inside
+angle  brackets.   For  example,  if  the macro CMD contained the string
+"P.-5!10" and was expanded at command level by <CMD>  then  the  command
+"P.-5!10"  would be performed.  Again, a macro can expand into a part of
+a command, or several commands.  It also can be expanded when one is  in
+INSERT  mode.   For  example,  assume  macro  R1  contained "100" and R2
+contained "500" then the string P<R1>:<R2> would expand into "P100:500".
+Also, macros can invoke other macros.  Assuming the above definitions of
+R1 and R2, and the macro RANGE is  defined  to  be  <R1>:<R2>  then  the
+string P<RANGE> would also expand into "P100:500".
+
+
+
+2.1.2  Definition - A macro is defined with the define switch, which has
+the format
+
+     /DEFINE:name:text
+
+where NAME is the  name  of  the  macro,  and  TEXT  is  the  string  of
+characters  associated  with  the  macro name.  The text argument of the
+macro is terminated with the carriage  return.   However,  the  carriage
+return is not included in the macro definition.  Multiline macros may be
+defined by delimiting the text (which  contains  multiple  lines)  by  a
+delimiter  of  the users choice.  Single and double quotes (' and ") are
+commonly used.  Also, to  include  a  quote  inside  a  multiline  macro
+                                                                  Page 2
+
+
+definition quote it.  For example, the command
+
+*/DEFINE:STRING:"Here is a
+M*multiline macro ""with an embedded"" quoted string
+M*"
+
+would define STRING to be the text  specified,  without  the  delimiting
+quotes,  and  the  text  "with an embedded" including the quotes.  Also,
+note that SOS prompts for multiline macros with the prompt M*, and  also
+that the macro includes a CRLF following the text quoted string.
+
+
+
+2.2  Macros With Arguments
+
+2.2.1  Expansion - Macros that take arguments are  named  and  specified
+like  a  simple  macro,  with the addition of an argument list specified
+inside parentheses separated by commas inside the angle  brackets.   For
+example,  expansion  of  the  macro  NAME with two arguments P and 100/5
+would be <NAME(P,100/5)>.  "P" and "100/5" are text strings and used  by
+the  definition  of the NAME macro.  For example, if NAME was defined to
+be "<1><2>" then when the macro was expanded, the first  dummy  argument
+<1> would be replaced with the users first argument "P" and <2> would be
+replaced with the users second argument  "100/5"  producing  the  string
+"P100/5".
+
+
+
+2.2.2  Definition - Macros with arguments are defined in  the  same  way
+simple  macros  are,  except  wherever the text of the first argument is
+desired to be inserted, <1> is used.  Subsequent arguments are specified
+by  <2>,  <3>,, etc.  Also, there is no reason why the definition cannot
+use argument one several times.
+
+
+
+3.0  OTHER MACRO FEATURES
+
+3.1  LDEFINE Switch
+
+The /LDEFINE switch defines a macro to  be  the  text  corresponding  to
+evaluated  range of a legal range specifier following.  The general form
+of /LDEFINE is
+
+     /LDEFINE:name:range
+
+where NAME is the macro name to be defined, and RANGE is any legal range
+specifier.    For   example,   if   .-5  was  line  1500  page  7,  then
+/LDEFINE:LOC:.-5 would define LOC to be "01500/7".   Also,  if  *-5/.+10
+was  line  6000  page 17, then /LDEFINE:SOURCE:.-5:*-5/.+10 would define
+SOURCE to be "01500/7:06000/17".  This switch is useful to evaluate  and
+remember mnenomic line ranges.
+                                                                  Page 3
+
+
+3.2  MACRO Repeat
+
+Any macro may be repeatly expanded by including a repeat count separated
+from  the name by a comma and preceding the closing angle bracket.  This
+will  expand  the  text  of  the  macro  n  times.   For   example,   if
+/DEFINE:STR:ABC  was  given,  then  the expansion <STR,3> would generate
+ABCABCABC.  Note that the carriage return  is  not  part  of  the  macro
+therefore,  the text is not separated by carriage returns.  Consider the
+command /DEFINE:DLINE:D.  was given, then the expansion <DLINE,2>  would
+generate D.D.  which would produce a command error.  The intent probably
+was to generate D.  <carriage return> D.  <carriage return>.   In  order
+to  do  this  the  macro  DLINE  would have to be defined to include the
+carriage return in its definition.  This can be done with the  multiline
+define  feature  and  quoting  described  above.  Another alternative to
+specifying a repeat count is to specify ",*", in which case the macro is
+expanded indefinitely until it fails.  (See section on ERROR HANDLING)
+
+
+
+3.3  SEARCH String Predefined Macros
+
+There is a powerful pattern matching capability that can  be  used  with
+SOS  Find  and Search commands (the ^E syntax).  When any F or S command
+is done that contains ^E match strings, a macro is defined corresponding
+to  each  match string found.  Thus, like on an output substitute string
+^E2M returns the second input match  string,  the  macro  name  <2M>  is
+defined  to  also  be this string.  This definition takes place even for
+the match strings on a F command, even though ^E2M is not allowed as  no
+output  specification  is  given for a F command.  For example, consider
+the task of writing  out  to  a  file  whose  name  is  the  name  of  a
+subroutine,  the  body of the FORTRAN subroutine.  Assume the subroutine
+is on a page by itself.  Then the sequence of commands
+
+     FSUBROUTINE ^E*^EA($
+     O:<1M>,/.
+
+would output the current page (/.) to the file whose name was matched by
+the pattern ^E*^EA (i.e., the subroutine name).
+
+
+
+3.4  ERROR HANDLING
+
+When SOS gets any sort of command or  syntax  error  it  terminates  the
+repeat  count  for  the current macro, and pops up a macro level, if the
+macro was nested.  If it pops up to the top level, control  is  returned
+to the user at command level.  For example ^bl 1;*/DEFINE:DFIRST:"D^
+M*.=/.+1
+M*"
+
+when expanded <DFIRST,*> will continue deleting the first  line  on  the
+current  page and advance the pointer to the next page until SOS gets an
+error.  In this case it will probably  be  %NSP  (%No  such  page)  when
+.=/.+1  advances  past  the  end  of file.  Then, since the macro is not
+nested, control will return to the user at command level.
+                                                                  Page 4
+
+
+3.5  OUTPUT Of MACROS
+
+There exist several ways to output and/or save macros from  one  editing
+session to the next.
+
+
+
+3.5.1  =DEFINE Command - This command outputs to the terminal the  names
+and text of all user defined macros.
+
+
+
+3.5.2  This command evaluates the string following the !  (including any
+macros  encountered) and types the result out.  For example, the command
+"!Hi there" would simply type out "Hi  there"  (a  useful  flow  control
+feature  in  complex  macros or command files).  Consider a more complex
+case with the macro STUFF defined to be "This is first arg:<1>, and this
+is second arg:<2>", then "!Watch <STUFF(ABC,123)>" would type out "Watch
+This is first arg:ABC, and this is second arg:123".
+
+
+
+3.5.3  OM:file Command - This command is similar  to  the  O:   command,
+except  it  does  not take a range of lines.  Instead, all the currently
+defined macros are output in a disk file, in such a way that they can be
+read in as an indirect command file to define them all again.

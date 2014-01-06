@@ -1,0 +1,110 @@
+		DO Version 1 -- June 2, 1978
+
+1.0 Description
+
+DO is a utility which excutes standard TOPS-20 batch control files on 
+a local terminal.  It is a tool which allows the programmer to execute
+his control file on-line where he can watch it, or debug it by pausing
+and continuing execution, or aborting it.
+
+1.1 How to Use
+
+To execute a batch control file, type "DO file.ctl" when at system command
+level.  If the control file is correct, you need do nothing more than
+watch it execute at your terminal.  All labels, comments and batch commands
+are typed on your terminal as they are executed, so you can follow the
+progress of your job.  All of the output you see on your terminal is
+also placed in a log file which has the same name as your control file,
+but has the file type ".LOG".
+
+1.2 Control File Standard
+
+The format of the batch control file is based on the standard described
+in the "Batch Reference Manual".  All exceptions are noted in this help
+file.  No switches are supported in the "DO" command, although the
+implementation of the /TAG: switch is planned.
+
+2.0 Debugging
+
+2.1 Control-B  (Break)
+
+Four control characters are used to provide interactive communication
+with the batch job.  Control-B is used to break execution.  This means
+that when a control-B is typed, no further commands will be typed on
+your terminal.  The current program will continue running until it asks
+for input from the terminal or exits.  Then "[DO: Break]" is typed on
+your terminal, and you may type anything you wish to determine program
+or job status.  You may PUSH and run another program, doing a POP to
+resume the correct process.  You may even type control-C to stop a running
+program, and later do a CONTINUE.  In short, you have all of TOPS-20 at your
+disposal.
+
+2.2 Control-X  (Single-Step Execute)
+
+Control-X instructs DO to execute the next line in the control file
+and then pause.  It has no effect unless execution has already been
+broken with the control-B character.
+
+2.3 Control-P  (Proceed)
+
+Control-P instructs DO to continue sending commands to the terminal,
+i.e. undoes the effect of a control-B.  "[DO: Proceeding]" is
+displayed on the terminal if execution had been broken.  One word
+of caution: if, during the time that execution had been broken, any
+command is typed which produces a question mark in the first column
+of output, or any command which produces an error character defined
+by an @ERROR batch command, DO will assume that an error has occurred.
+It will then look for error recovery in the control file through an
+@IF command, or through the use of the %ERR:: label.  These recovery
+procedures will not take place until after the control-P is typed.
+
+2.4 Control-A  (Abort)
+
+Control-A instructs DO to abort the execution of the current batch
+control file.  DO halts the current program, types an abort message,
+and closes the log file, leaving you at system command level.
+
+3.0 Batch Command Differences
+
+The following is a list of the recognized batch commands, and the
+actions taken when such commands are recognized in the control file.
+
+	BACKTO label	same as batch standard
+	CHKPNT label	ignored
+	ERROR c		same as batch standard
+	GOTO label	same as batch standard
+	IF (condition)	same as batch standard
+	MESSAGE		ignored
+	NOERROR		same as batch standard
+	NOOPERATOR	same as batch standard (see OPERATOR)
+	OPERATOR c	upon reception of the OPERATOR character,
+			 DO will issue a break.  Type ^P to proceed.
+	PLEASE line	communication with the operator via OPLEAS
+			 instead of BATCON
+	REQUEUE		performs an abort
+	REVIVE		resumes logging to log file
+	SILENCE		stops logging to log file
+
+4.0 System Compatibility
+
+DO is largely compatible with the TOPS20 system.  In most cases, no
+considerations at all will be necessary to execute standard batch
+control files.  The exceptions are noted here.
+
+4.1 Terminal linking
+
+DO must preserve terminal links between the job's controlling terminal
+and two pseudo-teletypes.  Therefore, the user may link to at most
+two other terminals, since TOPS-20 allows each terminal to link to
+at most four others.  Also, the user must not issue a BREAK command.
+If he does, there will be two consequences:  first, from that point
+forward, all information will not be logged to the log file.  Secondly,
+no error checking, error recovery, or user communication via the
+@OPERATOR batch command will be successful.
+
+4.2 Self Compatibility
+
+DO cannot be nested.  Any attempts to "DO" a batch command file
+within a batch command file will meet with failure, as both DO
+programs will be attempting to feed commands to the same terminal.
+A future version of DO may allow nesting.

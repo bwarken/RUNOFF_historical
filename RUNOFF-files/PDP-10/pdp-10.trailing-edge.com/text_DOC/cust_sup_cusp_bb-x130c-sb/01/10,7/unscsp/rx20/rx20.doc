@@ -1,0 +1,580 @@
+
+
+
+
+
+
+
+
+
+
+
+
+                                 CHAPTER 1
+
+                          FLOPPY DISKETTES (RXA:)
+
+
+
+        Diskettes  are  block-addressable  devices,  each  of  which
+        contains 77 tracks of 26 sectors each.  No file structure is
+        defined by the TOPS-10 monitor, although it is possible  for
+        a user-mode program to define a file structure.
+
+        Diskettes  may  be  recorded  in  either  single  or  double
+        density.   Single  and  double density may not be mixed on a
+        single diskette.  Single density diskettes record 64  16-bit
+        words  per  sector.   Double  density  diskettes  record 128
+        16-bit  words  per  sector.   The  diskette's   density   is
+        determined  by  the  monitor during each IN, INPUT, OUT, and
+        OUTPUT  UUO,  and  the  file  status  (IO.DEN)  is   updated
+        accordingly.   This  allows  your  program  to determine the
+        density  of  a  diskette  by  simply  reading  a  block  and
+        examining the resultant file status.
+
+        Only 32 bits of each 36-bit  data  word  in  your  program's
+        buffer  are  read or written.  Bits 0, 1, 18, and 19 are not
+        transferred and are indeterminate.  Bits 2  through  17  are
+        transferred first.
+
+        The monitor provides two  basic  addressing  modes  for  the
+        diskette.   Your  program specifies which addressing mode is
+        used for each IO operation in the file status word.
+
+        In logical addressing mode,  several  physical  sectors  are
+        grouped to form a logical block, which is transmitted with a
+        single IN, INPUT, OUT, or OUTPUT UUO.   Logical  blocks  are
+        numbered sequentially from zero.  Physical track zero is not
+        accessible in logical addressing mode because it is reserved
+        for  potential  ANSI  standardization.  The physical sectors
+        comprising each logical block are not contiguous;  they  are
+        assigned   in   such   a  manner  as  to  optimize  hardware
+        performance.  The monitor provides  two  logical  addressing
+        modes;  one (Logical-11) is compatible with Digital's PDP-11
+
+
+                                          17-September-1984 15:17:21
+
+                                    1-1
+                          FLOPPY DISKETTES (RXA:)
+
+
+        software, the other (Logical-8) is compatible with Digital's
+        PDP-8 software.  When in Logical-11 mode, 4 (single density)
+        or 2 (double density) sectors are  grouped  to  form  a  128
+        (36-bit)   word   logical   block.    The   sector-to-sector
+        interleave factor is 2;  the track-to-track skew is 6.  When
+        in  Logical-8  mode,  3 physical sectors (of either density)
+        are grouped to form a 96 (single  density)  or  192  (double
+        density) 36-bit word block.  The sector-to-sector interleave
+        factor is 3;  the track-to-track skew is 0.  Physical tracks
+        74  thru  77 are not available when in Logical-8 mode;  they
+        are reserved for use by diagnostics.
+
+        In physical addressing mode, a single sector  of  32  or  64
+        36-bit  words  (depending  on  the  diskette's  density)  is
+        transmitted by each IN, INPUT,  OUT,  or  OUTPUT  UUO.   All
+        sectors,  including  track zero are accessible.  The sectors
+        are sequentially numbered starting with zero.
+
+
+
+                     Accessible tracks and buffer size
+                          as a function of IO mode
+
+
+                                         Buffer size      Contents
+            Density Addressing Tracks   36-Bit / 8-Bit   Data words
+            ------- ---------- ------ ------------------ ----------
+            Single  Physical     77   32 words/128 bytes  64 16-bit
+            Single  Logical-8    74   96 words/384 bytes 256 12 bit
+            Single  Logical-11   76  128 words/512 bytes 256 16-bit
+            Double  Physical     77   64 words/256 bytes 128 16-bit
+            Double  Logical-8    74  192 words/768 bytes 512 12-bit
+            Double  Logical-11   76  128 words/512 bytes 256 16-bit
+
+
+                                  Table 1
+
+        Note that, except in Logical-11 mode, incorrectly specifying
+        the density of a diskette may cause an unintentional address
+        check due to the differing buffer sizes.
+
+        Up to two  RX20  controllers  are  supported  per-CPU.   The
+        controller  names  are  RXA  and  RXB.   Each controller can
+        support up to two RX02 drives.   Thus,  a  system  with  the
+        maximum  number  of controllers and drives would include the
+        device names RXA0, RXA1, RXB0, and RXB1.
+
+        The diskette hardware provides the ability for  each  sector
+        to  be  marked  "deleted" via use of a special "deleted data
+        mark" which the hardware can  create  and  detect.   TOPS-10
+        allows  your program to create and detect deleted data marks
+        by manipulating the diskette's file status word (IO.PAR).  A
+        sector  which  is flagged with a deleted data mark may still
+
+                                    1-2
+                          FLOPPY DISKETTES (RXA:)
+
+
+        contain valid data;  the presence of  a  deleted  data  mark
+        does  not  alter the capacity of a sector.  Every OUTPUT UUO
+        executed with IO.PAR set in the file status word will  cause
+        a  deleted  data  mark  to  be written with the data;  every
+        OUTPUT UUO executed with IO.PAR clear  in  the  file  status
+        word  will  write only the data, and will erase any previous
+        deleted data mark.  No Digital operating system makes use of
+        deleted data marks.  However, some other vendors use them to
+        signify that a sector is available for use.  Programs  which
+        write  diskettes for interchange with these vendors will use
+        deleted data marks as prescribed by  the  vendor.   Programs
+        which  write  diskettes for interchange with Digital systems
+        should not write deleted  data  marks.   Note  that  use  of
+        deleted   data  marks  as  a  storage  allocation  technique
+        requires your program to read a potentially large number  of
+        sectors  until  a  deleted  data  mark  is encountered, then
+        rewrite the sector with  new  data.   In  contrast,  Digital
+        systems  use  a bit table or directory structure to allocate
+        storage.  This approach allows a sector to be allocated  for
+        new  data  by  simply  checking  the  bit table or directory
+        (usually a few sectors in size) without an  exhaustive  scan
+        of the disk.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    1-3
+                          FLOPPY DISKETTES (RXA:)
+
+
+        A floppy diskette may be operated  only  in  buffered  image
+        data  mode  (.IOIMG).  The data mode must be specified by an
+        OPEN UUO, and preserved during any subsequent  SETSTS  UUOs.
+        The  file  status bits (which are read by GETSTS, and set by
+        OPEN and SETSTS UUOs) provide additional  control  over  the
+        diskette.  The following bits are defined for diskettes:
+
+                IO.DER  Device error.   Set  when  an  error  occurs
+                        during   an   IO   operation  which  is  not
+                        attributable to media.
+
+                IO.DTE  Data error.  Set when  a  media-attributable
+                        error,  such  as  a CRC (data parity) error,
+                        occurs during an IO operation.
+
+                IO.BKT  Block number too  large.   Set  when  IO  is
+                        attempted  to  a  block  number which is too
+                        large for the selected device/density.
+
+                IO.WPS  (Same  as  IO.BOT)  Encodes  the   type   of
+                        interleaving  desired  when using logical IO
+                        mode.   When  set,  specifies   that   PDP-8
+                        compatible  mode  is  desired.   When clear,
+                        specifies that  PDP-11  compatible  mode  is
+                        desired.   It  is illegal to set IO.WPS when
+                        using physical IO mode.
+
+                IO.PAR  Set by the monitor when a deleted data  mark
+                        is  encountered  during  an input operation.
+                        Cleared by the monitor when a  deleted  data
+                        mark  is  not  encountered  during  an input
+                        operation.  Set by your program prior to  an
+                        output  operation  to  cause  a deleted data
+                        mark  to  be  written   with   each   sector
+                        transferred.
+
+                IO.DEN  This two-bit field encodes the  density  and
+                        addressing  mode  for the diskette.  Setting
+                        the  high  order  bit   specifies   physical
+                        addressing  mode.   Clearing  the high order
+                        bit  specifies  logical   addressing   mode.
+                        Setting  the  low order bit specifies double
+                        density mode.  Clearing the  low  order  bit
+                        specifies single density mode.
+
+                IO.SIM  When set, specifies that  2-sided  media  is
+                        present in the drive.  When clear, specifies
+                        that 1-sided media  is  present.   Like  the
+                        density  bit of IO.DEN, IO.SIM is updated by
+                        the monitor during each transfer.  IO.SIM is
+                        also used to determine the maximum number of
+                        blocks which the device can store.  (2-Sided
+                        media    has    twice    the    number    of
+
+                                    1-4
+                          FLOPPY DISKETTES (RXA:)
+
+
+                        blocks/diskette  for  any  given   density.)
+                        Digital  hardware does not currently support
+                        2-sided media.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    1-5
+                          FLOPPY DISKETTES (RXA:)
+
+
+        Floppy diskettes respond to the following UUOs.   Except  as
+        noted,  the  calling  sequence  is the same as for any other
+        device.
+
+        DEVSIZ     Returns the default buffer  size  and  number  of
+                   buffers   for   a   given  IO  mode.   To  ensure
+                   compatibility with future  releases,  always  use
+                   DEVSIZ  when allocating your own buffers.  (Don't
+                   "hardwire" buffer sizes.)
+
+        FILOP.     IO functions perform the same  functions  as  the
+                   individual UUOs listed here.
+
+        OPEN       Assigns a floppy diskette to a channel.  See  the
+                   file  status bits (above).  Note that the initial
+                   file  status  bits  specified  by  an  OPEN   UUO
+                   determine the size of buffers built by subsequent
+                   INBUF, OUTBUF, IN, INPUT, OUT,  or  OUTPUT  UUOs.
+                   As  a result, if you plan to use more than one IO
+                   mode while a channel is OPEN, it  is  recommended
+                   that  you  set  the initial file status to the IO
+                   mode wich requires the largest buffer size.  This
+                   will ensure that the largest possible buffers are
+                   built by the monitor, and will prevent  later  IO
+                   from     over-writing     the    buffers'    end.
+                   Alternatively, you  can  build  your  own  buffer
+                   rings.
+
+        GETSTS     Reads the current file status word.
+
+        IN,INPUT   Reads one block or sector from the diskette.
+
+        OUT,OUTPUT Writes one block or sector to the diskette.
+
+        SETSTS     Sets the current file status word.
+
+        USETI      Specifies which block or sector  is  to  be  read
+                   next.    If   USETI   is   not  used,  the  first
+                   block/sector read  is  zero.   Subsequent  IN  or
+                   INPUT  UUOs  will  read  the  next  consecutively
+                   numbered block/sector.
+
+        USETO      Specifies which block or sector is to be  written
+                   next.    If   USETO   is   not  used,  the  first
+                   block/sector written is zero.  Subsequent OUT  or
+                   OUTPUT  UUOs  will  write  the next consecutively
+                   numbered block/sector.
+
+        CLOSE      flushes the buffer rings normally.
+
+        RELEAS     Performs a CLOSE (if necessary), then disconnects
+                   the channel from the device.
+
+
+                                    1-6
+                          FLOPPY DISKETTES (RXA:)
+
+
+        In addition to the UUOs listed above, the  following  DEVOP.
+        functions also control diskettes:
+
+
+        I.      .DFRXS (=1)     Read extended status
+
+
+
+                                    NOTE
+
+                       This DEVOP.  function provides
+                       access     to    a    hardware
+                       maintenance function which may
+                       be useful to the programmer in
+                       limited circumstances.  For  a
+                       description  of  the  returned
+                       status  words,  see  the  RX02
+                       Technical  Manual  (SDC  order
+                       number EK-0RX02-TM-001).
+
+
+                Calling sequence:
+
+                MOVE    AC,[XWD 4,addr]
+                DEVOP.  AC,
+                 error return
+                Normal return
+
+        addr:   EXP     .DFRXS          ;function code
+
+              / EXP     UDX
+             <  SIXBIT  /devnam/        ;device specification
+              \ EXP     channo
+
+                BLOCK   2               ;buffer for returned hardware status
+                                        ;see the RX02 Technical Manual
+
+        Returns the following values in AC:
+
+        Normal return:  IO status for device (GETSTS)
+
+        Error return:   Reason for failure; one of:
+                DFACS%  Address check (The argument list is not in user memory)
+                DFPRV%  Device active (Operation illegal when device is active)
+                DFNLR%  Value error (Format code was not SINGLE or DOUBLE)
+                DFNIA%  Not initialized (IO.DER or IO.DTE set in file status)
+                DFDOL%  Device offline
+
+
+
+
+
+
+
+                                    1-7
+                          FLOPPY DISKETTES (RXA:)
+
+
+        II.     .DFFMT (=11)    Format a diskette
+
+                Calling sequence:
+
+                MOVE    AC,[XWD 3,addr]
+                DEVOP.  AC,
+                 error return
+                Normal return
+
+        addr:   EXP     .DFFMT          ;function code
+
+              / EXP     UDX
+             <  SIXBIT  /devnam/        ;device specification
+              \ EXP     channo
+
+              / SIXBIT  /SINGLE/        ;to format the diskette in single density
+              \ SIXBIT  /DOUBLE/        ;to format the diskette in double density
+
+        Returns the following values in AC:
+
+        Normal return   IO status for device (GETSTS)
+
+        Error return    Reason for failure.  See .DFRXS for error codes.
+
+
+        Diskettes  purchased  from  Digital  are  pre-formatted  for
+        either  single  density (RX01) or double density (RX02) use.
+        This DEVOP.  allows  you  to  format  diskettes  from  other
+        vendors,  and  allows  you  to  reformat  a  double  density
+        diskette for single density use, and  viceversa.   Diskettes
+        purchased  for  single  density  use  may  not be usable for
+        double-density applications.  After formatting  a  diskette,
+        we  strongly  recommend reading the entire disk, and mapping
+        any errors.  A format operation takes about  15  seconds  to
+        complete,  and  destroys  any  data  previously on the disk.
+        Should a power failure, hardware  malfunction,  or  operator
+        action  interrupt  a format operation, a diskette may result
+        which contains address marks  of  both  densities.   Such  a
+        diskette  is  illegal, may result in improper operation, and
+        should be reformatted correctly.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    1-8
+                          FLOPPY DISKETTES (RXA:)
+
+
+        III.    .DFHCW (1002/2002) Read/Set the error counter
+
+                Calling sequence:
+
+        Read:   MOVE    AC,[XWD 2,addr]
+                DEVOP.  AC,
+                 error return
+                Normal return   ;error counter stored in AC
+
+        addr:   EXP     .DFHCW          ;function code
+
+              / EXP     UDX
+             <  SIXBIT  /devnam/        ;device specification
+              \ EXP     channo
+
+
+        Set:    MOVE    AC,[XWD 3,addr]
+                DEVOP.  AC,
+                 error return
+                Normal return   ;AC is not changed
+
+        addr:   EXP     .DFHCW+.DFSET   ;function code
+
+              / EXP     UDX
+             <  SIXBIT  /devnam/        ;device specification
+              \ EXP     channo
+
+                EXP new value           ;(usually zero)
+
+
+        Error returns:  AC contains an error code.  
+                DFACS%  Address check (argument list not in memory)
+                DFPRV%  No privileges (set)
+                DFNLR%  Value out of range (argument list too small)
+                DFNXD%  Nonexistant device
+
+        Allows any program to read, and privileged programs  to  set
+        the  error  statistics word maintained by the monitor.  This
+        word has the format:
+
+                _0___________________17_18___________________35_
+                |Number of hard errors | Number of soft errors !
+                ------------------------------------------------
+
+        The monitor increments the number of soft  errors  once  for
+        each  IO  operation  which  did  not  succeed  on  the first
+        attempt, but did succeed during  monitor-initiated  retries.
+        The  monitor  increments  the number of hard errors once for
+        each IO operation  which  was  not  successful,  even  after
+        retrys.   A  given  error  is either a hard error, or a soft
+        error;  no error is counted twice.
+
+
+
+                                    1-9
+                          FLOPPY DISKETTES (RXA:)
+
+
+        The error counter may be of use to a program which wishes to
+        move  data  from  a  sector which has a large number of soft
+        errors to a new sector, before the original  sector  becomes
+        unreadable.  A program may also wish to inform the user when
+        a diskette should be replaced.
+
+        If a nonprivileged program wishes to use  error  information
+        based  only on its use of a diskette, it must read the error
+        counter  when  it  starts  operation,  and  again  when   it
+        finishes.   The  difference  between the two values reflects
+        that program's use.  Privileged programs  may  simply  clear
+        the error counter when they start.  The distributed software
+        never resets the error counter, and the monitor makes no use
+        of  the statistics accumulated.  However, some installations
+        may reset the error counter on a MOUNT command, and log  the
+        value  on  DISMOUNT  in  order  to  maintain  a record of an
+        individual floppy's performance.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    1-10

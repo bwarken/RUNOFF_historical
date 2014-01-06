@@ -1,0 +1,1108 @@
+
+
+
+	  KK   KK   EEEEEEEE  YY    YY  WW      WW  RRRRRR    DDDDD
+	  KK  KK    EE         YY  YY   WW      WW  RR    RR  DD   DD
+	  KK KK     EE          YYYY    WW  WW  WW  RR    RR  DD    DD
+	  KKKKK     EEEEE        YY     WW WWWW WW  RRRRRR    DD    DD
+	  KKK KK    EE           YY     WWWW  WWWW  RR  RR    DD    DD
+	  KK   KK   EE           YY     WWW    WWW  RR   RR   DD   DD
+	  KK    KK  EEEEEEEE     YY     WW      WW  RR    RR  DDDDD
+
+	  15 May 1980
+
+	      KEYWRD, Word and Phrase Recognition Logic Generator
+	      ------  ---- --- ------ ----------- ----- ---------
+
+	  The KEYWRD program produces a sequence of  tests  which  can
+	  identify  the leading word or the leading phrase formed of a
+	  fixed sequence of words in  a  line  of  text  without  ever
+	  having   to   test   a  character  which  has  already  been
+	  identified.  Such a leading word or phrase,  which  will  be
+	  referred  to as a command in this document, does not need to
+	  include any characters to the right  of  the  first  of  the
+	  characters which uniquely identify the command.  The word or
+	  each of  the  words  in  a  phrase  can  be  abbreviated  by
+	  truncation, leaving at least the left character in each word
+	  of a phrase  if  additional  words  or  their  abbreviations
+	  appear  to  the right.  Spaces are allowed between the words
+	  in a phrase, but are not required.   A  single  sequence  of
+	  tests  is used to recognize the initial portions of commands
+	  which start with a common series  of  characters,  then  the
+	  unique  portion  of each command is identified by a separate
+	  sequence of tests.  After the unique portion of each command
+	  has  been identified by the separate sequence of tests, then
+	  a single sequence of tests is similarly  used  to  recognize
+	  the  final  portions  of  commands  which  end with a common
+	  series of characters.
+
+	  The KEYWRD program reads a single input file and produces an
+	  output  listing  file  and  an  output FORTRAN language file
+	  containing DATA statements which represent the  sequence  of
+	  tests.   The  sequence  of tests could, of course, easily be
+	  ouput in a form other than FORTRAN source code.  These  DATA
+	  statements  must be merged into the FORTRAN program by which
+	  these tests are to be used.  The KEYWRD program  is  written
+	  in  FORTRAN, and is machine independent except for the short
+	  subroutine which asks the user for the file names  and  then
+	  opens  these files.  In the application for which the KEYWRD
+	  program was written, a glossary of 55 commands  totaling  96
+	  words  and  429 letters was converted into a sequence of 185
+	  tests in  27  seconds  on  a  DECsystem1091  computer.   The
+	  description  of  each test in the resulting decision tree is
+	  packed into 2 array locations and consists of 5 items:   the
+	  serial location in the alphabet of the letter to be matched,
+	  an indication  of  whether  spaces  can  appear  before  the
+	  letter, the location in the arrays of the description of the
+	  next test to be applied if  the  current  match  fails,  the
+	  value to be associated with the command if the current match
+	  KEYWRD, Word and Phrase Recognition Logic Generator   Page 2
+
+
+	  succeeds, and the location in the arrays of the  description
+	  of  the  next  test  to  be  applied  if  the  current match
+	  succeeds.  Six arrays of 1630 locations each were needed for
+	  the  intermediate  storage of the decision tree representing
+	  the 55 commands before the identical branches were merged.
+
+	  Each line in the input file which does not start with one of
+	  the  reserved  characters  *, /, ( or ), which are described
+	  later, specifies a single word or  phrase  preceded  by  the
+	  nonzero  value  by  which  the  word  or  phrase  is  to  be
+	  identified.  The number should not duplicate the  number  to
+	  be  associated  with any other command unless these commands
+	  are  synonyms  or  unless  some  of   these   commands   are
+	  abbreviations  which  would  otherwise  be  ambiguous.   The
+	  number can be preceded by one or more  spaces,  but  leading
+	  spaces  are  not  required.   The  number cannot contain any
+	  characters other than the digits 0 through 9 and  a  leading
+	  minus  sign  if the value is negative or an optional leading
+	  plus sign if the value is positive.  Spaces and/or a  single
+	  comma   can  appear  between  the  leading  number  and  the
+	  following word or phrase, but are not required.   The  words
+	  within  a  phrase  must  be  separated  by at least 1 space.
+	  Extra  spaces  are  ignored.   Words  and  phrases  can   be
+	  constructed  from  any  characters, but upper and lower case
+	  alphabetic letters are considered  to  be  equivalent.   The
+	  sequence   of  tests  produced  by  the  KEYWRD  program  is
+	  independent of the order in which the commands  are  defined
+	  in the input file, but with the exception that the numerical
+	  values assigned to nonalphabetic characters are 26 plus  the
+	  order   in  which  these  unexpected  characters  are  first
+	  encountered.   The  input  file  is  terminated  by  a  line
+	  containing  a  number which is not followed on the same line
+	  by any word or phrase.  The following is an input file which
+	  defines 4 very similar phrases.
+
+	  10 NEXT RUNE
+	  20 NEAT RULE
+	  30 NEXT RULE
+	  40 NEAT RUNE
+	  0
+
+	  The listing file produced by the KEYWRD  program  summarizes
+	  each of the words and phrases and phrase abbreviations which
+	  can be recognized.  The  following  listing  file  would  be
+	  produced if the above input file is processed.
+
+	        0 NE RULE
+	          NE RUNE
+	          N RULE
+	          N RUNE
+	       10 NEXT RU(N)E
+	          NEX RU(N)E
+	       20 NEAT RU(L)E
+	          NEA RU(L)E
+	       30 NEXT RU(L)E
+	  KEYWRD, Word and Phrase Recognition Logic Generator   Page 3
+
+
+	          NEX RU(L)E
+	       40 NEAT RU(N)E
+	          NEA RU(N)E
+
+	  The numbers at the left in the listing file are  the  values
+	  which  are to be associated with the words and phrases which
+	  are shown to the right.  The unique portion of each word  or
+	  phrase  is  enclosed  in  parentheses.  An abbreviation of a
+	  command is unambiguous if  it  includes  the  first  of  the
+	  letters  which are enclosed in parentheses.  Since the final
+	  letter E in each of the above phrases is not  necessary  for
+	  the  recognition  of  the phrases, the test sequences can be
+	  merged at the end as well as at the start, so that the  same
+	  test  for  the  final letter E can be included in all of the
+	  test  sequences.   The  tests  for  the  next  to  the  last
+	  character,  the  letter N, cannot be merged in the 2 phrases
+	  which contain the word RUNE, and the tests for the letter  L
+	  cannot  be  merged  in  the 2 phrases which contain the word
+	  RULE, since no tests for unique characters would then remain
+	  in the sequences of tests which identify these phrases.  The
+	  abbreviations of all but the rightmost words in each  phrase
+	  are  included  in the listing file since the manner in which
+	  the previous words in a phrase are  abbreviated  can  change
+	  which of the following characters are unique.  Abbreviations
+	  such as NE RULE, NE RUNE, N RULE and N RUNE,  in  the  above
+	  example,  contain no unique characters and so are ambiguous.
+	  Ambiguous abbreviations are shown in the listing  file  with
+	  the associated value being zero.
+
+	  The FORTRAN statement file produced by  the  KEYWRD  program
+	  contains  a  description of the input file, a description of
+	  the tests, the DATA statements defining 2 arrays, MCHPNT and
+	  NOTPNT,  which  specify  the  tests,  and  a  DATA statement
+	  specifying the sizes of these  arrays,  KNTPNT.   The  names
+	  which  are assigned to all of the arrays and variables which
+	  are represented  in  the  DATA  statements  in  the  FORTRAN
+	  statement  file  can be specified by a line starting with an
+	  initial slash as described  later.   The  following  FORTRAN
+	  statement  file would be produced if the above input file is
+	  processed.  In the comment lines, a minus sign to  the  left
+	  of  a  letter indicates that the letter appears at the start
+	  of a word.
+
+	  C     10 NEXT RUNE
+	  C     20 NEAT RULE
+	  C     30 NEXT RULE
+	  C     40 NEAT RUNE
+	  C
+	  C     FINAL STORAGE USED=  19, MOST USED=   62, LIMIT= 3000
+	  C
+	  C     CHECKSUMS  990,  32,2894,2575, 866
+	  C
+	  C     COUNT     1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+	  C     COMMAND   0  0  0  0  0  0 20 40  0  0  0  0 30 10  0
+	  C     LETTER   -N  E  A  T -R  U  L  N  X  T -R  U  L  N -R
+	  KEYWRD, Word and Phrase Recognition Logic Generator   Page 4
+
+
+	  C     SUCCESS   2  3  4  5  6  7 19 19 10 11 12 13 19 19 16
+	  C     FAILURE   0 15  9  5  0  0  8  0 15 11  0  0 14  0  0
+	  C
+	  C     COUNT    16 17 18 19
+	  C     COMMAND   0  0  0  0
+	  C     LETTER    U  L  N  E
+	  C     SUCCESS  17 19 19  0
+	  C     FAILURE   0 18  0  0
+	  C
+	  C     DIMENSION MCHPNT(19)
+	        DIMENSION MCHPN1(19)
+	        EQUIVALENCE (MCHPN1(1),MCHPNT(1))
+	  C     DIMENSION NOTPNT(19)
+	        DIMENSION NOTPN1(19)
+	        EQUIVALENCE (NOTPN1(1),NOTPNT(1))
+	        DATA KNTPNT,KNTXTR/   19,    0/
+	        DATA MCHPN1/2,3,4,5,6,7,419,819,10,11,12,13,619,219,
+	       116,17,19,19,0/
+	        DATA NOTPN1/-280,115,29,405,-360,420,248,280,495,411,
+	       1-360,420,254,280,-360,420,258,280,100/
+
+	  If the words and phrases  are  constructed  from  characters
+	  other  than  spaces  and the alphabetic letters A through Z,
+	  then  an  additional  DATA  statement  is  generated   which
+	  specifies  a  third array, LTRXTR, containing the unexpected
+	  characters.  KNTXTR, which is specified by one of  the  DATA
+	  statements  which  are  always generated, is the size of the
+	  LTRXTR array.  If the words and phrases are constructed only
+	  from  spaces  and  the  alphabetic letters A through Z, then
+	  KNTXTR has the value zero and a DATA statement defining  the
+	  LTRXTR array is not generated.
+
+	  The first location in the NOTPNT array describes  the  first
+	  test  which  is to be performed.  The absolute value of each
+	  entry in the NOTPNT array is the sum of the location  within
+	  the  alphabet  of the letter to be matched times (KNTPNT+1),
+	  plus the subscript of the location in the NOTPNT array which
+	  describes  the  next  match  which is to be attempted if the
+	  current match is a  failure.   The  subscript  of  an  array
+	  location  is  its serial position within the array, counting
+	  the first value in the array as being at  subscript  1,  the
+	  second  value  as  being  at subscript 2, and so on.  If the
+	  entry in the NOTPNT array is negative,  then  the  character
+	  starts  a  word  and  any  spaces  in  the input line can be
+	  skipped.  If the location within  the  alphabet  is  greater
+	  than  26,  then  this  minus  26  is the location within the
+	  LTRXTR array of the character to be matched.  If  the  match
+	  succeeds  and the value to be associated with the command is
+	  positive or if the value is zero indicating that  the  match
+	  does  not  uniquely  identify a particular command, then the
+	  parallel location in the MCHPNT array contains  the  sum  of
+	  the   value  of  the  command  times  (KNTPNT+1),  plus  the
+	  subscript  of  the  location  in  the  NOTPNT  array   which
+	  describes  the  next  test.   If  the match succeeds and the
+	  value to be associated with the command  is  negative,  then
+	  KEYWRD, Word and Phrase Recognition Logic Generator   Page 5
+
+
+	  the  parallel  location in the MCHPNT array instead contains
+	  the  value  of  the  command  times  (KNTPNT+1),  minus  the
+	  subscript   of  the  location  in  the  NOTPNT  array  which
+	  describes the next test.  If the subscript of  the  location
+	  in  the  NOTPNT  array  which  describes  the  next  test is
+	  indicated to be zero, either by  the  MCHPNT  array  if  the
+	  current  match  is  a  success or by the NOTPNT array if the
+	  current match is a failure, then no additional test  remains
+	  to  be  performed, and the command is identified by the last
+	  nonzero value encountered in the MCHPNT array  for  a  match
+	  which succeeded.
+
+	  The sequence of tests which the KEYWRD program  produces  to
+	  identify  the commands in the above input file is diagrammed
+	  below.  In this diagram,  the  horizontal  lines  formed  of
+	  minus  signs  indicate the next tests to be performed if the
+	  matches succeed, and the diagonal lines  formed  of  slashes
+	  indicate the next tests to be performed if the matches fail.
+	  The numbers above the  letters  are  the  locations  in  the
+	  NOTPNT  and  MCHPNT  arrays  which  describe the tests.  The
+	  numbers below the letters are the values of  the  associated
+	  commands.  The word "space" indicates a location at which an
+	  optional space character can appear.
+
+	                                                        18  19
+	                                                         N---E
+	                                                        /0  /0
+	                                             15  16  17/   /
+	                      /---/-----------space---R---U---L---/
+	                     /   /                    0   0   0  /
+	                    /   /                               /
+	                   /   /                         14    /
+	                  /   /                           N---/
+	                 /   /                           /10 /
+	                /   /                 11  12  13/   /
+	               /   /   /---/---space---R---U---L---/
+	              /  9/ 10/   /            0   0   30 /
+	             /   X---T---/                       /
+	            /   /0   0                     8    /
+	           /   /                           N---/
+	          /   /                           /40 /
+	         /   /                  5   6   7/   /
+	        /   /   /---/---space---R---U---L---/
+	  1   2/  3/  4/   /            0   0   20
+	  N---E---A---T---/
+	  0   0   0   0
+
+	  The following input file defines 4 commands which start with
+	  the same first 3 letters.
+
+	  10 FOGHORN
+	  20 FOG HORN
+	  30 FOG
+	  40 FOGGY
+	  0
+	  KEYWRD, Word and Phrase Recognition Logic Generator   Page 6
+
+
+	  The sequence of tests which the KEYWRD program  produces  to
+	  identify  the commands in the above input file is diagrammed
+	  below.  This sequence of tests is independent of  the  order
+	  in  which  the  commands  appear  in  the  input file.  If a
+	  continuation of the current word starts with the same letter
+	  as  the  next  word  of  a  phrase, then the continuation is
+	  always sought first and the space  which  must  precede  the
+	  next  word  is  sought only if the test for the continuation
+	  fails.  Thus, FOGHORN without a space before  the  letter  H
+	  will  always be identified as command 10 and FOG HORN with a
+	  space before the letter  H  will  always  be  identified  as
+	  command  20.   FHORN and FOHORN are not abbreviations of the
+	  single word FOGHORN, and so are  identified  as  command  20
+	  whether or not a space appears before the letter H.
+
+	                                  7   8   9  10
+	              /---/---/---space---H---O---R---N
+	             /   /   /            20 /0   0   0
+	            /   /   /               /
+	           /   /  6/               /
+	          /   /   H---------------/
+	         /   /   /10
+	        /   /   /
+	  1   2/  3/  4/  5
+	  F---O---G---G---Y
+	  0   0  30  40  40
+
+	  Undesired  abbreviations  can  be  made  unidentifiable   by
+	  including  them  in  the  input  file  with  zeroes  as  the
+	  associated values.  If the glossary  defined  by  the  input
+	  file  shown above is to include the abbreviations F HORN and
+	  FO  HORN  when  a  space  or  spaces  appear   between   the
+	  abbreviations  of  the  words  of  the phrase, but FHORN and
+	  FOHORN are not to be  allowed  as  abbreviations,  then  the
+	  input file might be changed to the following.
+
+	  10 FOGHORN
+	  20 FOG HORN
+	  30 FOG
+	  40 FOGGY
+	  0 FHORN
+	  0 FOHORN
+	  0
+
+	  The following listing file would be produced  if  the  above
+	  input file is processed.
+
+	        0 FHORN
+	          FOHORN
+	       10 FOG(H)ORN
+	       20 FOG (H)ORN
+	          FO (H)ORN
+	          F (H)ORN
+	       30 FO(G)
+	       40 FOG(GY)
+	  KEYWRD, Word and Phrase Recognition Logic Generator   Page 7
+
+
+	  The sequence of tests which the KEYWRD program  produces  to
+	  identify  the commands in the above input file is diagrammed
+	  below.  The only differences between this sequence of  tests
+	  and  that  shown  for  the  previous  example  is  that this
+	  sequence of tests does not assign a  nonzero  value  to  the
+	  command  when  the  letter  H  is found immediately after an
+	  initial letter F or after the initial letters FO.
+
+	                                          9  10  11  12
+	                      /---/---/---space---H---O---R---N
+	                     /   /   /            20 /0   0   0
+	                    /   /   /               /
+	                   /  8/                   /
+	                  /   H-------------------/
+	                 /   /0                  /
+	                /   /   /               /
+	               /   /  7/               /
+	              /   /   H---------------/
+	             /   /   /10             /
+	            /   /   /               /
+	          3/  4/  5/  6            /
+	          O---G---G---Y           /
+	         /0   30  40  40         /
+	        /                       /
+	  1   2/                       /
+	  F---H-----------------------/
+	  0   0
+
+	  If, instead, the glossary is to  include  the  abbreviations
+	  FHORN  and  FOHORN,  but  F  HORN  and FO HORN are not be be
+	  allowed as abbreviations  when  a  space  or  spaces  appear
+	  between  the  words, then the input file might be changed to
+	  the following.
+
+	  10 FOGHORN
+	  20 FOG HORN
+	  30 FOG
+	  40 FOGGY
+	  20 FHORN
+	  20 FOHORN
+	  0 FO HORN
+	  0
+
+	  No harm would result from  explicitly  assigning  the  value
+	  zero  to the phrase F HORN in the above input file, but this
+	  is not necessary since this phrase is an abbreviation of the
+	  phrase  FO  HORN.   The  following  listing  file  would  be
+	  produced if the above input file is processed.
+
+	        0 FO HORN
+	          F HORN
+	       10 FOG(H)ORN
+	       20 F(H)ORN
+	          FOG (H)ORN
+	          FO(H)ORN
+	  KEYWRD, Word and Phrase Recognition Logic Generator   Page 8
+
+
+	       30 FO(G)
+	       40 FOG(GY)
+
+	  The sequence of tests which the KEYWRD program  produces  to
+	  identify  the commands in the above input file is diagrammed
+	  below.
+
+	                                             10  11  12  13
+	                          /---/-------space---H---O---R---N
+	                         /   /                0  /0   0   0
+	                        /   /                   /
+	                       /  9/                   /
+	                      /   H-------------------/
+	                     /   /20                 /
+	                    /   /                   /
+	                   /   /              8    /
+	                  /   /   /---space---H---/
+	                 /   /   /            20 /
+	                /   /   /               /
+	               /   /  7/               /
+	              /   /   H---------------/
+	             /   /   /10             /
+	            /   /   /               /
+	          3/  4/  5/  6            /
+	          O---G---G---Y           /
+	         /0   30  40  40         /
+	        /                       /
+	  1   2/                       /
+	  F---H-----------------------/
+	  0   20
+
+	  When 2 or more commands start  with  the  same  sequence  of
+	  characters  and  the  input  file  defines a shorter command
+	  which is itself an abbreviation of the  nonunique  sequence,
+	  then  the shorter command can be followed by the rest of the
+	  nonunique characters and still be identified as the  shorter
+	  command.   For example, if the above input files defined FOG
+	  HIDDEN as having the value 50, then then both FOG and FOG  H
+	  would  be identified as command 30.  This could be prevented
+	  by assigning FOG H and all other undesired abbreviations  of
+	  this  sort  some  single nonzero value which is not used for
+	  any  valid  command  and  which  will  indicate  that  these
+	  undesired commands are illegal if they are ever encountered.
+
+
+	    Handling of Input Lines Starting with Special Characters
+	    -------- -- ----- ----- -------- ---- ------- ----------
+
+	  Lines in the  input  file  which  start  with  a  slash,  an
+	  asterisk,  a  left  parenthesis  or  a right parenthesis are
+	  treated  specially.   These  initial  characters  cause  the
+	  following actions to be performed.
+
+	  KEYWRD, Word and Phrase Recognition Logic Generator   Page 9
+
+
+	    /  An initial slash indicates that the line specifies  the
+	       names  of  the  arrays  and  variables  which are to be
+	       represented in the DATA  statements  which  are  to  be
+	       written into the output FORTRAN statement file.
+
+	    *  An initial asterisk indicates that the line specifies 5
+	       numbers   which  characterize  the  sequence  of  tests
+	       produced by the KEYWRD  program.   Such  a  line  would
+	       appear  in  the  input  file  only  when  the result is
+	       already known and the operation of the  KEYWRD  program
+	       is being verified.
+
+	    (  An initial left parenthesis indicates that the rest  of
+	       the  current  line  is  to  be  copied  into the output
+	       FORTRAN statement file unchanged.
+
+	    )  An initial right parenthesis indicates  that  the  DATA
+	       statements which represent the sequence of tests are to
+	       be written into the output FORTRAN statement file.
+
+	  If a line starts with an slash, then the next  5  groups  of
+	  printing characters on the line are used as the names of the
+	  3 arrays and 2 variables which are represented in  the  DATA
+	  statements  when  the  next line is encountered which starts
+	  with a left parenthesis or which  contains  only  a  number.
+	  These  groups  of  printing  characters  can be separated by
+	  spaces and/or by single commas.  The names of the  3  arrays
+	  must   each   differ  from  the  others  in  their  first  3
+	  characters.
+
+	    1. The first group of up to 6 characters is  used  as  the
+	       name of the array which specifies the next operation if
+	       a match fails.  This name is NOTPNT if a line  starting
+	       with an slash does not appear in the input file.
+
+	    2. The second group of up to 6 characters is used  as  the
+	       name of the array which specifies the next operation if
+	       a match succeeds.   This  name  is  MCHPNT  if  a  line
+	       starting  with  an  slash  does not appear in the input
+	       file.
+
+	    3. The third group of up to 6 characters is  used  as  the
+	       name  of the nondimensioned variable which contains the
+	       number of tests specified  by  the  NOTPNT  and  MCHPNT
+	       arrays.  This name is KNTPNT if a line starting with an
+	       slash does not appear in the input file.
+
+	    4. The fourth group of up to 6 characters is used  as  the
+	       name of the array which specifies all characters, other
+	       than spaces and the letters A through Z,  appearing  in
+	       the  commands.   This name is LTRXTR if a line starting
+	       with an slash does not appear in the input file.
+
+	    5. The fifth group of up to 6 characters is  used  as  the
+	       name  of the nondimensioned variable which contains the
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 10
+
+
+	       number of characters in the LTRXTR array.  This name is
+	       KNTXTR if a line starting with an slash does not appear
+	       in the input file.
+
+	  If a line starts with an asterisk, then the rest of the line
+	  predicts   the  values  of  5  checksums  which  are  to  be
+	  calculated from the glossary which is being defined.   These
+	  checksums  can  be  separated  by  spaces  and/or  by single
+	  commas.  The user of the KEYWRD program will be informed  if
+	  the predicted values and the calculated values do not agree.
+	  The predicted checksums are used in standardized versions of
+	  the  input  file  which  are  processed  to determine if the
+	  KEYWRD program still produces the  same  results  after  the
+	  KEYWRD program itself has been changed.  A sixth group of up
+	  to 6 characters on the line beginning with an  asterisk  can
+	  define a label which is to be displayed to the user.
+
+	  The characters appearing to the right  of  an  initial  left
+	  parenthesis  are  copied directly into the FORTRAN statement
+	  file.  The  appearance  of  a  line  starting  with  a  left
+	  parenthesis  does  not  interrupt  the  specification of the
+	  glossary of keywords, and, in particular, does not cause the
+	  DATA statements to be generated.  Lines with an initial left
+	  parenthesis can be used to introduce FORTRAN statements  and
+	  FORTRAN comment lines into the FORTRAN statement file.
+
+	  Lines which begin with a right parenthesis  cause  the  DATA
+	  statements  representing the sequence of tests to be written
+	  into the FORTRAN statement file, but do  not  indicate  that
+	  the  end of the input file has been reached.  All characters
+	  which follow the initial right parenthesis on the same  line
+	  are  ignored.   If  the  input  file is used for testing the
+	  KEYWRD program, then additional glossaries might be  defined
+	  on  the  lines which follow that which begins with the right
+	  parenthesis, but, usually, only lines containing information
+	  to  be  copied  directly to the FORTRAN statement file would
+	  appear before the final line which contains only  a  number.
+	  The  final line will cause the DATA statements to be written
+	  out if a line with an  initial  right  parenthesis  has  not
+	  already done so.
+
+	  For example, the following input file
+
+	  (      BLOCK DATA
+	  (      COMMON/NUMKEY/NOTPNT(300),MCHPNT(300),KNTPNT,KNTXTR
+	  (      COMMON/LTRKEY/LTRXTR(20)
+	  10 FOGHORN
+	  20 FOG HORN
+	  (C     COMMENT LINE TO BE COPIED DIRECTLY TO OUTPUT
+	  30 FOG
+	  40 FOGGY
+	  )GENERATE THE DATA STATEMENTS
+	  (      END
+	  0
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 11
+
+
+	  would, when processed by the  KEYWRD  program,  produce  the
+	  following FORTRAN statement file.
+
+	        BLOCK DATA
+	        COMMON/NUMKEY/NOTPNT(300),MCHPNT(300),KNTPNT,KNTXTR
+	        COMMON/LTRKEY/LTRXTR(20)
+	  C     10 FOGHORN
+	  C     20 FOG HORN
+	  C     COMMENT LINE TO BE COPIED DIRECTLY TO OUTPUT
+	  C     30 FOG
+	  C     40 FOGGY
+	  C
+	  C     FINAL STORAGE USED=  10, MOST USED=   24, LIMIT= 3000
+	  C
+	  C     CHECKSUMS  650,   8, 736, 306, 101
+	  C
+	  C     COUNT     1  2  3  4  5  6  7  8  9 10
+	  C     COMMAND   0  0 30 40 40 10 20  0  0  0
+	  C     LETTER   -F  O  G  G  Y  H -H  O  R  N
+	  C     SUCCESS   2  3  4  5  0  8  8  9 10  0
+	  C     FAILURE   0  7  7  6  0  7  0  0  0  0
+	  C
+	  C     DIMENSION MCHPNT(10)
+	        DIMENSION MCHPN1(10)
+	        EQUIVALENCE (MCHPN1(1),MCHPNT(1))
+	  C     DIMENSION NOTPNT(10)
+	        DIMENSION NOTPN1(10)
+	        EQUIVALENCE (NOTPN1(1),NOTPNT(1))
+	        DATA KNTPNT,KNTXTR/   10,    0/
+	        DATA MCHPN1/2,3,334,445,440,118,228,9,10,0/
+	        DATA NOTPN1/-66,172,84,83,275,95,-88,165,198,154/
+	        END
+
+
+	   A Sample Program Using the Output from the KEYWRD Program
+	   - ------ ------- ----- --- ------ ---- --- ------ -------
+
+	  The following FORTRAN program  demonstrates  the  manner  in
+	  which  the  variables and the arrays generated by the KEYWRD
+	  program are used.
+
+	        COMMON/NUMKEY/NOTPNT(300),MCHPNT(300),KNTPNT,KNTXTR
+	        COMMON/LTRKEY/LTRXTR(20)
+	        DIMENSION LTRBFR(30),LTRABC(26),LWRABC(26)
+	  C     NUMBER OF UNIT FROM WHICH TEXT IS READ
+	        DATA ITTY/5/
+	  C     DIMENSION OF LTRBFR ARRAY, NUMBER OF LETTERS TO READ
+	        DATA LMTBFR/30/
+	  C     UPPER CASE LETTERS A THROUGH Z
+	        DATA LTRABC/1HA,1HB,1HC,1HD,1HE,1HF,1HG,1HH,1HI,1HJ,
+	       11HK,1HL,1HM,1HN,1HO,1HP,1HQ,1HR,1HS,1HT,1HU,1HV,1HW,
+	       21HX,1HY,1HZ/
+	  C     LOWER CASE LETTERS A THROUGH Z
+	        DATA LWRABC/1Ha,1Hb,1Hc,1Hd,1He,1Hf,1Hg,1Hh,1Hi,1Hj,
+	       11Hk,1Hl,1Hm,1Hn,1Ho,1Hp,1Hq,1Hr,1Hs,1Ht,1Hu,1Hv,1Hw,
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 12
+
+
+	       21Hx,1Hy,1Hz/
+	  C     THE SPACE CHARACTER FOR FINDING SPACES IN TEXT
+	  C     ASTERISK FOR MARKING UNKNOWN LETTERS IN MESSAGE
+	        DATA LTRSPC,LTRSTR/1H ,1H*/
+	  C
+	  C     CALCULATE FACTOR FOR EXTRACTING BYTES FROM ARRAYS
+	        IOFFST=KNTPNT+1
+	  C
+	  C     GET NEXT LINE OF TEXT TO BE INTERPRETED
+	   1001 WRITE(ITTY,1002)
+	   1002 FORMAT(2H *,$)
+	        READ(ITTY,1003)LTRBFR
+	   1003 FORMAT(30A1)
+	        KMDNOW=0
+	        LOCBFR=0
+	        LOCPNT=1
+	        MINPRT=1
+	        MAXPRT=0
+	  C
+	  C     GET NEXT CHARACTER TO BE TESTED
+	   1004 LOCBFR=LOCBFR+1
+	        IF(LOCBFR.GT.LMTBFR)GO TO 1013
+	  C
+	  C     ATTEMPT TO IDENTIFY THE CHARACTER
+	   1005 IF(LOCPNT.LE.0)GO TO 1013
+	        IVALUE=NOTPNT(LOCPNT)
+	        LOCABC=IVALUE
+	        IF(IVALUE.LT.0)LOCABC=-LOCABC
+	        LOCABC=LOCABC/IOFFST
+	   1006 IF(LOCABC.LE.26)GO TO 1007
+	        IF(LTRBFR(LOCBFR).EQ.LTRXTR(LOCABC-26))GO TO 1011
+	        GO TO 1008
+	   1007 IF(LTRBFR(LOCBFR).EQ.LTRABC(LOCABC))GO TO 1011
+	        IF(LTRBFR(LOCBFR).EQ.LWRABC(LOCABC))GO TO 1011
+	  C
+	  C     LETTERS DID NOT MATCH
+	   1008 IF(IVALUE.GE.0)GO TO 1010
+	        IVALUE=-IVALUE
+	  C
+	  C     CHECK FOR SPACES BEFORE NEXT WORD
+	   1009 IF(LTRBFR(LOCBFR).NE.LTRSPC)GO TO 1006
+	        LOCBFR=LOCBFR+1
+	        IF(LOCBFR.LE.LMTBFR)GO TO 1009
+	        GO TO 1013
+	  C
+	  C     GET NEXT LETTER TO BE TESTED IF FAILURE
+	   1010 LOCPNT=IVALUE-(IOFFST*LOCABC)
+	        GO TO 1005
+	  C
+	  C     LETTERS MATCHED
+	   1011 IF(MINPRT.GT.MAXPRT)MINPRT=LOCBFR
+	        MAXPRT=LOCBFR
+	        IVALUE=MCHPNT(LOCPNT)
+	        IF(IVALUE.GE.0)GO TO 1012
+	        IVALUE=-IVALUE
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 13
+
+
+	        KMDNEW=IVALUE/IOFFST
+	        LOCPNT=IVALUE-(IOFFST*KMDNEW)
+	        IF(KMDNEW.NE.0)KMDNOW=-KMDNEW
+	        GO TO 1004
+	   1012 KMDNEW=IVALUE/IOFFST
+	        LOCPNT=IVALUE-(IOFFST*KMDNEW)
+	        IF(KMDNEW.NE.0)KMDNOW=KMDNEW
+	        GO TO 1004
+	  C
+	  C     REPORT RESULTS WHEN ALL DONE
+	   1013 IF(LOCPNT.EQ.1)GO TO 1019
+	        MAXSHO=LMTBFR
+	   1014 IF(LTRBFR(MAXSHO).NE.LTRSPC)GO TO 1015
+	        MAXSHO=MAXSHO-1
+	        GO TO 1014
+	   1015 IF(MINPRT.GT.MAXPRT)GO TO 1017
+	        IF(MAXPRT.GE.MAXSHO)WRITE(ITTY,1016)KMDNOW,
+	       1(LTRBFR(I),I=MINPRT,MAXPRT)
+	   1016 FORMAT(8H COMMAND,1I3,2H: ,31A1)
+	        LOCBFR=MAXPRT+1
+	        IF(MAXPRT.LT.MAXSHO)WRITE(ITTY,1016)KMDNOW,
+	       1(LTRBFR(I),I=MINPRT,MAXPRT),LTRSTR,
+	       2(LTRBFR(I),I=LOCBFR,MAXSHO)
+	        GO TO 1001
+	   1017 WRITE(ITTY,1018)(LTRBFR(I),I=LOCBFR,MAXSHO)
+	   1018 FORMAT(18H UNKNOWN COMMAND: ,30A1)
+	        GO TO 1001
+	   1019 WRITE(ITTY,1020)
+	   1020 FORMAT(11H EMPTY LINE)
+	        GO TO 1001
+	        END
+
+
+	   A Description of the Algorithm Used by the KEYWRD Program
+	   - ----------- -- --- --------- ---- -- --- ------ -------
+
+	  The first printing character in each new line read from  the
+	  input  file  is  checked  to  determine  if it is one of the
+	  reserved characters.  If the  line  instead  begins  with  a
+	  number,  then this number is evaluated and the spaces and/or
+	  a single  comma  following  the  number  are  discarded.   A
+	  decision  tree is then constructed which describes the paths
+	  by which the characters in the word or in the  phrase  could
+	  have  been  recognized.   Each  node  in  the  decision tree
+	  specifies the node from which it can be reached and  whether
+	  it  is  reached  upon the success or upon the failure, never
+	  both, of  the  test  described  by  that  node.   The  first
+	  character  of the second and of each of the subsequent words
+	  in a phrase is included in separate tests which are  reached
+	  on  failures  to  match each appearance of the second and of
+	  each of the subsequent characters of the previous word,  and
+	  is  also  included  in separate tests which are reached upon
+	  successful matches of each appearance of the final character
+	  of  the  previous word.  If the command consists of a single
+	  word, then the decision tree is a  simple  chain  of  tests,
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 14
+
+
+	  each  node  indicating  that  it is reached only if the test
+	  described by  the  previous  node  is  successful.   If  the
+	  command  consists  of  more  than  a  single word, then each
+	  character in the second word appears in  as  many  tests  as
+	  there are characters in the first word.  Each character in a
+	  third word would appear in a number of tests  equal  to  the
+	  number  of  characters in the first word times the number of
+	  characters in the second, and  so  on.   The  decision  tree
+	  which can be used to identify the new command is appended to
+	  the arrays which  are  used  to  store  the  decision  trees
+	  already obtained for the previously read commands.
+
+	  For example, the input file
+
+	  10 WHO ARE YOU
+	  20 WHO AM I
+	  0
+
+	  would be converted into the 2 trees which  are  shown  below
+	  after the second line of the input file is read.
+
+	                               17 26 35
+	                                Y--O--U
+	                               /10 10 10
+	                              /20 29 38
+	                             /  Y--O--U
+	                            /  /10 10 10
+	                       5  8/11/14 23 32
+	                       A--R--E--Y--O--U
+	                      /10 10 10 10 10 10
+	                     /         18 27 36
+	                    /           Y--O--U
+	                   /           /10 10 10
+	                  /           /21 30 39
+	                 /           /  Y--O--U
+	                /           /  /10 10 10
+	               /       6  9/12/15 24 33
+	              /        A--R--E--Y--O--U
+	             /        /10 10 10 10 10 10
+	            /        /         16 25 34
+	           /        /           Y--O--U
+	          /        /           /10 10 10
+	         /        /           /19 28 37
+	        /        /           /  Y--O--U
+	       /        /           /  /10 10 10
+	  1  2/       3/       4  7/10/13 22 31
+	  W--H--------O--------A--R--E--Y--O--U
+	  10 10       10       10 10 10 10 10 10
+
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 15
+
+
+	  and
+
+	                       53
+	                        I
+	                       /20
+	                 44 47/50
+	                  A--M--I
+	                 /20 20 20
+	                /      54
+	               /        I
+	              /        /20
+	             /   45 48/51
+	            /     A--M--I
+	           /     /20 20 20
+	          /     /      52
+	         /     /        I
+	        /     /        /20
+	  40 41/   42/   43 46/49
+	   W--H-----O-----A--M--I
+	   20 20    20    20 20 20
+
+	  After a new command has been read and converted to the  back
+	  pointing  decision  tree,  nodes  in  the new tree which are
+	  identical to nodes in the old trees, and which  are  reached
+	  under  identical  conditions, are removed and all references
+	  to the removed nodes in the new tree are revised to point to
+	  the  nodes  in  the old trees to which the removed nodes are
+	  identical.  The portion of the  new  tree  which  is  stored
+	  above  the node which is being removed is shifted downward 1
+	  location and all references in this portion of the new  tree
+	  to  the node being removed are changed to instead point back
+	  to the node in the old trees to which the  removed  node  is
+	  identical.   The  decision  tree shown below would represent
+	  the input file shown above after the redundant subphrase WHO
+	  A  is  removed  from  the  second command.  There are then 2
+	  nodes which branch from node 4 on a success, 2 from 5 and  2
+	  from 6.
+
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 16
+
+
+	                                           17 26 35
+	                                            Y--O--U
+	                                           /10 10 10
+	                                          /20 29 38
+	                                         /  Y--O--U
+	                                        /  /10 10 10
+	                                      8/11/14 23 32
+	                                   :--R--E--Y--O--U
+	                                   :  10 10 10 10 10
+	                                   :    47
+	                                   :     I
+	                                   :    /20
+	                                   5 41/ 44
+	                                   A--M--I
+	                                  /0  20 20
+	                                 /         18 27 36
+	                                /           Y--O--U
+	                               /           /10 10 10
+	                              /           /21 30 39
+	                             /           /  Y--O--U
+	                            /           /  /10 10 10
+	                           /          9/12/15 24 33
+	                          /        :--R--E--Y--O--U
+	                         /         :  10 10 10 10 10
+	                        /          :    48
+	                       /           :     I
+	                      /            :    /20
+	                     /             6 42/ 45
+	                    /              A--M--I
+	                   /              /0  20 20
+	                  /              /         16 25 34
+	                 /              /           Y--O--U
+	                /              /           /10 10 10
+	               /              /           /19 28 37
+	              /              /           /  Y--O--U
+	             /              /           /  /10 10 10
+	            /              /          7/10/13 22 31
+	           /              /        :--R--E--Y--O--U
+	          /              /         :  10 10 10 10 10
+	         /              /          :    46
+	        /              /           :     I
+	       /              /            :    /20
+	  1  2/             3/             4 40/ 43
+	  W--H--------------O--------------A--M--I
+	  0  0              0              0  20 20
+
+	  The roots of the remaining trees, which will each begin with
+	  a  different  character, are chained together in a series of
+	  failure transfers when the end of the input  file  is  read.
+	  The  resulting  single back pointing decision tree must then
+	  be converted into a forward pointing decision tree in  which
+	  each  node  indicates  the node which is to follow it in the
+	  event of a success or of a failure.   A  node  in  the  back
+	  pointing  decision tree can be reached only upon the success
+	  or the failure of a single node which is stored lower in the
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 17
+
+
+	  arrays  since all linking and relinking has been to nodes in
+	  older trees and since  the  nodes  are  still  in  the  same
+	  relative  order  as when they were constructed.  Since nodes
+	  can only be reached from nodes which are stored lower in the
+	  arrays,  a  single  pass  through  the arrays can be used to
+	  convert from the back pointing decision tree to the  forward
+	  pointing  decision  tree.   If  a  node indicates that it is
+	  reached by a failure of a node  which  represents  a  letter
+	  which  is  higher  in  the  alphabet,  then the tree must be
+	  relinked to place the new  node  earlier  in  the  chain  of
+	  failures than that which is indicated to be its predecessor.
+	  In this reordering, as in all situations in which characters
+	  are  compared, characters which appear at the start of words
+	  are considered to be in a second and higher  alphabet.   The
+	  following forward pointing decision tree would represent the
+	  sample input file shown above.
+
+	                                        17 26 35
+	                                         Y--O--U
+	                                        /10 10 10
+	                                     47/20 29 38
+	                                      I  Y--O--U
+	                                     /20/10 10 10
+	                                   8/11/14 23 32
+	                                   R--E--Y--O--U
+	                                  /10 10 10 10 10
+	                             5 41/ 44
+	                             A--M--I
+	                            /0  20 20
+	                           /            18 27 36
+	                          /              Y--O--U
+	                         /              /10 10 10
+	                        /            48/21 30 39
+	                       /              I  Y--O--U
+	                      /              /20/10 10 10
+	                     /             9/12/15 24 33
+	                    /              R--E--Y--O--U
+	                   /              /10 10 10 10 10
+	                  /          6 42/ 45
+	                 /           A--M--I
+	                /           /0  20 20
+	               /           /            16 25 34
+	              /           /              Y--O--U
+	             /           /              /10 10 10
+	            /           /            46/19 28 37
+	           /           /              I  Y--O--U
+	          /           /              /20/10 10 10
+	         /           /             7/10/13 22 31
+	        /           /              R--E--Y--O--U
+	       /           /              /10 10 10 10 10
+	  1  2/          3/          4 40/ 43
+	  W--H-----------O-----------A--M--I
+	  0  0           0           0  20 20
+
+	  Each  chain  of  failures  is  next  purged   of   identical
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 18
+
+
+	  characters,  since  the  second  appearance  of a particular
+	  character in a chain of failures can never be reached.  When
+	  a  duplicate  is  found,  then the chain of failures must be
+	  linked around the node  being  removed,  and  the  chain  of
+	  failures  extending  from the success transfer from the node
+	  being removed must be merged  with  the  chain  of  failures
+	  extending  from  the  success  transfer  from the node being
+	  kept, weaving the 2 chains together to obtain a single chain
+	  in which the characters are tested in alphabetical order.
+
+	  Once the tree has been purged of identical characters in the
+	  chains  of  failures,  the  nodes which represent the unique
+	  characters in all possible  abbreviations  of  each  command
+	  must be identified so that these nodes can be preserved when
+	  identical branches of the decision  tree  are  merged.   The
+	  nodes  which  must  be  preserved are those which are on the
+	  chains of failures extending from the success transfers from
+	  the  nodes  which  are known to be ambiguous by their having
+	  been on roots which were merged.
+
+	  Identical nodes which are at the ends  of  the  branches  or
+	  which  transfer  to  the  same  nodes  are  merged  if these
+	  identical  nodes  are  not  marked  as  representing  unique
+	  characters in different commands.  Since it is not necessary
+	  to preserve the relative order of the storage of  the  nodes
+	  in  the  arrays, the node being removed is interchanged with
+	  that at the upper end of the arrays and  all  references  to
+	  both nodes are patched.  This interchange prevents having to
+	  shift several nodes  each  time  a  node  must  be  removed.
+	  Pruning of the identical branches would convert the decision
+	  tree shown above to that which is shown below.
+
+	                                    6 11 12
+	                           /--/--/--Y--O--U
+	                         5/  /  /   10 10 10
+	                         I  /  /
+	                        /20/  /
+	                      7/10/  /
+	                      R--E--/
+	                     /10 10
+	                4  9/ 8
+	       /--/--/--A--M--I
+	  1  2/ 3/  /   0  20 20
+	  W--H--O--/
+	  0  0  0
+
+	  To make the decision tree easier to diagram, the  nodes  are
+	  rearranged into the order in which the nodes are encountered
+	  when the decision tree is climbed.  The decision tree  shown
+	  above would finally be reduced to that which is shown below.
+
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 19
+
+
+	                                   10 11 12
+	                           /--/--/--Y--O--U
+	                         9/  /  /   10 10 10
+	                         I  /  /
+	                        /20/  /
+	                      7/ 8/  /
+	                      R--E--/
+	                     /10 10
+	                4  5/ 6
+	       /--/--/--A--M--I
+	  1  2/ 3/  /   0  20 20
+	  W--H--O--/
+	  0  0  0
+
+	  When the optional spaces before each of the words of each of
+	  the  phrases  are  included, the decision tree would instead
+	  appear as is shown below.
+
+	                                                     10 11 12
+	                                        /--/--/-space-Y--O--U
+	                                      9/  /  /        10 10 10
+	                              /-space-I  /  /
+	                             /        20/  /
+	                           7/         8/  /
+	                           R----------E--/
+	                          /10 10
+	                     4  5/        6
+	       /--/--/-space-A--M--space--I
+	  1  2/ 3/  /        0  20        20
+	  W--H--O--/
+	  0  0  0
+
+	  The following listing file would be produced when the  above
+	  decision tree is constructed.
+
+	       10 WHO A(RE YOU)
+	          WHO A(R YOU)
+	          WHO A (YOU)
+	          WH A(RE YOU)
+	          WH A(R YOU)
+	          WH A (YOU)
+	          W A(RE YOU)
+	          W A(R YOU)
+	          W A (YOU)
+	       20 WHO A(M I)
+	          WHO A (I)
+	          WH A(M I)
+	          WH A (I)
+	          W A(M I)
+	          W A (I)
+
+	  KEYWRD, Word and Phrase Recognition Logic Generator  Page 20
+
+
+	  The following FORTRAN statement file represents the decision
+	  tree shown above.
+
+	  C     10 WHO ARE YOU
+	  C     20 WHO AM I
+	  C
+	  C     FINAL STORAGE USED=  12, MOST USED=   54, LIMIT= 3000
+	  C
+	  C     CHECKSUMS  880,  30,1121, 448, 288
+	  C
+	  C     COUNT     1  2  3  4  5  6  7  8  9 10 11 12
+	  C     COMMAND   0  0  0  0 20 20 10 10 20 10 10 10
+	  C     LETTER   -W  H  O -A  M -I  R  E -I -Y  O  U
+	  C     SUCCESS   2  3  4  5  6  0  8 10  0 11 12  0
+	  C     FAILURE   0  4  4  0  7  0  9 10 10  0  0  0
+	  C
+	  C     DIMENSION MCHPNT(12)
+	        DIMENSION MCHPN1(12)
+	        EQUIVALENCE (MCHPN1(1),MCHPNT(1))
+	  C     DIMENSION NOTPNT(12)
+	        DIMENSION NOTPN1(12)
+	        EQUIVALENCE (NOTPN1(1),NOTPNT(1))
+	        DATA KNTPNT,KNTXTR/   12,    0/
+	        DATA MCHPN1/2,3,4,5,266,260,138,140,260,141,142,130/
+	        DATA NOTPN1/-299,108,199,-13,176,-117,243,75,-127,
+	       1-325,195,273/
+
+
+	  The KEYWRD program and this documentation  were  written  at
+	  the  Harvard  Business School by Donald E. Barth, who can be
+	  reached at the following address.
+
+	  Baker Library 21
+	  Graduate School of Business Administration
+	  Harvard University, Soldiers Field
+	  Boston, Massachusetts  02163
+  

@@ -1,0 +1,2606 @@
+.sp 1;.nonum;.lm 9;.ps 50,72
+.ts 1,9,17,25,33,41,49,57,65
+.pg;.nm ch 1
+.ch SIMULA FOR DEC SYSTEM 10#############TD, COMPILER
+.nm 1
+.st 741021####780302######6###########################Stefan Arnborg
+.pg;.lm 9;.p -8,0,10;II######THE COMPILER
+.br;------------
+.s;II.1####GENERAL COMPILER DESCRIPTION
+.S;The compiler consists of three passes, each consisting of a
+reentrant high segment and a layout of the low segment. The passes
+are referred to as pass 1, pass 2 and pass 3. Their high segment
+names are SIMULA.EXE, SIMP2.EXE and SIMP3.EXE. When a program is
+compiled, it is processed first by pass 1, then by pass 2 and
+finally by pass 3. If several programs or external modules are
+compiled, the process is repeated for each source module. The passes
+communicate by means of data in the low segment (II.3) and
+intermediate files (II.4).
+.s;The first pass reads the source, assembles characters to basic symbols
+(special symbols, constants, keywords and identifiers), removes comments,
+transforms the program to reverse Polish and processes declarations.
+Declaration processing includes retrieval of declarations from .ATR files
+for external modules and allocation and sorting of declarations.
+
+The second pass binds identifiers to declarations, checks operand/operator
+correspondence and generates code.
+.s;The third pass edits the code generated to a format acceptable to LINK-10,
+edits listings and types error messages.
+.nm ch 2
+.ch SIMULA FOR DEC SYSTEM 10#############TD, COMPILER
+.st 741111####780302######6###########################Olof Bjorner
+.nm 1.pg;.lm 9;.i -8;II.2####SYSTEM DECOMPOSITION
+.nm ch 2
+.S;The decomposition of each pass is described in II.A.2
+(pass 1), II.B.2 (pass 2) and II.C.2 (pass 3).
+.sp 1;.nonum;.lm 9;.ps 50,72
+.ts 1,9,17,25,33,41,49,57,65
+.pg;.nm ch 3
+.ch SIMULA FOR DEC SYSTEM 10#############TD, COMPILER
+.st 741106####780302######6###########################Claes Wihlborg
+.nm 1;.pg;.lm 9;.i -8;II.3####LOW SEGMENT ORGANIZATION
+.S;The layout of the compiler low segment is:
+.nf;.s 2
+     _^        _^        _^
+     :        :        :
+:--------:    :   :--------:
+!        !    :   !        !
+!        +--------+        !
+! PASS 1 ! PASS 2 ! PASS 3 !
+!  DATA  !  DATA  !        !
+!--------+--------+--------!  ca 7100 octal
+!                          !
+!       GLOBAL  DATA       !
+!--------------------------!      140 octal
+!       JOBDATA AREA       !
++--------------------------+       20 octal
+.s;Pass 1 data is documented in II.A.3
+Pass 2 data is documented in II.B.3
+Pass 3 data is documented in II.C.3
+.f;.s;The global part contains 3 large areas and some smaller areas
+(mostly single words). The sizes are (octal radix and production version):
+.nf;.lm 17;.p 0,1,6
+I/O buffers                     ca 5100
+Stack (YSTK)                       1200
+Diagnostic messages buffer (ZDM)    230
+Miscellaneous, in all           ca  120
+.f;.lm 9;.p 0,1,4;The I/O buffers, YSTK and ZDM are documented here,
+the other areas in the file LOWSEG.MAC.
+.p -8,2,8;II.3.1##I/O buffer organisation
+.br;-----------------------
+.s;There is an I/O buffering scheme designed to minimise the number of
+intermediate files written on disk. The scheme works as follows.
+.br;The command file and the REL file (and debug output in debug version)
+have fixed buffer space allocated and they will not be further considered
+here.
+.br;The other files have a common pool of 16 buffers which may be
+used as buffer rings for I/O or as storage for the entire file contents.
+To simplify the description, the I/O activities during a compilation
+have been divided into 8 phases:
+.nf;.p 0,1,15;
+		I/O phase	Input		! Output
+		+--				!
+		! 1		Source		! LS1, XRF, IC1
+	Pass 1 <  2		Attributes	! DF1
+		! 3				! ZSE
+		+--				!
+	Pass 2 <  4		IC1, DF1	! IC2
+		!				! ATR
+		+--				!
+		! 6		ZSE, ATR	!
+	Pass 3 <  7		IC2, Attributes	! ATR
+		! 8		Source, LS1, XRF! LST
+		+--				!
+.f;.p 0,1,5;The initial setup (for phase 1) is: The LS1 file is given
+3 buffers, the XRF file 2 buffers, the IC1 file 5 and the source 2
+buffers leaving 2 free buffers.
+.lm 9;.p 0,1,5;.nf;
+Buffer
+1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16
++----------------------------------------------+
+! LS1  ! XRF  !      IC1     !   Source  ! Free!
++----------------------------------------------+
+.f;.s;The files LS1, XRF and IC1 are initially kept in core in their
+allocated space. Whenever one of these files exceeds its qouta, it
+gets the free buffer space as a buffer ring and is output on disk
+from then on. Its initial space is thus freed and will be used as
+free space for the next file to overflow, if any. This is governed
+by the YBRBUF pointer:
+.tp 4;.nf
+        +---------------------------------------------+
+YBRBUF: ! number of free buffers ! first free buffer  !
+        +---------------------------------------------+
+.f;At the end of phase 1, all files still kept in core are packed
+together to avoid memory fragmentation. The pointers YBRSRC and YBRZSE
+are set.
+.nf;.p 0,1,10
+#  1  2    3  4  5
++-------------------
+! LS1 ! XRF ! IC1 !
++---------------------
+#           _^     _^
+YBRSRC -----+     !
+YBRZSE -----------+
+.f;.s;During phase 2 the file DF1 is written. The space from
+(YBRZSE) up to the last 4 buffers (the last 2 buffers if IC1 is still
+in core) is used for file storage. If this proves sufficient, YBRZSE
+is changed, otherwise  the last two buffers (15 and 16) are set up
+as a buffer ring and the DF1 file is output to disk.
+As there may not exist any free buffers when DF1 is being written,
+and external ATR files may be input simultaneously, the ATR files
+get buffer space in the pass 1 YDPD structure which is no longer in
+use.
+.s;During phase 3 the file ZSE is written. The space from (YBRZSE)
+up to the last 6 buffers (last 4 if one of IC1 or DF1 still in core
+and last 2 if both in core) is computed. As the size of the ZSE file
+is known before the file is written, it is also known if it fits into
+the free space. If so, the file is put there, otherwise the last two
+buffers are used as a buffer ring. Finally YBRZSE and YBRBUF are set
+(note that from now on YBRBUF has another meaning).
+The situation at the end of phase 3 is:
+.nf;.p 0,1,10
+#  1  2    3  4  5   6   7    8
++----------------------------------
+! LS1 ! XRF ! IC1 ! DF1 ! ZSE !
++---------------------------------------
+#           _^                 _^
+YBRSRC -----+                 !
+YBRBUF, YBRZSE ---------------+
+.f;.s;During phase 4, the files IC1 and DF1 are read and the
+file IC2 is written. There is no attempt to keep IC2 in core. The
+files which reside on disk get a buffer ring of two buffers each.
+This is always possible due to the maximum sizes imposed on the
+files in the earlier phases.  During the allocation of the buffer
+rings, YBRBUF acts as a free area pointer. When phase 4 is terminated,
+the situation is like this:
+.nf;.p 0,1,10
++----------------------------------
+! LS1 ! XRF ! Garbage !  ZSE !
++---------------------------------------
+#           _^                 _^
+YBRSRC -----+  YBRZSE --------+
+.f;.p 0,1,5
+During phase 5 the ATR file is written. The space from (YBRZSE) up
+to the last 2 buffers is used as file storage. If this is insufficient
+the last 2 buffers are used as a buffer ring and the ATR file is output
+on disk.
+.p 0,1,5;During pase 6 the files ZSE and ATR are read into local pass
+3 areas. If they are on disk, they are input in unbuffered dump mode.
+Thus no buffers are allocated in this phase.
+At the end of phase 6, the situation is:
+.nf;.p 0,1,6
++---------------------
+! LS1 ! XRF !
++-----------------------
+#           _^
+YBRSRC -----+
+.f;.p 0,1,6;During the last two phases each file which is used and
+not kept in core will have a buffer ring of two buffers allocated,
+except for the ATR file which is written in unbuffered mode.
+YBRBUF is used to keep track of file buffer usage and is reset
+from YBRSRC at the start of each phase.
+.p -8,2,6;II.3.2##The push-down stack (YSTK)
+.br;--------------------------
+.s;The push-down stack is initialised to detect overflow by hardware
+(push-down pointer counter negative) and underflow is trapped by
+making a few words at the stack bottom point to an error routine
+(different routine in different passes).
+.p -8,2,5;II.3.3##The diagnostic messages buffer (ZDM)
+.br;------------------------------------
+.s;This buffer has space for 50 messages. Each message uses 3 words.
+.nf;.p 0,1,12;
+ 0                17 18                35
++------------+------+------+-------------+
+!    error number   ! first line to print!
+!------------+------+------+-------------!
+! semicol. of line  ! last  line to print!
++------------+------+------+-------------!
+!    I1      !      I2     !     I3      !
++------------+-------------+-------------+
+#0          11 12         23 24         35
+.f;.p 0,1,5;.lm 13;
+Explanation:
+.p -4,0,3;Word 2:	Bits 0-17	Number of semicolons before faulty statement
+on first line to be printed.
+.p -4,0,6;Word 3: The contents depend on the message, either:
+.p -4,0,3;1) ASCII text, 5 characters or less left justified.
+.p -4,0,3;2) I1, I2 and I3 are 12-bit numbers which are interpreted as:
+.p -4,0,3;2a) A positive integer to be output in decimal ASCII.
+.p -4,0,3;2b) Value < 1024: edited as a symbol defined via the SYMBOL macro
+in SIMMAC.MAC.
+.p -4,0,3;2c) Value >= 1024: Edit as identifier from dictionary.
+.lm 9
+.nm ch 4
+.ch SIMULA FOR DEC SYSTEM 10#############TD, COMPILER
+.st 740814####780302######6###########################Reidar Karlsson
+.nm 1;.pg;.nf;II.4	File descriptions
+.s;II.4.1	SIM command file
+II.4.2	Source code file
+II.4.3	Attribute file
+II.4.4	LS1 List control file
+II.4.5	IC1 Intermediate code from pass 1
+II.4.6	DF1 Declaration file
+II.4.7	ZSE Symbol table
+II.4.8	Relocatable binary object code
+II.4.9	ATR Intermediate attribute file
+II.4.10	XRF Cross reference data file
+II.4.11	IC2 Intermediate code from pass 2
+II.4.12	Source listing file
+II.4.13	SIMERR Error message tables
+II.4.14	DEB Debug files
+.nf;.p 0,1,25;.ps 55,75
++------------------------------------------------------------------------+
+! FILE NAME  ! FILE CONTENTS       ! W ! R ! CHANNEL! REMARKS            !
+!------------------------------------------------------------------------!
+! nnnSIM.TMP ! Command file        ! - ! 1 ! QCHCOM ! only via CCL entry !
+! infile.SIM ! Source  file        ! - !1,3! QCHSRC !                    !
+! extern.ATR ! Attribute file      ! 3 !1,3! QCHEXT !                    !
+! nnnLS1.TMP ! List control file   ! 1 ! 3 ! QCHLS1 !                    !
+! nnnIC1.TMP ! Intermediate code 1 ! 1 ! 2 ! QCHIC1 !                    !
+! nnnDF1.TMP ! Declaration file    ! 1 ! 2 ! QCHDF1 !                    !
+! nnnZSE.TMP ! Symbol table        ! 1 ! 3 ! QCHZSE !                    !
+! relfil.ext ! Binary object code  !ALL! - ! QCHREL ! name from command  !
+! nnnATR.TMP ! Intermediate attr.  ! 2 ! 3 ! QCHATR !                    !
+! nnnXRF.TMP ! Cross ref. data     ! 1 ! 3 ! QCHXRF !                    !
+! nnnIC2.TMP ! Intermediate code 2 ! 2 ! 3 ! QCHIC2 !                    !
+! lstfil.ext ! Source listing      ! 3 ! - ! QCHLS3 ! name from command  !
+! SIMERR.ERR ! Error messages      ! - ! 3 ! QCHERR ! created by SUTERR  !
+! nnnDEB.LST ! Debug output pass 1 ! 1 ! - ! QCHDEB ! only debug version !
+! nnnDEB.TMP ! Debug output pass 2 !1,2! - ! QCHDEB ! only debug version !
++------------------------------------------------------------------------+
+.s;Table II.4.1 Compiler files.
+
+################nnn = job number. W written in pass. R = read in pass.
+.f;.ps 50,72;.pg;.lm 9;.p -8,0,10;II.4####FILE DESCRIPTIONS
+.s;All temporary compiler files follow the TOPS-10 naming
+conventions. Their names have the following form:
+.br;####nnnXXX.TMP
+.br;where nnn is the decimal job number with leading zeroes, XXX is
+a mnemonic for the use of the file.
+.br;Two new file name extensions (types) are introduced with the SIMULA
+system: SIM for SIMULA language source ASCII files and ATR for binary
+attribute files created and read by the SIMULA compiler.
+.p 0,2,10;All files used within the compiler are listed in table II.4.1.
+The temporary files LS1, IC1, DF1, ZSE, ATR and XRF may either be kept in
+core or output on disk. Space for 16 disk buffers of standard size
+is allocated in the low segment for these files. See low segment organization
+(II.3). The files LS1, IC1 and XRF which are created at the same time
+during pass 1 processing, will stay in core unless they exceed 3,
+5 and 2 buffers respectively. The files DF1, ZSE and ATR are created
+consecutively in that order, and if they fit in in the free buffer
+area, they will be kept in core.
+The other files listed in table II.4.1 will always be on disk.
+If an I/O error occurs in  pass 1, two things can happen.
+A LOOKUP error on either the source file or the attribute file
+will cause an error message on the TTY stating that the file was not
+found. A new command to the compiler is expected.
+Any other I/O error in pass 1 and any I/O error in pass 2 will generate
+a terminating error message and pass 3 will be called immediately.
+If a terminating error occurs in pass 3, an attempt is made to edit
+the error messages found so far. If more than one terminating error
+is detected (e.g_. failure to read the error message tables from SIMERR.ERR),
+the message "?UNRECOVERABLE ERRORS" will be typed on the TTY and the
+next command is processed or the compilation is terminated by an EXIT
+UUO if the compiler commands came from COMPIL.
+.p -8,2,15;II.4.1##SIM command file
+.br;----------------
+.lm 17;.p -8,1,1;FILE:###nnnSIM.TMP
+.p -8,1,1;PURPOSE:When the SIMULA compiler is called via the CCL entry,
+an attempt is made to read the command string from a TMPCOR file named
+SIM. If that fails, the file DSK:nnnSIM.TMP is read if found.
+.s;If the SIMULA compiler is invoked directly by R SIMULA, commands
+are read from the TTY. No command file is involved in that case.
+If the TMPCOR file SIM is present, it is copied and deleted by I1CM.
+.p -8,1,4;OPEN:###OPEN and LOOKUP on channel QCHCOM in buffered ASCII
+line mode (.IOASL). Done in I1CM.
+.p -8,1,1;INPUT:##The file is read in I1MOVE.
+.p -8,1,3;DELETE:#The file is finally deleted in T3 when all commands
+have been processed.
+.p -8,1,10;RECORD LAYOUT: The data in the file is separated into lines,
+each line taken as a command to the SIMULA compiler. The first null
+character is taken as end of file. The command format is similar to
+that accepted by other compilers used under TOPS-10:
+.br;##RELFILE [,LISTFILE] = SOURCE-1 [,SOURCE-2]...
+.br;The general form of each file specification is:
+.br;##DEV:FILE.EXT[PATH]
+.br;Compiler switches may appear after LISTFILE as /SWITCH
+and after SOURCE-files as (SSSS...), where S is the short one letter form
+(-S also allowed).
+.s;Default for DEV is DSK, defaults for EXT are REL, LST and SIM resp.
+PATH is the users default path (usually the logged in UFD) unless
+explicitly given.
+.p 0,1,5;The last line in a command file may be of the form
+.br;##filespec!
+.br;where filespec should be the name of a program (default device
+is SYS:). The program will be RUN with run offset = 1 (CCL entry).
+.p 0,1,6;A few examples follow:
+.s;##.COMPILE prog.sim
+.br;will give the command file:
+.s;##PROG=PROG.SIM
+.s;##.LOAD prog1+prog2/CREF
+.BR;=>PROG2,PROG2/C=PROG1.SIM,PROG2.SIM
+.br;##LINK!
+.s;##.EXECUTE/LIST prog1,prog2/NOLIST(-W)
+.br;=>PROG1,LPT:PROG1=PROG1.SIM
+.BR;##PROG2=PROG2.SIM(-W)
+.BR;##LINK!
+.P 0,1,10
+It is assumed in the examples that prog.SIM, prog1.SIM and prog2.SIM
+exist on the user's default area on the disk structure. If another
+file with the same name but with a file extension different from
+SIM exists, another compiler may be invoked if the extension is not
+explicitly given in the COMPILE (LOAD, EXECUTE) command.
+.pg;.lm 17;.p -16,0,1;II.4.2##Source code file
+.br;.i -8;----------------
+.p -8,1,5;FILE:###Input file specification of the form DEV:FILE.EXT[PATH].
+Defaults: DEV=DSK, EXT=SIM, PATH=default directory, usually the logged in
+directory (UFD).
+.p -8,1,3;PURPOSE:The SIMULA program to be compiled must exist as one or
+more disk files.
+.p -8,1,4;OPEN:###The file is opened on channel QCHSRC in buffered binary mode
+(.IOBIN) in the LC (line control) module of pass 1. The file is looked up in
+O1SCOP which is called from LC.
+.p -8,1,3;INPUT:##Read in pass 1  by LC via O1SC.
+.p -8,1,2;CLOSE:##Closed in O1SCCL which is called from T1.
+.p -8,1,4;OPEN:###Opened again in pass 3 on the same channel, but
+in buffered ASCII mode (.IOASC), in I3S, which is called from E3LICS.
+.p -8,1,4;INPUT:##Normally read in pass 3 via O3RSC called from E3IN.
+If an illegal end of program is found, the rest of the source file
+will be input at O3SCLS.
+.p -8,1,1;CLOSE:##File closed, channel released in T3L, called from
+E3.
+.p -8,1,10;RECORD LAYOUT: A DECsystem-10/20 SIMULA program is a sequence
+of symbols from the DECsystem-10 character set (ASCII 7-bit code).
+The data in the file is separated into lines. A line is delimited
+by a line feed (LF), vertical tab (VT) or form feed (FF) character.
+A line may contain at most 135 characters. For further information,
+see DECsystem-10 SIMULA Language Handbook.
+.st 740814####780302######6###########################R Karlsson/L Enderin
+.lm 17;.p -16,2,15;II.4.3##Attribute file
+.p -8,0,0;--------------
+.p -8,1,5;FILE:###<E-name>.ATR
+.p 0,0,0;Normally, <E-name> == <I-name>,
+the name of the external class or procedure
+(first 6 characters, possibly with trailing blanks).
+.p -8,1,4;PURPOSE:The attribute file contains declarative information about
+a separately compiled class or procedure.
+.p -8,2,5;PASS1 PROCESSING
+.nf;.lm -8;.p 0,1,5;Definitions: The general external declaration has the form:
+##<E-header> <E-item> [,<E-item>]...
+##where
+# <E-header> ::= EXTERNAL ([<type>] PROCEDURE ! CLASS)
+# <E-item> ::= <I-name> _!
+#              <I-name> = [<dev>:] <E-name> [<ppn>]
+.j.f;If <E-item> has no '=' sign, <E-name> = <I-name>.
+.lm 17;.p -8,2,5;OPEN:###For each external item (<E-item>) found in the source file,
+the file <E-name>.ATR will be looked up on channel QCHEXT in synchronous
+buffered binary mode (.IOBIN, with IO.SYN bit set).
+The lookup is done by O1EXLU, called from O1EXOP, after O1EX.O has been called
+to initialize channel QCHEXT.
+Each ATR file which is found is processed as shown below.
+If the file is not found directly, a further search can normally be done, unless
+the "=" convention was used to specify an explicit file.
+.s;If all ATR files have not been found by direct lookup, they may still
+be found in library files.
+The next file to be looked up is defined by the /SEARCH switch(es) given
+to the compiler via OPTIONS statements or via the command string.
+See [LH2], Section 7.1.1.
+Several files can be defined, and they are looked up in an order which is the
+reverse of the order of definition.
+.br;If no file is found in this way, an error message is issued.
+.br;Otherwise, it is checked whether the file found is a library file or a
+separate attribute file. The first word of a library file must contain
+XWD#14,177, signifying an index block. The index block contains a table of
+entry names. Each name in that table is checked against the list of
+external items not yet resolved.The SIMULA name, <I-name>, is used for
+the comparison.
+The index blocks form a list within the file. Each index block is searched
+in this way until no more index blocks exist or the list of external
+items is exhausted.
+.br;If more items remain, the next file on the search list is searched,
+etc.
+Once a match occurs,the first word of the ATR module corresponding to
+<I-name> is found via the table and read in from the buffer.
+.s;The ATR file is now ready to be processed.
+If the file is NOT a library file,
+it is assumed to correspond exactly to the external item.
+The start of the ATR module depends on the version of SIMULA which produced it.
+The old version could not be included in a library because no entry or name
+block was included. The current ATR files are made to look like REL files in
+order to allow manipulation by FUDGE2 or MAKLIB.
+.br;Before returning to DPEXT, O1EXOP scans the file
+up to the first word of the actual
+ATR information.
+.p -8,1,5;INPUT:##Actual input of blocks from the file is done by O1EXT,
+called from DPEXT.
+.p -8,2,2;CLOSE:##The file is closed by O1EXCL.
+.p -8,3,10;PASS 3 PROCESSING
+.s;.lm 9;When compiling a procedure or class separately, pass 3
+looks up any old ATR file with the same SIMULA name.
+Pass 1 informs pass 3 of the whereabouts of this file via global
+data: YATRDEV:YATRFN[YATRPPN], YATROFS(=word offset in library file).
+(In TOPS-20 SIMULA, YATRJFN is passed on as well as the size YATRSZ).
+.br;If the file is found, its contents are compared to the new information
+in the intermediate ATR file generated in Pass 2.
+.lm 17;.p -8,2,5;OPEN:###The old ATR file is looked up on channel QCHEXT in
+buffered binary synchronous mode (.IOBIN).
+I3E does the OPEN and calls I3ELO to look up the file.
+If LIBSIM.ATR is looked up, I3FI finds the submodule within
+the ATR library just like O1EXFI does in Pass 1.
+Once the (sub)module is found, it is scanned up to the first word of ATR info
+and is ready for processing.
+If no old ATR file is found in this way, a new file is to be created.
+.p -8,1,5;INPUT:##By O3RA via M3ATR.
+.p -8,1,5;CLOSE:##If the attribute file is similar to the new ATR information
+given by the intermediate ATR file, it is closed and the channel is released.
+If differences are found, the old file is deleted and a new file is written in
+its place.
+.p -8,1,2;OUTPUT:#O3WATR writes the new ATR file if any. The file is
+written in dump mode (.IODPR=16).
+.p -8,3,10;RECORD LAYOUT:
+.nf;.s;The ATR file consists of 3 parts:
+.p 0,1,6;1) Entry and name blocks as in the REL file:
+.p 0,1,5;1a) ENTRY block (type 4):
+.s;###XWD 4,1
+.br;###EXP 0    ;relocation bits
+.br;###RADIX50 0,/<I-name>/
+.f;.s;<I-name> is the SIMULA name of the class or
+procedure.
+This information, excluding the zero relocation word,
+is placed in the index block of a library file and is used
+when the submodule is looked up.
+.p 0,1,8;1b) NAME block (type 6):
+.s;###XWD 6,1
+.br;###EXP 0
+.br;###RADIX50 0,/<E-name>/
+.s;<E-name> is determined from the REL file name (<E-name>.REL) given
+in the command string to the compiler.
+Assuming default device, extensions, and path, the command string is
+.br;##<E-name>,<L-name>=<S-name>
+.br;i.e_. the file <S-name>.SIM is compiled to give the REL file <E-name>.REL,
+the ATR file <E-name>.ATR, the list file <L-name>.LST.
+.p 0,1,10;2) ATR information block:
+.p 0,1,0;This is disguised as a REL file comment block (type 0):
+.s;###XWD 0,M
+.br;####<N words of ATR information>
+.s;The word count, M, is computed from the actual count N by regarding every
+18th word as a relocation word which is not included in M.
+This is because LINK-10, LOADER, FUDGE2 and MAKLIB handle REL files in this
+fashion.
+A dummy zero word may sometimes have to be added to the end of the block
+to make the count come out correctly.
+.br;The ATR information is:
+.p 0,1,5;2a) Heading:
+.s;One word, zero for a SIMULA procedure, the entry name in
+RADIX50 for MACRO-10 or FORTRAN procedures, and a unique identifier with
+a '%' as third character for a class.
+.p 0,1,5;2b) Attributes:
+.s;<A-list>::=ZQU[ZHB[<A-list>]...<zeroword>]
+.s;The attributes form an A-list. See II.6 for the definition of ZQU and ZHB.
+.p 0,1,5;2c) Information for checking:
+.s;A list of ZHE(QQUACH) records (see II.6)
+is created, where each record corresponds to an external item referenced by this
+module. The list ends with a zero word.
+.p 0,2,10;3) END block (type 5):
+.s;###XWD 5,2
+.br;###EXP 0,0,0
+.p 0,1,0;This delimits the ATR module within a library file.
+.p 0,1,5;In the old record layout, only part 2 was present.
+The format was changed to allow creation of library files by FUDGE2 or MAKLIB,
+which treat only REL files.
+A SIMULA ATR file thus looks like a REL file with an ENTRY block, a NAME block,
+a COMMENT block and an END block.
+.p -8,3,20;RECORD LAYOUT for library ATR files:
+.p 0,2,0;An ATR file with the layout described above may be made part of
+an ATR library file. FUDGE2 or MAKLIB can be used to create a library out of
+separate ATR files or other libraries. The format is that of an indexed
+REL file library:
+.p 0,1,10;1) The first block is an index block (type 14), with the structure:
+.p 4,1,0;XWD 14,177
+.p 4,0,0;<index table>
+.p 4,0,0;XWD -1,next
+.p 0,1,0;next is the number of the next index block in the file or -1 if no more
+index blocks exist.
+.p 0,1,10;<index table> consists of a series of <moduleitem>'s, where
+<moduleitem> is:
+.p 4,1,6;XWD 4,1
+.p 4,0,0;RADIX50 0,/<I-name>/
+.p 4,0,0;XWD W,B
+.s;W is the word offset within block B of the file where the submodule
+corresponding to <I-name> starts.
+.p 0,2,10;The second block and following blocks (except for inserted index
+blocks) contain ATR file information copied into contiguous blocks of words.
+If the first block has a pointer to another index block, that index block
+is placed before the first submodule referred by an entry name in it.
+The second and following index blocks are similar. The chain of index blocks
+is finished by a block whose last non-zero word contains -1.
+.p -8,2,10;INPUT of a library ATR file:
+.p 0,1,0;Initially, 3 buffers are allocated. When the first block is recognized
+as an index block, it is disconnected from the buffer ring and 2 buffers are
+left to form a new ring. Following the lookup of an entry in the
+index block, a number of disk blocks are skipped to find the start of the
+module or the next index block if lookup was not successful.
+Only one index block is retained, placed in the first buffer of the
+initial 3 buffers. Since the file is read in synchronous mode,
+stopping after each bufferful, USETI can be used to locate the
+correct block before issuing the IN UUO.
+.p 0,2,1;Otherwise, an ATR library is handled like a separate ATR file.
+.lm 17;.p -16,2,15;II.4.4##LS1 List control file
+.i -8;.br;---------------------
+.p -8,1,1;FILE:##nnnLS1.TMP
+.p -8,1,4;PURPOSE:The LS1 file is written by pass 1 and read by pass 3. It
+contains information needed by pass 3 to edit the source file listing.
+.p -8,1,1;OPEN:
+.p -8,0,1;OUTPUT:#If the file size does not exceed 3 disk buffers,
+it will stay in core between passes. When the limit is exceeded, O1LS1
+is called and opens a disk file on channel QCHLS1 in buffered binary
+mode (.IOBIN) at O1OPLS.
+.p -8,1,1;CLOSE:##Closed in O1LSCL called from T1.
+.p -8,1,4;REOPEN:#If the file is not core resident, it is looked up
+in I3L (pass 3) and then input by calls to O3RS during editing by E3.
+At the end of E3, the file will be deleted by a call to T3L.
+.p -8,1,10;RECORD LAYOUT: The LS1 file contains two types of records,
+control records and text records. Control records are a full word
+or a halfword and are distinguished from text records by a 1 in the
+rightmost bit (bit 17 or 35).
+.nf;.br;The following control records exist:
+.s;Type 1 Not used
+Type 2 BEGIN record
+Type 3 END record
+Type 4 Line record
+Type 5 Not used
+Type 6 PAGE record
+Type 7 LIST record
+Type 8 NOERR record
+Type 9 Source identification record
+.f;.s;Records of types 4 and 9 are created by the LC module and all other types
+by I1.
+The LCLS1 subroutine edits control records. Text records are edited
+by the LCLS1T subroutine.
+.p 0,1,7;Control record formats:
+.s;The first seven bits of a control record contain a letter in ASCII
+code identifying the record type, except for types 6, 7 and 8 (see
+below).
+.nf;.p 0,1,10;Type 2 BEGIN record:
+.s
+ 0     6          17                34 35
++-------+-----------+-----------------+-+
+!  'B'  !           !                 !1!
++-------+-----------+-----------------+-+
+.s;Bits 0-6 = ASCII 'B'.
+Created by the LC module.
+.nf;.p 0,1,10;Type 3 END record:
+.s
+ 0     6          17                34 35
++-------+-----------+-----------------+-+
+!  'E'  !           !                 !1!
++-------+-----------+-----------------+-+
+.s;Bits 0-6 = ASCII 'E'.
+Created by the LS module.
+.nf;.p 0,1,10;Type 4 Line record:
+.s
+ 0     6 7 8 9     16 17
++-------+-+-+--------+-+
+!  'I'  ! ! !        !1!
++-------+-+-+--------+-+
+.s;.f;This record is a halfword and is defined as ZLEREC in
+the SIMMAC parameter file.
+.nf;.p 0,1,20
+Bits  Symbol  Meaning
+----  ------  -------
+0- 6  ZLEID   Always ASCII 'I'
+#  7  ZLESRC  = 1 if this line has a standard line
+#             number
+#  8  ZLEOK   = 1 if ZLESRC = 1 and line number is in
+#             sequence
+9-16  ZLEIND  Code for break character combination for
+#             line
+# 17  ZLEBIT  Always = 1
+.p 0,1,10;The break character code has the following meaning:
+.s;
+Value Symbol Break characters
+----- ------ ----------------
+# 0   QLDEL  LF  (line feed)
+# 1   QVDEL  VT  (vertical tab)
+# 2   QFDEL  FF  (form feed)
+# 3   QLVDEL LF+VT
+# 4   QLFDEL LF+FF
+# 5   QEFDEL End of file
+.f;.p 0,1,5;Code QEFDEL is used only when the last line of
+a source file is not terminated by a break character.
+Type 4 records are packed into full words whenever possible.
+If a type 4 record is followed by a full word control record
+it is padded to the right if necessary with a halfword containing
+a 1 in the last bit.
+.nf;.p 0,1,7;Type 6 PAGE record
+.s
+ 0     6 7     13       20                 35
++-------+--------+--------+---------------+-+
+!   n   !   n    !  'P'   !               !1!
++-------+--------+--------+---------------+-+
+.p 0,1,7;or
+ 0     6 7     13                          35
++-------+--------+------------------------+-+
+!   n   !  'P'   !                        !1!
++-------+--------+------------------------+-+
+.p 0,1,7;or
+ 0     6                                   35
++-------+---------------------------------+-+
+!  'P'  !                                 !1!
++-------+---------------------------------+-+
+.f;.p 0,1,7;This record is created when a PAGE switch is found
+either in the command string or in an OPTIONS statement.
+"nn" is the number of lines per page, which may precede 'P'
+in the switch.
+If the switch is followed by :"text string", this string will follow
+in one or more text records immediately after the page record.
+The text string is delimited by the next control record.
+.nf;.p 0,1,7;Type 7 LIST record
+.s
+ 0     6 7     13                          35
++-------+--------+------------------------+-+
+!   -   !  'L'   !                        !1!
++-------+--------+------------------------+-+
+.p 0,1,7;or
+ 0     6                                   35
++-------+---------------------------------+-+
+!  'L'  !                                 !1!
++-------+---------------------------------+-+
+.f;.p 0,1,6;This record is created when a -LIST or LIST switch is found
+in a command string or i an OPTIONS statement. A LIST record is also
+created if a COMPILE-class command generates LPT: for the list file or
+if the command string contains a CREF switch.
+.nf;.p 0,1,7;Type 8 NOERR record
+.s
+ 0     6 7     13                          35
++-------+--------+------------------------+-+
+!   -   !  'N'   !                        !1!
++-------+--------+------------------------+-+
+.p 0,1,7;or
+ 0     6                                   35
++-------+---------------------------------+-+
+!  'N'  !                                 !1!
++-------+---------------------------------+-+
+.f;.p 0,1,6;This record is created when a -NOERR or NOERR switch is found
+in a command string or an OPTIONS statement.
+.nf;.p 0,1,7;Type 9 Source identification record
+.s
+ 0     6                                   35
++-------+---------------------------------+-+
+!       !                                 ! !
++-------+---------------------------------+-+
+.f;.p 0,1,4;This record is created when a new source file is being scanned,
+i.e_. when a "false" EOF word is found in the buffer (see LC module).
+It is followed by four or more text records:
+.nf;.p 0,1,25
+ 0                                         35
++-------------------------------------------+
+!              device name                  !
++-------------------------------------------+
+!              file   name                  !
++--------------------+----------------------+
+!  extension         !                      !
++--------------------+----------------------+
+.s;If no path was given or just a ppn, the 4th word is:
++--------------------+----------------------+
+!  project no or 0   !  programmer no or 0  !
++--------------------+----------------------+
+.s;If an SFD path was specified, the 4th word is:
++--------------------+----------------------+
+!     -n-1           !          0           !
++-------------------------------------------+
+.s;followed by n+1 words:
++--------------------+----------------------+
+!  project no        !  programmer no       !
++--------------------+----------------------+
+!              SFD name 1                   !
++-------------------------------------------+
+:                                           :
+:                                           :
++-------------------------------------------+
+!              SFD name n                   !
++-------------------------------------------+
+.f;.p 0,1,3;This information is used by pass 3 to look up the source
+file(s).
+.p 0,1,10;The following sequence of records will always start the
+LS1 file:
+.nf;- L
+- N
+S
+<first source identif. rec>
+-
+-
+-
+.p 0,1,7;Records belonging to a line will appear in the order:
+.nf;
++-----------------+----------------------+------------+
+!      ! ... !    !                      !            !
++-----------------+----------------------+------------+
+0 or more records ! type 2 and/or type 3 ! type 4
+type 5-8          ! if BEGIN and or END  !
+.f;.lm 17;.p -16,3,15;II.4.5##IC1##Intermediate code from pass 1.
+.i -8;.br;----------------------------------
+.p -8,1,2;FILE:###nnnIC1.TMP
+.p -8,1,3;PURPOSE:The intermediate code file IC1 contains information
+about executable constructions in the source text.
+.p -8,1,5;OPEN:
+.p -8,1,4;OUTPUT:#The file will stay in core until it exceeds 5 disk
+buffers in size. When this limit is reached, O1IC1
+is called and a file is opened on channel QCHIC1
+in buffered binary mode (.IOBIN) at O1OPIC.
+.p -8,1,2;CLOSE:##The file is closed in O1ICCL called from T1.
+.p -8,1,3;REOPEN:#A LOOKUP on the file is performed in O2OP if the
+file does not already reside in core.
+.p -8,1,3;INPUT:##O2IS is called to read a symbol and O2IV to read a 
+constant value.
+.p -8,1,1;DELETE:#The file is deleted in O2EX.
+.p -8,1,9;RECORD LAYOUT: IC1 is, with a few exceptions, a reverse
+Polish string in which the elements are symbols represented
+in the syntax description below by upper case letters.
+For example PLUS is the symbol for the binary operator + .
+Some symbols are followed by parameters (e.g. CONR(v1)(v2)
+represents a real constant whose value is the actual
+parameters that follow in the next two halfwords). Each
+symbol and parameter occupies one halfword.
+.s;In the description the special symbol ID is used as a 
+generic symbol representing an identifier. Each
+differently spelt identifier is allocated a number by the
+Lexical scanner which is equivalent to its index in the
+symbol table. This lexical identifier number is used in
+the intermediate files to specify the identifiers. Strictly
+there should be a symbol ID(identifier) but in practice 
+there is no single ID symbol. The identifier appears 
+alone acting as both symbol and parameter.
+This is possible because the lexical identifier numbers
+occupy a range disjoint from the range of all other
+symbol values (i.e. 1025-4095).
+.lm 0;.p 0,2,15;SYNTAX DESCRIPTION:
+.s;.lm 9;The first characters of lines have the following
+meaning:
+.nf;;	comment line
+I	syntax production for IC1
+D	syntax for corresponding construct in DF1
+.lm 17;
+.f;.i-8;F#######follows a line tagged with I and shows fixup
+locations for a construction
+.br;The second character of a line may be a + sign.
+.br;.i-8;#+######Then the line is a continuation of the last line
+with the same first character and this line should
+be concluded with a + sign.
+.nf;.lm 0;.p 0,2,10;Program:
+.s
+I<program>::=		BPROG <class declaration> EPROG |
+D							ZHE
+I			BPROG <procedure declaration> EPROG |
+D							   ZHE
+I			BPROG <statements> EPROG
+D						ZHE
+.p 0,1,15;;Declarations:
+.s
+I<declare>::=		|
+I			<declaration> <declare>
+.s
+I<declaration>::=	<array declaration> |
+I			<procedure declaration> |
+I			<class declaration> |
+I			<switch declaration> |
+I			<line> |
+I			ERROR |
+I			PURGE
+I			DEBUG (cp)
+.p 0,1,10;
+; ERROR may occur anywhere in a declaration or statement where
+; a symbol may otherwise occur, and does not affect the syntax
+; of remaining symbols.
+; PURGE may occur anywhere where ERROR might  otherwise  occur
+; but this symbol terminates the currently innermost statement
+; (i.e.  symbols  that  could  otherwise  have  followed   are
+; suppressed).
+; DEBUG is used to control compiler  testing  and  is  allowed
+; always where a symbol can occur. The (cp) halfword following
+; is the component name (two sixbit characters) and an  action
+; code in the remaining bits.
+.nf;.p 0,1,10;
+I<class declaration>::=	ID BEGCL <declare> EDCL <statements> +
+F				f+2	       f+3
+.s
+I+			 <classend>
+.s
+; The fixup number is obtained from ZHEFIX in the ZHB record
+; for the class.
+.p 0,1,5;.nf
+I<classend>::=		INNER <statements> ENDCL |
+F			     f+4		f+5
+I			IENDC
+F			f+4 f+5
+.p 0,1,5
+I<procedure declaration>::=ID BEGPR <declare> <statements> ENDPR
+F				   f+2			     f+3
+D				ZHE
+; The fixup number above is obtained from the ZQU entry of the
+; procedure in pass 2
+.p 0,1,5;
+I<array declaration>::=	<bounds> ADEC |
+I			ID <array declaration>
+.p 0,1,5;
+I<bounds>::=		<expression> <expression> BOUND |
+I			<bounds> <bounds>
+.p 0,1,5;
+I<switch declaration>::=ID SWITCH <swlist>SWEND
+F					       f+1
+.p 0,1,5;
+I<swlist>::=		|
+I			<expression> SWEL <swlist>
+.p 0,1,5;
+I<line>::=		LINE (sc) (li)
+; LINE is a generic symbol  consisting  of  the  current  line
+; number  and  with  the  high  order  bit  set.  The literals
+; following are a semicolon count and the  last  line  number.
+; Last line number <= current line number.
+.p 0,1,15;
+;Statements:
+.s;
+I<statements>::=	|
+I			<statement> <statements>
+.p 0,1,5;
+I<statement>::=		<line> |
+I			ERROR |
+I			PURGE |
+I			DEBUG (cp)
+I			<conditional> |
+I			<assignment statement> |
+I			<denotes statement> |
+I			<goto statement> |
+I			<if-goto> |
+I			<activation> |
+I			<for statement> |
+I			<while statement> |
+I			<connection> |
+I			<prefixed block> |
+I			<block> |
+I			<label definition> |
+I			<procedure call>
+.p 0,1,5;
+I<conditional>::=	<expression> IFST (f) <statements> FIX (f) |
+F								f
+I			<expression> IFST (f) <statements> JUMP (g) +
+.p 0,1,5;
+I+			 FIX (f) <statements> FIX (g)
+F			      f			   g
+.p 0,1,5;
+I<assignment statement>::=<expression> <expression> BECOM |
+I			<expression> <assignment statement>
+.p 0,1,5;
+I<denotes statement>::=	<expression> <expression> DENOT |
+I			<expression> <denotes statement>
+.p 0,1,5;
+I<goto statement>::=	<expression> GOTO
+I<if-goto>::=		<expression> <expression> IFTRU |
+I			<expression> <expression> IFTRE (g) +
+.p 0,1,5;
+I+			 <statements> FIX (g)
+.p 0,1,5;
+I<activation>::=	<expression> <expression> ACTIV (code) |
+I			<expression> ACTIV (code)
+; The code following  ACTIV  is  a  bit  mask  describing  the
+; activation clause:
+;	bit	meaning
+;	17	reactivate
+;	16	before
+;	15	after
+;	14	at
+;	13	delay
+;	12	prior
+.p 0,1,5;
+I<for statement>::=	<controlled variable> <for list> FORDO	+
+F	   						   f	+
+.p 0,1,5;
+I+			 <statement> ENDFO
+F+				      f+1
+.p 0,1,5;
+; The fixup number is obtained from the ZHE entry of the for statement
+.p 0,1,5;
+I<controlled variable>::=ID CVBE |
+D			   ZHE
+I			ID CVDE
+D			   ZHE
+.p 0,1,5;
+I<for list>::=		<for list element> |
+I			<for list> <for list element>
+.p 0,1,5;
+I<for list element>::=	<expression>  FORSI |
+I			<expression> <expression>  FORWH |
+I			<expression> <expression> <expression> FORST
+.p 0,1,5;
+I<while statement>::=	<expression> WHILE (f)<statements> JUMP (f) +
+F			f					    +
+.p 0,1,5;
+I+			 FIX (f+1)
+F+			      f+1
+.p 0,1,5;
+I<connection>::=	<expression> INSPE (f) <dolist> <otherw>
+.p 0,1,5;
+I<dolist>::=		DO <statements> ENDDO |
+D			ZHB
+I			<whendo>
+.p 0,1,5;
+I<whendo>::=		|
+I			<whendo> ID WHEDO <statements> ENDDO
+F							f+2
+D					ZHB
+.p 0,1,5;
+I<otherw>::=		OTHER <statement> FIX (f+3) |
+F			f		       f+3
+I			NOTHR
+F			f  f+3
+.p 0,1,5;
+I<prefixed block>::=	<reference> BEGPB <declare> EDPB	+
+F					f+2	       f+3	+
+D				     ZHB
+.p 0,1,5;
+I+			 <statements> PBEND
+F+					  f+4
+; The fixups for prefixed blocks are obtained
+; from the ZHB entry of the block
+.p 0,1,5;
+I<block>::=		BBLK <declare> <statements> EBLK
+D			ZHE
+.p 0,1,5;
+I<label definition>::=	FIX (f)
+F			  f
+.p 0,1,5;
+I<procedure call>::=	<expression> <line>
+.p 0,1,5;
+.p 0,1,5;
+.p 0,1,5;
+;Expressions:
+.p 0,1,5;
+I<expression>::=	<simple> |
+I			<expression> <unop> |
+I			<expression> <expression> <binop> |
+I			<expression> <expression> <expression> IFEX
+.p 0,1,5;
+I<simple>::=		<constant> |
+I			<reference>
+.p 0,1,5;
+I<unop>::=		PAREN |
+I			UMIN |
+I			UPLUS |
+I			NOT |
+I			THIS |
+I			NEW |
+I			DELOP
+; DELOP is used for error recovery
+.p 0,1,15;
+I<binop>::=		PLUS |
+I			MINUS |
+I			DIV |
+I			MULT |
+I			IDIV |
+I			POW
+I			LESS |
+I			NLESS 
+I			GRT |
+I			NGRT |
+I			EQ |
+I			NEQ |
+I			DEQ |
+I			NDEQ |
+I			IS |
+I			IN |
+I			QUA |
+I			AND |
+I			OR |
+I			IMP |
+I			EQV
+.p 0,1,5;
+I<reference>::=		<id1> |
+I			<id1> <alist>
+.p 0,1,5;
+I<id1>::=		ID |
+I			<expression> ID DOT
+.p 0,1,5;
+I<alist>::=		LB  <tail> |
+I			LP  <tail>
+.p 0,1,5;
+I<tail>::=		RP |
+I			<expression> <tail>
+.p 0,1,15;
+I<constant>::=		TRUE |
+I			FALSE |
+I			NONE |
+I			NOTEXT |
+I			CONC (v1) |
+I			CONI (v1) (v2) |
+I			CONR (v1) (v2) |
+I			CONLR (v1) (v2) (v3) (v4) |
+I			CONT (ra) (le) |
+I			UDEF
+; The text constant is of length le and starts at ra from  the
+; program break at run time. UDEF is used for error recovery.
+.sp 1;.nonum;.lm 9;.ps 50,72
+.ts 1,9,17,25,33,41,49,57,65
+.pg;.nm ch 4
+.ch SIMULA FOR DEC SYSTEM 10#############TD, COMPILER
+.nm 26
+.st 740814####780302######6###########################Reidar Karlsson
+.pg;.lm 9;.p -8,0,10;II.4.6##DF1  Declaration file
+.br;--------------------
+.s 2;FILE:###nnnDF1.TMP
+.lm 17;.p -8,1,5;PURPOSE: The declaration file contains declarative
+information from the source text in a special form arranged for input
+to pass 2.
+.p -8,1,10;OUTPUT:#The file output is controlled by DP code. DP is called from T1.
+.br;DF1 will stay in core as long as it fits in the free buffer area.
+When all buffers available to DF1 are filled, nnnDF1.TMP will be
+entered on channel QCHDF1, which is opened for device DSK in binary
+mode (.IOBIN) by O1OPDF. The buffers are output by O1DF1. O1DFCL
+closes the file.
+.p -8,1,5;INPUT:##The file is looked up by O2OP if it was written on DSK in pass
+1. Buffers from the file are read by O2D1. O2EX deletes the file.
+.p -8,1,10;RECORD LAYOUT:  DF1 contains 4 record types: ZHE, ZHB,
+ZQU and ZQQ. Declared or specified quantities are represented by ZQU
+records. Blocks are represented by ZHE records (FOR statements, procedure
+bodies, and reduced subblocks) or by ZHB records (procedures, classes,
+prefixed blocks and connection statements). ZHB records contain all
+the fields of ZHE records and some additional information.
+At the end of the DF1 file is a list of ZQQ records, one for each
+external declaration. All declarations of a block will be at the start
+of that block in the order: parameters, non-data quantities and value
+quantities, texts and finally ref variables and arrays.
+Then follow the sublists for declared classes and procedures, containing
+class attributes and procedure parameters. These sublists may contain
+further sublists which will follow next, etc.
+.p 0,1,3;A detailed description of the four record types is found
+in II.6 Declaration structures.
+.p -16,2,15;II.4.7##ZSE  Symbol table
+.i -8;-----------------
+.p -8,1,2;FILE:###nnnZSE.TMP
+.p -8,1,8;PURPOSE: The symbol table is a copy of the dictionary created
+in pass 1. It contains the names of all differently spelled identifiers
+appearing in the compiled program. The names are in SIXBIT code and
+only the first 12 characters are saved for long identifiers.
+The ZSE file is used in pass 3 to build the symbol table used by SIMDDT
+and to edit error messages and cross reference listing, if any.
+.p -8,1,8;OUTPUT:#The O1ZS procedure, called from T1, decides whether the file should
+stay in core or be output to disk. If the symbol table is too big
+to fit in the core buffer area alloted, the disk file is entered on
+channel QCHZSE by O1ZSOP in buffered binary mode (.IOBIN), written and then
+closed by O1ZSCL.
+.p -8,1,5;INPUT:##If the file is not core resident, it is opened in unbuffered dump
+mode (.IODMP) on channel QCHZSE by pass 3 (procedure O3RZ, called
+from I3), read into core and deleted.
+.p -8,1,5;RECORD LAYOUT:  Each identifier in the source code has
+a two word entry in the symbol table, referenced by the identifier
+index.
+.nf;.p 0,1,8
+		  +-----------------------+
+		  ! I ! D ! E ! N ! T ! I !
+(INDEX-1024)*2 -> !-----------------------!
+		  ! F ! I ! E ! R !   !   !
+		  +-----------------------+
+		  0			 35
+.f;.p 0,1,4;The two words contain the first 12 characters of the identifier
+in SIXBIT code, left justified. The unused positions are zero (SIXBIT
+for space).
+.p -16,2,15;II.4.8##REL  Relocatable binary object code
+.i -8;-----------------------------------
+.p -8,1,5;FILE:###Name as specified in command line, normally infile.REL,
+where infile.SIM is the input source file.
+.p -8,1,6;PURPOSE:Code generated by the SIMULA compiler is output
+in relocatable binary format on a disk file. LINK-10 accepts this
+file as input and produces an executable program from this file and
+some other relocatable object code files.
+.p -8,1,6;OPEN:###The file is opened on channel QCHREL in buffered
+binary mode (.IOBIN) at I1END, and the file is entered in O1RLOP called
+from O1SCOP after the source file has been opened.
+.p -8,1,3;OUTPUT:#The output routines in the 3 passes are named
+O1RL, O2REL and O3WIB respectively.
+.p -8,1,8;CLOSE:##The file is closed in T3I called at the end of M3.
+If the file is just a header for an external FORTRAN or MACRO procedure,
+T3R, called at the end of M3ATR,
+closes it with an option that causes the file to be discarded
+(creation inhibited).
+.lm 9;.p 0,1,10;RECORD LAYOUT:  REL file records are LINK-10 items of the
+types: 0, 1, 2, 3, 4, 5, 6, 7, 10, 17 and ASCIZ (type code > 3777,
+first 7-bit byte a printable ASCII character).
+These record types are accepted also by the LOADER, except for type
+17 and ASCIZ. Thus LOADER cannot be used when external classes or
+procedures are referred to in the SIMULA program.
+The formats of these items are described in detail in LINK-10 Programmer's
+Reference Manual, Appendix A.
+.br;The first item in the REL file is type 4 (ENTRY) defining .MAIN
+as the entry point name if a main program is compiled, the external name
+for a separately compiled class or procedure.
+The processor code for the SIMULA compiler (octal 15) is output in
+the next item, which is type 6 (NAME).
+LINK-10 recognizes this processor code.
+The entry and name records are output directly after opening the file
+in O1RLOP. The third item is a code item (type 1), which starts with
+a copy of the lookup information for the first source file, followed
+by any literals (text literals from pass 1, other literals from
+pass 2).
+.br;The rel file has the following general layout:
+.nf;.p 0,1,25;
++----------------+
+! ENTRY (type 4) !
+!----------------!
+! NAME  (type 6) !
+!----------------!
+! 1 or more CODE !  Source code identification, text literals,
+! (type 1)       !  and absolute constants output in pass 2.
+!----------------!
+! mixed type 1, 2!
+! (SYMBOLS) and  !
+! type 10 (INTER-!  IC2 code converted by pass 3 (M3).
+! NAL REQUEST)   !
+!----------------!
+! START ADDRESS  !  Only for main programs. Output by M3.
+! (type 7)       !
+!----------------!  Definition of global symbols and external
+! 1 or more type !  requests for entry points in external
+! 2 records      !  classes and procedures.
+!----------------!
+! END (type 5)   !  Output in M3.
++----------------+
+.lm 17;.f;.p -16,2,15;II.4.9##ATR  Intermediate attribute file
+.i -8;--------------------------------
+.p -8,1,2;FILE:###nnnATR.TMP
+.p -8,1,5;PURPOSE: The attribute file contains declarative information
+about a separately compiled external class or procedure.
+.p -8,2,8;PASS 2 PROCESSING:
+.P 0,1,0;When an external class or procedure is compiled, the EXAT
+routine, called from O2EX, will create a skeleton attribute file.
+.p -8,1,10;OUTPUT:#The file will stay in core if it fits in its alloted buffer area,
+otherwise it will be output in unbuffered record dump mode
+(.IODPR) on channel
+QCHATR via calls to O2ATR, where the first call will open the channel
+and enter the file.
+.p -8,1,3;CLOSE:##The last buffer is output and the file is closed
+when EXAT returns to O2EX.
+.p -8,2,10;PASS 3 PROCESSING:
+.P -8,1,5;INPUT:##If not core resident, the file is read into core in unbuffered
+dump mode (.IODMP) on channel QCHATR and closed, all i/o performed
+in O3ATR called from M3ATR.
+.p -8,1,10;UPDATE:#The file created in pass 2 contains identifier
+indices instead of sixbit names, and unique identifier fields are
+zero.
+.br;M3ATR translates identifier indices to sixbit names via the symbol
+table (ZSE).
+.p -8,1,10;OUTPUT:#If an old attribute file exists and shows some essential
+attribute difference, or if an old attribute file does not exist,
+new unique numbers (RADIX50 identifiers) are generated. Any old attribute
+file x.ATR is renamed to x.QTR (after deleting x.QTR if present already),
+and a new x.ATR file is written. Here x is the relfile name (normally
+the same name as the source file). A new ATR file is also generated
+if the old ATR module was found in a library ATR file, even if the
+attributes are not different, in that case using the old unique numbers.
+The ATR file copy is created so that the ATR file is always in the
+same area as the corresponding REL file. The QTR file is saved to
+provide a backup in case the compilation was not useful (REL file
+error for example).
+O3WATR writes the ATR file (binary unbuffered dump mode .IODMP).
+O3WARE handles QTR files.
+.p -8,1,3;RECORD LAYOUT: See II.4.3 Attribute file.
+.p -16,2,15;II.4.10#XRF  Cross reference data file
+.i -8;-----------------------------
+.p -8,1,2;FILE:###nnnXRF.TMP
+.p -8,1,8;PURPOSE:If the C switch is specified to the compiler, a
+cross reference data file is created in pass 1. Pass 3 will process
+this file and create a cross reference listing at the end of the source
+program listing. Note that the system program CREF is n#o#t involved
+in creating a SIMULA cross reference listing.
+.p -8,1,6;OUTPUT:#The file will stay in core until it exceeds
+2 standard disk buffers. O1XR will then be called to open a file on
+channel QCHXRF in buffered binary mode (.IOBIN) via O1OPXR.
+.p -8,1,2;CLOSE:##The file is closed in O1XRCL which is called from
+T1.
+.p -8,1,8;INPUT:##If a cross reference listing is demanded, the SIMXRF procedure
+is called from E3. SIMXRF will call I3X to perform a lookup if necessary
+(not core resident file). X3READ reads blocks from the file, and T3X
+will finally delete the file.
+.p -8,1,10;RECORD LAYOUT: Each word in the file has the following format:
+.nf;.s;
++----------------------------------------+
+!D!E!    !     I      !        L         !
++----------------------------------------+
+ 0 1      6         17 18              35
+.f;.s;The D bit is set if the identifier with index I was declared
+on line L.
+.p 0,0,2;The E bit is set if the identifier is declared as external.
+.p 0,0,2;The I field is the identifier index (1024 <= I <= 4095).
+.p 0,0,2;The L field is the line number.
+.p 0,1,3;A word with this layout is output by pass 1 every time an
+identifier is found.
+.p -16,2,15;II.4.11#IC2  Intermediate code from pass 2
+.i -8;----------------------------------
+.p -8,1,2;FILE:###nnnIC2.TMP
+.p -8,1,10;PURPOSE: Code generated in pass 2 is output in 5 different
+streams. Since LINK-10 could not handle more than one low segment
+relocation counter, four of those streams are output on an intermediate
+code file. The fifth code stream, containing absolute literals (constants),
+is output to the REL file directly. The four streams on the IC2 file
+consist of code stream and prototype stream (item type 1013), symbol
+table (type 1014), and line number table (type 1015).
+.br;Note that our definition of record types 1013, 1014, 1015 may be
+at variance with existing or future definitions in LINK-10 documentation.
+This does not matter, however, since these records are only used internally
+in the compiler and will be replaced with other record types before
+output to the rel file.
+.br;References to external symbols (e.g_. entry points in the run
+time system and external procedures and classes) are output in IC2
+as global requests (item type 2). Internal requests (type 10) are also output
+in order to have fixup references resolved.
+.p -8,1,4;OPEN:###Opened and entered on channel QCHIC2 in binary
+mode (.IOBIN) by O2OP called from I2.
+.p -8,1,3;OUTPUT:#Written by O2IC2 called from O2GEN and O2DF.
+.p -8,1,3;CLOSE:##Closed in O2EX just before entering pass 3.
+.p -8,1,2;REOPEN:#Looked up by I3I called from M3.
+.p -8,1,2;INPUT:##Read by O3RI called from M3.
+.p -8,1,3;DELETE:#Deleted by T3I called at end of M3.
+.lm 9;.p 0,1,14;RECORD LAYOUT: The header word is common to all IC2 records.
+It contains the type code in the left half and a counter in the right
+half which shows the length of the record except for the header word.
+.nf;.p 0,1,6;Header word:
+.s;	+--------------------------------------+
+	!    TYPE CODE      !    WORD COUNT    !
+	+--------------------------------------+
+.f;.p 0,1,4;The maximum length of an IC2 record is adapted to the
+size of the disk buffer data area (i.e_. 128 words including header word).
+.p 0,1,15;.nf;Global requests type 2
+----------------------
+.s;
+ 0    4      12    18              35
++----+------+-----+------------------+
+!         2       !     COUNT        !
++----+------+-----+------------------+
+!           !RCODE!    ADDRESS       !  Data is grouped
++----+------+-----+------------------+
+!         0       !     INDEX        !  in pairs
++----+------+-----+------------------+
+!           !RCODE!    ADDRESS       !
++----+------+-----+------------------+
+! 60 !        UNRSYMBOL              !
++----+------+-----+------------------+
+!                                    !
+.f;.p 0,1,7;ADDRESS, relocated according to RCODE, points to the first
+word in a global request chain. The second word in each pair is either
+an INDEX (left half = 0) to a global run time symbol (RTSYMBOLS) or
+a RADIX50 symbol (UNRSYMBOL) generated as a unique number for an external
+procedure or class.
+.p 0,1,3;This record is converted in pass 3 to LINK-10 item type 2.
+.nf;.p 0,1,15;Internal requests type 10
+-------------------------
+.s;
+ 0           12    18              35
++-----------+-----+------------------+
+!        10       !     COUNT        !
++-----------+-----+------------------+
+!                 !  NON-ZERO COUNT  !
++-----------+-----+------------------+
+!           !RCODE!    ADDRESS       !  Data is grouped
++-----------+-----+------------------+
+!           !RCODE!     VALUE        !  in pairs
++-----------+-----+------------------+
+!                                    !
+.f;.p 0,1,5;Dummy zero word pairs may appear in this type of record.
+NON-ZERO COUNT shows number of non-zero words.
+.p 0,0,5;ADDRESS, relocated according to RCODE, points to the first
+word of a chain for an internal request (i.e_. a fixup reference).
+The relocated VALUE defines this request. This record is converted
+in pass 3 to a LINK-10 item type 10.
+.nf;.p 0,1,17;Generated code and prototypes type 1013
+---------------------------------------
+.s;
+ 0                  18  21           35
++------------------+---+---------------+
+!       1013       !      COUNT        !
++------------------+---+---------------+
+!  RELOC.WORD     18  2-bit  bytes     !
++------------------+---+---------------+
+!                  ! RC! START ADDRESS !
++------------------+---+---------------+
+!                                      !
+!             17  DATA WORDS           !
+!                                      !
++------------------+---+---------------+
+!              RELOC.WORD              !
++------------------+---+---------------+
+!                                      !
+!             18  DATA WORDS           !
+!                                      !
++------------------+---+---------------+
+!                                      !
+.f;.p 0,1,10;RELOC.WORD controls the relocation of the the following
+18 DATA WORDS:
+.nf;.p 0,1,7;
+Reloc. byte	Data word relocation
+------------------------------------
+   0		No relocation
+   1		Relocate right half
+   2		Relocate left half
+   3		Relocate both halves
+.f;.p 0,1,10;A relocated halfword contains an internal relocation
+code in its 3 leftmost bits:
+.nf;.s;
+ 0     3                    17
+ 18    21	            35
++-----+-----------------------+
+!RCODE!	Value to be relocated !
++-----+-----------------------+
+.f;.p 0,1,5;The internal relocation will be performed in pass 3 by
+adding a relocation constant according to RCODE. The result will then
+be finally relocated by LINK-10. RCODE is one of the values:
+.s;########QRELCN, QRELCD, QRELPT, QRELLT, QRELST.
+.p 0,1,5;The first data word of each record yields the start address
+of the following block of DATA WORDS. The relocation code RC is either
+QRELCD for generated code or QRELPT for a prototype record.
+.br;This record is converted to a LINK-10 item type 1 by pass 3.
+.nf;.p 0,1,17;Symbol table type 1014
+----------------------
+.s;
+ 0                  18  21           35
++------------------+---+---------------+
+!       1014       !      COUNT        ! Relocation groups
++------------------+---+---------------+ as for type 1013
+! RELOC. WORD     18  2-bit  bytes     !
++------------------+---+---------------+
+!                  ! RC! START ADDRESS ! RC = QRELST
++------------------+---+---------------+
+!                                      !
+!             17  DATA WORDS           !
+!                                      !
++------------------+---+---------------+
+!         0        !ID !    INDEX      !
++------------------+---+---------------+
+!         0        !I2 !    INDEX      !
++------------------+---+---------------+
+!                                      !
+!             18  DATA WORDS           !
+!                                      !
++------------------+---+---------------+
+!                                      !
+.f;.p 0,1,8;The only difference from type 1013 is that two special
+relocation codes for right halves of data words may appear, i.e_.
+QRELID and QRELI2 which instruct pass 3 to replace the whole word
+with the first (QRELID) and second (QRELI2) half of an identifier
+in SIXBIT code. The actual identifier is defined by its INDEX in the
+ZSE symbol table.
+.nf;.p 0,1,17;Line number tables type 1015
+----------------------------
+.s;
+ 0                  18  21           35
++------------------+---+---------------+
+!       1015       !      COUNT        !
++------------------+---+---------------+
+! RELOC. WORD     18  2-bit  bytes     ! Relocated like 1013
++------------------+---+---------------+
+!                  ! RC! START ADDRESS ! RC = QRELLT
++------------------+---+---------------+
+!                                      !
+!             17  DATA WORDS           !
+!                                      !
++------------------+---+---------------+
+!                                      !
+.f;.p 0,1,5;Type 1015 is introduced so that pass 3 may easily recognise
+line number information. The description of data for type 1013 also
+applies to type 1015.
+.p 0,2,8;Comment block type 0
+.br;--------------------
+.p 0,1,4;A comment block is output to fill the last words of the disk
+buffer after outputting partly filled local code stream buffers. The
+padding is done before outputting type 10 blocks.
+.lm 17;.p -16,3,15;II.4.12#LS3  List file
+.i -8;-------------
+.p -8,1,8;FILE:###The name is taken from the command line:
+.br;*relfil.REL,lstfil.LST=infile.SIM  or
+.br;*infile/L     (lstfil = infile in this case)
+.br;The name is thus whatever stands in the place of lstfil.
+Default extension is LST. If the /LIST switch was given in a COMPILE
+(EXECUTE, LOAD, DEBUG) command, and LPT is spooled on disk, LPT: will
+be given as device. The actual disk file will be named xxxxxx.LPT
+where xxxxxx is a created name and the spooled name (lstfil) is taken from
+the command.
+.p -8,1,7;PURPOSE: LS3 is the list file produced by the compiler.
+It contains:
+.br;* Listing of source code with line numbering (added or already
+part of source file), consecutive numbering of BEGIN keywords in the
+left margin and also numbering of END keywords with the number of
+the matching BEGIN. Error messages are inserted at the place of error.
+.br;* If the Y switch was set,
+a table relating line number to code offset (octal).
+.br;* If the C switch was given, a cross reference listing.
+.br;The pages of the listing are numbered (file page number,
+if necessary followed by  sub-page number (e.g_. PAGE 3-5). The file
+pages are delimited by form feed characters. The heading of each page
+shows the compiler version, e.g_. DECsystem-10 SIMULA %4(300).
+The date and time of compilation,
+the file specification of the source file and its creation time and
+date are also shown. Any text given via the PAGE switch is placed
+in the heading.
+.p -8,1,5;OPEN:###The pass 3 module I3 contains code to open the file
+and enter it on channel QCHLS3 (I3LS3, called from E3). The file is
+written in buffered ASCII mode (.IOASC).
+.p -8,1,5;OUTPUT:#Via O3WS, O3LS3 in the pass 3 module O3. O3WS is
+called by E3, T3 and SIMXRF.
+.p -8,1,3;CLOSE:##By T3L in the pass 3 module T3.
+.p -8,1,3;LIST FILE FORMAT: See any compilation listing. See E3.MAC
+assembly listing for further details.
+.p -16,1,15;II.4.13#SIMERR  Error message tables
+.i -8;---------------------------
+.p -8,1,3;FILE:###SIMERR.ERR
+.p -8,1,6;PURPOSE: SIMERR contains error message tables used in pass
+3 (module E3) to create error messages on the listing
+and on the terminal.
+The file is created by the maintenance utility program SUTERR using
+as input 
+a RUNOFF source file containing appendix C of the DECsystem-10 SIMULA
+Language Handbook Part II, which contains all compiler error messages.
+.p -8,1,6;INPUT:##E3 calls O3ERR, which opens channel QCHERR in unbuffered dump
+mode (.IODMP) and looks up the file SIMERR.ERR (usually on the system
+device), then reads it into core and closes the file.
+.p -8,1,5;REFERENCES: A detailed description of this file is found
+in TD II.5 Diagnostic handling and V.6 Utility program SUTERR.
+.p -16,1,15;II.4.14#DEB  Debug files
+.i -8;----------------
+.p -8,1,5;.nf;FILES:##nnnDEB.LST
+nnnDEB.TMP
+DBLIST.LST
+.p -8,1,3;REFERENCES: [1] I.10 Test standard.
+####[2] V.4  SUTEDB.
+.p -8,1,6;.f;PURPOSE: Special debug files are created in the debug
+version of the compiler for the purpose of obtaining symbolic dumps
+and traces of the compiler actions.
+Pass 1 outputs its debug information in directly readable form as
+nnnDEB.LST. Pass 2 debug information is put on nnnDEB.TMP in a special
+format, which can later be edited by the utility program SUTEDB to
+yield a readable file DBLIST.LST which may also include a copy of nnnDEB.LST.
+.p -8,1,6;DEB.LST: In the debug version of the SIMULA compiler, I1
+opens channel QCHDEB in buffered binary mode (.IOBIN). The SP module
+of pass 1 calls P1INIT of the P1DUMP module to enter the file nnnDEB.TMP
+(calling OUTOP). The information which is output depends on the special
+debug symbols edited into the source code. See [1].
+The end part of nnnDEB.LST may be a readable dump of DF1 and IC1.
+These files are read if not core resident on channel QCHIC2 in binary
+buffered mode (.IOBIN) via DFDUMP, ICDUMP called from P1DUMP, called
+from T1. P1DUMP closes the file nnnDEB.LST via OUTCL (no output if
+nothing written).
+.p -8,1,8;DEB.TMP: After closing nnnDEB.LST, P1DUMP will
+enter nnnDEB.TMP on the same channel (QCHDEB) via O1DBOP.
+Finally, pass 1 outputs the symbol table to this file, enabling output
+from pass 2 to be edited into symbolic form. [1] shows the format
+of records in the DEB.TMP file and how to create a record in the file.
+.p 0,1,6;The utility program SUTEDB edits the debug output from pass
+2 into a readable symbolic format. See [2].
+SUTEDB starts by asking for source file and job number (nnn) of the
+nnnDEB.TMP file. If the source file is given, it will be copied as
+the first part of DBLIST.LST. Then SUTEDB asks if nnnDEB.LST is present
+and copies also that file to DBLIST.LST if the answer is affirmative
+and the file actually exists. Finally SUTEDB reads nnnDEB.TMP and
+edits the information into the output file DBLIST.LST.
+See [1] and [2].
+.sp 1;.nonum;.lm 9;.ps 50,72
+.ts 1,9,17,25,33,41,49,57,65
+.pg;.nm ch 5
+.ch SIMULA FOR DEC SYSTEM 10#############TD, COMPILER
+.nm 1
+.st 740718####780302######6###########################Elisabeth Engstrom
+.pg;.lm 9;.p -8,0,10;II.5####DIAGNOSTIC HANDLING
+.P -8,2,10;II.5.1##Introduction
+.br;------------
+.p 0,1,10;All error messages are documented in DECsystem-10 SIMULA
+Language Handbook, part II, appendix C, which also contains information
+on the behaviour of the compiler and suggested user actions when errors
+occur.
+The RUNOFF source file for appendix C is used as input to the SUTERR
+program which creates the error message file SIMERR.ERR.
+That file and a table (ZDM) produced during compilation are used by
+the routine E3EM of pass 3 to create the final messages. See VI.3.
+.s;The RUNOFF file must be updated when compiler error messages are changed,
+replaced or added.
+.p -8,3,15;II.5.2##Output of diagnostics
+.br;---------------------
+.p 0,1,10;Each diagnostic message is output on the user terminal together
+with the source code line(s) to which the message refers. The message
+is also edited into the list file in the corresponding place (after
+the last line of the offending statement).
+.br;A maximum of 50 messages will be output, the first 50 encountered.
+Warning messages (except for the first 10 warnings)
+may however be replaced by error messages that are
+occur later, when 50 messages have already been issued.
+Error statistics (number of messages of each type) are output at the
+end of the compiler listing and on the terminal. If the compiler was
+called via the CCL entry (COMPILE etc), no information is output for
+programs without diagnostics.
+.p 0,1,12;The error statistics look like this:
+.nf;.s;NO ERRORS DETECTED
+or
+ERRORS DETECTED:
+####nn TYPE W MESSAGES
+####nn TYPE E MESSAGES
+?   TERMINATION ERROR
+.s;.f;nn is the total number of errors and may exceed 50.
+.p -8,3,19;II.5.3##Error message format
+.br;--------------------
+.s;The general format is:
+.nf;.s;SIMddd   t  LINE   nnnnnn:mm    text
+.f;.lm 17;.p -8,1,10;ddd is the message number in octal format
+.i -8;t###is the message type:
+.br;T termination error
+.br;E non-terminating error
+.br;W warning message
+.i -8;nnnnnn	line number
+.i -8;mm######number of semicolons before faulty statement on line nnnnnn
+.br;:mm is omitted if mm = 0
+.lm 9;.f;.p -8,3,15;II.5.4##Number of and types of messages
+.br;-------------------------------
+.p 0,1,7;The number is in octal format and belongs to certain intervals
+depending on error type and pass number of detecting pass.
+.br;The intervals are defined by assembly constants in SIMMAC.MAC.
+.br;Message number = mn
+.nf;.p 0,1,15;
+Q1.WAR <= mn < Q1.ERR	Warning message pass 1
+Q1.ERR <= mn < Q1.TER	Error message pass 1
+Q1.TER <= mn < Q2.WAR	Terminating message pass 1
+Q2.WAR <= mn < Q2.ERR	Warning message pass 2
+Q2.ERR <= mn < Q2.TER	Error message pass 2
+Q2.TER <= mn < Q3.WAR	Terminating message pass 2
+Q3.WAR <= mn < Q3.ERR	Warning message pass 3
+Q3.ERR <= mn < Q3.TER	Error message pass 3
+Q3.TER <= mn < Q.WAR	Terminating message pass 3
+Q.TER  <= mn < 577	Error messages, identical in all
+			three passes. The pass number is
+			often part of the text.
+.f;.p -8,4,15;II.5.5##Insertion of an error message in the compiler
+.br;---------------------------------------------
+.p 0,1,7;When an error is detected in the course of a compilation,
+current error information is saved in the ZDM table, which is used
+by pass 3 to create the text of the error message. The error information
+is reported via a set of UUO's which are trapped by the DM module
+present in each pass.
+.p 0,1,2;Format:	UUOcode t,n
+.lm 17;.p -8,1,4;UUOcode:There are 6 different UUO codes depending
+on message type:
+.br;ERR, ERRI1, ERRI2, ERRI3, ERRT, ERRLI
+.p -8,1,3;ERR:	This message is fixed, i.e_. no variable information
+is edited into the message by pass 3.
+.p -8,1,6;ERRIx:	x = 1, 2 or 3. These UUO codes are used when
+the message should contain the name of an identifier, a symbol specified
+by the SIMMAC macro SYMBOL, or a number. The UUO name indicates how
+many insertions should be made.
+The first argument is taken from AC1 (X1), the second from X2, the
+third from X3. The arguments are:
+.br;* identifier number >= 1024
+.br;* value of current symbol as defined in SIMMAC
+.br;* binary number <= 4095 (last 12 bits if greater)
+.p -8,1,7;ERRT:	This message contains text or a file name to be edited
+into the message.
+.br;The lookup/enter block address is placed in X1 if the message
+contains a file name. The ASCII text can be at most 5 characters left
+justified in X1.
+.p -8,1,4;ERRLI:	This UUO must be used to give the last line
+number of the erroneous statement, unless it was given at once.
+.lm 9;.p 0,1,3;Apart from the information given via the UUO and the
+3 ac's, some global information is used:
+.lm 25;.p -8,1,7;YELIN1	number of first line of faulty statement
+.i -8;YELIN2	number of last faulty line or 0 if line number
+not known
+.i -8;YESEM	number of semicolons preceding statement on first
+line.
+.p -8,1,6;t	type of message:
+.br;# QE	error
+.br;# QT	termination error
+.br;# QW	warning
+.p -8,1,10;n	error number in octal radix
+.p -16,1,4;Example:
+.lm 17;.br;YELIN1 = 7, YELIN2 = 7, YESEM = 0
+.br;L	X1, idno(A)
+.br;ERRI1	QE,362
+.lm 9;.p 0,1,3;would give the message after line 7:
+.br;SIM362  E  LINE   7  IDENTIFIER   A  IS NOT DECLARED
+.lm 9;.p -8,4,15;II.5.6##Error messages in RUNOFF source file
+.br;------------------------------------
+.p 0,1,10;The SIMULA Handbook part II is created from one or more RUNOFF source
+files. The distributed version is SIMLH2.RNM which gives SIMLH2.MAN
+when processed by RUNOFF. The essential part in this context is appendix
+C, which exists at QZ as SLH2C.RNO. SUTERR assumes that its input
+file is called SIMLH2.RNO, thus a copy has to be made with that name
+or one of the files has to be renamed temporarily. SUTERR could also
+be changed to expect another file, but existing documentation assumes
+SIMLH2.RNO throughout.
+SUTERR ignores RUNOFF control information (first character of a line
+is a dot '.'). The interesting part of the file is delimited by two
+headers:
+.p 5,1,3;COMPILER SOURCE CODE DIAGNOSTICS:
+.P 5,0,1;END OF COMPILER SOURCE CODE DIAGNOSTICS
+.P 0,1,5;These lines must not be changed.
+SUTERR expects a certain file format and complains if violations are
+found. In practice, the format accepted is less definite. The essential
+information is found in the error messages, which must contain the
+characters SIM at the very start of a line.
+Except for these lines, SUTERR expects horisontal tab
+(HT, Char(9)) or dot at the start of each line.
+Complaints about faulty line formats may however be disregarded.
+.p -8,3,15;II.5.7##Format of error message lines
+.br;-----------------------------
+.s;.nf;.lm 9;SIMddd t ... text
+.s;ddd is an octal message number.
+t   is the message type.
+text is the message.
+.f;.s;SIMddd followed by one space and the type character must be in
+the first 8 characters of a line. Error messages must appear in increasing
+order by error number and be confined to the intervals documented
+in II.5.4.
+.lm 9;.p 0,1,5;If there are no numbers available in the applicable
+interval, one of the interval limits must be changed. This change
+may mean that messages in another interval must be renumbered, etc,
+but enough free numbers are left so that this should not happen.
+.br;If the error message extends over more than one line, continuation
+lines must start with HT (Char(9)). The text must not contain more
+than 15 words and no word may be longer than 15 characters.
+.br;Certain code words in the message will be replaced with information
+pertaining to the current occurrence of the error. The possible code
+words are: XXXX, AAAA and NNNN. There must be no more than three code
+words XXXX or NNNN or at most one instance of AAAA.
+Code word interpretation:
+.lm 17;.p -3,1,3;1. XXXX - name of identifier.
+.br;Ex. SIM362 E IDENTIFIER XXXX IS NOT DECLARED
+.P -3,1,5;2. XXXX - Special SYMBOL defined in SIMMAC.MAC.
+.br;Ex. SIM130 E MISSING XXXX
+.BR;where XXXX is ) or ] .
+.p -3,1,6;3. AAAA - ASCII text.
+.br;Ex. SIM007 W NOT RECOGNIZABLE SWITCH AAAA, SWITCH
+.br;<HT>IGNORED
+.br;The text must be 5 characters or less.
+.p -3,1,3;4. NNNN - binary number.
+.br;A small integer (<4096) may be edited into the message.
+.lm 9;.p 0,2,4;SUTERR processes only the lines starting with SIM and
+continuations of these lines. Example of a segment from the input
+file:
+.p 0,1,10;
+.BR;_.p -9,2,5
+.BR;_SIM010 W SWITCH: AAAA MISSPELLED.
+.BR;_.skip 1
+.BR;<HT>EXPLANATION: AAAA is a switch name.
+.BR;_.skip 1
+.BR;<HT>COMPILER ACTION: Switch is processed according to first letter.
+.BR;_.p -9,2,5
+.BR;SIM011 W SWITCH AAAA NOT VALID AFTER PROGRAM START, SWITCH IGNORED
+.BR;.skip 1
+.BR;<HT>EXPLANATION: AAAA is a switch name. See chapter 3.5.
+.BR;_.p -9,2,5
+.lm 8;.p -8,3,15;II.5.8##Creation of SIMERR.ERR
+.br;----------------------
+.s;A new version of SIMERR.ERR is created by the SUTERR program from
+an updated RUNOFF file containing the error messages. The input file
+must be named (renamed) SIMLH2.RNO.
+.br;If SUTERR finds any error message of an incorrect format, this
+will be reported on the terminal and the message will be rejected.
+.br;If SUTERR reports that either of the tables YE3D or YE3M must
+be extended, the following actions should be taken:
+.br;* Change QE3D and/or QE3M in SIMMAC.MAC and reassemble SIMMAC.MAC.
+.br;* Recompile LOWSEG.MAC.
+.br;* Recompile debug version of O3.MAC if used.
+.br;* Change the constants QE3M and QE3D and the sizes of the tables
+Y3ED and Y3EM in SUTERR.CBL.
+.p 0,1,8;SUTERR exits after typing END OF SUTERR on the terminal.
+.br;For further information see V.6.
+.p 0,1,6;SIMERR.ERR consists of 4 tables preceded by 4 counters.
+YE3M and YE3MI both start at a buffer and disk block boundary, any
+leftover space in the preceding disk block being padded by zeroes.
+.nf;.p 0,2,25;#SIMERR.ERR
++--------------+
+!              ! Number of words in YE3DL
++--------------+
+!              ! Number of words in YE3D
++--------------+
+!              ! Number of words in YE3M
++--------------+
+!              ! Number of words in YE3MI
++--------------+
+!              ! YE3DL
+!              !
++--------------+ The tables are described in II.C.3
+!              !
+!              ! YE3D
+!              !
++--------------+
+!              !
+!              ! YE3M
+!              !
++--------------+
+!              !
+!              !	YE3MI
+!              !
++--------------+
+.f;.p 0,2,20;Summary
+.br;-------
+.p 0,1,3;When inserting a new message in the compiler, the following
+must be done:
+.s;* An error UUO must be issued by the compiler. See II.5.5.
+.br;* Insert the error message text in appendix C of SIMLH2 - II.5.6.
+.br;* Create SIMERR.ERR by running the utility program SUTERR - II.5.8.
+.br;* Correct message if necessary and rerun SUTERR.
+.sp 1;.nonum;.lm 9;.ps 50,72
+.ts 1,9,17,25,33,41,49,57,65
+.pg;.nm ch 6
+.ch SIMULA FOR DEC SYSTEM 10#############TD, COMPILER
+.nm 1
+.st 741116####780302######6###########################Claes Wihlborg
+.pg;II.6	DECLARATION STRUCTURE
+.s;.lm 9;.f;The declaration structure consists of 4 record types,
+ZQU, ZHE, ZHB and ZQQ. 6 states are defined:
+.s;.lm 17;.nf;
+1. System component list (SYS1)	(II.A.2)
+2. Pass 1 intermediate list	(II.A.3)
+3. DF1 intermediate file	(II.4.6)
+4. Pass 2 declaration stack	(II.B.3)
+5. ATR intermediate file	(II.4.9)
+6. External attribute file	(II.4.3)
+.s;.lm 9;.nf;
+The modules which perform the transformations are:
+.s;
+#	     (1)
+#	      !  +--------------------------------------+
+#	      v	 v			        	!
++----+	     +----+  +----+       +----+       +----+   !
+! SD !->(2)->! DP !->!CARL!->(4)->! EX !->(5)->! M3 !->(6)
++----+	     +----+  +----+       +----+       +----+
+.s;
+All fields named here are declared in the universal SIMMAC.
+.pg;.i -8;II.6.1##ZQU record
+----------
+.f;.s;The ZQU record holds information about declared quantities.
+The size is:
+.lm 11;.nf;
+4 words in states 3 and 4
+3 words in state 2
+4 or 6 words in state 1
+6 words in states 5 and 6
+.s;.lm 9;
+FIELD	LOCATION	SIZE	STATE	CONTENTS
+.s;
+ZDETYP	0	<0:2>	3	ALL	ZQU%V
+ZQUGLO	0	<3>	1	234	Global	CLASS/PROCEDURE
+.tp 2
+ZQUEXT	0	<4>	1	23456	External CLASS or
+					PROCEDURE
+.tp 2
+ZQULEN	0	<5>	1	2	ZQUIND contains length
+					of object
+.tp 2
+ZQUIS	0	<5>	1	4	Inspected class
+					attribute
+.tp 2
+ZQUIB	0	<6>	1	4	Function whose body is
+					being compiled
+.tp 2
+ZQUTPT	0	<6>	1	256	Temporary storing of
+					ZQUPTD
+ZQUSYS	0	<7>	1	ALL	System component
+ZQUTYP	0	<8:11>	4	ALL	TYPE code
+ZQUHID	0	<12:13>	2	23456	HIDDEN specification
+.tp 3
+ZQUNOT	0	<14>	1	23456	The HIDDEN PROTECTED
+					specification has the
+					NOT form
+ZQUMOD	0	<12:14>	3	ALL	MODE code
+ZQUKND	0	<15:17>	3	ALL	KIND code
+ZQUTMK	0	<8:17>	10	4	TYPE+MODE+KIND
+ZQUSTMK	0	<7:17>	11	4	SYS+TYPE+MODE+KIND
+ZQUZHE	0	<18:35>	18	4	Enclosing block header
+.tp 4
+ZQUTEM	0	<18:35>	18	12	Temporary storing of
+					3<0:17>	if system
+					element, otherwise of
+					3<18:35>
+.tp 2
+ZQUFIX	1	<0:17>	18	1	Link next ZQU at same
+					level
+ZQUIVA	1	<0>	1	23456	Invalid access
+.tp 2
+ZQUNSB	1	<1:5>	5	23456	Number of subscripts or
+					virtual match
+.tp 2
+ZQULID	1	<6:17>	12	234	Lexical identifier
+					number
+.tp 5
+ZQUIND	1	<18:35>	18	2	Length
+				ALL	Offset or virtual index
+				1234	Fixup or HISEG address
+				5	Code address of
+					prototype or label
+.tp 2
+ZQUUSE	2	<0>	1	4	Used when resolving
+					HIDDEN	specifications
+.tp 2
+ZQUZQU	2	<0:17>	18	4	Pointer to qualifying
+					class
+.tp 2
+ZQUQID	2	<0:17>	18	23	Identifier number of
+					qualifying class
+.tp 2
+ZQUZB	2	<18:35>	18	4	Parameter and attribute
+ 					list header
+.tp 2
+ZDELNK	2	<18:35>	18	2	Link in pass 1
+					structure
+.p 0,1,3
+ZQUNAC	3	<0:2>	3	34	Number of accumulator
+					to be reserved
+ZQUPR	3	<3>	1	34	Proper procedure
+.tp 2
+ZQUGB	3	<4>	1	34	Can cause garbage
+					collection
+ZQUIO	3	<5>	1	34	I/O editing
+.tp 2
+ZQULO	3	<6>	1	34	Identifier more than 6
+					characters
+ZQUQIK	3	<7>	1	4	QUICK procedure
+ZQUPTD	3	<8>	1	34	Protected attribute
+ZQUDD	3	<9>	1	4	Doubly declared
+ZQUSNR	3	<10:17>	8	34	System	routine	number
+.tp 2
+ZQULNE	3	<18:35>	18	34	Line number of
+					declaration
+ZQU1ID	2:3		72	16	ZQULID in SIXBIT
+.tp 2
+ZQUUNR	4		36	6	Unique number if label
+					attribute
+ZQU2ID	4:5		72	16	ZQUQID in SIXBIT
+.p -8,4,15;II.6.2	ZHE record
+----------
+.s;.f;The ZHE record holds information about declaration
+scopes of blocks and for-statements. The size is:
+.nf;.lm 11;3 words in state 2
+2 words in states 3 and 4
+4 words in states 5 and 6
+.s;.lm 9;
+FIELD	LOCATION	SIZE	STATE	CONTENTS
+.p 0,1,3
+ZDETYP	0	<0:2>	3	ALL	ZHE%V (ZHB%V if used as
+					prefix)
+ZHETYP	0	<3:5>	3	ALL	Type code
+.s;If ZHETYP is not QQUACH:
+.s;
+ZHENOI	0	<11>	1	4	No INNER in this class
+.tp 2
+ZHESOL	0	<12:17>	6	ALL	Source level, block
+					stack index
+.tp 3
+ZHEDLV	0	<18:35>	18	23456	Offset to access
+					display element for
+					this block
+.s;
+ZHEEBL	1	<0:4>	5	ALL	Effective block level
+ZHELEN	1	<5:14>	10	ALL	Size of block instance
+ZHEBNM	1	<15:23>	9	23456	No of reduced subblocks
+.tp 2
+ZHEFIX	1	<24:35>	12	1234	Base fixup for this
+					block
+.p 0,1,3
+ZDELNK	2	<18:35>	18	2	Link in pass 1
+					structure
+.s;If ZHETYP =	QQUACH:
+.s;
+ZHEOID	0	<6:17>	12	23	Own identifier number
+.tp 3
+ZHELID	0	<18:35>	18	23	Lexical identifier
+					number of referenced
+					external
+.tp 2
+ZHEUNR	1		36	2356	Unique number of
+					referenced external
+.tp 2
+ZDELNK	2	<18:35>	18	2	Link in pass 1
+					structure
+ZHEID	2:3		72	6	ZHELID in SIXBIT
+.p -8,4,15;II.6.3	ZHB record
+----------
+.s;.f;The ZHB record holds information of declaration scopes of
+procedures, classes, prefixed blocks and connection blocks.
+It is a subrecord to the ZHE record. The size is:
+.nf;.lm 11;3 words in state 1
+4 or 5 words in state 2
+5 words in states 3, 4, 5 and 6
+.s;.lm 9;
+FIELD	LOCATION	SIZE	STATE	CONTENTS
+.s;
+#	0:1				Same as ZHE
+.s;
+ZHBZQU	2	<0:17>	18	34	Link to corresp. ZQU
+ZHBXID	2	<0:17>	18	2	External identifier
+ZHBZHB	2	<18:35>	18	4	Prefix link
+.tp 2
+ZHBZE	2	<18:35>	18	4	Link to local var. list
+					from param. list header
+.tp 2
+ZDELNK	2	<18:35>	18	2	Link in pass 1
+					structure
+.s;
+ZHBDEV	3	<0:11>	12	2	Device of ATR file
+ZHBNRP	3	<0:7>	8	ALL	Number of parameters
+ZHBVRT	3	<8:15>	8	ALL	Number of virtuals
+.tp 3
+ZHBSBL	3	<16:20>	5	234	EBL of statically
+					enclosing complete
+					block
+ZHBSTD	3	<21:25>	5	23456	Display level
+ZHBSZD	3	<26:30>	5	456	Max value of STD
+.tp 2
+ZHBUPF	3	<31>	1	ALL	Class used as block
+					prefix
+.tp 12
+ZHBMFO	3	<31:33>	3	23456	Non-zero for MACRO-10
+					or FORTRAN procedure.
+					Type codes:
+					QEXMAC (1):
+					  MACRO-10/E:CODE
+					QEXMQI (2):
+					  MACRO-10/E:QUICK
+					QEXFOR (4): 
+					  FORTRAN/E:FORTRAN
+					QEXF40 (5): 
+					  FORTRAN/E:F40 (old)
+ZHBLOC	3	<33>	1	ALL	Local object (if class)
+.tp 3
+ZHBNCK	3	<34>	1	23456	Separately compiled
+					MACRO-10 procedure
+					with NOCHECK
+.tp 2
+ZHBKDP	3	<34>	1	ALL	Class with class
+					attributes
+.tp 2
+ZHBEXT	3	<35>	1	23456	Separately compiled
+					class or procedure
+.s;
+ZHBPPN	4		36	2	PPN of ATR file
+.tp 2
+ZHBUNR	4		36	2346	Unique number if
+					external
+.p -8,4,15;II.6.4	ZQQ record
+----------
+.s;.lm 9;.f;The ZQQ record holds information about entry points
+of separately compiled modules. ZQQ records are output last
+in the intermediate declaration file. The size is:
+.i 2;.br;2 words in states 2 and 3
+.s;.nf;
+FIELD	LOCATION	SIZE	STATE	CONTENT
+.s;
+ZQQLNK	0	<0:17>	18	2	Link next ZQQ
+ZQQFIX	0	<18:35>	18	23	Fixup
+ZQQUNR	1		36	23	Unique number
+.sp 1;.nonum;.lm 9;.ps 50,72
+.ts 1,9,17,25,33,41,49,57,65
+.pg;.nm appendix 1
+.ax SIMULA FOR DEC SYSTEM 10#############TD, COMPILER PASS 1
+.nm 1
+.st 741025####780302######6###########################Claes Wihlborg/LE
+.pg;.lm 9;.p -8,0,10;II.A####PASS 1
+.p -8,2;II.A.1##Pass description
+.br;----------------
+.s;The first pass of the SIMULA compiler executes in three phases.
+.br;In phase 1, the low segment is initialised and the file
+specifications are read.
+.br;In phase 2, the source file is read and lexical and syntactical
+analysis are performed.
+.br;In phase 3, the declarations found in phase 2 are merged with
+external attributes (if any) and sorted to be suitable for reading
+in pass 2.
+.p -8,2,10;II.A.1.1#Important algorithms used
+.s;MODULE SH (Symbol Hash)
+.br;-----------------------
+.br;The symbol table is organised to be searched by a combination of
+hash-coding and binary search.
+The hashing function maps all identifiers on 128 binary trees by
+multiplication of the first six characters with a constant and
+taking the middle 7 bits as a hash code.
+.p 0,1,10;MODULE LS (Lexical Scanner)
+.br;---------------------------
+.br;The lexical scanner inputs characters one by one and recognises the basic
+entities of the language. Each basic entity is output as one or more
+symbols to the caller (the syntax recogniser). The following functions
+are performed by the scanner:
+.lm 12;.i -3;*##Skips all comments, blanks and special control characters.
+.i -3;*##Outputs text constants to the rel file.
+.i -3;*##Converts arithmetic constants to internal format.
+.i -3;;*##Converts delimiters and reserved words to internal representation.
+.i -3;*##Converts identifiers to integer code numbers.
+.lm 9;.p 0,1,10;MODULE SR (Syntax Recognition)
+.br;------------------------------
+.br;The syntax recogniser controls the process of recognising and checking
+the structure of the source text. A top-down method for syntax recognition
+(recursive descent)
+is employed. Each syntactic definition (production rule) is recognised
+by its own recognition routine, which calls other recognition routines
+recursively, until the analysed sentence is reduced to terminal symbols.
+A recognition routine attempts to find an instance of the syntactic
+class defined by the production. The right hand side is transcribed
+into a sequence of calls on the corresponding recognition routines
+for syntactic classes, interspersed with direct comparisons for terminal
+symbols. Comparisons are followed by reading the next symbol.
+.br;*##Error recovery:
+.br;If a recognition routine discovers an error in the source text
+it will normally be able to go on by recovering from the error, usually
+by ignoring some of the following symbols from the source text.
+The general principle is that if a recognition routine can identify
+an error, it will recover from that error.
+.br;*##Rearrangement of syntactic definitions:
+.br;The syntax as published in the Common Base document is not directly
+suitable as basis for recognition routines.
+The definitions are therefore rearranged, which serves two purposes.
+.br;1) Some changes are essential to make the analyser function correctly
+in a top-down fashion, e.g_. left recursion must be removed.
+.br;2) Other changes make the recognition process more efficient.
+.br;Some modifications are:
+Removal of redundant definitions, reduction of self-recursion
+to iteration, factorisation of definitions and alternatives to avoid
+back-tracking. To that end a one symbol look-ahead is also employed.
+.br;*##Implementation language:
+.br;To ensure standardisation and simplify development the recognition
+routines are written in a high level macro language.
+.br;Among the powerful facilities available we may mention:
+.br;Optimised operand evaaluation - the macro system will automatically
+choose the correct instruction depending on the operand being a
+constant, in an accumulator or in a memory cell.
+.br;Optimised predicate evaluation - the macro system will choose
+the instructions needed to evaluate a Boolean expression.
+.p 0,1,10;MODULE SD (Syntax Dispatch)
+.br;---------------------------
+.br;This module is called from SR and takes care of the declarations,
+creating the DC1 list. By using an advanced list structure, SD
+makes it possible for the DP module to read the DC1 list in a
+straightforward manner. A stack with 64 levels is employed in the
+list-manipulation code. Each stack level keeps track of 5 linear lists
+of declarations.
+.p 0,1,10;MODULE DP (Declaration Processing)
+.br;----------------------------------
+.br;This module transforms the DC1 list and merges it with any external
+attributes creating the DF1 file. Only those attributes which are
+used (i.e_. mentioned in the compiled code, not only in the external
+attribute file), are merged in, thus minimising the file.
+.br;*** Problem:
+.br;Unfortunately, this can lead to a virtual procedure definition
+being "lost" in certain rare cases. A modification of
+this algorithm would thus seem to be necessary, but not urgent.
+.st 740805####780302######6###########################Lars Enderin
+.p 0,2,10;MODULE O1 (INPUT/OUTPUT)
+.br;------------------------
+.f;.br;This module performs the I/O operations necessary in Pass 1.
+The operations are normally straightforward, except for attribute file
+handling, which is done by O1EX.O, O1EXBU, O1EXFM, O1EXLU, O1EXNP, O1EXRM,
+O1EXRQ, O1EXSO, O1EXT, O1EXTB.
+.p 0,1,5;* Chain of ZQU records for externals:
+.br;When an EXTERNAL declaration is encountered,
+SDEXT makes skeleton ZQU, ZHB and ZHE(QQUACH) records and puts the
+ZQU record on the chain starting at YEXZQU. In older versions of SIMULA,
+the ATR file would be read at that stage. Reading is now deferred
+until the DP module has merged system components with declarations
+from the source program.
+.s;* Lookup of ATR files:
+.br;DPEXFA (find all ATR modules) is called to
+scan the YEXZQU chain and input all the necessary information form
+ATR files. Looking for ATR files proceeds in two phases:
+.i -3;.s;1) Looking up separate ATR files:
+.br;Each ATR file is first looked up as a separate file on device
+DSK: (assuming the simplest form of external declaration). O1EX.O
+opens channel QCHEXT if necessary.
+A lookup operation tries to find the relevant ATR file (O1EXLU).
+.br;* Reading the first block of the file (O1EXTB):
+.br;If the file is found, the ZQU is removed from the chain and the first
+block of the ATR info is read by O1EXTB (which calls O1EXBU to allocate
+buffers).
+.br;* Updating the request block chain:
+.br;O1EXRQ places a request block on the YEXZRQ chain (see SEARCH
+list handling below).
+.br;* Processing the ATR file:
+.br;DPEXT is then called and will call O1EXT to read
+info from the ATR module.
+.br;* O1EXCL will close the ATR file.
+.s;Variations on this scheme exist:
+.br;* Compiling an external module:
+.br;If a global module is being compiled and the module found is an
+earlier version of the global module, O1EXNP takes note of where the
+ATR module was found (file spec, word within file) for the benefit
+of pass 3 which will later read the file. O1EXRQ and DPEXT are not
+called.
+.s;* Specific ATR file requested:
+.br;If the external declaration requested a specific file (device
+and/or path explicitly given, or '=' used in declaration),
+O1EXFM (findmodules) is called after a successful lookup to check
+if the file is a library (started by a LOADER index block) or a separate
+ATR file. If the file is not a library,
+the file is read directly, otherwise
+the relevant module is hopefully found in the library.
+In both cases, O1EXRM reads the header info up to the actual ATR
+info, then calls DPEXT to process the atr info, using O1EXT to read
+words from the file.
+.s;At the end of phase 1, all ZQU records have been scanned once.
+If some external references have not been found then, phase 2 starts.
+.s;.i -3;2) Looking for ATR modules which were not found as separate files:
+.br;If any ZQU records remain unresolved on the chain after the first
+phase, the SEARCH list of ATR libraries is tried next.
+.s;* Definition of the SEARCH list:
+.br;The SEARCH list for ATR files is defined as follows:
+.br;When compilation starts, SP sets up a DEFAULT search list by calling
+I1SRCH.
+I1SRCH uses the table YI1SRC to set up an initial chain of ZRQ records,
+containing:
+.p 8,1,5;ZRQDEV - Device name (sixbit)
+.i 8;ZRQFIL - File name (sixbit)
+.i 8;ZRQPPN - ppn (or full SFD path pointer)
+.p 0,1,5;The chain is handled by O1EXRQ. YRQHEAD points to the LAST inserted
+ZRQ record, which points to its predecessor via its ZRQZRQ field, etc,
+until ZRQZRQ = 0 is found.
+New ZRQ records are put on the chain if an identical file spec
+(YRQDEV, YRQFIL, YRQPPN compared to ZRQ....) cannot be found. The ZRQSRC switch
+shows if a file belongs to the search list. See request blocks below.
+.p 0,1,5;The search list is modified by /SEARCH switches.
+.s;/SEARCH:"spec" puts a ZRQ block corresponding to "spec" at the front end
+of the chain (pointed to by YRQHEAD). No duplicate entries are created, however,
+which means that a ZRQ record stays in the same place in the chain once it is
+put there.
+.p 0,1,5;If the /SEARCH switch has the form
+.br;/-SEARCH:"spec", however, it means that the corresponding ZRQ record should
+be removed from the chain. This is not really done by taking the ZRQ record
+away, but by resetting the ZRQSRC flag (one bit).
+.p 0,1,5;If the /SEARCH switch is given without a file spec, the DEFAULT search list
+is reinstated, while any additional files remain.
+.p 0,1,5;A negated switch without file spec (/-SEARCH) removes ALL files from the search
+list by turning off the ZRQSRC bits.
+.p 0,1,2;See also TD II-4.3.
+.p 0,1,10;* Request blocks in REL file:
+.br;The ZRQ chain described above is also used to define
+the request blocks which are written to the REL file. Request blocks are
+loader blocks of type 17 containing the information ZRQFIL, ZRQPPN, ZRQDEV
+copied from YRQFIL, YRQPPN, YRQDEV when the ZRQ block was defined
+(by O1EXRQ). The linking loader (LINK-10) will scan the corresponding file
+(extension REL assumed) in library search mode, before scanning SIMLIB.REL.
+When O1EX determines that a file - dev:x.ATR[p,pn] - is the correct ATR
+file to use for resolving an external reference to a class or procedure,
+the file spec (YRQDEV, YRQFIL, YRQPPN) is checked against all records on the
+ZRQ chain, starting with YRQHEAD. O1EXRQ does this. If the file is not on
+the chain, a new ZRQ record is created (via SDALLOC) and chained via
+YRQHEAD and ZRQZRQ. When returning to O1EXLU,
+the ZRQOUT bit is set for the record (also
+in YRQHEAD to show that there is information available for at least one
+request block).
+.p 0,1,5;* Output of request blocks or command strings in REL file:
+.br;At the end of PASS 1 processing, O1RLRQ is called, provided
+YRQHEAD is non-zero, to output any request blocks defined by ZRQ records
+with the ZRQOUT bit set.
+Only device, ppn and file name without extension are specified. The
+extension REL is assumed.
+Thus no SFD can be defined. For SFD's, ASCIZ commands are instead put into the
+REL file by O1RLOA called from O1RLRQ: "dev:atrfil[path]/SEARCH".
+Only ASCIZ strings are output in the TOPS-20 version.
+.p 0,1,5;* Scanning the search list:
+.br;The ATR files on the search list are scanned in turn. In order
+to reduce the necessary file positionings, however, the remaining
+ATR files are matched against the index blocks by scanning the index
+blocks in order and checking the list against each module name in
+the index block before going on to the next index block and eventually
+to the next ATR file if necessary. As modules are found in the index
+block currently active, the ATR module is read from one of the following
+blocks avoiding unnecessary i/o operations by taking advantage of
+the fact that each module is placed in the file in the same order
+as the index block entries and following the index block.
+.br;DPEXFA contains the main loop over the ZQU list and over the search
+list, O1EXFM finds all modules matching the ZQU list in the current
+library. Each matched ZQU is taken off the list by DPEXRM and processed
+by DPEXT which uses O1EXT for I/O. O1EXSO skips overhead information
+(entry and name blocks), O1EXTB allocates buffers and reads the first
+block off each new file.
+At the end of the search list, if there are still unmatched ZQU's,
+a compilation error will be issued.
+.p 0,1,10;* Possible future modification:
+.br;The algorithm described above will have to be modified if INDIRECT
+external references are to be included in the program without explicit
+declaration. It may possibly be advantageous to read the directories
+(UFD, SFD files) corresponding to DSK: saving the ATR file names
+in order to avoid unnecessary lookup operations, since most ATR modules
+tend to be placed in the libraries anyway. It will perhaps also be necessary
+to keep all index blocks in core to handle indirect external references,
+if excessive i/o operations should be avoided.
+.pg;.i -8;II.A.2##Pass decomposition
+.br;-------------------
+.nf;.s;.i -8;II.A.2.1 Components.
+.s;Pass 1 consists of the following modules:
+.s;D1	Miscellaneous tables
+DM	Diagnostic messages handling
+DP	Create intermediate declaration file
+I1	Set up low segment and read commands
+LC	Input one line of source code
+LS	Lexical scanner
+O1	Input/Output routines
+SD	Semantic processing of declarations
+SH	Symbol table handling
+SM	Miscellaneous semantic routines used by SR
+SP	Perform first pass main scan
+SR	Syntax recognition routines
+SYS1	Table of SIMULA system components
+T1	Termination routines
+.f;.s;The following modules are only present in the debug version
+of the compiler:
+.s;.nf;P1DUMP	Miscellaneous debug routines
+TRACE	Tracing code (traces each instruction)
+TRACEI	Tracing code initialisation
+.lm 1;.p 0,2,26;II.A.2.2 Main flow.
+.s;.nf;
++----------------+	+----------------+	+----------------+
+!	I1	 !----->!	SP	 !----->!	T1	 !
+! Initialisation !	! Syntax parser  !	!  Termination	 !
++----------------+	+----------------+	+----------------+
+				!			!
+				v			v
+			+----------------+	+----------------+
+			!	SR	 !	!	DP	 !
+		+-------! Syntax recogn. !-+	! Decl. process. !
+		!	+----------------+ !	+----------------+
+		!		!	   !
+		!		!	   !
++----------------+	+----------------+ !	+----------------+
+!	SM	 !	!	LS	 ! +----!	SD	 !
+! Syntax, misc.  !	!  Lexical scan  !	! Syntax dispatch!
++----------------+	+----------------+	+----------------+
+				!
+			+----------------+
+			!	LC	 !
+			!  Line control  !
+			+----------------+
+.pg;.lm 9;.p -8,0,6;II.A.2.3 Module contents
+.s;.f;The following list should serve as an index into the compiler
+listings, which must be consulted for any detailed study of pass 1
+functions.
+.nf;.p 0,2,4
+MODULE D1
+---------
+.s;
+Tables, no executable code.
+.p 0,2,6
+MODULE DP
+---------
+.f;.lm 17;
+.p -8,1,4;DP	Output DC1 list to DF1 after modifications.
+Call DPEXFA to find all external attribute files needed.
+Check for conflicting unique id's in external modules.
+.p -8,0,4;DPEXT	Read an attribute module (separate ATR file or part of
+a library). If compiling a main program, generate code for prototypes
+and symbol tables of external MACRO-10 and FORTRAN procedures.
+.p -8,0,3;DPEXTC	Append external attributes to the DC1 list.
+Calls itself recursively.
+.p -8,0,3;DPEXCR	Create external symbol request loader block
+for REL file.
+.p -8,0,2;DPEXDF	Define external name corresponding to a fixup number.
+.p -8,0,2;DPSYS	Append system elements to the DC1 list.
+.p -8,0,4;DPEXFA	(findemall). Finds ATR files corresponding
+to ZQU records for external declarations.
+Tries separate files first, then libraries on search list.
+.p -8,0,3;DPEXER	Issue error message for external file error.
+.p -8,0,3;DPEXGD	Get device name from current ZHB (id or 'DSK').
+.p -8,0,3;DPEXFS	File spec for ATR: YRQFIL:=name, YRQPPN:=ppn.
+.p -8,0,3;DPEXRM	Remove ZQU record from YEXZQU chain.
+.p -8,2,8;MODULE I1
+.p -8,0,1;---------
+.p -8,1,2;I1CHAR	Get next command character.
+.p -8,0,2;I1CM	Read a command line (TMPCOR, TMP file or TTY).
+.p -8,0,2;I1TTYC	Read a command line from the TTY.
+.p -8,0,2;I1DIR	Parse a directory specification.
+.p -8,0,2;I1FN	Parse a file specification.
+.p -8,0,2;I1MOVE	Move a line from command buffer to command
+line buffer.
+.p -8,0,2;I1PC	Put a character in command line buffer (PUTCHAR).
+.p -8,0,2;I1NAME	Scan a name (identifier) from command.
+.p -8,0,2;I1PPN	Parse and convert an octal number from command file.
+.p -8,0,2;I1REN	Enter Pass 3 after REENTER command.
+.p -8,0,2;I1RX50	Conversion SIXBIT -> RADIX50.
+.p -8,0,2;I1SC	Create OPEN and LOOKUP blocks for next source file.
+.p -8,0,2;I1SRBP	Check compiler switches that must appear before
+the start of the program text proper.
+.p -8,0,8;I1SRTx	A set of routines, each of which handles a
+compiler switch, e.g_. I1SRTA handles the ARRAY switch. The initial
+letter of the switch name is substituted for x to get the name of
+the routine. See SIMCOM.HLP or the SIMULA Language Handbook part II,
+Sect 3.5.1, for available switches.
+.p -8,0,2;I1SW	Recognise compiler switches.
+.p -8,0,2;I1SWIT	Process compiler switches.
+.p -8,0,2;I1RECO	Recover from switch error.
+.p -8,0,2;I1SWER	Switch error handler.
+.p -8,0,2;I1SRCH	Set up standard search list.
+.p -8,0,2;SIMULA	Primary entry point to compiler (pass 1).
+.p -8,0,2;I1OVFL	Stack overflow handler.
+.p -8,0,2;I1UNFL	Stack underflow handler.
+.p -8,2,8;MODULE LC
+.p -8,0,1;---------
+.p -8,1,2;LC	Input next source line.
+.p -8,0,2;LCEOF	End of file in source.
+.p -8,0,2;LCLINE	Update source line number.
+.p -8,0,2;LCLS1	Output record to LS1.
+.p -8,0,2;LCMORE
+.p -8,0,2;LCNEXT	Move source line to line buffer from file buffer
+.p -8,0,1;LCPLIN	Create LS1 records.
+.p -8,2,8;MODULE LS
+.p -8,0,8;---------
+.p -8,1,2;LS	Get next symbol from source line.
+.p -8,0,2;LSC	Scan character constant.
+.p -8,0,2;LSCHBE
+.p -8,0,2;LSCHBL	Scan past blank characters.
+.p -8,0,2;LSCHGR	Handle line control characters.
+.p -8,0,2;LSCHIG	Skip ignorable characters.
+.p -8,0,2;LSCHN1
+.p -8,0,2;LSCHNP	Error messages for non-printable characters.
+.p -8,0,2;LSEND	Scan end comment.
+.p -8,0,2;LSI	Handle identifiers and reserved words.
+.p -8,0,2;LSIOSC	Scan characters from OPTIONS statement.
+.p -8,0,2;LSIPAG	Scan PAGE switch.
+.p -8,0,2;LSIS	Scan identifiers and reserved words.
+.p -8,0,2;LSLNSM	Prepare line number for error message.
+.p -8,0,2;LSN	Scan numeric constant.
+.p -8,0,2;LSNCO	Convert INTEGER -> LONG REAL.
+.p -8,0,2;LSNDL	Check decimal point not last char of number.
+.p -8,0,2;LSNEXP	Scan exponent part of number.
+.p -8,0,2;LSNKEX	Look-ahead for keyword.
+.p -8,0,4;LSNRDD
+.p -8,0,1;LSNRDN
+.p -8,0,1;LSNRDS	Scan number in non-decimal radix.
+.p -8,0,2;LSNSCE	Scale number.
+.p -8,0,2;LSSEM	Update semicolon count.
+.p -8,0,2;LST	Handle debug symbols in source code.
+.p -8,0,2;LSX	Handle TEXT constant.
+.p -8,0,2;LSXTXT	Scan TEXT constant.
+.p -8,2,8;MODULE O1
+.p -8,0,1;---------
+.p -8,1,2;O1DBOP	Open file nnnDEB.TMP (only in debug mode).
+.p -8,0,2;O1DB6	Output 3 words to nnnDEB.TMP (debug only).
+.p -8,0,2;O1DFOP	Allocate space for file DF1.
+.p -8,0,2;O1OPDF	Open file nnnDF1.TMP and output the data which is in core.
+.p -8,0,2;O1DF1	Open nnnDF1.TMP unless already open. Output a buffer.
+.p -8,0,2;O1DFCL	Close nnnDF1.TMP if open.
+.p -8,0,2;O1EXBU	Set up buffers for ATR file.
+.p -8,0,2;O1EXFM	Find ATR modules in ATR library file.
+.p -8,0,2;O1EXFW	Find first word of an index block (ATR library).
+.p -8,0,2;O1EXMP	(TOPS-20 only) Make sure wanted page of ATR file is mapped
+in core.
+.p -8,0,2;O1EXMA	(TOPS-20) Map ATR file pages on core area.
+.p -8,0,2;O1EXNP	Note position of the old ATR module (file and word in file).
+.p -8,0,2;O1EXRM	Prepare for DPEXT to read ATR module (position to first word).
+Call DPEXT for processing.
+.p -8,0,2;O1EXSO	Skip ATR module overhead (position to first word of attr.
+list).
+.p -8,0,2;O1EXLU	LOOKUP ATR file.
+.p -8,0,2;O1JFNI	(TOPS-20) Get input JFN for file defined by TOPS-10 lookup
+block. Open the file for input (O1OJFI).
+.p -8,0,2;O1OJFI	(TOPS-20) Perform OPENF JSYS. Records file size (SIZEF JSYS).
+.p -8,0,2;O1JFN	(TOPS-10) Get a JFN for input or output.
+Use TOPS-10 lookup block for file spec.
+.p -8,0,2;O16TO7	Translation ASCII -> SIXBIT.
+.p -8,0,2;O1EXRQ	Define request block information.
+.p -8,0,2;O1SFDC	Copy SFD record. Used e.g_. by O1EXRQ when SFD was specified.
+.p -8,0,2;O1EX.O	Perform OPEN UUO for channel QCHEXT. (TOPS-20 version just
+records device name).
+.p -8,0,2;O1EXTB	Allocate ATR file buffers, then fall into O1EXT code.
+.p -8,0,2;O1EXT	Read a buffer from the current ATR file.
+.p -8,0,2;O1EXCL	Close ATR file. (TOPS-20 version first unmaps file).
+.p -8,0,2;O1ICOP	Allocate space for IC1 file.
+.p -8,0,2;O1OPIC	Open file nnnIC1.TMP and transfer pending data from core to
+file.
+.p -8,0,2;O1IC1	Output a buffer to nnnIC1.TMP, if necessary after opening
+the file.
+.p -8,0,2;O1ICCL	Close nnnIC1.TMP if open.
+.p -8,0,2;O1LSOP	Allocate space for LS1 file.
+.p -8,0,2;O1OPLS	Open file nnnLS1.TMP and transfer pending data from core to
+file.
+.p -8,0,2;O1LS1	Output a buffer to nnnLS1.TMP, if necessary after opening
+the file.
+.p -8,0,2;O1LSCL	Close nnnLS1.TMP if open.
+.p -8,0,2;O1RLOP	Open rel file and output entry block and name block, also
+source file identification (lookup info).
+.p -8,0,2;O1RL	Output an unrelocated word to REL file.
+.p -8,0,2;O1RLR	Output a relocated word to REL file.
+.p -8,0,2;O1RLS	Output a symbol item to REL file (part of type 2 loader block).
+.p -8,0,2;O1RLC	Output a relocation word to REL file.
+.p -8,0,2;O1RLD	Close current code item.
+.p -8,0,2;O1RLNB	Start new rel code buffer.
+.p -8,0,2;O1RLIC	Start new code item (type 1 loader block).
+.p -8,0,2;O1REL	Write a buffer to REL file.
+.p -8,0,2;O1RLRQ	Output request info to REL file for all REL files to be searched by
+the linking loader for matching external references corresponding
+to ATR files which were used. The info is either type 17 blocks or
+ASCIZ strings.
+.p -8,0,2;O1RLOA	Output ASCIZ string to REL file: "dev:file[path]/SEARCH".
+.p -8,0,2;O16BIT	Convert SIXBIT -> ASCII calling O1RLOA for each character.
+.p -8,0,2;O1OCT	As O16BIT, but converts binary integer to octal ASCII characters.
+.p -8,0,2;O1RLUN	Output comment record (type 0 block) containing all external
+references, also any type 17 block corresponding to ATR files.
+.p -8,0,2;O1SCOP	Look up source file.
+.p -8,0,2;O1SC	Read a buffer from source file.
+.p -8,0,2;O1SCCL	Close source file.
+.p -8,0,2;O1XROP	Allocate space for XRF file in core.
+.p -8,0,2;O1OPXR	Open file nnnXRF.TMP. Output currents contents of core file area.
+.p -8,0,2;O1XRF	Output a buffer to nnnXRF.TMP, having opened the file if not
+open before.
+.p -8,0,2;O1XRCL	Close nnnXRF.TMP if open.
+.p -8,0,2;O1ZSOP	Open file nnnZSE.TMP.
+.p -8,0,2;O1ZSE	Output buffer to nnnZSE.TMP.
+.p -8,0,2;O1ZSCL	Close nnnZSE.TMP.
+.p -8,0,2;O1ZS	Write symbol table.
+.p -8,0,2;O1ERR	Error message output: ? FILE xxx NOT FOUND
+.p -8,0,2;O1PACK	Pack core files in core file area.
+.p -8,0,2;O1SETB	Set up buffer rings.
+.p -8,2,8;MODULE SD
+.p -8,0,1;---------
+.p -8,1,2;SDBEG	Start of block, procedure, inspection etc.
+.p -8,0,2;SDEND	End of block, procedure, inspection etc.
+.p -8,0,2;SDZQU	Declared quantity.
+.p -8,0,2;SDEXT	External declaration.
+.p -8,0,2;SDSPEC	Parameter specification.
+.p -8,0,2;SDESPE	End of parameter specifications.
+.p -8,0,2;SDABEG	Start of array segment.
+.p -8,0,2;SDAEND	End of array segment.
+.p -8,0,2;SDPEND	Program end.
+.p -8,0,2;SDPPN	Reevaluates proj or progr no as octal.
+.p -8,0,2;SDALLO	Allocate space in DC1 list.
+.p -8,0,2;SDHID	HIDDEN PROTECTED specification.
+.p -8,0,2;SDPRO	Protect attributes at classend.
+.p -8,2,8;MODULE SH
+.p -8,0,1;---------
+.p -8,1,2;SH	Transform identifier from SIXBIT to internal identifier no.
+.p -8,0,2;SHNEW	Append a new identifier to symbol table.
+.p -8,2,8;MODULE SM
+.p -8,0,1;---------
+.p -8,1,2;SMERR	Generate error message for syntax error.
+.p -8,0,2;SMLIND	Output line symbol preceding declaration.
+.p -8,0,2;SMLINE	Output line symbol preceding executable statement.
+.p -8,0,2;SMUID	Output referenced identifier to IC1 and XRF.
+.p -8,2,8;MODULE SP
+.p -8,0,1;--------
+.p -8,1,2;SP	Initialise low segment and start syntax parsing.
+.p -8,0,2;SPDCIN	Initialise DC1 area.
+.p -8,2,4;MODULE SYS1
+.p -8,0,1;-----------
+.p -8,1,2;Contains no executable code.
+.p -8,2,8;MODULE SR
+.p -8,0,1;---------
+.lm 9;.p 0,1,3;
+Labels in this procedure are formed from the recognition routine
+names prefixed by SR. The recognition routines are:
+.lm 17
+.p -8,1,2;APAR	Actual parameter part.
+.p -8,0,2;ARY	Array declarations.
+.p -8,0,2;ARYS	Array subscripts.
+.p -8,0,2;BLK	Block.
+.p -8,0,2;CLAS	Class declaration.
+.p -8,0,2;ECLA	Check switches for external class.
+.p -8,0,2;ELST	IF-statement.
+.p -8,0,2;EPRO	Check switches for external procedure.
+.p -8,0,2;EXPR	Expression.
+.p -8,0,2;EXT	External declaration.
+.p -8,0,2;FLST	FOR list element.
+.p -8,0,2;FPAR	Formal parameter part.
+.p -8,0,2;LAB	Labels.
+.p -8,0,2;LST	Specification identifier list.
+.p -8,0,2;MAIN	Check switches for main program.
+.p -8,0,2;PBLK	Prefixed block.
+.p -8,0,2;PRG	Program starting with current symbol.
+.p -8,0,2;PROC	Procedure declaration.
+.p -8,0,2;PROG	SIMULA program.
+.p -8,0,2;SEXP	Simple expression.
+.p -8,0,2;SIST	FOR, INSPECT or WHILE statement.
+.p -8,0,2;SPEC	Procedure specification.
+.p -8,0,2;STAT	Statement.
+.p -8,0,2;TYPE	Type.
+.p -8,0,2;UNST	Unconditional statement.
+.p -8,0,2;VIRT	Virtual specification.
+.p -8,2,8;MODULE T1
+.p -8,0,1;---------
+.p -8,1,2;T1	Terminate pass 1 and enter pass 2.
+.p -8,0,2;T1AB	Termination error encountered. Enter pass 3 directly.
+.p -8,2,8;MODULE P1DUMP
+.p -8,0,1;-------------
+.p -8,1,2;_OUTOP	Open file nnnDEB.LST.
+.p -8,0,2;_.OUT	Output a buffer to nnnDEB.LST.
+.p -8,0,2;_OUTCL	Close nnnDEB.LST.
+.p -8,0,2;_.IN	Read a buffer from temporary file.
+.p -8,0,2;_.NEWPA	Output new page and page header to nnnDEB.LST.
+.p -8,0,2;_.NEWLI	New line.
+.p -8,0,2;_.PUTT	Text output.
+.p -8,0,2;_.PUTTAR	Text array output.
+.p -8,0,2;_.PUTID	Identifier output.
+.p -8,0,2;_.PUTSIX	Sixbit text output.
+.p -8,0,2;_.PUTOCT	Octal number output.
+.p -8,0,2;_.PUTDEC	Decimal number output.
+.p -8,0,2;_.PUTN	Number output.
+.p -8,0,2;_.ZH	Output fields common to ZHE and ZHB.
+.p -8,0,2;_.ZQU	Output ZQU record.
+.p -8,0,2;_.ZHE	Output ZHE record.
+.p -8,0,2;_.ZHB	Output ZHB record.
+.p -8,0,2;_DFDUMP	Output symbolic dump of DF1 file.
+.p -8,0,2;_ICDUMP	Output symbolic dump of IC1 file.
+.p -8,0,2;_LSTRAC	Output trace of symbols from LS.
+.p -8,0,2;_P1INIT	Initialise debug output.
+.p -8,0,2;_P1DUMP	Dump of intermediate files. Symbol table output to nnnDEB.TMP.
+.lm 9;.p -8,4,10;II.A.3##Low segment organisation
+.br;------------------------
+.s;The low segment of pass 1 consists of three parts:
+.lm 13;.p -4,1,2;1)##A global part (see II.3).
+.p -4,0,4;2)##A fixed pass 1 specific part. See LOWSEG.MAC and the
+modules that refer to the data for layout descriptions.
+.p -4,0,2;A dynamic part containing the DC1 structure (see II.6).
+.p -4,1,6;The sizes of the parts are:
+.s;Part 1:	#4 K
+.br;Part 2:	10 K
+.br;Part 3:	.5 K (initially)
+.lm 9;.p -8,4,10;II.A.4##Pass 1 interface
+.br;----------------
+.p -8,2,8;II.A.4.1 Pass initialisation
+.p 0,1,1;Pass 1 has five entry points:
+.i 4;SIMULA	Entered via .R SIMULA or .START
+.i 4;SIMULA+1	Via COMPIL/SIMULA
+.i 4;I1START-1	Entered from pass 3.
+.i 4;I1START	Entered when STARTed after first start.
+.i 4;I1REN	Entered via REENTER.
+.br;The entry points are located in the I1 module.
+.p -8,2,6;II.A.4.2 Pass 1 termination
+.p 0,1,1;Pass#1 enters pass#3 if an error has occurred, otherwise
+pass#2.
+.p -8,2,10;II.A.4.3 Job data area
+.p 0,1,1;The following locations are set specially in pass 1:
+.lm 13;.s;.nf;_.JBSA(RH)	SIMULA
+_.JBREN	I1REN
+_.JBAPR	I1OVFL
+_.JB41	PUSHJ 17,DM
+.f;.lm 9;.p -8,2,8;II.A.4.4 UUO's used
+.p 0,1,1;The following user defined UUO's are used in pass 1:
+.br;ERR, ERRLI, ERRT, ERRI1, ERRI2.
+.br;They are defined in SIMMAC.MAC (universal file).
+.lm 1;.p 0,4,30;.nf;II.A.4.5 Input/Output in pass 1
+.s 3;
+       +----------+   --------------	 ----------------------
+       !nnnSIM.TMP!   ) Source code )	 ) External attributes )
+       +-----+----+   --------------	 ----------------------
+    Pass 1 - ! - - - - - - - -!- - - - - - - - ! - - - -
+   !	     V		      V 	       V	 !
+       +----------+	+----------+	 +-----------+
+   !   ! Phase	1 !====>! Phase  2 !====>! Phase  3  !===!=> Next pass
+       +----------+	+----------+	 +-----------+
+   !	     !		!!!!		    !!! 	 !
+    - - - - -!- -- - - -!!!!  - - - - - - - !!! - - - - -
+	     !		!!!!		    !!!
+	     !		!!!!  ------------  !!!     ------------
+	     !		!!!-> ) nnnIC1.TMP) !!+---> ) nnnDF1.TMP)
+	     !		!!!   ------------  !!	    ------------
+	     !		!!!   ------------  !!	    ------------
+	     !		!!+-> ) nnnLS1.TMP) !+----> ) nnnZSE.TMP)
+	     !		!!    ------------  !	    ------------
+	     !		!!    ------------  !
+	     !		!+--> ) nnnXRF.TMP) !
+	     !		!     ------------  !
+	     !		!		    +-----> ------------
+	     !		+-------------------------> ) nnnREL.TMP)
+	     +------------------------------------> ------------
+.f;.lm 9;.p -8,4,8;II.A.5##Common macro file
+.br;-----------------
+.s;Pass 1 code refers to the universal file SIMMC1.UNV which
+defines macros, fields, switches and constants used in pass 1.
+SIMMAC.UNV is also used. See listing of SIMMC1.MAC for details.
+.p -8,4,8;II.A.6##Testing
+.br;-------
+.s;The debug version of pass 1 contains some built-in features
+for testing. The special features are controlled by insertion
+in the source code
+of the special debug character (control-uparrow, octal 036)
+followed by a code sequence.
+The code sequences are:
+.s;.nf;LS1	Start trace of lexical scanner output.
+LS0	Stop trace of lexical scanner output.
+DF1	Create symbolic dump of DF1.
+IC1	Create symbolic dump of IC1.
+.f;.p 0,1,5;Examples of test output are given in VIII.7. In the trace
+of LS1 output and in the dump of IC1 all internal compiler symbols
+start with percent (%) and any values are given in octal radix.
+Identifiers are written as in the source (only 12 characters).
+The optional second value for the %LINE symbol is the semicolon count.
+.p 0,1,5;The DF1 dump contains one line per record. The line starts
+with the offset of this record in the current declaration segment and
+is followed by the record type. The rest of the line contains the field
+values of the record.

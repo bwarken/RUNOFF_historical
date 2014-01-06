@@ -1,0 +1,527 @@
+
+
+
++---------------+
+! D I G I T A L !                     INTEROFFICE MEMORANDUM
++---------------+
+
+
+
+TO:     TOPS-10 Network Group         DATE:  12 JUL 78
+        Karen Campbell (2)            FROM:  Ric Werme  Doc # EJW-78-008-00-U
+        SWE Tech Archive              DEPT:  LCG Comm/Nets Engr.
+                                      EXT:   6059
+CC:     George Conant                 LOC/MAIL STOP:  MR1-2/E89
+        Tony Lauck
+        Rob Ryan
+
+SUBJ:   NCL, the TOPS-10 Network Logical Link Protocol
+
+
+Due to the  few  systems  involved,  the  TOPS-10  network  project  has
+survived  without  a specification for it's logical link level protocol.
+However, protocol specs have never been known to hurt a project and  the
+lack   of  a  spec  has  limited  the  impact  of  the  TOPS-10  network
+architecture on DECnet.
+
+Therefore, I  cannot  resist  the  temptation  to  archive  these  three
+documents as an informal spec of NCL.
+
+The first document is a talk I presented  at  10/20  Spring  DECUS  this
+year.  It's main value is to show how messages interact.
+
+A fortuitous foulup results in two people preparing talks  for  the  NCL
+session.   The  second  document  is Scott Robinson's presentation which
+will also be in the DECUS proceedings.  It does a good job  of  covering
+message details.
+
+The third document was lost for a year or two and was found when I moved
+my  office  - after DECUS.  Patterned after the NSP V1 spec it was going
+to become a formal spec but never made it.
+
+
+
+
+                                                    COMPANY CONFIDENTIAL
+
+
+
+
+
+
+     RW/skb
+
+
+
+1.0  NCL
+
+
+The key to TOPS-10 networks is its NCL protocol.  Developed late in 1974
+it  has  undergone only minor revisions since then.  I will not describe
+the protocol and timing problems in entirity,  but  will  emphasize  the
+types of messages and how they are used in common dialogs.
+
+
+
+
+
+
+
+
+                             N E T W O R K
+
+                             C O N T R O L
+
+                            L A N G U A G E
+
+
+                    THE ANF-10 LOGICAL LINK PROTOCOL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                           Creation Date
+                                                               July 1978
+                                                                  Page 2
+
+
+2.0  PROTOCOL LAYERING
+
+
+This shows one interpretation of the protocol sturcture  implemented  in
+the TOPS-10 networks.  The bottom three layers are implemented in system
+software.  The physical link level provides an error free  path  between
+two  machines,  the logical link level (NCL) provides an error free path
+between any two nodes in a network and all the support  to  learn  about
+nodes in the network.  The device control layer is a dialect of DECnet's
+DAP version 1 and is mainly used to control terminals  and  unit  record
+devices.   Customers  may  write  their  own  application  protocols  to
+implement systems that carry on a dialog across task to task links.
+
+
+
+
+
+
+         D E C N E T - 1 0   P R O T O C O L   L A Y E R I N G
+
+             APPLICATION PROTOCOLS (USER WRITTEN)
+
+             DEVICE CONTROL (A VARIANT OF DAP V1)
+
+             LOGICAL LINK (NCL)
+
+             PHYSICAL LINK (DDCMP, DTE20 QUEUED PROTOCOL)
+                                                                  Page 3
+
+
+3.0  NCL MESSAGE HEADER
+
+
+All NCL messages have a header so I will describe it here and refer back
+to as necessary.
+
+The NCT field provides some information about  the  message  type.   The
+important part is a three bit field that gives the message type.  A zero
+value means that the message is numbered.  In this  case,  the  type  of
+numbered  message  is supplied after the header.  A non-zero value means
+that the message is an unnumbered control message which I will cover  in
+the next slide.
+
+The DNA and SNA fields contain the node numbers of the  destination  and
+source  of  the  message.   NCL  implementations  scan all messages they
+receive.  When they see a message that is not for their node  they  pass
+it on to the transmit code who routes the message to another node closer
+to the destination.
+
+I've mentioned message numbering.  Unnumbered messages contain data that
+can  easily  be regenerated so that their loss will do no more than slow
+down the network.  Numbered messages contain data that must be delivered
+to  the  destination  and  processed  in order.  To guarantee delivery a
+numbered  message  is  saved  after  transmission   until   a   positive
+acknowledgement is returned.  If a negative acknowledgement returns then
+the message is retransmitted.  The message  number  is  incremented  for
+each  message  so  that  the receiver may order incoming messages.  This
+also allows several messages to be outstanding at once and lets the  NCA
+field acknowledge any number of them.
+
+The next two fields handle most of this.   The  NCA  field  acknowledges
+processing  messages  up  to  that  number.   In a numbered message, the
+message number is contained in the NCN filed.
+
+
+
+
+                 N C L    M E S S A G E    H E A D E R
+
+
+ NCT   DNA   SNA   NCA   NCN
+  |     |     |     |     |
+  |     |     |     |     |___ MESSAGE NUMBER OF THIS MESSAGE
+  |     |     |     |
+  |     |     |     |_________ ACKNOWLEDGEMENT NUMBER
+  |     |     |
+  |     |     |_______________ SOURCE NODE ADDRESS (BINARY NUMBER)
+  |     |
+  |     |_____________________ DESTINATION NODE ADDRESS (BINARY NUMBER)
+  |
+  |___________________________ MESSAGE TYPE AND FLAGS
+
+                                                                  Page 4
+
+
+4.0  UNNUMBERED CONTROL MESSAGES
+
+
+If your're familiar with DDCMP, you've probably  noticed  that  NCL  and
+DDCMP  use the same message numbering scheme.  In fact, that and most of
+the unnumbered control messages are taken directly from DDCMP!  The ACK,
+NAK,  and  REP  messages  are  similar  to  DDCMP's.   They  extend  the
+information in the header but do not supply new data.
+
+The ACK is really a NOP.  Processing the NCA field leaves no work to  do
+here.
+
+NAK messages will positively acknowledge messages if the  NCA  field  is
+the  biggest  seen  so  far.   Any messages left on the acknowledge wait
+queue are retransmitted.
+
+REP messages are sent when an NCL implementation hasn't received a reply
+to  some unnumbered messages and wants to know what happened to them.  A
+node that receives a REP must respond with an ACK or NAK.
+
+START and STACK are extensions of their DDCMP couteraprts.   Along  with
+the NODEID message, they consitute most of the startup mechanism between
+NCL nodes.  These messages tell the destination who and what  they  are.
+On  TOPS-10  all  this information is returned by the first line of NODE
+command output.  I'll describe how these are used in a later slide.
+
+
+
+
+        U N N U M B E R E D    C O N T R O L    M E S S A G E S
+
+                 FORMAT:<HEADER>,<INFORMATION>
+           
+                 NCT   NAME      INFORMATION
+           
+                  1    ACK
+           
+                  2    NAK
+           
+                  3    REP
+           
+                  4    START     NODE NUMBER, NAME,
+           
+                  5    STACK     IDENTIFICATION,
+           
+                  6    NODEID    AND CREATION DATE
+                                                                  Page 5
+
+
+5.0  NUMBERED CONTROL MESSAGE
+
+
+There are only four NCL messages that deal directly with logical  links,
+CONNECT  and  DISCONNECT  are  two  of them.  These messages control the
+creation and  destruction  of  logical  links.   Another  message,  DATA
+REQUEST,  provides  flow  control  on the link.  I'll explain how all of
+these work in another slide.
+
+The NEIGHBORS message provides routing information in the form of a list
+of  all  the  node's next door neighbors and the cost level of using the
+physical links to them.  Whenever a  node's  neighborhood  changes,  NCL
+sends  updated  NEIGHBORS  messages  to  all other nodes in the network.
+Whenever  a  node  receives  a  NEIGHBORS  message  it  saves  the   new
+neighborhood and calls its routing algorithm to determine which neighbor
+is the best to use to get messages to each of the  other  nodes  in  the
+net.  The DN8x code also determines which neighbor is second best.  This
+secondary path will be used if its output queue length is  much  shorter
+than the primary's.
+
+REQ CONFIG messages are sent when a node wants  to  learn  what  network
+devices   are   in  the  rest  of  the  network.   A  node  returns  its
+configuration in the CONFIG message.  Users access this  information  by
+NODE, UUOs or by reading the second line of NODE command output.
+
+I could spend most of a session on STATION CONTROL  messages.   For  now
+let's  just  call them a separate protocol.  Suffice it to say that they
+provide utility functions such as examining or depositing memory at  the
+destination node or one of its neighbors via DDCMP maintenance messages.
+
+
+
+
+            N U M B E R E D  C O N T R O L   M E S S A G E S
+
+
+                 FORMAT: <HEADER>.0.(CNT,TYP,<INFORMATION>)
+
+               TYP     NAME          INFORMATION
+
+                1      CONN          DLA,SLA,DPN,SPN,MML
+
+                2      DISC          DLA,SLA,RSN
+
+                3      NGH           (NNM,LVL)
+
+                4      REQ CONFIG
+
+                5      CONFIG        (OBJ,NDV,PID)
+
+                6      DATA REQ      DLA,DRQ
+
+                7      STAT CTRL     <STATION CONTROL MESSAGE>
+
+
+                                                                  Page 6
+
+
+6.0  DATA
+
+
+
+How about that - NCL even  has  a  DATA  message!   it  differs  from  a
+numbered  control message by this DLA field.  In those, the DLA field is
+zero.
+
+
+
+
+                                  NOTE
+
+
+                        describe fields
+
+
+A special form of the data message is called the interrupt message.   It
+bypasses  the  data request mechanism and may be sent anytime.  However,
+there is no guarantee that  the  destination  can  find  the  memory  to
+process it, so it is not used as a reliable form of data transfer.
+                                                                  Page 7
+
+
+7.0  ADJACENT NODE INITIALIZATION
+
+
+We've seen all the NCL messages and what they do.  The next  few  slides
+show  how  they  work  together.  Please don't get concerned if I ignore
+some of the timing conditions networks have to  handle,  we  don't  have
+time to consider all of them.
+
+Once communication is established on a physical  link  at  the  physical
+link  protocol  level,  NCL  gets  into  the  act  and  tries  to  start
+communicating with its new neighbor.
+
+
+
+
+                                describe
+
+                NODEID - no DNA, SNA
+                delay before ACK
+                ACKs will not be shown again
+
+
+
+
+       A D J A C E N T    N O D E    I N I T I A L I Z A T I O N
+
+         NODE A                               NODE B
+
+         NODEID  -------------------------- > NODEID
+                                          /
+               < ------------------------/
+
+         STACK < ---------------------------  START
+               \
+                \ -------------------------- >
+
+         REQ CONFIG ------------------------ > REQ CONFIG
+                                           /
+               < -------------------------/
+
+         CONFIG < ---------------------------  CONFIG
+                  \
+                   \------------------------->
+
+               < -----------------------------  ACK
+
+                                                                  Page 8
+
+
+8.0  NONADJACENT NODE INITIALIZATION
+
+
+On the previous slide NODEID messages initiated a START/STACK  exchange.
+Between  nonadjacent  nodes NEIGHBORS messages do the same job.  In this
+slide node C has just come up and is joining nodes A and B.
+
+                                describe
+
+
+                B,C startup timing
+                A's START beating B's NEIGHBORS
+                REQ CONFIG and CONFIG messages not shown
+
+
+                   N O N - A D J A C E N T    N O D E
+                      I N I T I A L I Z A T I O N
+
+
+  NODE A                NODE B                          NODE C
+
+                        NODEID                          NODEID
+
+                        START                           START
+
+                        NGH                             STACK
+
+                        STACK
+
+START                   NGH
+
+                                                        STACK
+                                                                  Page 9
+
+
+9.0  LOGICAL LINK INITIALIZATION
+
+
+After NCL starts between a pair of nodes in a network,  one  can  access
+resources on the other.  This slide shows a simple example.
+
+
+                                describe
+
+                1:  0 DLA;DPN, SPN
+                2:  DLA, SLA
+                3:  RSN
+
+The DISCONNECT message is used both to refuse connection requests and to
+break complete connections.
+
+
+                                  NOTE
+
+                   note show how DISC would be used.
+
+
+There is one special reason code I should mention here called reconnect.
+When a node receives this at the beginning of the disconnect sequence it
+returns the answering disconnect and then initiates a  connection  to  a
+new  node  named  in  the  first  disconnect  message.   This is used to
+implement the SET HOST command.
+
+
+        L O G I C A L    L I N K    I N I T I A L I Z A T I O N
+
+
+      CONN[DLA(0),SLA(LINK#),DPN(3,177),SPN(0,LPTSPL[1,2]),MML(?)]
+
+          ------------------------------------>
+                    CONN[DLA(LINK#),SLA(THIS NODE'S LINK #),...]
+          < -----------------------------------
+                              -- OR --
+                    DISC[DLA(LINK #),SLA(0),RSN(#)]
+          < -----------------------------------
+                                                                 Page 10
+
+
+10.0  DATA FLOW
+
+
+Once a connection is setup you would expect data to  flow.   To  prevent
+the  receiver  from  overflowing his buffers the DATA REQUEST message is
+used to request data when buffer space is probably available.
+
+
+                                describe
+
+                2 CONNECTs
+                DRQ(2)
+                delay, what can be done
+
+
+                           D A T A   F L O W
+
+
+
+        NODE A                                  NODE B
+
+        CONN
+                                                CONN
+
+                                                DRQ(2)
+
+        DATA
+
+        DATA                                    DRQ(1)
+
+                                                DRQ(1)
+
+        DATA
+
+        DATA                                    DRQ(1)
+
+                                                DRQ(1)
+
+        DATA
+
+        DATA                                    DRQ(1)
+
+                                                                 Page 11
+
+
+11.0  TERMINAL PROTOCOL
+
+
+We have enough time to take a peek at this last slide  which  shows  the
+terminal  protocol  used  in  the  TOPS-10  networks.  This will be much
+better described in the DECUS proceedings.
+
+
+                                  NOTE
+
+     first three DAP types used in unit record
+     control
+     Uses of control types.
+
+
+             T E R M I N A L    P R O T O C O L    D A T A
+                            M E S S A G E S
+
+     FORMAT:<HEADER, DLA,(CNT,DAPTYP,<INFORMATION>)
+
+        DAPTYP      NAME                   INFORMATION
+        
+        1           DATA WITHOUT EOR       <DATA>
+
+        2           DATA WITH EOR          <DATA>
+
+        3           STATUS                 <STATUS BITS>
+
+        4           CONTROL                CTLTYP,<INFORMATION>
+
+        
+        CONTYP      NAME                   INFORMATION
+        
+        0           ECHO MARKER            SERIAL #
+
+        1           CHARACTER GOBBLER
+
+        2           CHARACTERISTICS        BYTE DATA (SPEEDS, FILL
+                                           TIMES, ETC.)
+
+        3           AUTO DIAL              6 BYTES OF DIGIT PAIRS

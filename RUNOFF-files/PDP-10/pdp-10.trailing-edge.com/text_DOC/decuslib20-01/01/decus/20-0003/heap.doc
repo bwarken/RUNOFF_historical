@@ -1,0 +1,74 @@
+	A Short Description of the Pascal Heap Manager
+
+ The memory manager manages a contiguous area of memory as a heap, using a
+boundary tag technique.  The  area can be expanded anytime, but the expansion
+must be contiguous.
+ The heap is completely subdived into objects, which can be any size >=3 words.
+Unallocated blocks kept in doubly linked lists.  Adjacent objects on the
+free list are combined to minimize fragmentation.
+
+free storage list looks like:
+	word 0:		[tag bit][size of block],,[link to next block]
+	word 1:					  [link to previous block]
+	.
+	.
+	.
+	word N-1:	[tag bit][size=N]	,,0
+allocated storage looks the same, except that there are no links to
+other blocks.
+
+  The tag bits allow DISPOSE to determine if it should do compaction
+without searching the free list, and also make it possible to
+check for various errors, like killing things twice.
+
+
+ENTRY POINTS:
+
+NEW(size)	return a pointer to a block of exactly "size"
+
+		Algorithm: Search the free list for the first item which
+			   is either exactly the right size, or at least
+			   3 words larger.
+
+			   If none found, expand heap by enough, try again.
+
+			   If larger, split the block into two; one of
+			   which is the right size, and DISPOSE the remainder.
+
+			   Return the exact size block.
+
+DISPOSE(pointer,size)
+		Return a block to free storage
+
+		Algorithm:
+			Check tag words for consistency with
+			"pointer", "size", and each other.
+			Die violently if not all OK.
+
+			Check tag words of previous and subsequent
+			blocks in memory.  For any that are on
+			the free list (as determined by the tag bits):
+			unlink and merge with the block being returned.
+
+			Link newly freed block onto the END of the free list.
+			This implies that returned chunks tend to be used in
+			round robin fashion.
+
+CASIZE()	Check the validity of the heap's data base for any
+		inconsistency that is implied by the bookkeeping scheme.
+		If all OK, return USED,,FREE
+
+		Data Base:
+			AVAIL: BLOCK 1	; first entry on free list
+			       BLOCK 1	; tail of free list
+			BEGMEM:BLOCK 1	; pointer to block allocated at lower
+					;  boundary of the heap
+			ENDMEM:BLOCK 1	; pointer to block allocated at upper
+					;  boundary of the heap
+		Algorithm:
+			Starting at BEGMEM until ENDMEM
+			Check each object's tags for mutual consistency.
+			Check that no two adjacent blocks are on the free list
+			Check that we remain <= ENDMEM
+			end.
+

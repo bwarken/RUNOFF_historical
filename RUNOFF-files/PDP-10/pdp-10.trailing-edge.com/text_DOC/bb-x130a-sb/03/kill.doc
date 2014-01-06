@@ -1,0 +1,657 @@
+			  KILL
+			--------
+
+
+
+
+Last revised:  June 30, 1976.
+
+
+
+	It is assumed that you know the general actions which
+KILL can perform.  This documentation will describe how to perform
+those actions (and others) by way of a CCL file.  This allows the
+user's own program to seem to be able to do the killing, sending of
+messages and other things, all by itself.  In addition, some of the
+internal workings of KILL are explained so that you can know what
+certain combinations of commands are going to do.  There are three
+things to be discussed in this documentation:
+
+
+A)	The format of a CCL file and the functions available.
+
+B)	How to find out what errors KILL found when it
+	attemped to execute a given CCL file.
+
+C)	The order of execution of commands to KILL and
+	a general discussion of the methods of action.
+	A.	The format of KILL's CCL file
+	-------------------------------------
+
+
+
+	If KILL is run with a runoffset of 1, it will look for a CCL
+file to be executed.  If run with a runoffset of 0, or if no CCL file
+is found, it will then get commands from the TTY.  KILL first looks for
+a TMPCOR file by the name of 'KIL'.  If not found, it will then look for
+the file  ALL:nnnKIL.TMP[PPN]  where nnn is three digits representing
+the current job's job number.  The LOOKUP for the file is done only
+on the user's own UFD (not his path) and is done physical only.  This
+minimizes the chances of the wrong file being found.
+
+
+The CCL file can be no longer than 128 decimal words.  If it is any
+longer than that (1 block) then the rest of the file is ignored.
+The data in the CCL file is in binary, and is arranged as a series
+of "function blocks" which follow right after each other.  Each
+function block is a function (command) to perform, together with
+all the arguments necessary for that function.  Most function blocks
+have a constant length, the only exception at present being the
+function to send a message.  The CCL file is ended when a function
+block starts with a null word (this is function fn.end).  So the
+CCL file is arranged as in the following diagram:
+
+
+
+	!-------------------------------!
+	/                               /
+	/       FUNCTION BLOCK 1        /
+	/                               /
+	!-------------------------------!
+	/                               /
+	/       FUNCTION BLOCK 2        /       128 words maximum
+	/                               /
+	!-------------------------------!
+	/                               /
+	/           . . . .             /
+	/                               /
+	!-------------------------------!
+	/                               /
+	/       FUNCTION BLOCK N        /
+	/                               /
+	!-------------------------------!
+	!              0                !
+	!-------------------------------!
+
+
+
+On the next few pages is a description of each type of function
+block in detail.
+FUNCTIONS:	FN.STP	   2		[Two words needed]
+		FN.DET	   3
+		FN.KIL	   4
+		FN.ATT	   6
+		FN.LST	   7
+
+
+	!-------------------------------------!
+	!  FUNCTION CODE   !     ARGUMENT     !
+	!-------------------------------------!
+	!     PROJECT-PROGRAMMER NUMBER       !
+	!-------------------------------------!
+
+
+
+	where ARGUMENT is one of the following quantities:
+
+	   n		If n is small the argument is for job n.
+	   200000+n	If n is larger than .uxtrm than it is TTYn.
+	   -1		If n is -1 then the argument is all of the
+			jobs which have the indicated PPN.
+
+
+
+	PROJECT-PROGRAMMER NUMBER is the PPN of the job(s) that are
+	indicated.  If either (or both) half is zero, that half is
+	defaulted to that of your own PPN.  So that leaving this
+	zero implies the job has the same PPN as your own job.
+
+
+
+
+
+
+FUNCTIONS:	FN.ZAP	   5		[One word needed]
+		FN.NOT	   9
+
+
+
+	!-------------------------------------!
+	!  FUNCTION CODE   !     ARGUMENT     !
+	!-------------------------------------!
+
+
+
+	where ARGUMENT is identical to that given for the format
+	on the previous page for the functions FN.STP, FN.KIL etc.
+	The difference is only that there is no PPN argument for these
+	functions, because it is not necessary.  The zap function has
+	no use for a PPN argument, for it just kills off detached, not-
+	logged in jobs, and the not function doesn't need them because
+	it would be redundant.
+FUNCTION:	FN.FLG	   1		[One word needed]
+
+
+
+
+	!-------------------------------------!
+	!  FUNCTION CODE   !    FLAG BITS     !
+	!-------------------------------------!
+
+
+
+	where FLAG BITS are quantities set by the user to specify
+	how certain actions are to be carried out.  All bits not
+	mentioned in the following list should always be kept zero,
+	to allow for future expansion.  The default value of all
+	bits is always 0.
+
+
+	Name	Value	  Description
+
+	FL.SUP	  1	Suppress all output to the TTY, even errors.
+	FL.PHS	  2	When a RUN uuo is done, do it PHYSICAL-ONLY.
+	FL.UMA	  4	Attach user's job to my TTY in USER mode.
+	FL.NTC	  10	Do not ever write a TMPCOR error file.
+	FL.DOT	  20	End text send to other TTYs with "monitor dots"
+			if the other TTYs are in monitor mode.
+	FL.IMP	  40	Suppress all non-error messages.
+
+
+
+	Note that the flags are not set until this function is found
+	when searching the CCL file, so if it is important to have a
+	flag set very soon after KILL begins, this function should be
+	one of the first function blocks.
+FUNCTION:	FN.RUN	   11		[Seven words needed]
+
+
+
+
+	!-------------------------------------!
+	!  FUNCTION CODE   !    RUN-OFFSET    !
+	!-------------------------------------!
+	!        DEVICE FOR RUN UUO           !
+	!-------------------------------------!
+	!           PROGRAM NAME              !
+	!-------------------------------------!
+	!      EXTENSION FOR .LOW FILE        !
+	!-------------------------------------!
+	!                 0                   !
+	!-------------------------------------!
+	!      PROJECT-PROGRAMMER NUMBER      !
+	!-------------------------------------!
+	!          CORE ARGUMENT              !
+	!-------------------------------------!
+
+
+
+	where RUN-OFFSET is the offset to use for the RUN uuo.
+
+
+	The other arguments are a standard run block.  Nothing
+	is assumed about the arguments, if you do not supply an
+	important argument (such as the device) then the RUN uuo
+	is bound to fail.
+
+
+	An error file will not be written at all unless you have
+	specified this function.  Also, to make sure that your own
+	program is run on almost any error that can occur, this
+	function should be one of the first function blocks in the
+	CCL file, so that KILL can store what to run before an
+	error occurs.
+FUNCTION:	FN.MSG	   13		[Three or more words needed]
+
+
+
+
+	!-------------------------------------!
+	!  FUNCTION CODE   !     ARGUMENT     !
+	!-------------------------------------!
+	!     PROJECT-PROGRAMMER NUMBER       !
+	!-------------------------------------!
+	/                                     /
+	/    ASCIZ TEXT OF VARIABLE LENGTH    /
+	/                                     /
+	!-------------------------------------!
+
+
+
+
+	where ARGUMENT is similar to the argument for stopping,
+	killing, zapping, etc.  However, there is one more possible
+	form of the argument and that is:
+
+	   -2	 The text is to be sent not only to the jobs's
+		 controlling terminal, but to ALL ttys which are
+		 in use by the given PPN.  So if a TTY is just
+		 INITed or ASSIGNed to a job of the given PPN, then
+		 the message will be sent to it also.
+
+
+	The length of the text is determined by the first NULL character
+	found.  The next function block will then start with the next
+	word after the word containing the NULL.
+FUNCTIONS:	FN.END	   0		[One word needed]
+		FN.XIT	   12
+		FN.RET	   10
+
+
+
+
+	!-------------------------------------!
+	!  FUNCTION CODE   !        0         !
+	!-------------------------------------!
+
+
+
+	These functions are very simple and no arguments are required
+	for them.  The function FN.END has already been explained.
+	It is simply a zero word, and ends the CCL file.
+
+
+	The function fn.xit will cause KILL to exit when all actions
+	have been finished.  This is true even if we have attached
+	A JOB TO our TTY with the FN.ATT function; we will exit
+	instead of logging out.  Furthermore, if we should do a RUN uuo,
+	we will exit if it fails, whereas we would normally log out on
+	a RUN uuo failure.
+
+
+	The function FN.RET simply returns the user to the TTY that he
+	last detached from.  If he is already on a TTY, then no action
+	is taken.  The return function will fail if we had beed detached
+	from a PTY, or if the TTY is now in use by another job.
+	To help illustrate the use of the function blocks for making
+an actual CCL file, the following code is an example of a legal and
+useful CCL file data for KILL.  It will tell all of my jobs that they
+are about to be logged off, log them all out, and then exit.  There
+is to be no output to the terminal, unless an error occurs:
+
+
+
+
+
+	1,,60		;FUNCTION TO SET FLAGS, WHICH ARE:
+			;TYPE MONITOR DOTS IN MESSAGES,  AND OUTPUT
+			;NO NON-ERROR MESSAGES TO MY TTY
+	12,,0		;FUNCTION TO EXIT WHEN ALL DONE
+	13,,-1		;FUNCTION TO SEND TEXT TO ALL OF THE JOBS
+	0		;WHICH HAVE MY OWN PPN
+	ASCIZ/
+[Your job is being killed]
+/			;THE TEXT TO SEND TO THE JOBS
+	4,,-1		;FUNCTION TO KILL JOBS, ALL THE JOBS
+	0		;WHICH HAVE MY OWN PPN
+	0		;FUNCTION TO END THE CCL FILE
+	The following table is a summary of all the available functions
+and some of the characteristics of them.  The decimal function code is
+given along with its mnemonic.  The order value of the function is
+given, which determines when each function is processed.  The length
+of the function blocks which were explained above is listed.  The
+command which the function is similar to is listed (and is actually
+the same, since the command is converted to the same format.)
+Finally, a short description of the action of the function is given.
+
+
+
+
+ Function     Order   Length   Command     Short Description
+
+0   FN.END	0	1	 --	    End list of functions
+1   FN.FLG	0	1	 --	    Set user flags
+2   FN.STP	3	2	STOP	    Stop a job
+3   FN.DET	3	2	DETACH	    Detach a job
+4   FN.KIL	3	2	KILL	    Log out a job
+5   FN.ZAP	3	1	ZAP	    Kill a useless job
+6   FN.ATT	6	2	ATTACH	    Attach a job to our TTY
+7   FN.LST	5	2	LIST	    Type a "systat" of a job
+8   FN.HLP	1	1	HELP	    Type out the help text
+9   FN.NOT	3	1	NOT	    Exempt a job from an action
+10  FN.RET	4	1	 --	    Return to our old TTY
+11  FN.RUN	0	7	 --	    Set up program to be run
+12  FN.XIT	0	1	EXIT	    Exit from KILL when done
+13  FN.MSG	2	3+N	 --	    Send a message to a job
+	B.	Finding out the errors that KILL finds
+	----------------------------------------------
+
+
+
+	There are two types of errors which can occur in running KILL.
+The first kind of error only affects the action which was occurring at
+the time.  The other actions which were happening at the same time (if
+some killing, stopping etc. was taking place) are not affected and they
+proceed with no ill effects.  If there are any future actions which were
+supposed to have been done, they will still be processed.
+
+
+	The second type of error, which should never occur, is a fatal
+error which affects all of KILL and prevents KILL from running normally.
+In this case, all actions occurring at the time are stopped, and no other
+action will occur.  The only exception to this if if a RUN uuo was set
+up to be done, that will still occur and the fatal error will still be
+written in the error file.
+
+
+	To see if an error occurred look at the right half of location
+.JBERR to see if it is nonzero.  The right half of .JBERR will contain
+the total error count that KILL had, so that if it is now zero there
+were no errors.  If nonzero, though, some error has occurred and you
+should then read the TMPCOR file 'kil' which contains a list of errors.
+The TMPCOR file has the following format:
+
+
+
+	!-------------------------------------!
+	!                 -1                  !
+	!-------------------------------------!
+	!         ERROR CODE # 1              !
+	!-------------------------------------!
+	!           ARGUMENT # 1              !
+	!-------------------------------------!
+	!         ERROR CODE # 2              !
+	!-------------------------------------!
+	!           ARGUMENT # 2              !
+	!-------------------------------------!
+	/                                     /
+	/             . . . .                 /
+	/                                     /
+	!-------------------------------------!
+	!         ERROR CODE # N              !
+	!-------------------------------------!
+	!           ARGUMENT # N              !
+	!-------------------------------------!
+	!                 0                   !
+	!-------------------------------------!
+	The first word of the error file is always -1.  This helps
+insure that you are really looking at the error file, and not an
+old CCL file that was not deleted somehow (they have the same name).
+Each error that is stored comes in the form of a pair of words.
+The first word is the error code, and determines what the particular
+error was.  The second word contains the job number associated with
+that error.  Notice that this "job" number is sometimes useless and
+then should be ignored.  An example of such an error is if an illegal
+TTY number is given as an argument to a function.  It should be clear
+which errors are those where the job number returned has meaning.
+
+
+	The error codes for the two types of errors start at
+different values, and do not overlap so that it is possible to
+tell them apart.  The non-fatal errors start at the number 101
+decimal, while the fatal errors start at 1.  If you ever write
+a program which tries to interpret the error codes, make sure you
+are ready to handle an error code which is larger than the maximum
+ones which exist at the present time.  This will ensure that your
+program will still work if more error codes are added later when
+the need arises.
+
+
+
+If there are more errors than will fit in a TMPCOR file, you lose.
+All of the error codes which did not fit in TMPCOR are lost.  But
+hopefully you will never have that many errors in one run to KILL,
+and you can see how many errors you missed by comparing the number
+of the errors received with the number in .JBERR.
+The following table lists all the non-fatal errors at present:
+
+
+
+Error 		description of error
+
+
+101	KILL was unable to allocate core to set up buffers
+	for a PTY to use for killing, stopping, etc. a job.
+
+102	KILL had waited for a minute for a PTY to become free
+	so that it could be used, but none became free.
+
+103	An ATTACH uuo failed to detach a job, or put a job
+	on a PTY, or attach a job to our TTY.
+
+104	In attempting to find out the TTY number connected to
+	a PTY, an IONDX. uuo failed.
+
+105	A GETTAB uuo failed in checking the status of a job,
+	or in finding out information about a job, etc.
+
+106	A JOBSTS uuo failed while finding the status of a PTY
+	or the status of a job.
+
+107	When trying to log out a job, it wasn't running the proper
+	program (LOGOUT or KILL).
+
+108	While trying to log out a job, the job stopped running
+	and so couldn't be logged out.
+
+109	While trying to log out a job, the job went into a TI
+	wait and so couldn't be logged out.
+
+110	While waiting for a job to log out, KILL noticed that
+	it was no longer on our PTY and had been moved somehow.
+
+111	We waited for one minute for a job to be logged out, but
+	it never did log out.
+
+112	The job which we are trying to kill, stop, etc. is
+	not logged in and so we can't hurt it.
+
+113	While performing some action on a job, and waiting for that
+	action to be done, a check on the job noticed that the job
+	had changed PPNS.
+114	The job we are trying to kill, stop, etc. is running a program
+	which is JACCT'd, and we are not allowed to hurt it.
+
+115	We tried to zap a job which was logged in, and this is
+	not allowed.
+
+116	We tried to zap a job which was not detached, and this is
+	not allowed.
+
+117	We tried to stop, kill, etc. my own job which is not allowed.
+
+118	The job number which was given for some action was out of
+	bounds and is illegal.
+
+119	The job number which was given is not presently in use.
+
+120	An action was given for a job whose PPN did not match that of
+	the PPN given by the user.  This helps prevent the wrong
+	job from being killed, etc.
+
+121	We tried to stop, kill, etc. a job but we were not privileged
+	to do so.
+
+122	In creating a process to take care of the action of stopping,
+	etc. a job, we failed to get enough core to handle the process.
+
+123	A tty argument was given for some action, but it is not a
+	legal TTY number.
+
+124	In trying to find out what job was connected to a given TTY,
+	a DEVTYP uuo failed so we can't tell what job ownes the TTY.
+
+125	A tty number was given for some function, but no job is
+	on the TTY.
+
+126	We tried to zap a not logged in and detached job, but
+	we failed to do so.
+
+127	We were told to stop a job, but we failed to do so.
+128	We were given more than one job to be attached to
+	our TTY, but only one such job can be given.
+
+129	We were detached and trying to attach back to our old TTY,
+	but that TTY happened to be a PTY, and we are not allowed
+	to attach back to a PTY.
+
+130	We tried to attach back to a TTY but the OPEN uuo for that
+	TTY failed.  It is probably in use by another job.
+
+131	We were told to output a message to a job which we are not
+	privileged to send to.
+
+132	We can't attach a job to our TTY because we are in monitor
+	mode, and we can't detach unless we are in user mode.
+
+133	We can't attach a job to our TTY because we are a BATCH
+	job, which we are not allowed to detach ourself from.
+
+134	We can't attach a job to our TTY because we are detached.
+
+135	We can't stop, kill, etc. a job which happens to be a
+	BATCH job (this error might never occur, depending if
+	KILL was assembled to allow it or not).
+
+136	In trying to send a message to a given tty, the TRMOP.
+	uuo to send the message failed.
+The following table lists all the fatal errors at present:
+
+
+
+
+Error		Description of error
+
+
+1	KILL has found some internal error, in that an illegal
+	LUUO was executed.
+
+2	KILL tried to find out if it was being controlled by a
+	job, but the CTLJOB uuo failed.
+
+3	Some GETTAB failed which we must have work in order
+	to continue.
+
+4	KILL tried to find the I/O index of PTY0, but the IONDX.
+	uuo failed.
+
+5	While scanning the CCL file given by a user, a function
+	code was found which was not legal.
+
+6	KILL tried to OPEN disk in order to read the CCL file
+	given by a user, but the OPEN uuo failed.
+
+7	KILL found a CCL file but in attempting to read it
+	into core the IN uuo failed.
+
+8	In looking for a CCL file, a LOOKUP error was gotten
+	which was different than file not found.
+
+9	The number of jobs possible on the system exceeds the
+	size of internal tables.  KILL must be reassembled
+	with the size of tables made large enough.
+
+10	While waiting for some process to want to run, the
+	HIBER uuo failed.
+	C.	Description of the actions of KILL
+	------------------------------------------
+
+
+
+	When TTY commands are interpreted by KILL, it first converts
+them to binary codes, in exactly the same format which users give
+when they write a CCL file for KILL.  The order of the function blocks
+exactly corresponds with the order that the commands were typed in.
+So in what follows, there is no distinction between actions occurring
+from typed-in commands, and those obtained from a CCL file.
+
+	Each different function code has associated with it a number
+which is its "priority" , or its "order".  This number determines in
+what order the functions will be processed.  The first functions to be
+processed have the order number 0, and the other functions have order
+numbers which form an ascending sequence.  What happens is that KILL
+scans the binary data (CCL file or converted TTY commands) a number of
+times, one scan for each order number.  When a function block is found
+which matches the current priority number, it is processed.  Note that
+processing a function block does not imply that the action is carried
+out right then, just that it has been recognized and is "set up".
+As an example, the exit or run runctions do not take effect when seen,
+but simply are used to set up internal variables for the later actions.
+
+	Now it is important to notice that some functions have the same
+ordering number.  In this case, those functions are processed together
+and the last function block found will supercede any previous function
+block which it conflicts with.  This is how the not function works:
+It simply zeroes an internal variable for a job, thereby clearing any
+action for the job that a previous function may have set.  And the
+other superceeding actions are similar.  Note that the not function
+has no effect on the attach function, for they have separate priorities
+and so are never processed together.  This is reasonable since the
+attach function has to be handled at a different time that the stop,
+kill, etc. functions, and it only applies to one job anyway.  Note also
+that since the attach function does not have the same ordering number
+and therefore does not conflict with the stop function, THEN BOTH OF
+these ACTIONS CAN TAKE PLACE.
+
+	The main point of all this is that the order that functions
+are placed in the CCL file (or typed in) is irrelevant when the
+functions have different ordering numbers, and relevant if they have
+the same ordering numbers, and conflict.  Hopefully you can see what
+any combination of commands will do now.
+
+	The order of the functions is given in the table of functions
+which was shown earlier in this file.
+In stopping, detaching, killing, or attaching a job, the main worry
+is that the program to be crumped must have some warning.  This comes
+about because some programs assume that they cannot be stopped except
+when they wish to be stopped.  This is so that they can finish up some
+important business before exiting, such as write some data to a file,
+unload a magtape, print out some final statistics to the TTY, and such
+things.  If KILL was to rip off the job with no warning, all of these
+things would not be possible, and the programs whould not work as they
+should.  So, to help in this cause, but still allow KILL to carry out
+its own functions, which is to stop the program, it warns the job that
+it is about to die, and waits for a while until the program should have
+had time to finish and exit.  This is done by forcing .HALT commands
+on the job, which is equivalent to the user typing ^C's to the TTY.
+The .HALT will work even if the user's terminal is slaved, but not
+when the job is detached.  If a certain amount of time goes by and
+the job has not been nice and exited, then KILL will be impatient and
+will force HALT commands to the job, which are not able to be trapped.
+It takes about one minute for KILL to start to get mean.  While waiting
+for the job to be stopped, the following actions are done every
+one-half second:
+
+	TTY's input buffer is cleared
+	The job's program-to-run word is cleared
+	.HALT or HALT is forced
+
+Finally, after the job has been stopped, the terminal is unslaved so
+that the TTY can be used again.  If the job was originally detached,
+KILL has no choice but to attach it to a PTY so that it can be stopped
+and in this case, no wait is made.  The reason for this is that a mean
+user could attach the job himself, and stop it with no waiting period.
+So we don't have to wait either.
+If our goal is to log off a job (or zap a not-logged-in job) we must
+use a PTY so that we can type the proper commands to the job.  KILL
+gets the PTY first, before any other actin is taken on the job.  This
+will prevent a half-done action to be started if no PTYs become free,
+and also gives the user less time to start up another program before
+the job is ripped off of his TTY.
+
+	Kill will only use a set number of PTYs at any time, no matter
+hom many jobs are to be killed.  This number is currently 5.  The
+reason for this is that PTYs are a finite resource, and we don't want
+to use up all the PTYs for ourself, and leave none for another job
+which also wants one.  KILL will run happily if only one PTY is
+available to it, but it might run slower.
+
+	If KILL ever tries to output any text to the terminal, because
+of an error message, or because of some status report, it makes a check
+first to see if KILL is detached, or on a TTY in monitor mode.  If
+this is true, no message is output and KILL just proceedes as if
+it was output.  This allows KILL to run detached without ever hanging
+in a TO state.
+
+	While KILL is running, and a couple of ^C's are typed to it,
+it just traps them and exits.  All actions that were occurring are
+terminated immediately, and if any jobs were on a PTY at the time,
+they will be detached as KILL lets go of the PTYs it was using.
+
+	One final remark, and that is not concerned with KILL in
+particular, is that if you are logging out a job, and LOGOUT gets
+stopped in the middle, the job's UFD interlock may be messed up
+and this will cause a long wait the next time that user logs in or
+out.  So it is recommended that you not ^C KILL while it is busy
+logging out some job unless you really have to.
+

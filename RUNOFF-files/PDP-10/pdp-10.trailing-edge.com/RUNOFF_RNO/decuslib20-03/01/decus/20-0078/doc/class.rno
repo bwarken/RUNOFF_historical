@@ -1,0 +1,652 @@
+.nojustify
+.paper size 55,72
+Swedish Research Institute
+.break
+of National Defense
+.title The CLASS and pointer concepts in SIMULA
+.skip 20
+.center;The CLASS and pointer
+.center;concepts in SIMULA
+.skip 19
+.center;Mats Ohlin
+.skip 2
+.center;75-07-31
+.page
+.ap
+1. Introduction
+
+ Whenever SIMULA is taught to people unfamiliar with list
+programming (as LISP, PL/1 etc) the same difficulties arise.
+
+ Since most of the participants in SIMULA courses have their
+basic programming experience from languages like FORTRAN or ALGOL,
+the introduction of the SIMULA concepts CLASS and REFerence variables
+(pointers) almost invariably causes some headache.
+
+ This paper aims to introduce these concepts to the SIMULA
+beginner in a stepwise and maybe somewhat tedious way.
+The reader is assumed to have some experience of FORTRAN and
+a basic knowledge of elementary
+ALGOL concepts as block- and program structure.
+ Once these things are fully understood, learning the
+rest of the SIMULA language should present no special difficulties.
+.skip 6
+2. The SIMULA CLASS
+
+ Let us analyse what happens when you are calling a FORTRAN subroutine
+(or an ALGOL/SIMULA procedure).
+
+ The statement
+		CALL SUB(A,B,C,...)
+.skip
+will have the effect that the parameters (arguments) of the subroutine
+are evaluated, whereupon the code in the subroutine will be
+executed.
+
+ Usually in FORTRAN simple variables (undimensioned) are copied to the sub-
+routine (and copied back at return), while the dimensioned
+variables will be directly accessible to the subroutine by copying
+the address of the first element or the array head.
+
+ A subsequent call of the same routine will execute the same code
+in the routine (naturally),  u s i n g # t h e # s a m e # s t o r a g e
+.break
+locations for parameters and variables local to the routine.
+This is the reason why recursive subroutine calls are
+prohibited in FORTRAN.
+
+ The CLASS concept in SIMULA is in a way a generalization of the
+procedure concept. A declaration of a CLASS looks quite the same as for
+procedures :-
+.skip
+.nofill
+CLASS A(B,X);  BOOLEAN B;	PROCEDURE A(B,X);   BOOLEAN B;
+REAL X;				REAL X;
+<body>;				<body>;
+.skip 2
+.fill
+ The <body> contains the code for the respective modules.
+ The FORTRAN system uses the same storage locations for the subroutine
+everytime. However, SIMULA uses a dynamic storage allocation technique
+so that the used core may be expanded and the
+.break
+d a t a # w i t h i n # t h e # a l l o c a t e d
+.break
+s p a c e # m a y # b e # r e f e r r e d # t o # l a t e r # o n.
+
+ The procedure call	A(BX,XX);
+.skip
+will have its correspondence in   NEW A(BX,XX);
+
+ This statement will have the following effect.
+ An unused part of the core will be used and the following information
+is stored :-
+.skip
+.left margin 10
+<this part of core has the layout according to CLASS A>
+.break
+<the formal boolean parameter B will store the value of BX>
+.break
+<the formal real parameter X will store the value of XX>
+.skip
+.left margin 0
+or in more compact form (if BX was TRUE and XX was 2.5) :-
+.test page 7
+.nofill
+.skip
+	-------------------------
+	I      - 'A' -          I
+	-------------------------
+	I	B = TRUE        I
+	I	X= 2.5          I
+	-------------------------
+.fill
+
+ Of course existing code within the body of the CLASS will be
+executed, just as in the procedure case.
+
+ Another call of A:	NEW A(FALSE,3.5);
+.break
+will add the information
+.skip
+.nofill
+	-------------------------
+	I      - 'A' -          I
+	-------------------------
+	I	B = FALSE       I      =   a new object of class A
+	I	X= 3.5          I
+	-------------------------
+.fill
+.skip
+to the dynamic core.
+
+ We will call this data-description (including the specific data)
+resulting from the "NEW A...." statement  an object (or instance) of
+the CLASS A.
+
+ All that hitherto has been discussed would be of little use if we
+couldn't access the data in our objects  after creating them.
+.skip 6
+3. Reference variables - pointers.
+
+ In order to be able to access our generated data we must
+have the possibility of accessing the objects. For this we need a special
+kind of identifier - the REF-variable.
+
+ These identifiers can be regarded as holding two pieces of information :-
+
+.test page 5
+.nofill
+REF-variable	------------------------------------
+			I      - 'A' -     I   001234      I
+			------------------------------------
+			  qualification        address
+.fill
+
+ At first the information that the variable may be used
+in connection with CLASS A is stored (this enables the SIMULA
+system to do the qualification checking).
+
+ Then the address in core where the data of the
+referenced object starts is stored.
+.skip 1
+ For example :
+.left margin 12
+.nofill
+CLASS A(B,X);   BOOLEAN B;   REAL X;
+<body>;
+REF (A) Y,Z;
+Z:- NEW A(FALSE,1.5);
+Y:- NEW A(TRUE,-1);
+.fill
+
+.left margin 0
+ Note how the declaration is made. Y and Z are reference variables
+which are allowed to point at objects of CLASS A
+(one at a time of course).
+ After the declaration is made the address field contains a special
+address which is called NONE, i.e. the variables do not point at
+any object.
+
+ The compound symbol ':-' is pronounced "denotes", in
+contrast to the ':=' meaning  "becomes", the latter dealing with
+values (corresponding to the FORTRAN use of '=').
+ So the first statement is interpreted as :
+.left margin 10
+Z denotes a new object of class A having its
+B-data-value set to FALSE and it's X-data-value set to 1.5.
+
+.left margin 0
+ The SIMULA language allows us to access the data of our created
+objects.
+
+ Since the "Z's X-data-value = 1.5" is a bit lengthy to write we
+use the notation :
+.indent 20
+ Z.X = 1.5
+.skip
+pronounced  "Z dot X equals 1.5".
+
+ To the program above we might add the following statement :
+       Z.B:= Z.X > Y.X;
+.skip
+assigning Z.B the value TRUE.
+
+ The B and X are called  ATTRIBUTES of class A.
+
+ Compare with a FORTRAN equivalent :
+.left margin 16
+.nofill
+LOGICAL B(2)
+REAL X(2),NAMES(2)
+DATA NAMES/'Z','Y'/
+B(1)= .FALSE.
+X(1)= 1.5
+B(2)= .TRUE.
+X(2)= -1
+.fill
+
+.left margin 0
+ Dimensioned variables are used much more in FORTRAN (and ALGOL) than
+in SIMULA.
+In SIMULA classes and reference variables are often preferred to
+dimensioned variables. This gives better protection against programming
+errors, higher program readibility and the possibility to
+vary the size of the data structure (the number of
+objects) during execution.
+
+ Consider the following SIMULA program :
+
+.nofill
+BEGIN
+	CLASS A(B,X);   BOOLEAN B;   REAL X;
+	BEGIN   REAL C;
+		IF B THEN C:= X ELSE C:= 3;
+	END of a;
+
+	REF (A) Y,Z;
+
+	Z:- NEW A(FALSE,1.5);
+	Y:- NEW A(TRUE,-1);
+.indent 5
+END of program
+.fill
+
+ After the execution the object at which Z is pointing to will look like :
+
+.left margin 20
+.nofill
+---------------------
+I       - 'A' -	I
+---------------------
+I	B = FALSE	I
+I	X = 1.5		I
+I	C = 3		I
+---------------------
+.LEFT MARGIN 0
+.skip 
+*        This shows that also variables declared within the class
+*   (at the outermost block level) are attributes as well as the
+*   formal parameters in the parameter list as explained before.
+.fill
+
+ So Z.C = 3 and  Y.C = -1  (since Y.B is TRUE and thus the C:= X has
+been executed for the Y-object).
+
+ Consider now an additional statement inserted before the last END in the
+program above :
+	Z:- Y;
+.break
+ This will have the effect that  t h e # a d d r e s s
+.break
+c o n t e n t # in the Y-variable is  copied to the address field of the 
+Z-variable. I.e. Z is made to point  a t #  t h e # s a m e #  t h i n g
+.break
+t h a t #  Y #  p o i n t s #  t o # (which may be an object or NONE).
+.skip
+.nofill
+*       Since there are no other references the data once referenced
+*   by the Z-variable is now inaccessible and forever lost.
+.fill
+
+ Now answer the following question :
+ If we add the statements :
+.nofill
+	Z:- Y;	(as before)
+	Y:- NONE;
+.fill
+.break
+what does Z point at now?
+.break
+-------------------------
+ Right - Z point at the A-object with .B=TRUE, .X= -1 and .C= -1,
+i.e. the object which y pointed at earlier.
+
+ Multiple assignment is allowed :
+.break
+	Z:- Y:- NEW A(TRUE,4);
+is the same as
+.break
+	Y:- NEW A(TRUE,4);
+.break
+	Z:- Y;
+ Adding Y:- NONE; still means that Z points to our generated object.
+
+ We have now introduced the simple use of a SIMULA CLASS and
+reference variables. We have also experienced that the data -
+specified in the parameter list (if present) as well as the class
+declarations (if present) form the complete attribute list of an
+object.
+
+ Note that reference variables may also be attributes!
+REF-variables are in this respect no different from other variables.
+.test page 8
+.skip
+An example :
+.skip
+.nofill
+BEGIN
+	CLASS A(X);	REF (A) X;
+	BEGIN   END;				(the body is empty)
+	REF (A) Y,Z;
+
+	Z:- NEW A(NONE);
+	Y:- NEW A(Z);
+END
+.fill
+
+ Let us look at our objects :
+.skip
+.nap
+.nofill
+.test page 11
+			Z			Y
+.skip
+		--------------------	--------------------
+		I    - 'A' -       I	I    - 'A' -       I
+	+-->	--------------------	--------------------
+	!	I    X:- NONE      I	I    X :- -+	   I
+	!	--------------------	-----------!--------
+	!					   !
+	!					   !
+	+------------------------------------------+
+.fill
+
+.ap
+
+ So the X-data of the Y-object has a value which is referring to
+the object currently referred by Z.
+
+ Thus	Y.X == Z
+is now TRUE. The compound symbol '==' is the operand for comparing references.
+
+ Adding the statement   Z.X:- Y;
+creates a circular list, since Z.X :- Y and Y.X:- Z.
+ We are allowed to use the attributes of the attribute-reference-variable,
+just in the same way as an ordinary reference variable.
+ So	Z.X.X == Y.X		since Z.X == Y !
+ Likewise :
+.break
+Z.X.X == Z
+.break
+Z.X.X.X == Y
+.break
+Z.X.X.X.X == Z
+.break
+#....etc.
+
+ Compare the following program with the program above.
+.nofill
+BEGIN
+	CLASS A;
+	BEGIN   REF (A) X;
+	END;
+	REF (A) Y,Z;
+
+	Z:- NEW A;
+	Y:- NEW A;	Y.X:- Z;
+END
+.fill
+
+ The programs will generate identical data structures.
+The only difference is at the program level where we have removed
+the formal parameter list and declared X in the body instead.
+
+ Procedures may also be attributes. Consider
+
+.nofill
+BEGIN
+	CLASS A(X,Y);   REAL X,Y;
+	BEGIN
+	REAL PROCEDURE SUM; SUM:= X+Y;
+	PROCEDURE PRINT;
+	BEGIN   OUTTEXT("A.X:");   OUTREAL(X,6,14);
+		OUTTEXT("   A.Y:");
+		OUTREAL(Y,6,16);   OUTIMAGE
+	END;
+	END of A;
+	
+	REF (A) Z;
+	
+	Z:- NEW A(6,7);
+	OUTTEXT("ZSUM:");   OUTREAL(Z.SUM,6,14);   OUTIMAGE;
+	Z.PRINT;
+.indent 5
+END
+.fill
+
+which will produce the following output :
+.skip
+ZSUM: 13.000000E+00
+.break
+A.X:  6.000000E+00###A.Y:  7.000000E+00
+
+ Procedures returning REF-results are allowed.
+ A CLASS with a procedure returning a reference to a new object
+with the x-attribute of the new object pointing at the original object would read :
+.skip
+.nofill
+CLASS A(X);   REF (A) X;
+BEGIN
+REF (A) PROCEDURE ADD;  ADD:- NEW A(THIS A);
+END of A;
+.skip
+REF (A) XA,XB;
+.skip
+XA:- NEW A(NONE);	! XA.X == NONE ;
+XB:- XA.ADD;		! Note that XB.X == XA ;
+XB:- XB.ADD;		! First is XB.ADD executed, then XB is switched
+			  to point to the new object ;
+XA.X:- XB;		! Creating a circular list ;
+.skip
+Use paper and pen a make a sketch of the situation after the execution
+of the statements one by one.
+.skip
+
+*      Note the use of THIS which is the way to reference an
+.break
+*      object 'from inside'.
+.fill
+.page
+4. CLASS hierarchy
+
+ Sometimes you want to add attributes to a class description,
+i.e. define more detailed objects.
+ Assume that we have the class :
+
+CLASS VEHICLE(WEIGHT);   REAL WEIGHT; ;
+
+and that we want to add an attribute for :
+.skip
+a) the maximum speed if it is a sportscar
+.break
+b) number of seats if it is an ordinary car
+.break
+c) maximum load if it is a lorry.
+
+ We then code :
+.left margin 10
+VEHICLE CLASS SPORTSCAR(SPEED);    REAL SPEED; ;
+.break
+VEHICLE CLASS COMMONCAR(SEATS);
+INTEGER SEATS; ;
+.break
+VEHICLE CLASS LORRY(MAXLOAD);   REAL MAXLOAD; ;
+
+.left margin 0
+ These declarations will essentially have the same effect as if we had
+declared :
+.left margin 10
+.skip
+CLASS SPORTSCAR(WEIGHT,SPEED);  REAL WEIGHT,SPEED; ;
+.break
+CLASS COMMONCAR(WEIGHT,SEATS);  REAL WEIGTH;
+INTEGER SEATS; ;
+.break
+CLASS LORRY(WEIGHT,MAXLOAD);   REAL WEIGHT,MAXLOAD; ;
+.left margin 0
+
+ By using the prefix VEHICLE we saved some effort as we didn't need to
+redeclare the attribute WEIGHT every time. We will also be able to handle
+the different cars in a similar manner as shall be demonstrated later on.
+ The class bodies of the respective classes will also
+be concatenated (as well as the internal attributes).
+ New objects are thus created by adding the parameter(s) of the
+subclass(es) to the parameter(s) of the basic class :
+.break
+	NEW SPORTSCAR(1600,150.0);
+.break
+	NEW COMMONCAR(1200,4);
+.page
+5. Qualification
+
+ We could now write a program :
+.skip
+.left margin 20
+.nofill
+.indent -3
+BEGIN
+CLASS VEHICLE(WEIGHT);   REAL WEIGHT; ;
+VEHICLE CLASS SPORTSCAR(SPEED);    REAL SPEED; ;
+VEHICLE CLASS COMMONCAR(SEATS);   INTEGER SEATS; ;
+VEHICLE CLASS LORRY(MAXLOAD);   REAL MAXLOAD; ;
+REF (VEHICLE) V;
+REF (SPORTSCAR) S;
+REF (COMMONCAR) U;
+REF (LORRY) L;
+
+V:- NEW VEHICLE(2000);
+S:- NEW SPORTSCAR(1600,150.0);
+U:- NEW COMMONCAR(1200,4);
+L:- NEW LORRY(4000,2000);
+#.......
+.fill
+
+.left margin 0
+ However, sometimes we need a variable which is allowed to point at
+any kind of vehicle. Consider :
+.indent 14
+ V:- NEW VEHICLE(2000);
+
+ Since the qualification match is exact (i.e. identical class 
+qualifications on both sides of the :- ) the compiler will
+not generate any code for checking the match at run time.
+ However, it is allowed to write :
+.indent 14
+ V:- NEW SPORTSCAR(1600,150.0);
+
+and the V.WEIGHT gives the weight allright.
+ But the construction :
+.indent 14
+ V.SPEED          is illegal.
+ This is because the variable V is declared as a pointer
+which is allowed to point at a vehicle-object which has no
+speed-attribute.
+ We might instead code :
+.indent 14
+ X:= V QUA SPORTSCAR.SPEED;
+
+in order to access the speed-attribute.
+ This will mean that the run time system will check that the V actually
+points to a sportscar-object when this statement is executed.
+ If not so a run time error will occur.
+
+ Note that the statement :
+.indent 14
+ S:- NEW VEHICLE(1000);
+
+is illegal since the S-variable definitely should give access to
+a speed-attribute, which in this case is undefined.
+.page
+6. INNER
+ In a similar way as the parameters of nested classes are concatenated,
+the code within the class body will be linked together.
+ Thus the following two examples will execute the same statements :
+.skip 2
+.nofill
+CLASS A;			CLASS B;
+BEGIN				BEGIN
+<statement 1>			<statement 1>
+END;				<statement 2>
+				END;
+A CLASS B;
+BEGIN
+<statement 2>
+END;
+.fill
+
+ The order of the execution may be altered by the use of INNER.
+ Consider :
+.skip
+.nofill
+CLASS A;			CLASS B;
+BEGIN				BEGIN
+<statement 1>			<statement 1>
+INNER;				<statement 3>
+<statement 2>			<statement 2>
+END;				END;
+A CLASS B;
+BEGIN
+<statement 3>
+END;
+.fill
+.skip 2
+ The statement NEW B will execute the statements 1,3,2 in both cases.
+.skip
+.nofill
+*     INNER must be used at the outermost block level in the
+*     class body only.
+.fill
+ It may be used at several levels in a class hierarchy.
+.page
+7. Some additional pieces of advice.
+
+ When you really think that you have comprehended the CLASS and pointer
+concepts you are advised to analyze the COMMON BASE (1) definition of
+the CLASS SIMSET.
+After that try SIMSET CLASS SIMULATION.
+ When writing SIMULA programs, try to build your classes as the
+most natural carriers of the different information that is to
+be processed by your program. Then add procedure attributes to manipulate
+the information in the respective classes.
+ For example - if your are using SIMSET (a system defined class
+for list- and queuing-problems) - it is often useful to
+define subclasses to the standard class HEAD if operations
+will be performed on whole queues.
+In such a case, define your own queue handling procedure
+attributes in your subclass.
+ I.e.
+.skip
+.nofill
+SIMSET BEGIN
+.skip
+   HEAD CLASS MYQUEUE;
+   BEGIN
+      PROCEDURE PRINT;
+      BEGIN   REF (ITEM) X;
+ 	X:- FIRST;
+	WHILE X =/= NONE DO
+	BEGIN   OUTINT(X.I,8);   OUTIMAGE;   X:- X.SUC  END
+      END OF PRINT;
+   END OF MYQUEU;
+.skip
+   LINK CLASS ITEM(I);   INTEGER I;
+   BEGIN   INTO(Q)   END OF ITEM;
+.skip
+   REF (MYQUEUE) Q;
+.skip
+   Q:- NEW MYQUEUE;
+   NEW ITEM(1);    COMMENT Note that ITEM puts itself into the Q;
+   NEW ITEM(2);
+   ......
+   Q.PRINT;     COMMENT The I-attributes will now be printed;
+.skip
+END OF PROGRAM
+.fill
+.skip 2
+ There is certainly a considerable threshold to pass before you
+will be able to program. The process that constitues
+the initial structuring of your SIMULA program in SIMULA
+classes and procedures will be initially be slow. However, there
+is no other way to overcome these difficulties than to START
+PROGRAMMING, how uncertain you ever may feel.
+ You will later learn
+that the preliminary work done on the program structuring will be
+payed back when you start to expand your program. It could
+very well be said that the first program usually will be re-written
+some times when you disover new structuring possibilities.
+.skip 6
+8. Acknowledgements
+.skip
+ I want to thank Jacob Palme, Lars Enderin and Arne Fransen, all
+at the Swedish Research Institute of National Defense, for helpfull comments
+during the preparation of this memorandum.
+.skip 6
+References :
+.skip
+(1)	COMMON BASE LANGUAGE by O. Dahl, B. Myhrhaug and
+.break
+#	K. Nygaard, Norwegian Computing Center, October 1970,
+.break
+#	Publication No S-22.
+   

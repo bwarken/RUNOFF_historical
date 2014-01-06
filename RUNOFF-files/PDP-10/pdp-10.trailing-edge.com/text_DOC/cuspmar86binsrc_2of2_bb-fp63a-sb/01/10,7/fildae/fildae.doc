@@ -1,0 +1,865 @@
+
+
+
+November 1982
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT       (c)        DIGITAL        EQUIPMENT        CORPORATION
+1971,1975,1978,1979,1980,1982,1983,1986.
+ALL RIGHTS RESERVED.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+FLD3.DOC                                                        Page 2
+
+
+FILDAE.DOC -- Changes from V2(22) to V3(40)
+November 1982
+
+
+
+1.0  SUMMARY
+
+The purpose of this release of the File  Daemon  is  to  fix  serveral
+minor  bugs.   In  addition,  several  new switches have been added as
+described below and the format of the log file has changed in order to
+place additional information about the access in the log.
+
+This version of the File Daemon has been  tested  under  the  7-series
+monitor and fully supersedes all previous versions.
+
+
+
+2.0  EXTERNAL CHANGES
+
+The /NAME switch has been added to  allow  access  to  a  file  to  be
+restricted based on the user name of the accessor.  The syntax is:
+
+     /NAME:"user name"
+
+The /ACCOUNT switch has been added to allow access to  a  file  to  be
+restricted  based  on  the  account  string of the accessing job.  The
+syntax is:
+
+     /ACCOUNT:"account string"
+
+The TTY number, node name, and line on node of the  accessor  are  now
+placed  in  ACCESS.LOG.   In  order  to do this, the format of the log
+entry has been changed.  This may break programs that read the current
+ACCESS.LOG  format.   The  new  format of an entry in ACCESS.LOG is as
+follows:
+
+26-Apr-83:18:12:36
+     Job 37 OPERATOR [1,2] from TTY371, node KL1026 line 371,
+     Running DSKA:BACKUP[1,4]
+     Read of DSKB:ACCESS.LOG[10,675] succeeded
+
+If this version of the file daemon is to be run under monitors earlier
+than 7.01, the following patch must be applied to the monitor to avoid
+undeserved address checks:
+
+     UUOCON$:
+     ""REPLACE THE PUSHJ P,GETWR1 AFTER THE CALL TO FNDPDB WITH"
+     ""THE FOLLOWING.  NOTE THAT THIS PATCH CAN BE INSTALLED ONLY"
+     ""IN A 7 SERIES MONITOR AS GIVEN SINCE IT REFERENCES .CPJOB"
+     ""WITHOUT INDEXING BY P4.  FOR 6 SERIES MONITOR, REPLACE THE"
+     ""MOVE J,.CPJOB WITH A PUSHJ P,CPUJOB."
+     ACTRAS 12/PUSHJ P,PAT
+     PAT/MOVE J,.CPJOB
+     PAT+1/JRST GETWR1
+     PAT+2/PAT:
+FLD3.DOC                                                        Page 3
+
+
+     PATSIZ/MOVEI T1,PAT 
+
+
+
+3.0  Known bugs and deficiencies
+
+None.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+Install the File Daemon (FILDAE) on  SYS  and  include  the  following
+sequence of instructions in the OPSER AUTO file (OPR.ATO):
+
+
+          :SLOG 1/2
+          .R FILDAE
+
+
+The File Daemon DETACHes itself and runs  unattended;   therefore,  it
+does not monopolize an OPSER PTY.
+FLD3.DOC                                                        Page 4
+
+
+If the File Daemon crashes for any reason, the operator should  ATTACH
+to the File Daemon job and type the following:
+
+
+          .R FILDAE
+
+
+The operator should not log in another job and run the File Daemon, as
+this action will not work.
+
+To rebuild FILDAE.EXE from FILDAE.MAC follow  the  FILDAE  section  in
+BUILD.CTL.   Be  sure to use SCNMAC 7(106) (or later) as supplied with
+this tape.
+
+
+
+5.0  INTERNAL CHANGES
+
+Edit #
+
+23
+       Put the TTY number, node name, and line on node of the accessor
+       of a file into ACCESS.LOG.
+24
+       Add the /NAME switch to allow access of a file to be restricted
+       on the basis of the user name of the accessor.
+25
+       Add the /ACCOUNT switch to allow access of a file to be restricted
+       on the basis of the account string of the accessing job.
+26
+       Fix some problems concerning sending junk pages to FILDAE.
+27
+       Don't smash the literal pool doing a 26 block DSKCHR into
+       a 5 word block.
+30
+       Add the /TMPFILE switch as a dummy internal to FILDAE to
+       avoid security problems.
+31
+       Look for an implied Ppn before looking for ALL and/or SYS
+       search list.
+32
+       Fix edit 26.
+33
+       Add support for MCO 9252.
+34
+       Create or supercede of a file with a monitor "SAVE" or
+       "SSAVE" command is logged as "Execution...". Log it as
+       "Save(create)" or "Save(supercede)".
+35
+       Don't do a CORE UUO to restore size to orgional .JBFF if not
+       necessary since it uses a lot of unnecessary CPU time.
+36
+       Add support for MCO 9543.
+37
+       Fix edit 36.
+FLD3.DOC                                                        Page 5
+
+
+40
+       Don't allow malicious users to create large ACCESS.USR files.
+       Ignore all files larger than ten blocks.
+
+
+
+6.0  SUGGESTIONS
+
+See FLD1.DOC.
+
+
+
+[End of FLD3.DOC]
+
+[FLD2.DOC is appended as an integral part of FLD3.DOC]
+FLD2.DOC                                                        Page 6
+
+
+FILDAE.DOC -- Changes from V1(16) to V2(22)
+February 1979
+
+
+
+1.0  SUMMARY
+
+The purpose of this release of the File  Daemon  is  to  fix  serveral
+minor  bugs  and  to  support  full file specifications on the PROGRAM
+switch  (including  SFDs).   This   feature   is   only   useful   for
+installations running a 7-series monitor.
+
+This version of the File Daemon has been tested under 603,  603A,  and
+the 7-series monitor and fully supersedes all previous versions.
+
+
+
+2.0  EXTERNAL CHANGES
+
+The PROGRAM switch in ACCESS.USR may now have as an  argument  a  full
+file  specification.   That  is,  if  the monitor supports SFDs in the
+GET/RUN commands, and RUN UUOs, the switch may have the following form
+
+/PROGRAM:STR:FILE.EXT[P,Pn,SFD1,SFD2,...SFDn]
+
+The File Daemon will only consider the program accessing the  file  to
+be  the  same  as  the program specified in the /PROGRAM switch if the
+full file specification matches the argument to the /PROGRAM switch.
+
+
+
+3.0  Known bugs and deficiencies
+
+None.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+Install the File Daemon (FILDAE) on  SYS  and  include  the  following
+sequence of instructions in the OPSER AUTO file (OPR.ATO):
+
+
+          :SLOG 1/2
+          .R FILDAE
+
+
+The File Daemon DETACHes itself and runs  unattended;   therefore,  it
+does not monopolize an OPSER PTY.
+FLD2.DOC                                                        Page 7
+
+
+If the File Daemon crashes for any reason, the operator should  ATTACH
+to the File Daemon job and type the following:
+
+
+          .R FILDAE
+
+
+The operator should not log in another job and run the File Daemon, as
+this action will not work.
+
+To rebuild FILDAE.EXE from FILDAE.MAC follow  the  FILDAE  section  in
+BUILD.CTL.   Be  sure to use SCNMAC 7(106) (or later) as supplied with
+this tape.
+
+
+
+5.0  INTERNAL CHANGES
+
+Edit #
+
+17
+       Fix minor bugs
+
+              1) Use GOBSTR rather than SYSSTR to read SYS search list
+              2) Reduce core to original .JBFF after scanning a line from
+                 ACCESS.USR
+              3) Handle the case of a page in the IPCF receive queue
+20
+
+       Support SFDs on RUN and GET commands (requires 7-series monitor)
+
+21
+       Cause "in your behalf" FILOP. to fail if there is no ACCESS.USR
+
+22
+       Don't ignore ACCESS.USR if the  author is the owner of the file
+       structure where it was found.
+
+
+
+6.0  SUGGESTIONS
+
+It has been suggested that a NAME switch be implemented which could be
+specified in conjunction with a [P,Pn] in the access list and that the
+name specified as the argument to the switch be  matched  against  the
+logged  in  name  of  the  user attempting access to the file.  If the
+names did not match, the  entry  in  the  access  list  would  not  be
+considered  a match even though the [P,Pn]s were identical.  Also, see
+FLD1.DOC for other suggestions.
+
+
+
+[End of FLD2.DOC]
+
+[FLD1.DOC is appended as an integral part of FLD2.DOC]
+FLD1.DOC                                                        Page 8
+
+
+FILDAE.DOC -- V1(16)
+February 1977
+
+
+
+1.0    SUMMARY
+
+The support for a File Daemon,  in  the  6.03  Monitor,  provides  for
+extended file protection.  The File Daemon described in this .DOC file
+is a prototype that you may use  to  help  you  in  understanding  the
+monitor  support  for this feature.  The File Daemon is being supplied
+to serve as a prototype for the File Daemon you  may  desire  at  your
+installation.  Installations will have varying types of accounting and
+file  security  measures  at  these  installations.   Therefore,  each
+installation's  File  Daemon  may  be  written  to  account  for these
+differences and requirements.   The  DIGITAL-supplied  prototype  File
+Daemon  supports access lists and access logging which is performed on
+a user's or a system administrator's request.
+
+
+1.1    BIBIOGRAPHY
+
+603.MCO lists the monitor changes made to support a File  Daemon.   In
+particular,  refer  to  MCO  number 6370 for a description of when the
+monitor passes control to the File Daemon.
+
+
+
+2.0    EXTERNAL CHANGES (USER INTERFACE)
+
+The File Daemon allows any user to specify who can (and cannot) access
+their  files.  Each user may create a file called ACCESS.USR (which is
+described in section 2.2).  This file optionally lists  the  names  of
+some  or all of that user's files and specifies, on an individual file
+basis, the users  who  can  and  cannot  access  those  files.   Under
+specific  conditions,  the  File Daemon examines the user's ACCESS.USR
+file and may record information regarding specific access requests  to
+the listed files in a separate file called ACCESS.LOG.
+
+
+2.1    The File Daemon
+
+The monitor calls the File Daemon (only if the  monitor  feature  test
+switch  FTFDAE = - 1)  each  time  that someone tries to access a file
+that has a 4, 5, 6, or 7 protection code  in  the  owner's  protection
+code  field  and  the access fails due to a protection error or due to
+any protection error because of the directory  protection  code.   For
+example,  if  you protect a file against a specific user and that user
+attempts access to  your  file  (e.g.,  LOOKUP,  ENTER,  RENAME),  the
+monitor  suspends  the  execution of the user's program and it sends a
+message to the File Daemon.  This message includes the type of  access
+the user is attempting and that user's project-programmer number.  The
+File Daemon is given control,  and  it  looks  for  your  file  called
+ACCESS.USR (which must be on the same file structure as the file being
+accessed and which should be in the same directory area  as  the  file
+FLD1.DOC                                                        Page 9
+
+
+being  accessed).  After examining ACCESS.USR, the File Daemon returns
+to the monitor the highest type of access you have specified that this
+user  can  have  to  your  file  and  it  logs  the  access request in
+ACCESS.LOG (if you set the /LOG switch in your  ACCESS.USR).   All  of
+this  occurs  even  when  you attempt to access your own file, if that
+file has a 4, 5, 6, or 7 protection code  in  the  owner's  protection
+code  field.  However, as the file's owner, you can read your file and
+change its protection code without  having  the  File  Daemon  called.
+Depending  on  the  information  you specified in your ACCESS.USR, the
+File Daemon either grants or denies access to the accessing user.
+
+If the monitor attempts to pass control to the File Daemon, but it  is
+not  running,  the  accessing user is denied access to the file unless
+the program has full file access rights ([1,2] or  JACCT).   The  same
+result occurs when one of the following conditions occurs:
+
+     1.  The File Daemon cannot find ACCESS.USR in the  same  path  as
+         the file to-be-accessed.
+
+     2.  The File Daemon cannot  find  ACCESS.USR  in  a  higher-level
+         directory, when a scan up the directory structure is made.
+
+
+If the File Daemon finds ACCESS.USR but cannot find the accessed  file
+name  in  ACCESS.USR,  the File Daemon denies that user access to your
+file.  Access is also denied to that user if the file name is found in
+ACCESS.USR but the accessing user's project-programmer number does not
+match any of the project-programmer numbers you  have  specified  that
+may have access to your file.
+
+
+All files listed in your ACCESS.USR are assumed to be in the same  UFD
+as  the  file  ACCESS.USR.  However, if your ACCESS.USR is in your UFD
+and describes the type of access to be allowed to files  contained  in
+SFDs the full path to the file in the SFD must be specified before the
+File Daemon will consider the file specifications to match.  The  File
+Daemon  treats  all  file  accessors the same.  All accesses to a file
+having a 4, 5, 6, or 7 protection code in the owner's protection  code
+field  cause  the  File  Daemon  to  be called when a protection error
+occurs.  The File Daemon is always  called  when  a  protection  error
+occurs  as a result of the directory protection code.  Because of this
+equal treatment, you should note the following:
+
+
+     1.  If a [1,2] job attempts to access a file  that  is  protected
+         such  that  the File Daemon is called, that job may be denied
+         access to the file.  This is a possible problem, for example,
+         if  the  [1,2]  job  is  FAILSA or BACKUP and you have denied
+         (either implicitly or explicity)  these  programs  access  to
+         your  files.   When  you  do  this,  your  file  will  not be
+         failsafed.  Therefore, you must accept the responsibility for
+         failsafing your own files.
+FLD1.DOC                                                       Page 10
+
+
+     2.  In general, full file access programs will not be allowed  to
+         read  your  files.  Therefore, under most circumstance, QUEUE
+         would not be allowed to queue a file that was protected  such
+         that the File Daemon was called.
+
+     3.  If the file's owner protection code field is  such  that  the
+         the  File  Daemon  is  called  and the owner has neglected to
+         include his own project-programmer number in  ACCESS.USR  for
+         this  file, the File Daemon grants the owner the same type of
+         access as if a 7 were in the owner's  protection  code  field
+         (the  owner  can  only  read  or change the protection of the
+         file).
+
+     4.  ACCESS.USR  files  may  be  restored  at   arbitrary   times.
+         Therefore,  a full restore of the disk using BACKUP or FAILSA
+         should not be done when the File Daemon is running.  If  such
+         a   full   restore   is   done,  the  action  may  not  allow
+         BACKUP/FAILSA to restore files that ACCESS.USR allows them to
+         backup.
+
+     5.  The CHKACC UUO will tell a program what a users  file  access
+         privileges  are.  Thus by using CHKACC, a program can tell if
+         the File Daemon will be called,  but  the  access  privileges
+         returned by the File Daemon are not known.
+
+
+2.2  ACCESS.USR
+
+Every user can create their own ACCESS.USR file.  ACCESS.USR  is  made
+up  of  one  or  more  'command  lines'.   Each 'command line' must be
+written in the following format:
+
+          file-spec/switches=[ppn]/switches,...,[ppn]/switches
+
+The  file-spec  is  a   full   file   specification   (i.e.,   device:
+filename.extension[path].    The   File  Daemon  scans  each  line  of
+ACCESS.USR until it matches a file-spec on the left of the equal  sign
+and  a ppn on the right.  All access rights will then be determined by
+that line  (there  will  be  no  continued  scan).   The  user  should
+minimally specify one of the switches synonymous with protection codes
+(READ,EXECUTE,ALL,..) for that file-spec.  If no switch is  specified,
+a  default  of  /NONE  is  provided.  The possible switches are listed
+below:
+
+
+Switch                        Meaning
+
+
+/LOG - /NOLOG
+
+         This switch causes the File Daemon to log any access  attempt
+         in  the  file ACCESS.LOG.  If this switch is specified, a LOG
+         entry is appended to the end of ACCESS.LOG, which is found in
+         the  same  directory  as  your  ACCESS.USR.   The  log  entry
+         includes the following:
+FLD1.DOC                                                       Page 11
+
+
+             the date of the access
+             the time of the access
+             the job number of the accessing job
+             the project-programmer number and name
+                  associated with the accessing job
+             the name of the accessing program
+             the type of access attempted
+             the full file specification of the accessed file
+             the access permitted, detailing whether access was
+                   permitted to the file
+
+         If the /EXIT or  /CLOSE  switch  (described  below)  is  also
+         specified,  the following information is also included in the
+         LOG entry:  (both in the initial entry  and  again  when  the
+         file is closed)
+
+             the accessing job's run time
+             kilo-core-seconds
+             disk reads
+             disk writes
+
+         If the File Daemon cannot find ACCESS.LOG in  your  area,  it
+         creates  one,  giving  it  the  same  protection code as your
+         ACCESS.USR.  Note that the  File  Daemon  can  always  access
+         ACCESS.USR and ACCESS.LOG.
+
+
+/LOG:SWITCH value
+
+         This switch allows conditional logging based  on  the  switch
+         value.  the following are legal switch values:
+
+         ALL - log all accesses attempted (same as /LOG).
+
+         NONE - do not log accesses (same as /NOLOG).
+
+         SUCCESSES - log only those accesses which  were  permited  to
+         succeed.
+
+         FAILURES - log only those accesses which were not permited.
+
+
+/CLOSE - /NOCLOSE
+
+         If the /LOG switch and the /CLOSE switch are  specified,  the
+         File  Daemon  makes the log entry in ACCESS.LOG when the file
+         is closed.
+
+
+/EXIT - /NOEXIT
+
+         If a program is executing and the  /LOG  and  /EXIT  switches
+         have been specified, the File Daemon makes the log entry when
+         the program has finished execution.
+FLD1.DOC                                                       Page 12
+
+
+/CREATE - /NOCREATE
+
+         The /CREATE switch allows a user who would ordinarily not  be
+         allowed  to  create  files  in your directory to do so.  This
+         switch is used in conjunction  with  one  of  the  ACCESS.USR
+         switches  that  are  synonomous  with protection codes (e.g.,
+         /RENAME).  This switch can appear on either side of the equal
+         sign.   An  example of a command line with the /CREATE switch
+         is
+
+         WONDER.TST/CREATE/NONE=[*,*]
+
+         which allows any user to create WONDER.TST in your directory,
+         but  none  of  those  users may have any other access to that
+         file.  Another example is
+
+         WONDER.TST=[10,3333]/CREATE/READ[*,*]/NONE
+
+         which prevents all users from accessing the file  WONDER.TST,
+         but allows user [10,3333] to create the file WONDER.TST.
+
+
+/PROTECTION:nnn
+
+         This switch specifies the protection code with which  a  file
+         will  be  created.   This  switch is allowed only on the left
+         side of the equal sign.  The  value  nnn  must  be  an  octal
+         number  in  the  range  0-777.   The file is created with the
+         specified protection code if the following conditions occur:
+
+         1.  The /PROTECTION switch is specified.
+
+         2.  The File Daemon is called  because  a  user  attempts  to
+             create  a  file  in your directory protected against that
+             user.
+
+         3.  The File Daemon  allows  the  user  to  create  the  file
+             (determined by the contents of ACCESS.USR).
+
+
+/PROGRAM:file-spec
+
+         This  switch  allows  the  specified  program  to  have   the
+         specified  type  of access to the file.  This switch can only
+         appear on the right side of the equal  sign  in  the  command
+         line.  For example:
+
+         ONE.TST/READ=[10,10],[10,65]/WRITE,[1,2]/PROGRAM:SYS:BACKUP
+
+         where [10,10] jobs can read ONE.TST;  [10,65] jobs  can  read
+         and  write  ONE.TST;   a  job  logged  in under [1,2] running
+         BACKUP can read the file.  No other users can access ONE.TST.
+
+         You may omit the device specification or you may specify DSK:
+         or  ALL:   in  the  file-spec argument to the PROGRAM switch.
+FLD1.DOC                                                       Page 13
+
+
+         However, this is not a recommended  procedure  because  there
+         may be potential security violations.  The File Daemon has no
+         knowledge of your search list;  therefore, DSK:   is  treated
+         identically  to ALL:.  It is recommended that the device name
+         be either a file structure name or an ersatz device (LIB:  is
+         not allowed, though).
+
+
+/XONLY   This switch, when it appears in conjunction with the /PROGRAM
+         switch,  will consider the program specified in the file spec
+         argument to the /PROGRAM switch to match  the  program  doing
+         the accessing only if this accessing program is execute only.
+
+
+/ALL     ALL  access  is  allowed  when  this  switch  is   specified.
+         Specified accessors of this file can change the protection of
+         the file, rename, write, execute, update, and append  to  the
+         file.  (This is the same as protection code 0).
+
+
+/RENAME  Rename access is allowed.  Specified accessors of  this  file
+         can  rename,  write, read, execute, update, and append to the
+         file.  (This is the same as protection code 1).
+
+
+/WRITE   Write access is allowed.  Specified accessors  of  this  file
+         can  write,  read,  execute,  update, and append to the file.
+         (This is the same as protection code 2).
+
+
+/UPDATE  Update access is allowed.  Specified accessors of  this  file
+         can  update, append, read, or execute the file.  (This is the
+         same as protection code 3).
+
+
+/APPEND  Append access is allowed.  Specified accessors of  this  file
+         can  append, read, or execute the file.  (This is the same as
+         protection 4).
+
+
+/READ    Read access is allowed.  Specified accessors of this file can
+         read  or  execute  the file.  (This is the same as protection
+         code 5).
+
+
+/EXECUTE Execute access is allowed.  Specified accessors of this  file
+         can  only  execute the file.  (This is the same as protection
+         code 6).
+
+
+/NONE    No access is allowed to the  file.   (This  is  the  same  as
+         protection code 7).
+
+
+FLD1.DOC                                                       Page 14
+
+
+ACCESS.USR is used to specify for each file  which  project-programmer
+numbers  can access your files and what type of access those accessors
+can have to the file.   The  switches  indicate  the  type  of  access
+allowed.
+
+Switches that appear on the left side of the  equal  sign  affect  all
+project-programmer  numbers  appearing  on the right side of the equal
+sign.  However, with the exception  of  the  /PROTECTION  switch,  the
+switch   on   the   left   can   be   overridden   for   one  or  more
+project-programmer numbers  on  the  right  by  explicitly  specifying
+another  switch.   For example, if the following line appeared in your
+ACCESS.USR:
+
+
+          TEST.TST/ALL=[10,*],[11,*],[27,*],[17,*]/NONE
+
+
+the File Daemon would allow all members of projects 10, 11, and 27  to
+have  complete  access  to  the  file  TEST.TST.   However, members of
+project 17 would be denied access to TEST.TST.  For PPN's  other  than
+10,  11,  27,  17,  the  File Daemon would search for a later TEST.TST
+which contained  the  accessing  PPN.   If  no  match  is  found,  the
+accessing PPN's request is denied.
+
+Full wild card specifications are allowed both on the left  and  right
+side  of  the equal sign.  Comments and continuation lines are allowed
+in ACCESS.USR.  A comment on a line or a comment line must begin  with
+a semicolon or an explanation point.  A continuation line is indicated
+by inserting a hyphen (minus  sign)  immediatly  proceeding  the  <CR>
+which  terminates  the  current line.  If there is a syntax error in a
+line in ACCESS.USR, that line  is  ignored.   You  should  ensure  the
+accuracy  of  your own ACCESS.USR files by proofing carefully.  If the
+following line were in your ACCESS.USR:
+
+          FOO.BAR+[*,*]
+
+the line would be ignored because a + sign appeared where  an  =  sign
+should  have  appeared.   All  users  will be denied access to FOO.BAR
+since the File Daemon denies access to  all  files  not  appearing  in
+ACCESS.USR.   Since the File Daemon ignores the line, it does not know
+that FOO.BAR is listed in the file.
+
+
+EXAMPLE
+
+The following is an example of an ACCESS.USR file which uses  most  of
+the features of the File Daemon.
+
+
+     Directory user = [13,675]
+
+     Directory protection = <700>
+FLD1.DOC                                                       Page 15
+
+
+     File           Protection
+
+     ACCESS.USR     <777>
+     ACCESS.LOG     <777>
+     F1.TST         <077>        - File Daemon will not be called.
+     F2.TST         <457>        - Project may READ, otherwise call
+                                   File Daemon.
+     F3.TST         <477>        - only owner may access without File
+                                   Daemon.
+     F4.TST         <777>        - Call File Daemon on all accesses.
+
+
+     ACCESS.USR
+
+     ACCESS.*/NONE=[*,*]         ;No one can touch the ACCESS.USR  and
+                                 ACCESS.LOG  including [1,2] and JACCT
+                                 users.  Note that these files  cannot
+                                 be  backed  up  if the File Daemon is
+                                 running.
+
+     ALL:*.*/READ/LOG=[1,2]/PROGRAM:SYS:BACKUP/XONLY
+
+                                 ;Allow  BACKUP  (from  SYS,   execute
+                                 only,  and  running  under  [1,2]) to
+                                 read file and make LOG entry.
+
+     F?.TST/LOG=[10,11]/NONE,[10,*]/EXECUTE/EXIT/CLOSE
+
+                                 ;Log  Project  10  attempts  to   use
+                                 F1,F2,F3, catch [10,11] and permit no
+                                 access.   Other  project  users   may
+                                 EXECUTE   only  with  additional  log
+                                 entries to record statistics.
+
+     *.*/CREATE/PROTECTION:055=[12,21]/ALL,[12,17]
+
+                                 ;[12,21] has privileges for all files
+                                 (except   ACCESS.*)  and  may  create
+                                 files which have a protection of 055.
+                                 [12,17]  has  no  access  to any file
+                                 (/NONE is a default) but  may  create
+                                 files.  No log entries will be made.
+
+     *.*/CREATE/PROTECTION:777/LOG=[123,456]/NONE
+
+                                 ;[123,456] may create files  at  will
+                                 but  may  not  access  them  (e.g., a
+                                 student turning in homework).
+
+     *.*[13,675,A]/ALL/PROTECTION:057/CREATE=[1,2]/LOG
+
+                                 ;[1,2] has all privileges in this SFD
+                                 and   may   create   files   with   a
+                                 protection of 057.
+FLD1.DOC                                                       Page 16
+
+
+     [13,675].UFD/LOG/READ=[*,*] ;Anyone may read this directory as  a
+                                 file.
+
+     F3.TST/LOG=[12,3]/EXECUTE
+     *.*/LOG=[12,3]/NONE         ;[12,3]  may   execute   F3.TST   and
+                                 nothing else.
+
+     *.*=[*,*]/NONE              ;No other access is  granted  and  no
+                                 LOG entry is made.
+
+
+Note that entries are scanned from left to right  and  top  to  bottom
+with  the  scan  stopping  on the first match of file on left of equal
+sign and a ppn on the right side of the equal sign.   In  constructing
+the ACCESS.USR file, care should be taken to see that a wild card spec
+will not match in a line earlier than a specific spec in a later line.
+As  a  general  rule  put  specific statements first with more general
+"catch all's" later.  The user is also reminded that if he  wants  log
+entries,  he  must  use  the  /LOG (any of and /EXIT, /CLOSE, etc.) on
+every line for which this is true.
+
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+None.
+
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+Install the File Daemon (FILDAE) on  SYS  and  include  the  following
+sequence of instructions in the OPSER AUTO file (OPR.ATO):
+
+
+          :SLOG 1/2
+          .R FILDAE
+
+
+The File Daemon DETACHes itself and runs  unattended;   therefore,  it
+does not monopolize an OPSER PTY.
+
+If the File Daemon crashes for any reason, the operator should  ATTACH
+to the File Daemon job and type the following:
+
+
+          .R FILDAE
+
+
+The operator should not log in another job and run the File Daemon, as
+this action will not work.
+FLD1.DOC                                                       Page 17
+
+
+5.0  INTERNAL CHANGES
+
+Not applicable for this version.
+
+
+
+6.0  SUGGESTIONS
+
+     1.  LOOKUP ACCESS.USR on the file structure where the file  being
+         accessed  resides  (this is what is currently done).  If this
+         LOOKUP fails because the file is not found, look it up on DSK
+         using the SYS:  search list.
+
+     2.  Allow passwords to be specified in  ACCESS.USR  and  ask  the
+         user  attempting  to  access the file for the password before
+         allowing access.
+
+     3.  Allow a file specification as an argument to the LOG switch.
+
+     4.  The 5 series file system  defines  17  levels  of  privileges
+         which are mapped into the 8 levels of protection which may be
+         specified in the  3-bit  protection  field.   Have  the  File
+         Daemon  implement  switches  which  correspond  to privileges
+         rather than the protection code.
+
+     5.  Implement a mechanism to include or exclude calls to the File
+         Daemon  on  a  per  directory  basis.   This requires monitor
+         changes.
+
+
+
+[End of FLD1.DOC]

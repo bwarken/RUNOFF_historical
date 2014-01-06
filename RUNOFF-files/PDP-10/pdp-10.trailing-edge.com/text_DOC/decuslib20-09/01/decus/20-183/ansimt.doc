@@ -1,0 +1,483 @@
+				 ANSIMT Utility
+
+
+ANSIMT is a TOPS-20 tape utility whose function is to transfer 7-bit ascii
+files between disk storage and 9-track magnetic tape.  ANSIMT supports fixed
+formatted tape files on 800/1600/6250 bpi ANSI labelled tapes.  It is invoked
+by giving the ANSIMT command when you see the "@" prompt at TOPS-20 executive
+command level.  ANSIMT will prompt for a command, which will have the fol-
+lowing format:
+
+    ANSIMT>command arguments
+
+
+
+				ANSIMT Commands
+
+
+    DEFAULT option [argument]
+	Sets user default for the given option.  The options for this
+	DEFAULT command are actually switches for other commands.  Once the
+	default is set for an option, it is assumed to be the value of its
+	corresponding command switch unless the default is reset or a switch
+	is added to the command.  For example
+
+	ANSIMT>DEFAULT RECORD-LENGTH 76
+
+	will set the default record length to be 76
+
+	ANSIMT>STORE (DISK FILE) FILEA.PAS (AS) FILEA.PAS
+
+	will store FILEA.PAS to the defined tape device with a record length
+	of 76, but
+
+	ANSIMT>STORE (DISK FILE) FILEA.PAS (AS) FILEA.PAS /RECORD-LENGTH:20
+
+	will override the default setting of 76 and store FILEA.PAS to the
+	defined	tape device with a record length of 20, while still keeping
+	the default as 76.
+
+	Options for the DEFAULT command are:
+
+	    BLOCKING-FACTOR n  --  sets the default blocking factor to n.
+	    The blocking factor is the number of records per block.  The
+	    block size (blocking factor X record length) limit for ANSIMT
+	    is 32760.  This affects only the STORE command.
+
+	    [NO] PAD-TABS [n]  --  sets the default to pad (or don't pad if
+	    you type NO) tab characters	with blanks while storing to tape.
+	    Each tab position is a multiple of n, so if n is 4, the tab
+	    positions are 4, 8, 12, etc.  The default for n is 8 and if you
+	    type NO, n is not expected.  This option only effects the STORE
+	    command.
+
+	    [NO] STRIP-BLANKS  --  sets the default to strip (or don't strip
+	    if you type NO) blanks off the end of the record while restoring
+	    from tape to disk.  Alot of space is save when the STRIP-BLANKS
+	    option is used and are how ascii records are usually stored on
+	    the	DEC-20.  This option only affects only the RESTORE command.
+
+	    [NO] WARNING-MESSAGES  --  sets the default to print (or don't
+	    print if you type NO) warning messages.
+
+	    RECORD-LENGTH n  --  sets the default record length to n.  The
+	    record length is the number of bytes per record and is only
+	    significant for the STORE command.	ANSIMT supports records with
+	    record lengths between 18 and 2048 inclusively.
+
+	The initial defaults are:
+
+	    BLOCKING-FACTOR 1
+	    PAD-TABS 8
+	    RECORD-LENGTH 80
+	    STRIP-BLANKS
+	    WARNING-MESSAGES
+
+
+    DIRECTORY (OF TAPE) [switch]
+	Prints to your terminal a directory listing of your tape.  This
+	command must be preceded by the TAPE command to first define your
+	tape.  This command automatically rewinds to the beginning of tape
+	and list each file with its information until an end of tape is
+	reached.  After the directory is listed, the tape is left at the
+	end of tape mark.
+
+	Switches for the DIRECTORY command are:
+
+	    /FULL  --  gives the same information as the short form (/SHORT)
+	    except this switch lists the number of records in each file and
+	    the estimated number of pages it will take up on the disk.  Be
+	    aware that listing the number of records uses up a considerable
+	    amount of CPU time and should be used only when necessary.
+
+	    /SHORT  --  each file on tape will list the following information:
+	    the sequence number, the filename, the volume ID, the format it
+	    was written, the record length, the blocking factor,  the date it
+	    was created, and the date it expires.
+
+
+    EOT (END OF TAPE)
+	This command positions the tape to the EOT (end of tape) position.
+	This command must be preceded by the TAPE command to first define
+	your tape.  Issuing this command when the tape is already at EOT will
+	give this warning
+
+	    %Already at EOT
+
+
+    EXIT (TO MONITOR)
+	Exits immediately to TOPS-20 command level.
+
+
+    HELP
+	Prints this help message to your terminal.
+
+
+    RESTORE (TAPE FILES) source (TO) destination [switches]
+	Restores the magnetic tape source file(s) from your tape to disk, the
+	given destination specification.  This command must be preceded
+	by the TAPE command to first define your tape which will be the
+	assumed tape device for the source.  If you do not type a destination
+	specification, ANSIMT assumes it is the same as the source speci-
+	fication.  When ANSIMT begins restoring a file to a directory, it
+	prints the message
+
+	    source  =>  destination
+
+	and ends with the confirming message
+
+	      [n records]
+
+	where n is the number of records transferred.
+
+	    If you are restoring a file to a directory other than your own,
+	you must specify that directory in the destination file specifi-
+	cation.
+
+	    If the source contains wildcards in it, you must specify a
+	directory as the destination where the files will be restored
+	(the current directory is the default).
+
+	Switches for the RESTORE command are:
+
+	    /NO-STRIP-BLANKS  --  restores records exactly how they are
+	    from tape to disk.
+
+	    /STRIP-BLANKS  --  strips the trailing blanks off the records
+	    from tape before being written to disk.
+
+	NOTES:
+	    *	Restoring a file with more than one period ('.') in its
+		filename may be done by typing a control V (^V) before
+		periods succeeding the first.
+
+	    *	While restoring files off EBCDIC tape, certain filenames
+		may not be recognized by ANSIMT.  The cause of this
+		problem has not been determined.  There may be ways to
+		get around this problem, which are not currently
+		documented.
+
+
+    REWIND (TO THE BEGINNING OF TAPE)
+	This command positions the tape to the BOT (beginning of tape) position.
+	This command must be preceded by the TAPE command to first define
+	your tape.  Issuing this command when the tape is already at BOT will
+	give this warning
+
+	    %Already at beginning of tape
+
+
+    SKIP (NUMBER OF FILES) [-]n
+	Positions the tape past n logical files.  A negative value for n
+	backspaces over n logical files, and a value of zero does nothing.
+	This command must be preceded by the TAPE command to first define
+	your tape.  A skip past the end of tape mark will give the error
+	message
+
+	    ?Logical end of tape encountered
+
+	and a skip past the beginning of tape mark will give the error
+
+	    ?Beginning of tape encountered
+
+
+    STORE (DISK FILES) source [(AS) destination] [switches]
+	Stores the disk source file(s) onto your magnetic tape.  This command
+	must be preceded by the TAPE command to first define your tape
+	which will be the tape device to store to.  If the destination file
+	specification is not given, ANSIMT will try to fit as many charac-
+	ters as possible from the source specification into the 17 charac-
+	ter tape file limit.
+
+	    When ANSIMT begins storing a file to tape, it prints the
+	message
+
+	    source  =>  destination
+
+	and ends with the confirming message
+
+	      [n records]
+
+	where n is the number of records transferred.
+
+	    If the source contains wildcards, the destination is not
+	necessary (the tape specified by the TAPE command is assumed).
+
+	Switches for the STORE command are:
+
+	    /BLOCKING-FACTOR:n  --  sets the blocking factor to n.  The
+	    blocking factor is the number of records per block.	 The
+	    maximum block size (blocking factor X record length) ANSIMT
+	    supports is 32760.
+
+	    /NO-PAD-TABS  --  does not pad tab characters with blanks
+	    while storing to tape.
+
+	    /PAD-TABS:n  --  pads tab characters with blanks while storing
+	    to tape.  Each tab position is a multiple of n, so if n is 4,
+	    the tab positions are 4, 8, 12, etc.  The default for n is 8.
+
+	    /RECORD-LENGTH:n  --  sets the default record length to n.
+	    The	record length is the number of bytes per record.  ANSIMT
+	    supports records with record lengths between 18 and 2048
+	    inclusively.
+
+
+    TAPE (DEVICE) tapespec
+	Defines the tape device to be used for file transfers.  This command
+	must be done prior to any reading or writing to tape.  The tapespec
+	is either a physical tape drive (MTAn:), a logical tape device
+	(MTn:), or a logical name of a tape device.  The tape must be an ANSI
+	labelled tape or this error will be printed
+
+    	    ?Tape must be ANSI labelled
+
+	If the device is not a tape device, ANSIMT prints the error
+
+	    ?Not a magtape device
+
+	and if the device not available to your job, ANSIMT prints this
+	error
+
+	    ?Device already assigned to another job
+
+
+
+				    EXAMPLES
+
+
+1.  Making a full directory listing of a tape (X99999):
+
+@MOUNT TAPE X99999:  /DENSITY:1600 /LABEL-TYPE:ANSI /READ-ONLY /VOLIDS:X99999 -
+                     /REMARK:"X99999"
+% No operator on duty
+[Mount request X99999 queued, request #177]
+
+[Tape set X99999, volume X99999 mounted]
+[X99999: defined as MT0:]
+@ANSIMT
+ANSIMT>TAPE X99999:
+ANSIMT>DIRECTORY (OF TAPE) /FULL
+    			         RECORD BLOCK    # OF  EST.   CREATE    EXPIRE
+SEQ#      FILE NAME     VOLID  F LENGTH FACTOR   RECS. PAGES   DATE      DATE
+   1  TEST.PAS          X99999 F     80     25      51     2  8-Aug-84  8-Aug-84
+   2  TEST.DOCUMENT     X99999 F     80     25       3     1  8-Aug-84  8-Aug-84
+   3  MYFILE.FOR        X99999 F     99      3      49     2 10-Aug-84 10-Aug-84
+   4  MYFILE.DOCUMENT   X99999 F     80      1       2     1 10-Aug-84 10-Aug-84
+   5  DOOR.FLOOR        X99999 F   2048     10      11     9 10-Aug-84 10-Aug-84
+ANSIMT>REWIND (TO THE BEGINNING OF TAPE)
+ANSIMT>EXIT (TO MONITOR)
+@DISMOUNT TAPE X99999:
+[Tape dismounted, logical name X99999: deleted]
+
+
+2.  Storing a file (HOLE.C74) at the end of the tape (X99999).
+
+@MOUNT TAPE X99999:  /DENSITY:1600 /LABEL-TYPE:ANSI /READ-ONLY /VOLIDS:X99999 -
+                     /REMARK:"X99999"
+% No operator on duty
+[Mount request X99999 queued, request #178]
+
+[Tape set X99999, volume X99999 mounted]
+[X99999: defined as MT0:]
+@ANSIMT
+ANSIMT>TAPE X99999:
+ANSIMT>EOT (END OF TAPE)
+ANSIMT>STORE (DISK FILE) HOLE.C74 (AS) HOLE.C74.131071
+  HOLE.C74.55 => MT0:HOLE.C74.131071
+    [195 records]
+ANSIMT>REWIND (TO THE BEGINNING OF TAPE)
+ANSIMT>EXIT (TO MONITOR)
+@DISMOUNT TAPE X99999:
+[Tape dismounted, logical name X99999: deleted]
+
+
+3.  Restoring tape file (DOOR.FLOOR) to DOOR.FLOOR and restoring the tape
+file before it to HOLD.DOCUMENT.
+
+@MOUNT TAPE X99999:  /DENSITY:1600 /LABEL-TYPE:ANSI /READ-ONLY /VOLIDS:X99999 -
+                     /REMARK:"X99999"
+% No operator on duty
+[Mount request X99999 queued, request #178]
+
+[Tape set X99999, volume X99999 mounted]
+[X99999: defined as MT0:]
+@ANSIMT
+ANSIMT>TAPE X99999:
+ANSIMT>RESTORE (TAPE FILE) DOOR.FLOOR (TO) DOOR.FLOOR
+  MT0:DOOR.FLOOR.131071 => DOOR.FLOOR.23
+    [11 records]
+ANSIMT>SKIP (NUMBER OF FILES) -2
+ANSIMT>RESTORE (TAPE FILE) ..* (TO) HOLD.DOCUMENT
+  MT0:..131071 => HOLD.DOCUMENT.1
+    [2 records]
+ANSIMT>EXIT (TO MONITOR)
+@DISMOUNT TAPE X99999:
+[Tape dismounted, logical name X99999: deleted]
+
+
+4.  Restoring all the files in the current directory to tape.
+
+@MOUNT TAPE X99999:  /DENSITY:1600 /LABEL-TYPE:ANSI /READ-ONLY /VOLIDS:X99999 -
+                     /REMARK:"X99999"
+% No operator on duty
+[Mount request X99999 queued, request #178]
+
+[Tape set X99999, volume X99999 mounted]
+[X99999: defined as MT0:]
+@ANSIMT
+ANSIMT>TAPE X99999:
+ANSIMT>RESTORE (TAPE FILES) *.*
+  MT0:TEST.PAS.131071 => TEST.PAS.2
+    [51 records]
+  MT0:TEST.DOCUMENT.131071 => TEST.DOCUMENT.2
+    [3 records]
+  MT0:MYFILE.FOR.131071 => MYFILE.FOR.2
+    [49 records]
+  MT0:MYFILE.DOCUMENT.131071 => MYFILE.DOCUMENT.2
+    [2 records]
+  MT0:DOOR.FLOOR.131071 => DOOR.FLOOR.24
+    [11 records]
+  MT0:HOLE.C74.131071 => HOLE.C74.56
+ANSIMT>EXIT (TO MONITOR)
+@DISMOUNT TAPE X99999:
+[Tape dismounted, logical name X99999: deleted]
+
+
+
+			   MESSAGES AND THEIR MEANING
+
+
+ANSIMT Messages:
+
+    source => destination
+	This message is printed when either using the STORE or RESTORE commands.
+	Prints which source file is being transferred to which destination file.
+
+    [n records]
+	Confirmation that either the STORE or the RESTORE went ok.  n is
+	number of records transferred from the source to the destination.
+
+    FILENAME - ln : cn characters long, trunctated to rn
+	Message printed when a record is longer than the specified record
+	length while storing to tape.  This message is printed only during
+	the STORE command.  FILENAME is the source file specification, ln
+	is the line number of the record, cn is the length of the record,
+	and rn is the specified record length.
+
+
+ANSIMT Warning Messages:
+
+    %Already at beginning of tape
+	This warning occurs when the tape is already at BOT (beginning of
+	tape) and the REWIND command is executed.
+
+    %Already at end of tape
+	This warning occurs when the tape is already at EOT (end of tape)
+	and the EOT command is executed.
+
+    %Block size greater than the ANSI standard of 2048
+	This warning occurs when the specified block size is greater than
+	the ANSI standard of 2048.  The block size is calculated by
+	multiplying the record length by the blocking factor.  This message
+	is only printed during the STORE command.
+
+    %TAPEFILE not able to be restored
+	This warning occurs when the specified tapefile (TAPEFILE) is
+	in an unreadable format or unrecoverable data errors are present.
+
+
+ANSIMT Error Messages:
+
+    ?Argument must be between 1 and 2048
+	This error occurs if the argument for the PAD-TABS switch is out
+	of range.  This message is printed either during the DEFAULT command
+	using the PAD-TABS option or during the STORE command using the
+	/PAD-TABS switch.
+
+    ?Argument not specified
+	This error occurs when a switch expects an argument and no argument
+	is given.
+
+    ?Blocking factor must be between 1 and 32760
+	This error occurs if the blocking factor given is out of range.
+	This message is printed either during the DEFAULT command using the
+	BLOCKING-FACTOR option or during the STORE command using the
+	/BLOCKING-FACTOR switch.
+
+    ?Blocking factor too large with record length of rl
+	This error occurs when the blocking factor multiplied by the
+	current record length rl is greater than the maximum allowable
+	block size of 32760.  This message is printed either during the
+	DEFAULT command using the BLOCKING-FACTOR option or during the
+	STORE command using the /BLOCKING-FACTOR switch.
+
+    ?Beginning of tape encountered
+	This error occurs when skipping past BOT (beginning of tape).
+	This message is printed during a SKIP -n if n is greater than
+	the number of files from the current position to BOT.
+
+    ?Cannot restore, already at end of tape
+	This error occurs if a RESTORE command is executed while the tape
+	is positioned at EOT (end of tape).
+
+    ?Device must be DISK
+	This error occurs if the device of the file specification isn't
+	the disk or the terminal.  A DISK device is expected as the source
+   	file for the STORE command and as the destination file for the RESTORE
+	command.
+
+    ?Does not take an argument
+	This error occurs when a switch doesn't take an argument and a
+	argument is given.
+
+    ?Invalid attribute for this device - input
+	This error occurs when junk is added to the tape file specification
+	for the STORE command.  A full tape file specification for the STORE
+	command is dev:<directory>file-name.file-extent.version-no, input is
+	what was type in as the tape file specification.
+
+    ?Record length must be between 18 and 2048
+	This error occurs when an invalid record length is specified.  This
+	message is either printed during the DEFAULT command using the
+	RECORD-LENGTH option or the STORE command using the /RECORD-LENGTH
+	switch.
+
+    ?Record length too large with blocking factor of bf
+	This error occurs when the record length specified multiplied by
+	the current blocking factor bf, is greater than the maximum allow-
+	able block size of 32760.  This message is either printed during the
+	DEFAULT command using the RECORD-LENGTH option or the STORE command
+	using the /RECORD-LENGTH switch.
+
+    ?Tape device not defined, use TAPE command to define device
+	This error occurs if the DIRECTORY, EOT, RESTORE, REWIND, SKIP,
+	or STORE command is executed without defining the tape device first
+	with the TAPE command.
+
+    ?Tape must be ANSI labelled
+	This error occurs when a non ANSI labelled tape is defined using
+	the TAPE command.
+
+    ?This utility does not support tape to tape copying
+	This error occurs when a tape file is specified as the destination
+	for the RESTORE command.  If tape to tape copying is desired, the
+	IBM 3081 is suggested.
+
+    ?Use COPY command to copy from disk to disk
+	This error occurs when a disk file is specified as the destination
+	for the STORE command.
+
+
+
+				   REFERENCES
+
+
+See also HELP for the following:
+
+	ANSIMT
+	BATCH
+	SUBMIT
+	TAPES
+
+[End of DOC:ANSIMT.DOC 21-MAY-85]

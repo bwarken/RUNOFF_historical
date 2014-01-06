@@ -1,0 +1,594 @@
+
+
+
+
+
+
+
+
+
+                                  INTRODUCTION
+
+
+
+               UCI LISP is a compatible extension of the Stanford LISP
+          1.6 programming system  for the DEC PDP-10.   The extensions
+          make  UCI  LISP  a   powerful  and   convenient  interactive
+          programming  environment  for  research   and   teaching  in
+          artificial  intelligence   and   advanced   list  processing
+          applications.   All Stanford  LISP  programs,  (except those
+          using the BIGNUM package)  can be run directly in  UCI LISP.
+          In addition,  the extended features of UCI LISP make it much
+          easier  to transfer interpreted  LISP programs from BBN LISP
+          and  MIT  AI  LISP  (we have already converted several large
+          programs,  including  a  version  of  the  Woods'  Augmented
+          Transition Network Parser from  BBN LISP,  and a  version of
+          Micro-Planner from MIT AI LISP.)
+
+
+               This  manual  describes the  extensions to the Stanford
+          LISP 1.6 system, and should thus be read in conjunction with
+          the latest Stanford LISP 1.6 manual,  currently  SAILON 28.6
+          (Stanford Artificial  Intelligence Laboratory Operating Note
+          28.6).   As can  be  seen from the relative sizes of the two
+          documents  UCI LISP represents  a  substantial  extension to
+          Stanford LISP,  and from our own experience presents a major
+          improvement in the habitability of the system for both naive
+          and experienced users.   (A  majority of the extensions were
+          suggested by  the features  of  BBN  LISP, probably the best
+          interactive  LISP  system  in  existence,  but unfortunately
+          available  at  the  time  UCI  LISP  was implemented only on
+          TENEX,  a  paged  virtual  memory  system  for  the  PDP-10,
+          produced by Bolt,  Beranek and Newman Inc.; this LISP system
+          is now or soon will be available  on the BURROUGHS B6700 and
+          the IBM S/360 and S/370  series machines,  and is now called
+          INTERLISP.)
+
+
+               The  major extensions to Stanford LISP  can  be briefly
+          described as follows:
+
+                 1) Improvements in storage utilization:
+                     a) UCI LISP is reentrant and compiled code may be
+                        placed in the sharable high segment
+                     b) The   allocator  allows  reallocation  of  all
+                        spaces (including Binary Program Space) at any
+                        time,  and new  versions  of GETSYM and PUTSYM
+                        are  now  available  to  permit  relocation of
+
+
+
+
+                                      0 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        MACRO-10 and FORTRAN coded routines
+                     c) A new  data type, the BLOCK, which allow users
+                        freer  access  to  Binary  Program  Space  and
+                        permits the construction of data items such as
+                        the system OBLIST,  which is both a list and a
+                        contiguous   block  of   storage  (to  provide
+                        efficient use as a sequential hash table)
+
+                 2) Powerful    interactive    debugging   facilities,
+                    including:
+                     a) Sophisticated   conditional   breakpoint   and
+                        function tracing facilities
+                     b) A powerful  list structure editor  for editing
+                        function definitions and data
+                     c) Facilities  for   examining,   correcting  and
+                        continuing to run in the context of  a program
+                        which has been interrupted by an error or by a
+                        user initiated temporary interrupt
+
+                 3) Extensions to the I/O facilities available  in the
+                    basic system, including:
+                     a) Convenient I/O to disk files, including use of
+                        project/programmer  designations  and  ways to
+                        save and restore functions and data
+                     b) Read Macros (patterned  after MIT AI LISP) for
+                        extending the LISP READ routine
+                     c) A  routine  for  printing  circular  or deeply
+                        nested expressions
+                     d) Routines  to modify the control  table  of the
+                        LISP READ routine
+                     e) The  ability  to  change  the  OBLIST  used by
+                        INTERN  (and,  hence,  READ)  at  any  time by
+                        changing  the value of the  atom  OBLIST  to a
+                        properly structured BLOCK  list (see  1c above
+                        and Chapter 11)
+                     f) The  ability to  RENAME and DELETE  files from
+                        within LISP
+                     g) The  ability to read  file directories for any
+                        accessible  project-programmer number,  to see
+                        if a file exists in a directory
+                     h) Several   useful   functions    for   carriage
+                        positioning,    teletype   echo   and   prompt
+                        character control,  reading input a line  at a
+                        time,    reading   list   structures   without
+                        interning their atoms, etc.
+
+                 4) Functions for examining and modifying  the special
+                    pushdown  stack which holds the context of ongoing
+
+
+
+
+                                      0 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    computations
+
+                 5) Error protection facilities:
+                     a) NIL,  T  and  other  atoms  cannot  be  easily
+                        damaged by RPLACA, RPLACD, SETQ and SET
+                     b) The system will  no longer go into an infinite
+                        loop   when   searching   for   the   function
+                        definition of the CAR of a form
+                     c) Changes  to the disk output  routine DSKOUT so
+                        that it uses the RENAME facility to  provide a
+                        backup for user  files (minimizing the risk of
+                        unintentionally clobbering files)
+
+                 6) Extended basic functions including:
+                     a) New  predicates  for  data  types,   and  most
+                        predicates  now  return useful non-NIL values,
+                        rather than T
+                     b) New   list   construction   and   modification
+                        functions
+                     c) Multiple sequential form evaluation  in LAMBDA
+                        expressions
+                     d) An efficient n-way switch
+                     e) Availability   of  the   FORTRAN  mathematical
+                        functions
+                     f) Mapping functions with  several arguments, and
+                        ones which build new lists using NCONC to join
+                        segments
+
+                 7) The  ability  to  use  many  of  the  system Queue
+                    Manager's   facilities   without   leaving   LISP,
+                    allowing:
+                     a) Listing of files on the line printer
+                     b) Initiation of batch jobs
+
+
+               As mentioned,  we have made UCI LISP a reentrant system
+          which  may be  used by  several users simultaneously.  Thus,
+          while  the new features of UCI  LISP require a larger system
+          than the original Stanford LISP, this impact is minimized in
+          any  environment with more than one LISP user.  In addition,
+          since  the   basic  LISP  system   contains   many  features
+          previously  available only  in  the  various extension files
+          (such as SMILE,  ALVINE,  TRACE,  etc.)  or  which had to be
+          written  by  the  user,  it  is  possible to write and debug
+          meaningful  jobs in the basic system,  without getting extra
+          core.   The UCI LISP system  has a sharable high  segment of
+          14K and  a user specific low segment  of 8K.  Thus, if there
+          are two users  the virtual core  load is 30K,  while getting
+
+
+
+
+                                      0 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+          the  same capabilities in Stanford LISP would require a load
+          of 32K  for the two users,  and of course the improvement is
+          even more noticeable with more users sharing UCI LISP (about
+          8K is saved for each additional user).
+
+
+               The  ability  to  put  compiled  code  in  the sharable
+          segment  and to  reallocate  Binary  Program Space  makes it
+          possible to build systems in which much of the  systems code
+          is compiled  LISP expressions.   All  of  the  advantages of
+          higher level coding  are  obtained,  and  the  LISP compiler
+          (borrowed  from  Stanford  with  some  small  modifications)
+          produces better  results than most assembly language coders.
+          Such partially  compiled  systems  can now  be  used without
+          closing off  the  possibility  of the user  extending Binary
+          Program Space to store  his own compiled code.   In general,
+          it is now possible to  compile a  system incrementally.  The
+          user can save the  low segment which contains  the partially
+          compiled system,  then test out  new material in interpreted
+          form  before  extending  the  Binary  Program  Space  in the
+          segment to load the new compiled material.
+
+
+               The  debugging  facilities   form  the   bulk   of  the
+          extensions to Stanford  LISP,  and  are  identical  with the
+          equivalent facilities available in BBN LISP in the summer of
+          1971.   (BBN  LISP  has  been  extended  in  the intervening
+          period.)  They make it  possible for the user  to track down
+          bugs in complicated recursive programs by  making  it easier
+          for him to investigate the context in which the bug occurred
+          (e.g.  to see at what point erroneous data was passed  as an
+          argument,  or at what point the  flow of control  went awry,
+          etc.)  The user  does  not have  to  plan  in advance or set
+          breakpoints to get access to the context of the  error.  The
+          system   holds  the  context  of  any  error  automatically,
+          allowing  the  user  to perform  whatever  investigations he
+          wishes,  and make any corrections which may be useful.  This
+          also  makes  it possible to patch  up a small error, like an
+          unbound atom or simple undefined  function, in the middle of
+          a  large computation and to continue the computation without
+          having to  start  from scratch.  Similarly, the user can try
+          out ideas for  correcting  the  error,  without  leaving the
+          context of the error, and go on only when he has pinned down
+          the  error and its  possible solution.   If  the information
+          available at the time the LISP system discovers the error is
+          insufficient to pin down  the  cause  of the error, the user
+          can  have the system  repeat the computation, with a special
+          trace feature  that  prints out whatever the user  wishes to
+
+
+
+
+                                      0 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+          know at  various  points in the  computation.  (The user can
+          specify both what  data  is  to  be  printed  and under what
+          conditions he wishes it printed.)  The  user can  also force
+          the  system  to  establish  a  breakpoint  anywhere  in  his
+          computation,  so he can  investigate the context  before the
+          error has covered its tracks.
+
+
+               The  UCI LISP  editor (borrowed with some modifications
+          from  the  BBN  LISP  system)  is  actually  a  language for
+          incremental modification of list structures.  It can be used
+          by a user at a terminal to modify function definitions (even
+          during the middle of a break while the function is  still on
+          the context stack) or to change complicated data structures.
+          It  can  also be  used  as a  subroutine by other functions,
+          making it convenient  for  one  function  to  modify another
+          function.   This  is actually done by the BREAK  package, to
+          implement the function BREAKIN which inserts a breakpoint at
+          any arbitrary point in a user function.
+               The  editor  can move around in  a  structure  by small
+          local  motions,  or  by  searching  for  a  portion  of  the
+          structure which matches some given pattern.   It  can insert
+          new  items,  delete  old  ones,  interchange  items,  change
+          structure,  embed old items in new structure or extract them
+          from  old  structure,  etc.   In order to be able  to edit a
+          function which is still on the context stack and to have all
+          of the portions on the context stack be changed at once, the
+          modifications performed by  the  editor are physical changes
+          of the existing structure.   Although  all the modifications
+          are  "destructive",  using RPLACA and RPLACD to make changes
+          in the given structure,  all  of  the  modifications  can be
+          selectively reversed by means of the UNDO feature.  Thus the
+          user   can   make   modifications   without  worrying  about
+          completely destroying his function definitions by accident.
+
+
+          The  editor is  a very large,  complicated function, and its
+          documentation  indicates that fact.  However, the first part
+          of the editor  documentation gives  a  convenient rundown on
+          how to  use  the editor  as  a  novice,  and  with  that the
+          beginning user can get quite a bit  done.   By  skimming the
+          remainder of the editor chapter the user can  get  some idea
+          of the many extra  useful features available, and can slowly
+          extend his capabilities  with  the  editor.   It  has been a
+          common  observation  that  in  the  process  of  writing and
+          debugging  a large system,  or  even  a  small  program, the
+          average  user  spends  most  of  his  time  in  editing  his
+          functions.   By becoming familiar with  all  the features of
+
+
+
+
+                                      0 . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+          the list  structure editor the user can cut his editing time
+          considerably,  and make large or subtle changes easily.  The
+          user should  also  bear in mind that the editor is available
+          as a  function which can be used by  other  functions.  This
+          can make many jobs substantially easier.
+
+
+               NOTE: ALVINE is no  longer  available  in  the standard
+          version of UCI LISP because we believe  that the  new editor
+          and  I/O  facilities  are  substantially  better  than those
+          provided  by  ALVINE.   (There is an  assembly  switch which
+          makes it possible to run ALVINE in UCI LISP if necessary.)
+
+
+               Some of the  extended  I/O facilities of  UCI LISP were
+          available in SMILE,  etc.,  but  putting  them in the shared
+          system  saves  core.   The  Read  Macro  facility is a great
+          convenience and makes using Micro-Planner much simpler.  The
+          user-modified READ control  table is more  general than that
+          available in  the  Stanford  SCAN  package  (which  is still
+          useful and available), and the new SPRINT is faster than the
+          original.   The other  functions  are  quite convenient, and
+          will make many tasks simpler.
+
+
+               The special pushdown list has been extended  to provide
+          the equivalent of  the  BBN LISP context stack.  This is the
+          backbone  of the ERROR and  BREAK packages, since it enables
+          running programs  to examine their context, and to change it
+          if necessary.  The stack functions, particularly RETFROM and
+          OUTVAL make  it possible to experiment  with various control
+          regimes,  where subordinate  functions  can abort and return
+          from   higher   level  functions  on   the  basis  of  local
+          information.   Indiscriminate fooling  around with the stack
+          is likely to produce peculiar  and unwanted results, but the
+          stack functions can be extremely helpful at times.
+
+
+               The error protection facilities are an attempt to catch
+          some of the common errors of novices (and  experienced users
+          too)  which can clobber  the  system.   There are few things
+          more  confusing than what  happens  to  the system  when the
+          value of NIL is no longer NIL,  or if the value of T becomes
+          NIL.   In Stanford LISP  this could easily happen if SETQ or
+          SET received a list as a first argument.  This can no longer
+          happen in UCI LISP.   Similarly,  Stanford LISP occasionally
+          went into infinite loops because a form  had a CAR which was
+          NIL or  had no  function  definition  and evaluated  to NIL.
+
+
+
+
+                                      0 . 6
+
+
+
+
+
+
+
+
+
+
+
+
+
+          This has been corrected.
+
+
+               The  extended  basic functions  are ones which  were of
+          great use in writing the editor, BREAK package, etc., and in
+          bringing up translated versions of BBN LISP and MIT  AI LISP
+          programs.  The multiple form LAMBDA expression and the n-way
+          switch  SELECTQ should  make many programming jobs much more
+          convenient,  as should the availability of mapping functions
+          with several  arguments.   The  user  will  almost certainly
+          profit  from skimming through the chapters on these extended
+          features, just to know what is available.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      0 . 7
+
+
+
+
+
+
+
+
+
+
+
+
+
+                          Credits and Acknowledgements
+
+
+
+               The design and overall  direction of the implementation
+          of this system are the responsibility of Robert  Bobrow, who
+          also   made  the  first  modifications  to   Stanford  LISP,
+          including  the original  error  package,  accessible context
+          stack and storage reallocator.   In large part the existence
+          of the final system and its  extensive documentation  is due
+          to the  Herculean efforts of Daryle Lewis,  who did the bulk
+          of  the  modifications  to   the   assembly   language  code
+          (including making Stanford LISP reentrant) and corrected the
+          compiler and LAP systems.  He singlehandedly transferred the
+          entire BBN  LISP editor and its documentation to our system,
+          and  in  general  performed   vital   and   arduous  design,
+          programming and documentation tasks too numerous to mention.
+          Richard  Burton  did  yeoman's  labor  by  transferring (and
+          extending)  the  BBN  LISP  ERROR  and  BREAK  packages, and
+          providing their documentation.   Jeff  Jacobs maintained the
+          system for many months, correcting may old Stanford compiler
+          and  garbage  collector  bugs;   he  also  implemented  many
+          extensions, such as the interface to the Queue Manager, disk
+          file  directory functions,  the  user-switchable OBLIST, and
+          the  BLOCK  data type.   Bill  Earl has  also provided great
+          service  in maintaining  the system  and  its documentation.
+          Whitfield Diffie of Stanford has helped  us  out  of several
+          sticky problems with the LISP system and  its compiler.  The
+          original  implementation  of  the  editor  and  several  I/O
+          functions is due to Rodger  Knaus,  as well  as many helpful
+          suggestions.   Finally,  but  of vital  importance,  is Alan
+          Bell,  whose great knowledge  of the PDP-10 operating system
+          helped us through many rough times, and who has done much of
+          the transferring of BBN LISP and MIT AI LISP programs.
+
+
+               We are  triply indebted to the  designers, implementers
+          and documenters of BBN LISP,  particularly Daniel Bobrow and
+          Warren  Teitelman.   Most of  the  debugging and interactive
+          facilities as well  as the general  design philosophy of UCI
+          LISP  were inspired by the BBN  LISP  system.   Secondly, we
+          were able to use much of  their code directly,  since it was
+          written in  LISP,  making  it  possible  to  obtain a large,
+          well-written  and  debugged system in a fraction of the time
+          and effort it  would have  taken to  write  it from scratch.
+          Finally,  we have made  extensive use of the BBN  LISP TENEX
+          REFERENCE  MANUAL  as  a  source  of  raw  material  for our
+          documentation.   In particular,  much of the material in the
+
+
+
+
+                                      0 . 8
+
+
+
+
+
+
+
+
+
+
+
+
+
+          chapters on the BREAK and ERROR packages and the editor is a
+          revised version of the material in the BBN LISP  MANUAL.  We
+          take full  responsibility for  the  errors  and deficiencies
+          produced   by   such   an   arrangement,   while  greatfully
+          acknowledging  BBN's  aid  in  providing  much of  the basic
+          documentation.  We are also in debt to several people at BBN
+          for  their aid  in  obtaining and explaining  this material,
+          particularly Jim Goodwin,  Alice Hartley and the director of
+          the Artificial Intelligence Group, Jaime Carbonell.
+
+
+               This manual  is the work of many people  as well as the
+          listed authors - in particular Warren Teitelman, formerly of
+          BBN and now at Xerox Palo Alto Research Center, who produced
+          the original BBN LISP  documentation and the lions  share of
+          the  original  code.   We are also in debt to Marion Kaufman
+          and Phyllis Siegel  who did  daily battle with the PDP-10 to
+          produce the RUNOFF files  from  which this  documentation is
+          produced.
+
+
+               Last,  but most assuredly not least  in  the  roster of
+          those who  have made this  system  possible are Kathy Burton
+          and Connie Lewis who lived through the many discussions, all
+          night  programming  sessions and battle-fatigue  of the year
+          during which this system was implemented.
+
+
+          ENJOY, ENJOY!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      0 . 9
+
+
+
+

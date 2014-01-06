@@ -1,0 +1,278 @@
+
+
+
+PROGRAMMING SPECIFICATION
+
+
+
+
+
+                           BOOTDX
+
+                DX-10 BOOTSTRAP FROM PDP-10
+
+
+
+
+
+
+
+
+
+
+
+
+                    Date:  16-Nov-76
+                    File:  BOOTDX.RNO
+                    Edition:  3 
+
+
+
+
+
+
+
+
+
+
+This document reflects the software as of version 2(15).
+
+
+Copyright (C) 1975,1976,1977
+Digital Equipment Corporation, Maynard, Mass.
+
+
+This software is furnished under a license for use only  on  a  single
+computer system and may be copied only with the inclusion of the above
+copyright notice.  This software, or any other copies thereof, may not
+be provided or otherwise made available to any other person except for
+use on such system and to one  who  agrees  to  these  license  terms.
+Title  to  and  ownership of the software shall at all times remain in
+DEC.
+
+The information in this software is subject to change  without  notice
+and  should  not  be  construed  as  a commitment by Digital Equipment
+Corporation.
+
+DEC assumes no responsibility  for  the  use  or  reliability  of  its
+software on equipment which is not supplied by DEC.
+BOOTDX                                                          Page 2
+
+
+1.0  INTRODUCTION
+
+BOOTDX is a bootstrap program designed to load or dump  programs  from
+the  PDP-10  into  the PDP-8A in the DX-10.  The two main functions of
+BOOTDX are:
+
+     1.  Loading a program into PDP-8 memory from a PDP-10  disk  file
+         or the PDP-10 paper tape reader.
+
+         Warning:  BOOTDX reads ONLY image mode PDP-8 files.
+
+     2.  Dumping PDP-8 memory into a PDP-10  disk  file,  creating  an
+         ASCII  listing  of  the  contents  of  the PDP-8 suitable for
+         listing on a line printer.
+
+BOOTDX runs in USER mode under a DECsystem-10 timesharing system.   It
+requires a minimum of 2K of memory but expands for IO buffers.  BOOTDX
+does IO instructions direct to the DX10 hardware.  For this  to  work,
+the  BOOTDX  job  must  have privileges for the TRPSET function of the
+timesharing system.
+
+
+
+2.0  OPERATION AND COMMAND STRING FORMAT
+
+The program BOOTDX should normally reside in the  system  SYS:   area.
+"R BOOTDX" starts the program which responds by typing
+
+     FILE:
+
+and waiting for some typed input, terminated  by  a  carriage  return.
+The  expected  input  is  a  standard  DECsystem-10  file  descriptor,
+followed by switches telling BOOTDX what to do:
+
+
+
+2.1  Loading the DX-10
+
+    /LOAD:S         Load the DX-10 from the specified PDP-10 file  and
+                    set the starting address to the octal value S.
+
+    /START:S        Load the DX-10 from the specified PDP-10 file  and
+                    start  the  -8  at octal location S.  If :S is not
+                    present, the default :S is 200 octal.
+
+    /CLEAR:C        Set PDP-8  memory  from  0  to  C-1  to  all  HALT
+                    instructions.  /CLEAR should be used with /LOAD or
+                    /START to preset -8 memory before loading.
+
+    /UNIT:U         Do the specified  operation  for  unit  number  U.
+                    (DX-10  0 is device code 220,  1 is 224.)
+
+/CLEAR AND /UNIT may be used with /LOAD or /START.  /LOAD  and  /START
+may not be used together.
+BOOTDX                                                          Page 3
+
+
+2.2  Dumping the PDP-8
+
+    /DUMP:M         Dump PDP-8 memory starting  at  octal  location  M
+                    into the specified PDP-10 file.
+
+    /END:N          N-1 is the last address of the dump.
+
+    /UNIT:U         Do the specified operation  for  DX-10  number  U.
+                    (DX-10  0 is device code 220,  1 is 224.)
+
+These three switches may be used  together.   /DUMP  is  required  for
+dumping.
+
+
+
+2.3  Getting Help
+
+    /HELP           Read  and   type   the   help   text   from   file
+                    HLP:BOOTDX.HLP or SYS:BOOTDX.HLP
+
+
+
+2.4  Defaults
+
+Standard default  values  are  assumed  for  any  parts  of  the  file
+descriptor or switch values not explicitly specified:
+
+          Item           Default value
+
+          DEVICE:        DSK:
+          FILENAME       DXMPA
+          EXTENSION      .BIN for loading ,or
+                         .LSD for dumping
+                         (A  blank  extension  may  be   specifed   by
+                         explicitly  typing  a  dot  with no extension
+                         following it.)
+
+          [PROJ,PROG]    [self], allows SFD's
+          :C             10000 octal
+          :M             0
+          :N             10000 octal
+          :S             200 octal
+          :U             0
+
+If no switches are specified,  BOOTDX  defaults  to  /START.   If  the
+entire  input  command is omitted and only a carriage return is typed,
+the default action is:
+
+          DSK:DXMPA.BIN/START/UNIT:0
+
+The simplest dump command is /D.  The defaults expand to:
+
+          DSK:DXMPA.LSD/DUMP:0/END:10000/UNIT:0
+
+The switches may all be abbreviated to their first letter or
+BOOTDX                                                          Page 4
+
+
+letters.
+
+
+
+3.0  PDP-8 FORMATTED IMAGE MODE FILES
+
+
+
+
+4.0  GENERAL INTERNAL OPERATION
+
+
+
+
+5.0  BOOTDX PROGRESS MESSAGES AND WARNINGS
+
+    " DX-10 loading
+               The PDP-8 is being loaded with the image mode
+               input file data
+
+    " DX-10 loaded
+    " DX-10 started
+               The loading is complete and the PDP-8 is  now
+               executing code in its own memory.
+
+    " DX-10 dumping
+               The PDP-8  memory  is  being  dumped  into  a
+               PDP-10 file.
+
+    " DX-10 dumped
+    " Clearing DX-10
+               The  -11  memory  is  being   set   to   HALT
+               instructions.
+
+
+
+5.1  Command String Error Messages
+
+    ? Can't /CLEAR and /DUMP at the same time
+    ? Can't /LOAD and /DUMP at the same time
+    ? Can't do both /LOAD and /START
+    ? Illegal DX10 channel number
+    ? Ambiguous switch--type /H for help
+    ? Unknown switch--type /H for help
+    ? Command error--type /H for help
+
+
+
+5.2  Image Mode File Input Error Messages
+
+    ? Can't OPEN the input device
+               The input device does not exist or is in use.
+               (Also refer to the DECsystem-10 MONITOR CALLS
+               Manual.)
+BOOTDX                                                          Page 5
+
+
+    ? LOOKUP failed
+               The  input  file  is  not  found,   is   read
+               protected,  or  the  input  device doesn't do
+               input.   (Also  refer  to  the   DECsystem-10
+               MONITOR CALLS Manual.)
+
+    ? Input file read error
+
+    ? Checksum does not match
+               The data check in the image file is wrong for
+               some unknown reason.
+
+
+
+5.3  Dump File Output Error Messages
+
+    ? Can't OPEN the output device
+               The output device does not  exist  or  is  in
+               use.  (Also refer to the DECsystem-10 MONITOR
+               CALLS Manual.)
+
+    ? ENTER failed
+               The output file is being modified or the file
+               or  the UFD is write protected.  Also see the
+               DECsystem-10 MONITOR CALLS manual.
+
+    ? Output device error
+               Insufficient room exists on the output device
+               for   the   dump   file.    (Refer   to   the
+               DECsystem-10 MONITOR CALLS Manual.)
+
+
+
+5.4  Miscellaneous Failure Messages
+
+    ? TRPSET failed
+               The job does  not  have  the  privileges  for
+               TRPSET,  or  TRPSET  is  not  built into this
+               version of the Monitor.  (See  your  friendly
+               system manager.)
+
+
+
+
+[End of BOOTDX.RNO]

@@ -1,0 +1,1452 @@
+
+
+
+
+
+
+
+
+
+                   4.  Control-E: This does an (ERR NIL), which return
+                   NIL to the last ERRSET.  (See section on changes to
+                   ERR and ERRSET).
+
+
+                   5.    Control-Z:  This  returns  the  user  to  the
+                   top-level    of    LISP,    (i.e.     either    the
+                   READ-EVAL-PRINT loop or the current INITFN).
+
+
+                   6.   Control-R:  This  restores  the  normal system
+                   OBLIST.   Another  of the  above control characters
+                   must be typed after this character is  typed.  This
+                   will often recover after a GARBAGED OBLIST message.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    1 . 5 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+                EXTENSIONS TO THE STANDARD INPUT/OUTPUT FUNCTIONS
+
+
+
+           Project-Programmer Numbers for Disk I/O
+
+
+           In all I/O functions (including INPUT and OUTPUT),  the use
+           of a two element list (not a dotted  pair)  in  place  of a
+           device will cause the function to assume  DSK:  and use the
+           list as the project-programmer number.
+
+
+
+           Saving Function Definitions, etc. on Disk Files
+
+
+           (DSKOUT "FILE" "EXPRSLIST")
+
+                   DSKOUT  is an FEXPR and is used to create an entire
+                   output  file on disk file  DSK: "FILE". It sets the
+                   linelength to LPTLENGTH,  and  evaluates all of the
+                   expressions  in "EXPRSLIST".   If  an expression on
+                   "EXPRSLIST"  is atomic,  then that atom is given to
+                   GRINL instead of being evaluated directly.   If the
+                   value  of FILBAK  is  non-NIL and the  file already
+                   exists, DSKOUT will attempt to rename the file with
+                   an extension of  the  value  of  FILBAK.   An error
+                   message will be  printed on  the TTY:  if  the file
+                   cannot  be  backed  up.  FILBAK is initially set to
+                   LBK.
+
+           Example:
+
+                   If FNLIST is a list of your functions,  they can be
+                   saved on a disk file, FUNCS.LSP by:
+
+                   (DSKOUT    (FUNCS.LSP)    FNLIST    (PRINT   (QUOTE
+                   END-OF-FILE)))
+
+                   and the file FUNCS.LSP will be renamed to FUNCS.LBK
+                   if it already exists.
+
+
+
+
+
+
+
+
+
+
+                                      4 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+           Reading Files Back In
+
+
+           (DSKIN "LIST OF FILE-NAMES")
+
+                   READ-EVAL-PRINTs the  contents  of the given files.
+                   This is the function to  use to read  files created
+                   by DSKOUT.
+
+           Example:
+
+                   (DSKIN (FUNCS.LSP) DTA0: (DATA.LSP))
+
+                   Reads FUNCS.LSP from DSK: and DATA.LSP from DTA0:.
+
+                   (DSKIN (667 2) (DSKLOG.LSP))
+
+                   Reads DSKLOG.LSP from the disk area of [667,2].
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+           Reading Directories
+
+           The  following  functions   are  for  reading  directories.
+           UFDINP is  analogous to the function INPUT in that it opens
+           a  file  on  a  specified  channel.   The  channel  must be
+           selected via INC in order  to be read.   The file is opened
+           in  binary image  mode and should not be read by the normal
+           LISP  read functions.   All  functions are  SUBRS  and thus
+           evaluate their arguments.
+
+
+           (UFDINP CHANNEL PPN)
+
+                   UFDINP  opens the  directory of PPN on CHANNEL.  It
+                   returns the value of CHANNEL as its result.  PPN is
+                   either of the form (PROJ PROG)  where PROJ and PROG
+                   are both  INUMs  or NIL.   If PPN is NIL the user's
+                   directory is assumed.
+
+           EXAMPLE:
+
+                   *(UFDINP T (QUOTE (2206,1)))
+
+                   T
+
+
+           (RDFILE)
+
+                   RDFILE returns the next file in the  directory that
+                   is open  on the current input channel.  It return a
+                   file  which is either an atom or  an  atomic dotted
+                   pair.   It does an (ERR $EOF$)  when it reaches the
+                   end of file.
+
+           EXAMPLE:
+
+                   *(PROG (X) (INC (UFDINP T NIL) NIL)
+                              (SETQ X (ERRSET (RDFILE)))
+                              (INC NIL NIL)
+                              (COND ((CONSP X)(RETURN (CAR X)))
+
+                   (INIT . LSP)
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+           (DIR PPN)
+
+                   DIR  returns a  list of files from the directory of
+                   PPN.   If  PPN  is  NIL,  the  user's  directory is
+                   assumed.
+
+           EXAMPLE:
+                   (DIR (QUOTE (2206 4)))
+
+                   ((INIT . LSP) (FOO .LSP) MYFILE))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+           File Manipulation
+
+           The following functions enable the user to manipulate files
+           in those  directories to  which  he has  legitimate access.
+           The  definition  of  access privileges is system dependent.
+           These functions use the RENAME UUO  to  effect  the desired
+           manipulations.  A FILESPEC is defined as follows:
+
+
+           (DEV FILNAM)
+
+
+           A DEV is either an atom whose last character is a colon, I.E.
+           DSK: or a a list of the form:
+
+           (PROJ PROG)
+
+           where PROJ and PROG are both numbers.  DEV is optional and
+           if ommitted the user's disk area is assumed.
+
+           A FILNAM is either an atom or an atomic dotted pair.
+
+           EXAMPLE:
+
+                   MYFILE
+                   (FILE . EXT)
+
+
+           (*RENAME FILESPEC1 FILESPEC2)
+
+                   *RENAME  is  a  SUBR  that  renames   FILESPEC1  to
+                   FILESPEC2.    It   returns   T  if  the  rename  is
+                   successful  and NIL  if  it fails.   If a device is
+                   specified in FILESPEC1  and no device  is specified
+                   in FILESPEC2 the device  specified in  FILESPEC1 is
+                   carried over to FILESPEC2.  Thus:
+
+                   (*RENAME (QUOTE ((2206 4)(FOO . LSP)))
+                            (QUOTE ((FOO . BAK))))
+
+                   is equivalent to:
+                   (*RENAME (QUOTE ((2206 4)(FOO . LSP)))
+                            (QUOTE ((2206 4)(FOO . BAK))))
+
+                   If  no  device is specified in either FILESPEC, the
+                   user's disk area is assumed.
+
+
+
+
+
+
+                                    4 . 1 . 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+           (RENAME DEV1 FILNAM1 DEV2 FILNAM2)
+
+                   RENAME is an FSUBR that renames FILNAM1 to FILNAM2.
+                   The DEV's are optional.   If DEV2 is not specified,
+                   DEV1 is assumed.   If both DEV's are not specified,
+                   the  default  is  the  user's  disk  area.   RENAME
+                   returns  T if the renaming is successful and NIL if
+                   it fails
+
+           EXAMPLES:
+
+                   *(RENAME DSK: (FOO . LSP)(FOO . BAK))
+
+                   T
+                   *(RENAME FOO FIE)
+
+                   T
+                   *(RENAME (2206 4)(FOO . LSP)(2206 3)(FOO . LSP))
+
+                   T
+
+
+           (DELETE DEV1 FILNAM1 DEV2 FILNAM2 ...)
+
+                   DELETE is an FSUBR that deletes  the  files  in the
+                   list.   The  DEV's  are  optional,  and  a  DEV  is
+                   effective over the  following FILNAM's  until a new
+                   DEV is  encountered.   DELETE  always  returns NIL.
+                   The user's disk area is assumed if no DEV  has been
+                   specified.
+
+           EXAMPLES:
+
+                   *(DELETE FOO (FOO1 . LSP) (2206 4) (OLDFIL . COM))
+
+                   NIL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+           (FILBAK FILE NEWEXT)
+
+                   FILBAK is  a SUBR that attempts to rename FILE with
+                   the  extension  of NEWEXT.   FILE  can  be either a
+                   FILNAM  or  a  FILSPEC.   FILBAK  returns T  if the
+                   renaming was successful and NIL if it fails.
+
+           EXAMPLES:
+
+                   (FILBAK (QUOTE FOO)(QUOTE BAK))
+
+                   will rename the file FOO to FOO.BAK.
+
+                   (FILBAK (QUOTE (FOO . LSP))(QUOTE BAK))
+
+                   will rename the file FOO.LSP to FOO.BAK
+
+                   (FILBAK (QUOTE ((2206 4) (FOO . LSP)))
+                           (QUOTE BAK))
+
+                   will rename the file FOO.LSP[2206,4] to FOO.BAK[2206,4].
+
+
+           (MYPPN)
+
+                   MYPPN returns the user's  project programmer number
+                   in a form suitable for use by the directory and I/O
+                   functions.
+
+           EXAMPLE:
+
+                   *(MYPPN)
+
+                   (2206 4)
+
+
+           (LOOKUP DEV FILNAM)
+
+                   LOOKUP is a  SUBR  that determines whether the file
+                   DEV FILNAM exists or not.  LOOKUP returns NIL if it
+                   can't find the file and (LIST  DEV  FILNAM)  if the
+                   file does exist.   If  DEV is NIL,  DSK: is assumed
+                   and (LIST FILNAM) is returned.
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 6
+
+
+
+
+
+
+
+
+
+
+
+
+
+           Queueing Files
+
+           (QUEUE QNAM:  DEV:  FILNAM  SWITCHES  DEV:  FILNAM SWITCHES
+                   ....)
+
+                   QUEUE  is   an  FSUBR  that  queues  files  to  the
+                   specified device or  queue.   It is essentially the
+                   same as  the monitor command  QUEUE, both in syntax
+                   and effect.   The main  use of this  function is to
+                   get output  to  line  printer,  paper tape punches,
+                   etc.    However,   the  input  queue  can  also  be
+                   specified in order to batch a job.
+
+                   A  queue  name QNAM:  is  an  atom  of three to six
+                   letters whose  last letter is a  colon.   The first
+                   three  letters  indicate  the  general  queue  (see
+                   below)  and  the  following  letters  indicate  the
+                   specific queue.
+
+
+                   LPT     =LINE PRINTER QUEUE
+                   PTP     =PAPER TAPE PUNCH QUEUE
+                   PLT     =PLOTTER QUEUE
+                   CDP     =CARD PUNCH QUEUE
+                   INP     =JOB BATCH QUEUE
+
+                   Thus  (QUEUE LPT:  ...)  would  queue  to  the line
+                   printer without specifying a  specific line printer
+                   queue.   (QUEUE  LPT0:  ...)  would  queue  to line
+                   printer 0.  As in the monitor command, if the queue
+                   name QNAM:  is not  specified,  the  default  is to
+                   LPT:.
+
+
+                   If an  INPUT  queue is specified,  a maximum of two
+                   files is permitted.   The second file  is  taken as
+                   the  name of the log file.  If it is not specified,
+                   the filename of the first file with an extension of
+                   .LOG is assumed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 7
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   Switches  consist of two element  lists,  the first
+                   element being the switch and the second  the value.
+                   In the case of a required non-numeric value  (as in
+                   DISP)  only the first three letters of the argument
+                   are looked at i.e. PRESERVE and PRE are equivalent.
+
+                   SWITCH ARGUMENT     EXPLANATION         QUEUES ALLOWED
+
+
+                   COPIES NUMERIC      NUMBER OF COPIES    LPT,PTP,CDP,PLT
+                                       TO BE OUTPUT
+                   FORM   NON-NUMERIC  FORMS FOR DEVICE    LPT,PTP,CDP,PLT
+                   LIMIT  NUMERIC      OUTPUT LIMIT        LPT,PTP,CDP,PLT
+                   DISP   'PRE'        PRESERVE FILE       ALL
+                          'REN'        RENAME FILE OUT OF
+                                       DIRECTORY AND DELETE
+                                       AFTER SPOOLING      ALL
+                          'DEL'        DELETE AFTER SPOOLING ALL
+                   CPU    NUMERIC      MAXIMUM CPU SECS FOR JOB INP ONLY
+
+                   Defaults  are system defined except  for DISP which
+                   defaults to PRE so that all files are preserved.
+
+                   As in the monitor command,  switches are  in effect
+                   until superseded by another instance of the switch.
+                   Switches may precede the first file or device.
+
+
+                   DEV's are either an atom whose last character  is a
+                   colon or a  ppn  specification.   A  device affects
+                   only the  files following it.   It is superseded by
+                   another device.  If no device is specified, DSK: is
+                   assumed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 8
+
+
+
+
+
+
+
+
+
+
+
+
+
+           Examples:
+
+                   *(QUEUE LPT: DSK: FOO (FOO .  LSP))
+
+                   Prints  the  files  FOO  and  FOO.LSP  on  the line
+                   printer.
+
+                   *(QUEUE LPT: (FOO .  LSP)(COPIES 2))
+
+                   Prints two copies of FOO.LSP on the line printer.
+
+                   *(QUEUE INP: (FOO .  CTL))
+
+                   Queues  a  job using FOO.CTL as  its  command file,
+                   leaving a LOG file in FOO.LOG.
+
+                   *(QUEUE INP: (FOO .  CTL)(FOO .  LOG))
+
+                   Same as above.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 9
+
+
+
+
+
+
+
+
+
+
+
+
+
+           Recovery From QMANGR Errors
+
+           The QUEUE function must swap the LISP high segment  for the
+           QMANGR  high segment.   It then  transfers  control  to the
+           QMANGR high segment.   In most  cases,  if  QMANGR finds an
+           error,  it simply prints an error message.  In a few cases,
+           however,  it  returns  control  to  the  monitor.   The REE
+           command  will  restore  the  appropriate  high  segment and
+           processing will continue.   Note that in this instance, the
+           system does not wait for control characters.
+
+           A  .START  command to  the  monitor  will  also restore the
+           user's high segment.   However,  this is not recommended as
+           the reallocation procedure will be entered.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 1 . 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+           (READP)
+
+                   READP returns T if a character can be input and NIL
+                   otherwise.  READP does not input a character.
+
+           (UNTYI)
+
+                   UNTYI  "unreads"  a  character (such as a character
+                   input by a TYI  or a READCH), so that the next call
+                   to  READ,  TYI,  etc.,  will  pick  up the UNTYI'ed
+                   character as  the  next character  to  be read, and
+                   returns  the ASCII code for that  character.  Note:
+                   In the LISP READ routine, an atom may be terminated
+                   either by a break character (a character which must
+                   be  interpreted  by  READ  as  well  as  serving to
+                   terminate the atom, such as "(", ")", "[", and ".")
+                   or  a separator character (a character used only to
+                   separate atoms, etc., but not in itself meaningful,
+                   such  as carriage  return  or blank).   In order to
+                   save a  break character  for  later interpretation,
+                   the LISP READ routines use a one-charaacter buffer.
+                   UNTYI simply stores its  argument  in  this buffer;
+                   thus there are two problems in using UNTYI.  First,
+                   if UNTYI is used  several  times in succession with
+                   no  intervening  READ's,  TYI's, etc.,then only the
+                   most  recent  character  is  actually "unread"--all
+                   others are  lost.   Second,  if  there  is  a break
+                   character in the one-character buffer when an UNTYI
+                   is performed, the break character will be lost.
+
+           Example:
+
+                   The  following  example  illustrates  how  the next
+                   character may  be  examined  without  affecting the
+                   read routines:
+                   *(DE PEEKC () (UNTYI (TYI)))
+
+                   *(PROG () (CLRBFI) (PEEKC) (RETURN (TYI))
+
+                   *A
+
+                   101
+
+           (ERRCH N)
+
+                   ERRCH  changes the  bell  character  that causes an
+                   (ERR   (QUOTE   ERRORX)).     N   is    the   ASCII
+                   representation of the character.  ERRCH returns the
+
+
+
+
+                                    4 . 5 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   ASCII  representation  of  the old character.  Note
+                   that if the  new character is not a break character
+                   to the monitor,  it will not be  processed until it
+                   is read in the normal course of reading.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    4 . 5 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+           Reading without Interning
+
+           (RDNAM)
+
+                   RDNAM functions in the same manner  as  READ except
+                   that it  does not intern the atoms  that  it reads.
+                   Thus an atom read by RDNAM and an atom read by READ
+                   are **NOT** EQ.
+
+           Example:
+
+                   *(PROG () (CLRBFI) (RETURN (EQ (RDNAM) (READ))))
+                   *FOO
+                   *FOO
+
+                   NIL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      4 . 9
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                 NEW PREDICATES
+
+
+
+           Data Type Predicates
+
+
+           (CONSP X)
+
+                   The value of CONSP is X iff X is not an atom.
+                   CONSP is equivalent to:
+
+                             (LAMBDA (X) (COND ((NOT (ATOM X)) X)))
+
+           Examples:       (CONSP T)       = NIL
+                           (CONSP 1.23)    = NIL
+                           (CONSP (QUOTE (X Y Z))) = (X Y Z)
+                           (CONSP (CDR (QUOTE (X))))       = NIL
+
+
+           (STRINGP X)
+
+                   The value of STRINGP is T iff X is a string.
+
+
+           (PATOM X)
+
+                   The value of PATOM is  T iff X is an atom or X is a
+                   pointer outside of free storage.
+
+
+           (LITATOM X)
+
+                   The value of LITATOM is T iff X is a  literal atom,
+                   i.e., an atom but not a number.
+
+
+
+
+
+
+
+                                      6 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+           Predicates that Return Useful Non-NIL Values
+
+
+           (MEMBER X Y)
+
+                   MEMBER is the same as the old MEMBER except that it
+                   returns  the  tail of  Y  starting at  the position
+                   where X is found.
+
+           Examples:
+
+                   (MEMBER (QUOTE (C D)) (QUOTE ((A B)(C D)E)))
+                                                   = ((C D) E)
+                   (MEMBER (QUOTE C) (QUOTE C)))   = NIL
+
+
+           (MEMB X Y)
+           (MEMQ X Y)
+
+                   MEMQ is the same  as the old  MEMQ  except  that it
+                   returns the tail  of  Y  starting  at  the position
+                   where X is found.
+
+           Examples:
+
+                   (MEMQ (QUOTE (C D)) (QUOTE ((A B)(C D)E)))      = NIL
+                   (MEMB (QUOTE A) (QUOTE (Q A B)))                   = (A B)
+
+
+           (TAILP X Y)
+
+                   The value of TAILP is X iff X is a list and  a tail
+                   of Y,  i.e.,  X is EQ to some number of CDRs & 0 of
+                   Y.
+
+
+           (AND X1 X2 ... Xn)      = Xn if all Xi are non-NIL
+                                   = NIL otherwise
+
+
+           (OR X1 X2 ... Xn)       = The first non-NIL argument
+                                   = NIL if all Xi are NIL
+
+
+                   As  with the old AND and  OR  these  functions only
+                   evaluate as many of their arguments as necessary to
+                   determine  the  answer  (e.g.  AND stops evaluation
+                   after the first NIL argument).
+
+
+
+
+                                      6 . 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+                              NEW NUMERIC FUNCTIONS
+
+
+
+           Minimum and Maximum
+
+
+           (*MIN X Y)  = Minimum of X and Y
+
+           (MIN X1 X2 ...  Xn) = Minimum of X1, X2, ...  ,  Xn
+
+           (*MAX X Y)  = Maximum of X and Y
+
+           (MAX X1 X2 ...  Xn) = Maximum of X1, X2, ...  ,  Xn
+
+           (INUMP X)
+
+                   INUMP returns X iff X is an INUM.  It returns NIL
+                   otherwise.
+
+           (NUMTYPE X)
+
+                   NUMTYPE  returns  FIXNUM if the number X is a fixed
+                   point number and FLONUM  if  it is a floating point
+                   number.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      7 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+           Miscellaneous Useful Functions
+
+
+           (UNBOUND)
+
+                   UNBOUND returns the un-interned atom  UNBOUND which
+                   the system places  in  the CDR of an atom's SPECIAL
+                   (VALUE)  cell to  indicate that the  atom currently
+                   has  no assigned value even though it has a SPECIAL
+                   (VALUE) cell on its property list.
+
+
+           (SYSCLR)
+
+                   Re-initializes LISP  to  read  the  user's INIT.LSP
+                   file when  it returns  to  the top level, e.g. by a
+                   Control-G or a START,  or a  REENTER.   SYSCLR also
+                   resets the garbage collection time  indicator  to 0
+                   and the CONSes performed indicator to  0.   It also
+                   performs an EXCISE.
+
+           (INITFL "FILELST")
+
+                   INITFL is an FSUBR that sets up the  file  list for
+                   the  user's INIT file.  FILELST may consist of more
+                   than one file.   However, if there is more than one
+                   file in the list, the files following the first one
+                   must be found or an  error will be  generated.  The
+                   first file in the list is optional.   The INIT file
+                   is initially INIT.LSP.  INITFL returns the old file
+                   list as its result.
+
+           Example:
+
+                   *(INITFL (INIT1 . LSP) (MYFILE . LSP) FOO)
+
+                   ((INIT . LSP))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      8 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+           ******WARNING******:
+
+           The  following  two  functions can catastrophically destroy
+           the garbage collector by creating a circle in the free list
+           if they are used to return to the free list any words which
+           are  still in  use.   Do not use these functions unless you
+           are certain what you are doing.   (They are only  useful in
+           rare  cases where a  small  amount  of  working  storage is
+           needed by a routine which is called quite often.)
+
+
+           (FREE X)
+
+                   FREE returns the word  X  to  the free storage list
+                   and returns NIL.
+
+
+           (FREELIST X)
+
+                   FREELIST returns all of the words  on the top level
+                   of  the list X to the free storage list and returns
+                   NIL.  FREELIST terminates on a NULL check.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    8 . 3 . 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+           New Symbol Table Functions
+
+           The functions in  this section are similar to the currently
+           existing  symbol table  functions  except  that they either
+           strip off  (for  storing)  or  add on the  atom relocation.
+           This  allows MACRO code to use the atom relocation register
+           S to refer  to free storage  and  thus  allow  expansion of
+           binary program space without  destroying LOADed code.  They
+           operate   in  exactly  the  same  manner  as   their  older
+           counterparts.   An error  is  generated if the arguments or
+           returning value is not a true cons cell.
+
+           (*RPUTSYM SYM VAL)
+
+                   *RPUTSYM puts (VAL - atom relocation) in the symbol
+                   table under SYM.
+
+           (RPUTSYM X1 X2 ...)
+
+                   RPUTSYM  functions in the  same  manner  as PUTSYM,
+                   i.e.  if Xn  is an  atom,  then Xn is placed in the
+                   symbol table  with Xn less  the  relocation  as its
+                   value.  Otherwise (EVAL (CADR XN)) is placed in the
+                   symbol table as the value of (CAR XN).
+
+           (*GETSYM X)
+
+                   *GETSYM gets the value of the symbol X, adds on the
+                   relocation and  returns the  cell pointed to as its
+                   value.
+
+           (GETSYM P S1 S2 ...)
+
+                   GETSYM searches  the symbol table for the symbol Sn
+                   and places the relocated value on the property list
+                   of Sn under property P.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    8 . 3 . 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+                          CONTIGUOUS BLOCKS OF STORAGE
+
+
+           A new data type,  BLOCK, has been added to UCILSP.  A BLOCK
+           consist  of  a  block of  contiguous  storage  locations in
+           Binary Program Space.  BLOCKs are similar to arrays in that
+           they may  contain pointers  that are protected from garbage
+           collection, or their contents may be ignored by the garbage
+           collector.   They differ,  however, in the means of access.
+           BLOCKs are accessed by a pointer into Binary  Program Space
+           and all of the functions which will act on a cons cell will
+           work  equally  well  on  an element of  a block (except for
+           printing).   BLOCKs  can  be used for setting up lists that
+           are also tables,  as in setting up multiple  OBLISTs.  NOTE
+           BENE:  the value returned by  the BLOCK functions is a true
+           address, not a LISP number.
+
+
+           (GTBLK LENGTH GC)
+
+                   GTBLK  is a SUBR that  returns  a  zeroed  BLOCK of
+                   LENGTH words.   If GC is NIL,  then the contents of
+                   the BLOCK are ignored by the garbage collector.  If
+                   GC  is  non-NIL then  the contents  are  treated as
+                   pointers  and  the  cells pointed  to  will  not be
+                   collected.
+
+
+           (BLKLST LIST LENGTH)
+
+                   BLKLST  is a SUBR that returns a pointer type BLOCK
+                   of  LENGTH words.  It chains the words in the BLOCK
+                   such that the CDR of each  word  is  the succeeding
+                   word.   The  top level of  LIST is then mapped into
+                   the CAR's of the block.  If LENGTH is NIL, then the
+                   length of the list  is used.   If  (LENGTH LIST) is
+                   less than  LENGTH,  then the CAR's of the remaindef
+                   of the BLOCK are  set to NIL.   If (LENGTH LIST) is
+                   greater than LENGTH, the list is truncated.
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     11 . 1
+
+
+
+

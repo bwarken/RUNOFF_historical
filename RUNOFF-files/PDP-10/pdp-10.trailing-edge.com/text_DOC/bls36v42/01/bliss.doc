@@ -1,0 +1,376 @@
+
+
+
+         BLISS-36 Release 4A(236) For TOPS-20: Release Notes
+                              7-AUG-1989
+BLISS-36 Release 4A(236) For TOPS-20: Release Notes             Page 2
+
+
+                               CONTENTS
+
+        1.0     INTRODUCTION . . . . . . . . . . . . . . . . . . . . 3
+        2.0     NEW FEATURES . . . . . . . . . . . . . . . . . . . . 3
+        3.0     COMPILER PERFORMANCE IMPROVEMENTS  . . . . . . . . . 3
+        3.1       Compiler dynamic memory use <36> . . . . . . . . . 3
+        4.0     CODE QUALITY IMPROVEMENTS  . . . . . . . . . . . . . 3
+        4.1       Move merging <All> . . . . . . . . . . . . . . . . 3
+        4.2       Comparison merging <All> . . . . . . . . . . . . . 3
+        4.3       Bit test merging <All> . . . . . . . . . . . . . . 4
+        5.0     CORRECTIONS  . . . . . . . . . . . . . . . . . . . . 4
+        5.1       ENABLEs and initialized LOCALs <All> . . . . . . . 4
+        5.2       Relation between difference and constant <All> . . 4
+        5.3       Frame pointer of main program <36> . . . . . . . . 4
+        5.4       Incorrect error messages <All> . . . . . . . . . . 5
+        5.5       PRESET with address of LOCAL variable <All>  . . . 5
+        5.6       Multiple END statements in assembly listing for 
+                  main routine <36>  . . . . . . . . . . . . . . . . 5
+        5.7       Spurious "symbol previously declared" messages 
+                  <All>  . . . . . . . . . . . . . . . . . . . . . . 5
+        5.8       Compiler fails when installed in an SFD <36> 
+                  (TOPS-10)  . . . . . . . . . . . . . . . . . . . . 5
+        5.9       Illegal UUO after fatal error <36> (TOPS-10) . . . 5
+        5.10      Flow analysis failure <All>  . . . . . . . . . . . 6
+        5.11      Bad code for the MOD operator <All>  . . . . . . . 6
+        5.12      Cross-reference fixes <All>  . . . . . . . . . . . 6
+        6.0     MISCELLANEOUS  . . . . . . . . . . . . . . . . . . . 6
+        7.0     CHANGES TO UNSUPPORTED TOOLS . . . . . . . . . . . . 6
+        8.0     CHANGES TO UNSUPPORTED SOFTWARE  . . . . . . . . . . 6
+        8.1       XPORT - Transportable BLISS Programming Tools  . . 7
+        8.2       SIX12 - BLISS Symbolic Debugger  . . . . . . . . . 7
+        9.0     RESTRICTIONS . . . . . . . . . . . . . . . . . . . . 7
+        10.0    KNOWN BUGS . . . . . . . . . . . . . . . . . . . . . 9
+        11.0    FOR FURTHER HELP . . . . . . . . . . . . . . . . . . 9
+        12.0    COMPONENTS . . . . . . . . . . . . . . . . . . . .  10
+BLISS-36 Release 4A(236) For TOPS-20: Release Notes             Page 3
+
+
+1.0  INTRODUCTION
+
+This document provides  information  pertaining  to  BLISS-36  Version
+4A(236).
+
+
+
+2.0  NEW FEATURES
+
+Version 4.1 of the BLISS language is upward  compatible  with  Version
+4.0.   Each  change documented in this section includes a flag such as
+<16> indicating which compilers it applies to.
+
+
+
+3.0  COMPILER PERFORMANCE IMPROVEMENTS
+
+4.0  CODE QUALITY IMPROVEMENTS
+
+4.1  Move merging <All>
+
+Assignments from consecutive fields of a source  area  to  consecutive
+fields  of  a destination area now generate a single move instruction.
+Also, assignments of literals to consecutive fields of  a  destination
+area  should  now generate a single move instruction.  Thus, "A<3,3> =
+.B<3,3>;  A<6,4> = .B<6,4>" will be turned into  "A<3,7>  =  .B<3,7>",
+and "A<3,3> = 1;  A<6,4> = 3" will be turned into "A<3,7> = 19".
+
+
+
+4.2  Comparison merging <All>
+
+Similarly, ".A<3,3> EQL .B<3,3> AND .A<6,4> EQL .B<6,4>" will  now  be
+turned  into ".A<3,7> EQL .B<3,7>", and ".A<3,3> EQL 1 AND .A<6,4> EQL
+3"  will  be  turned  into  ".A<3,7>  EQL  19".    The   corresponding
+transformation for ORs of NEQs is also performed.
+
+
+
+4.3  Bit test merging <All>
+
+Multiple bit tests on a single word will be turned into a  mask  test.
+For example, ".A<4,1> OR .A<6,1>" will be turned into "(.A AND %X'50')
+NEQ 0".
+
+
+
+5.0  CORRECTIONS
+
+This section describes changes to correct problems which  resulted  in
+compiler failures or in the generation of incorrect code.
+BLISS-36 Release 4A(236) For TOPS-20: Release Notes             Page 4
+
+
+5.1  ENABLEs and initialized LOCALs <All>
+
+Initialized local variables which are used in  an  ENABLE  declaration
+are  now  zeroed  before  the  handler  is  enabled,  and  initialized
+afterwards.  This allows handlers to determine  whether  an  exception
+occurred  during  initialization  or  during  routine  body execution.
+Previously, BLISS-32 was doing the initialization before  the  ENABLE;
+BLISS-36 and BLISS-16 were doing the ENABLE before the initialization,
+but weren't zeroing the variables first.
+
+
+
+5.2  Relation between difference and constant <All>
+
+A test of the form "<expr1> - <expr2> <relation>  <const>"  was  being
+incorrectly  converted to "<expr1> <relation> <expr2> + <const>".  For
+example, "IF .A - .B GTR 0 THEN" was converted to "IF .A GTR .B THEN".
+This  looks  plausible, but certain overflow conditions invalidate it.
+The only form of this optimization allowed now is "<expr1>  -  <expr2>
+EQL/NEQ 0" => "<expr1> EQL/NEQ <expr2>".
+
+
+
+5.3  Incorrect error messages <All>
+
+Incorrect error messages were generated when the compiler  was  unable
+to  read  a library or require file.  Also, the error message "PLIT or
+INITIAL size exceeds implementation  limits"  was  not  generated  for
+TOPS-10 BLISS-36.  These have been fixed.
+
+
+
+5.4  PRESET with address of LOCAL variable <All>
+
+When a local variable name occurred in a  PRESET  list,  the  compiler
+generated an EXTERNAL reference for that name.  For example, "LOCAL A,
+B :  BLOCK [3] PRESET ([0, 0, 32, 0] = A)" would result in "Undeclared
+global symbol A" when it was linked.  This has been fixed.
+
+
+
+5.5  Spurious "symbol previously declared" messages <All>
+
+With /CHECK=REDECLARE, a spurious "symbol previously  declared  in  an
+outer block" message was generated when a symbol was declared EXTERNAL
+in an outer block, and GLOBAL in an inner block.  This has been fixed.
+
+
+
+5.6  Flow analysis failure <All>
+
+The compiler would fail in the flow  analysis  phase  when  confronted
+with  certain extremely complex patterns of common subexpression usage
+(involving nested IFs within LOOPs within IFs).  This has been fixed.
+BLISS-36 Release 4A(236) For TOPS-20: Release Notes             Page 5
+
+
+5.7  Bad code for the MOD operator <All>
+
+The compiler would sometimes generate code for the MOD  operator  that
+would  compute  a  result  with  the  wrong  sign.  In particular, the
+compiler would sometimes compile "(-x) MOD (-y)" as "x MOD  y".   This
+will now be compiled as "-(x MOD y)".
+
+
+
+5.8  Cross-reference fixes <All>
+
+Several   minor   problems   with   the   output   produced   by   the
+/CROSS_REFERENCE qualifier have been fixed.
+
+
+
+6.0  MISCELLANEOUS
+
+7.0  CHANGES TO UNSUPPORTED TOOLS
+
+
+
+                                 NOTE
+
+               This section describes components of the
+               BLISS  V4 release that are not supported                                          ___
+               by DIGITAL.  These  items  are  provided                  _______
+               only as a service to our users.
+
+
+See the User's Guide for information concerning these tools.
+
+
+
+8.0  CHANGES TO UNSUPPORTED SOFTWARE
+
+As a courtesy to our users, some  unsupported  development  tools  are
+shipped with the BLISS distribution.
+
+
+
+8.1  XPORT - Transportable BLISS Programming Tools
+
+A maintenance release of XPORT appears in the version 4A release.
+
+
+
+8.2  SIX12 - BLISS Symbolic Debugger
+
+Included in this release is  a  machine-readable  manual  -  SIX12.MEM
+which serves as a reference manual for the debugger.
+BLISS-36 Release 4A(236) For TOPS-20: Release Notes             Page 6
+
+
+9.0  RESTRICTIONS
+
+This section summarizes restrictions with the V4A(236) release.  Where
+possible, temporary solutions are described.
+
+
+
+
+PROBLEM:  The following code fragmentPROBLEM:
+
+                d = 0;
+                .....
+                WHILE .d NEQ 0 DO
+                    BEGIN
+                    ....
+                    x = 66 / .d;        ! Assume "d" never written
+                    ...
+                    IF .y THEN EXITLOOP
+                    END
+
+          will cause a zero-divide exception at  execution  time  when
+          compiled  using  normal optimization.  The compiler believes
+          that the expression "66/.d" is loop invariant and moves  the
+          computation out of the loop.
+
+SOLUTION: This is a restriction in V4A.  In this particular case,  theSOLUTION:
+          expression could be rewritten as:
+
+                WHILE 1 DO
+                    BEGIN
+                    .....
+                    IF .d EQL 0 THEN EXITLOOP;
+                    ....
+                    x = 66 / .d;
+                    .....
+                    END;
+
+          In this case, the expression cannot  be  moved  out  of  the
+          loop.
+
+
+
+
+PROBLEM:  Incorrect code generated for structure  definitions  of  thePROBLEM:
+          form:
+
+                STRUCTURE BAD[I,P,S]= [%UPVAL]
+                    (IF .I THEN BAD ELSE BAD + .BAD<16,16>)<P,S>;
+
+                OWN X: BAD[];
+                LOCAL T;
+
+                T = .X[.T,0,12];
+
+          "X" is loaded into a register in the  THEN-branch,  but  the
+BLISS-36 Release 4A(236) For TOPS-20: Release Notes             Page 7
+
+
+          ELSE-branch uses the register without loading it.
+
+SOLUTION: This is the result of a design flaw  in  the  way  structureSOLUTION:
+          references  are  expanded.  BLISS semantics guarantee that a
+          structure actual-parameter is evaluated only once.  This  is
+          implemented  by treating the first occurrence of a structure
+          formal  as  if  it  was  a  BIND  declaration.   The   other
+          occurrences  of  the structure formal are then treated as if
+          they were uses of the "imaginary" bind-name.  This choice of
+          implementation  fails  when  the  first  occurrence  of  the
+          structure formal is in conditional flow!  The problem can be
+          avoided by insuring that the first occurrence of each formal
+          is outside  of  conditional  flow.   The  example  structure
+          should be written as:
+
+                STRUCTURE GOOD[I,P,S] = [%UPVAL]
+                    (GOOD; IF .I THEN GOOD ELSE GOOD+.GOOD<16,16>)<P,S>;
+
+          Note that the  "structure-name"  is  the  zero-th  structure
+          formal  parameter.  The formals "I", "P" and "S" are already
+          outside  of  conditional  flow,  so   they   are   processed
+          correctly.   This  change  will  cause  the  compiler to use
+          slightly  more  memory,  but  the  resulting  code  will  be
+          correct.   There  should  be  no  reduction  in optimization
+          either.
+
+          Be aware that there is no problem when the conditional  flow
+          is  constant-folded  at  compile-time,  or  when there is no
+          conditional flow in the structure body.
+
+
+
+
+
+
+
+10.0  KNOWN BUGS
+
+There are no known problems with the TOPS-20 release.
+
+
+
+11.0  FOR FURTHER HELP
+
+     A number of sources of additional help are available.
+
+      o  For information on command interface -- "HLP:BLISS.HLP"  Just
+         type "HELP BLISS" to the monitor.
+
+      o  Language information -- "BLISS  Language  Guide":   Documents
+         the  BLISS  language.   The  Fourth  Edition, which documents
+         version  4  of  BLISS  is  available  as  SDC  order   number
+         AA-H275C-TK, with Update Notice 1, order number AD-H275C-T1.
+BLISS-36 Release 4A(236) For TOPS-20: Release Notes             Page 8
+
+
+      o  Compiler information -- "BLISS-36 User's  Guide":   Describes
+         use  of  the  BLISS-36  compiler,  some  available tools, and
+         machine  specific  features.   The  Fourth   Edition,   which
+         documents  version  4  of  BLISS-36 is available as SDC order
+         number AA-H712D-TK.
+
+      o  Syntax summary -- "BLISS Pocket  Guide":   Available  as  SDC
+         order number AV-AT45A-TK.
+
+      o  BLISS course -- A course in the BLISS programming language is
+         available   from   DEC.    For  further  information  contact
+         Educational Services.
+
+      o  BLISS-36 debugger (SIX12):  "HLP:SIX12.HLP":  Just type "HELP
+         SIX12" to the monitor.
+
+      o  Simple  terminal  I/O:   "HLP:TUTIO.HLP":   Just  type  "HELP
+         TUTIO" to the EXEC.
+
+      o  Conversion   of   BLISS-10   programs    to    BLISS-36    --
+         "HLP:CVT10.HLP":   Just  type  "HELP CVT10" to the EXEC.  For
+         greater detail see the file "DOC:CVT10.DOC".
+
+      o  Monitor interfaces -- "DOC:MONINT.DOC".
+
+      o  Examining ".REL" files -- "HLP:DMPREL.HLP":  Just type  "HELP
+         DMPREL" to the EXEC.
+
+
+
+
+12.0  COMPONENTS
+
+     Below is a list of the major components of the  BLISS-36  system.
+Full  support  is  available  only for the BLISS compiler itself.  The
+other components are unsupported but will be maintained to the  extent
+our resources allow.
+
+      o  BLISS -- The BLISS-36 compiler itself.
+
+      o  EZIO and TUTIO -- I/O utilities for BLISS-36.
+
+      o  Monitor Interfaces -- definitions necessary  for  interfacing
+         with the TOPS-10 and TOPS-20 monitors.
+
+      o  CVT10 -- BLISS-10 to BLISS-36 conversion program.
+
+      o  SIX12 -- High level debugger for BLISS-36.
+
+      o  XPORT -- Transportable BLISS programming tools
+

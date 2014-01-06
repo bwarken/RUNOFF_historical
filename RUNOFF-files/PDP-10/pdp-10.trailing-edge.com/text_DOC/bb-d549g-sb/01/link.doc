@@ -1,0 +1,1186 @@
+
+
+
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)
+August 1979
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COPYRIGHT (C) 1979 BY
+DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASS.
+
+
+THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+TRANSFERRED.
+
+THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+CORPORATION.
+
+DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DIGITAL.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)           Page 2
+
+
+1.0  SUMMARY
+
+LINK is the linking loader  for  the  DECsystem-10  and  DECSYSTEM-20.
+LINK  version  4A  is  a maintenance release designed to get bug fixes
+made since the last release of LINK distributed to  the  field.   Very
+few new features are present, but LINK 4A should be significantly more
+reliable than LINK 4 when loading user programs.
+
+LINK 4A supercedes all previous versions.  It runs under all supported
+monitors,  and  has been tested under TOPS-10 6.03A an 7.00, and under
+TOPS-20 releases 3A and 4.  All patches  published  through  21-Aug-79
+have been incorporated into LINK 4A.
+
+LINK is documented in the  LINK  Reference  Manual.   This  manual  is
+available  to  DECsystem-10  sites as part of volume 11 of the TOPS-10
+Software  Notebooks,  or  separately  as  order  number   AA-0988C-TB.
+DECSYSTEM-20  sites  can  find  this manual in volume 4 of the TOPS-20
+Software Notebooks, or it can be ordered separately  as  order  number
+AA-4183B-TM.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)           Page 3
+
+
+2.0  EXTERNAL CHANGES
+
+2.1  Changes To LINK
+
+The following sections contain summaries  of  all  externally  visible
+changes  that  have  been made to LINK since version 4(765).  Refer to
+the file LINK.PCO for more information on specific edits.
+
+
+
+2.1.1  EXE File Generation By Default - Previous  versions   of   LINK
+loaded  certain  types of programs incorrectly if the user did not ask
+for an EXE file with /SAVE.  For example, programs containing embedded
+nonexistent pages due to gaps between psect were loaded with the pages
+existent, and programs with very low high segment origins did not load
+at  all.  These problems were all due to LINK's inability to exit with
+the user program set up in memory correctly, and  they  could  all  be
+bypassed by typing /SAVE to LINK.
+
+LINK version 4A will automatically generate an EXE file when  programs
+of  this  class  are detected.  As part of this change, the old LNKNCL
+and LNKNCX messages have been deleted, and LINK will now issue the new
+LNKPCL  or LNKPCX messages whenever it decides to generate an EXE file
+on its own.  For more information, see the PCL and PCX messages in the
+file LNKMSG.MAN.  This was edit 1146 to LINK, PCO 10-LINK-264.
+
+
+
+2.1.2  The .HIGH. Psect - Declaring a psect with the name  .HIGH.  is
+now  equivalent  to declaring a high segment via REL block type 3 (the
+MACRO  HISEG  or  TWOSEG  pseudo-ops).   This  provides  a  convenient
+mechanism  for  mixing  psect  and high segment code in the same MACRO
+source file, since you can now put the  high  segment  code  into  the
+.HIGH. psect.  This was edit 1155 to LINK, PCO 10-LINK-271.
+
+
+
+2.1.3  Loading Large Programs - LINK  now  catches  attempts  to  load
+programs that extend beyond location 777777, and issues the new LNKPTL
+message.  Previous versions of LINK got  various  internal  errors  if
+this occurred.  This was edit 1204 to LINK, PCO 10-LINK-293.
+
+
+
+2.1.4  Searching FORLIB - LINK  will  now  search  SYS:FORLIB.REL   in
+/SEGMENT:LOW  mode when loading FORTRAN program, unless the program is
+being loaded in /OTS:NONSHAR mode.  This allows subroutines in  FORLIB
+to  be  written with two segments without forcing FOROTS to be read in
+at load time.  This was edit 1200 to LINK, PCO 10-LINK-289.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)           Page 4
+
+
+2.1.5  Symbol Table Differences - LINK   4A   generates   a   slightly
+different  runtime  DDT  symbol table than its predecessors, which may
+lead to differences detected by FILCOM if old and new EXE files loaded
+with symbols are compared.  The differences are as follows:
+
+     1.  The module length of the module PAT.. is now set up just like
+         all  other  modules.   This  will show up as the left half of
+         some word in the symbol table changing from zero to 777774.
+
+     2.  Psect names are no longer put into the runtime  symbol  table
+         as  empty  modules.   This will make the runtime symbol table
+         generated by LINK 4A somewhat smaller than that generated  by
+         previous versions of LINK for programs that use psects, since
+         the word pairs that  represented  the  psect  names  will  be
+         missing.
+
+This was edit 1127 to LINK, PCO 10-LINK-250.
+
+
+
+2.1.6  High Segment Code In Overlays - LINK 4A does not allow any high
+segment  code  when  loading into an overlay.  If it sees any, it will
+issue the new LNKHCL message.  Previous versions of LINK allowed  this
+without  complaint,  but  then proceeded to generate a non-working EXE
+file.  This is a common error, since it is what  happens  if  a  COBOL
+program  compiled  with  /R  is loaded into an overlay.  This was edit
+1115 to LINK, PCO 20-LINK-9.
+
+
+
+2.1.7  /OTS:NONSHAR By Default - In addition to the reasons listed  on
+page  D-39  of the LINK manual, LINK version 4 assumed /OTS:NONSHAR if
+the low segment exceeded 256P in  size  at  the  time  system  library
+searching  started,  since  the  OTS  cannot  be  read in at 400000 at
+runtime if the low segment extends beyond that address.  With LINK 4A,
+this  check  has  been extended so that /OTS:NONSHAR is assumed if the
+low segment extends beyond 330000.  This allows for the low segment to
+grow  somewhat as a result of system library searching without causing
+high segment overlap.
+
+The principle result of this edit is that some large user programs may
+now be loaded with the appropriate OTS built in, even though they were
+built to bring in the OTS at runtime with previous versions  of  LINK.
+If this is objectionable and the program's low segment does not extend
+beyond 400000, the /OTS:SHARE switch  can  be  used  to  override  the
+default action.  This was edit 1131 to LINK, PCO 10-LINK-252.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)           Page 5
+
+
+2.1.8  /NOINCLUDE, Changes To /INCLUDE - There  is   a   new   switch,
+/NOINCLUDE.   This  switch  turns  off  include mode set by a previous
+/INCLUDE switch seen in a global context.  Unlike  /INCLUDE,  the  new
+/NOINCLUDE switch takes no arguments.
+
+The /INCLUDE switch has also been changed to always set  include  mode
+for  the  rest  of the line when it is seen in a global context.  This
+change restores the behavior of /INCLUDE from  LINK  3A  and  earlier.
+The switch was changed in LINK 4 to only set include mode for the rest
+of the line if it was seen in a global context, and had no  arguments.
+This was edit 1117 to LINK, PCO 10-LINK-242.
+
+
+
+2.1.9  CPU Type Conflict Checking - The routines in LINK that  process
+modules  built  for a certain type of CPU (with /KA or /KI to FORTRAN,
+or .DIRECTIVE KA10, KI10, or KL10 to MACRO) have been  generalized  to
+understand  the  KL10  declaration, and to allow for future CPU types.
+As part of this change, the LNKKIA message  as  been  changed  to  the
+LNKCCD  message, and the CPU types that the loaded program will run on
+are now printed  in  the  map.   This  was  edit  1120  to  LINK,  PCO
+10-LINK-243.
+
+
+
+2.1.10  Change To /UPTO - The /UPTO: switch will  now  take  a  global
+symbol  as  an  argument.  The symbol does not need to be defined when
+the switch is typed, but must be defined by the end of the  load.   If
+it  is  not,  LINK  will  issue  the new LNKUUA message and ignore the
+switch.  This was edit 1175 to LINK, PCO 10-LINK-286.
+
+
+
+2.1.11  Size Of Overlay Files - Due to a bug,  LINK  version  4  wrote
+overlay files that were considerably larger than those written by LINK
+3A.  This bug has now been fixed, so overlay files written by LINK  4A
+are  comparable  in  size  to those written by LINK 3A.  This was edit
+1205 to LINK, PCO 10-LINK-294.
+
+
+
+2.1.12  Generated Module Name - If any symbols are  defined  before  a
+module  has  been loaded, LINK 4A will start a module of the same name
+as the symbol.  Previous versions of LINK just dumped  the  symbol  to
+the  map  and runtime symbol table with no preceeding module name.  If
+some module has already been loaded, LINK 4A will continue  to  append
+the  symbol  to  the  last module loaded, just as previous versions of
+LINK did.  This mainly affects symbols defined  with  switches  (/SET,
+/DEFINE),  and can only happen if /NOINITIAL is used, since the module
+JOBDAT is normally loaded by default.  This was edit 1143 to LINK, PCO
+10-LINK-263.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)           Page 6
+
+
+2.1.13  Change To REL Block Type 24 - With LINK 4A, REL block type  24
+just  declares a new psect.  Under previous versions of LINK, this REL
+block also took the  actions  of  REL  block  type  22,  so  that  any
+following  low  segment code went in to the psect just declared.  This
+was edit 1137 to LINK, PCO 10-LINK-259.
+
+
+
+2.1.14  .JBEDV - LINK 4A contains a new JOBDAT symbol, .JBEDV.   This
+symbol  will be used in future releases of TOPS-10 and TOPS-20 in exec
+mode only for communication with  EDDT  and  other  indepenently-built
+exec routines.  This was edit 1151 to LINK, PCO 10-LINK-267.
+
+
+
+2.1.15  /SAVE/EXECUTE On TOPS-20 - LINK 4A no longer leaves PA1050  in
+memory on /SAVE/EXECUTE.  PA1050 is still left in on /EXECUTE (this is
+a known problem).  As part of  this  edit,  several  of  the  messages
+generated  during  the  final  phase of LINK have been cleaned up, and
+long forms of the messages have been added.  This  was  edit  1144  to
+LINK, PCO 20-LINK-11.
+
+
+
+2.1.16  Global Definitions Of Psect Names - For  each  psect   loaded,
+LINK will automatically generate a global symbol with the same name as
+the psect name, and with the psect origin as its value.  With LINK 4A,
+the  psect  name will now be suppressed to DDT typeout.  This was edit
+1157 to LINK, PCO 10-LINK-273.
+
+
+
+2.1.17  Symbol Names As Switch Arguments - LINK now  requires  symbols
+typed as arguments to those switches that accept symbol names to begin
+with a letter or special character.  Previous versions of LINK allowed
+the  first  character  to be a digit.  This was edit 1167 to LINK, PCO
+10-LINK-280.
+
+
+
+2.1.18  Error Message Changes - Several  of   LINK's   messages   have
+changed  as  the result of an error message cleanup project.  The most
+noticeable difference is that most of LINK's errors will now print the
+module and file being processed when the error occurred, but there are
+many other minor changes.  Most of LINK's messages  were  affected  by
+this edit in some way.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)           Page 7
+
+
+The file LNKMSG.MAN contains an updated version of the  error  message
+portion of the LINK manual (Appendix B).  We recommend using this file
+instead of the LINK version  4  manual  for  documentation  on  LINK's
+messages,  since  so  many  of  them  have  changed  since  LINK 4 was
+released.
+
+The error message cleanup was edit 1174 to LINK, PCO 10-LINK-285.
+
+
+
+2.2  Changes To The Overlay Handler
+
+The following sections contain summaries  of  all  externally  visible
+changes  that  have  been made to OVRLAY (the runtime overlay handler)
+since  version  4(37).   Refer  to  the  file  OVRLAY.PCO   for   more
+information on specific edits.
+
+
+
+2.2.1  Changes To RUNOVL And REMOVL - The   manual   call   subroutine
+REMOVL  has  been  changed  to only accept one argument:  the name (or
+number) of the top link to be removed.  OVRLAY will remove  this  link
+and all of its inferiors from memory.  REMOVL has also been changed to
+not allow the caller to remove itself, a check  which  was  documented
+but not implemented.
+
+The manual call subroutine RUNOVL has been changed to allow the caller
+to  be  overlaid.   The  documentation stated that this was legal, but
+OVRLAY did not permit it.
+
+These changes were edit 43 to OVRLAY, PCO 20-OVRLAY-5.
+
+
+
+2.2.2  JSYS Names Changed - The JSYS names used in the TOPS-20 version
+of  OVRLAY  have  been  changed  to be the new name% form that will be
+present in release 4 of TOPS-20.  This change was  made  because  JSYS
+names  are  global symbols, and the TIME and SIN JSYSes in the overlay
+handler were conflicting with FORLIB subroutines  of  the  same  name.
+This was edit 41 to OVRLAY, PCO 20-OVRLAY-3.
+
+
+
+2.2.3  Symbol Table Pointer Update - The TOPS-20 version of OVRLAY has
+been  changed  to keep DDT's symbol table pointer (@770001) up to date
+whenever it brings in or removes a link and the  corresponding  symbol
+table.   Before  this  change was made, bringing in a link would cause
+DDT to lose some or all of the program's symbol table.  This was  edit
+40 to OVRLAY, PCO 20-OVRLAY-2.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)           Page 8
+
+
+2.2.4  Overlay Files In SFDs - The  TOPS-10  version  of  the  overlay
+handler  will  now  attempt  to  obtain  the path in which to find the
+overlay file by issuing GETTAB UUOs, which can return the entire path,
+including  SFDs.   If  the necessary GETTABs are not implemented, LINK
+will continue to use the path information  left  in  the  ACs  by  the
+monitor.  This was edit 46 to OVRLAY, PCO 10-OVRLAY-20.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)           Page 9
+
+
+3.0  KNOWN BUGS AND DEFICIENCIES
+
+The following list  includes  all  known  problems  with  LINK  as  of
+31-Jul-79.   The  list is divided into two parts.  The first is a list
+of those bugs for which a solution is not currently known.  These will
+be  fixed  roughly  in  order  of  their  importance,  and the patches
+published in the appropriate Software Dispatch.  The second part is  a
+list  of  those  problems for which there are no current plans to fix.
+These are restrictions in the product.
+
+
+
+3.1  Problems To Be Fixed In The Near Future
+
+     1.  When LINK cannot find an input file, it does not always clear
+         typeahead  before asking the user to provide the correct file
+         spec.
+
+     2.  LINK will leave  PA1050  in  memory  on  TOPS-20  if  program
+         execution  is  requested.   This  happens  on  the  @DEBUG or
+         @EXECUTE commands, or on /EXECUTE to LINK.
+
+     3.  Loading TOPS-10 DDT.REL version 40(220) specifying /ONLY:HIGH
+         results  in  an illegal memory reference.  This is indicative
+         of several problems with /ONLY.
+
+     4.  Erroneous LNKUGS messages sometimes result when using /ONLY.
+
+     5.  /BACKSPACE does not skip over the file mark after backspacing
+         a magtape.  This leaves the tape incorrectly positioned.
+
+     6.  The LNKIMM message does not increment .JBERR, nor does it use
+         LINK's  internal  message  facility.  Thus, it cannot cause a
+         load to fail if some included modules were  missing,  nor  be
+         controlled by the usual LINK message switches.
+
+     7.  The LNKDNS  message  has  various  problems.   The  offending
+         switch  is  not ignored if the message is fatal, nor does the
+         message get printed when it should.
+
+     8.  The handling of /DDEBUG:(MACRO,FORTRAN) is inconsistent.
+
+     9.  The /NOENTRY: switch assumes that the symbol specified is not
+         an  inter-link  entry  point.  If another link does reference
+         this symbol then  the  program  being  loaded  will  fail  at
+         runtime.
+
+    10.  /USERLIB:(x,y,z) does not work.
+
+    11.  TTY:/MAP:NOW when loading an overlaid program does not work.
+
+    12.  /CPU:x is ignored.  Also, it only takes a single CPU type  as
+         its argument when it should take a set of allowed CPU types.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 10
+
+
+    13.  The T.1 routine (and many others) uses  P2  incorrectly.   It
+         should  be the last location desired, but is sometimes set up
+         as the first free instead.   Common  side  effects  are  that
+         location  777777  cannot always be loaded, or that LINK reads
+         in too many pages from its overflow files.
+
+    14.  LINK has some problems putting the .EXE file  in  the  proper
+         place.   If an ersatz device was specified to /SAVE, and LINK
+         must overflow the HC area to disk, then the .EXE file may end
+         up  on the wrong path.  Also, if /EXECUTE was specified, then
+         LINK looks only on  the  user's  default  path  or  connected
+         directory, in spite of any contrary specification to /SAVE.
+
+    15.  The LNKLNS message does not print a carriage-return line-feed
+         at the end of the line.
+
+    16.  LINK does not accept commands on the monitor command line, as
+
+              .R LINK (commands) or @LINK commands
+
+    17.  /LINK when specified in a global context has problems.
+
+    18.  /SET specified without an  argument  results  in  the  LNKISN
+         message.
+
+    19.  The /NOREQUESTS: switch does not accept the complete radix-50
+         character set.
+
+    20.  The /SEVERITY: switch takes an  octal  argument,  but  should
+         take a decimal one to be consistent with /ERRORLEVEL: and the
+         LINK manual.
+
+    21.  Defining a common block with the  name  of  .COMM.  does  not
+         result in a definition of blank common.
+
+    22.  On TOPS-20, overlay plots are generally 2.54 times too large.
+
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 11
+
+
+3.2  Problems For Which No Solution Is Currently Planned.
+
+     1.  If code or  data  that  contains  fixups  (external,  Polish,
+         inter-psect  references,  etc.)  is overwritten at load time,
+         LINK can get an illegal memory reference or go into  a  loop.
+         This  can  happen  if  psects  overlap,  or  if  LOC or RELOC
+         statements are used incorrectly in a MACRO program.  This  is
+         a restriction.
+
+     2.  Generation of  a  symbol  file  via  /SYFILE:  requires  that
+         symbols be loaded with the program.  This is a restriction.
+
+     3.  LINK does not read SWITCH.INI on a LOAD-class command.   This
+         is a SCAN restriction.
+
+     4.  On TOPS-20, logical names pointing  to  files  do  not  work.
+         This is a restriction.
+
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 12
+
+
+4.0  INSTALLATION INSTRUCTIONS
+
+4.1  TOPS-10
+
+To install LINK version 4A on your system, copy  the  files  LINK.EXE,
+LNK???.EXE,  and  OVRLAY.REL  from  the distribution tape to SYS:, and
+then copy the file LINK.HLP from the distribution tape to HLP:.   Note
+that all of LINK's EXE files must be on the same disk structure.
+
+The batch control file LINK.CTL contains all necessary instructions to
+assemble  and load LINK, and to produce listings and storage maps.  It
+will normally have to  be  modified  slightly  to  correspond  to  the
+installation configuration.
+
+
+
+4.2  TOPS-20
+
+To install LINK version 4 on your system, copy the files LINK.EXE  and
+OVRLAY.REL  from the distribution tape to SYS:, and then copy the file
+LINK.HLP from the distribution tape to HLP:.   This  can  be  done  by
+mounting the tape labelled Distribution Tape on MTA0:, then typing the
+following commands:
+
+     R DUMPER
+     TAPE MTA0:
+     REWIND
+     DENSITY 1600-BPI
+     SKIP 2
+     RESTORE DSK*:<*>LINK.EXE (TO) SYS:*.*.-1, -
+     DSK*:<*>OVRLAY.REL (TO) SYS:*.*.-1, -
+     DSK*:<*>LINK.HLP (TO) HLP:*.*.-1
+     REWIND
+
+To rebuild LINK from sources, mount  the  tape  labelled  Distribution
+Tape on MTA0:, then type the following commands:
+
+     R DUMPER
+     TAPE MTA0:
+     REWIND
+     DENSITY 1600-BPI
+     SKIP 3
+     RESTORE DSK*:<*>*.*.* (TO) <self>*.*.*
+     REWIND
+     CTRL/C
+     !At this point, you should TYPE LINK.CTL to see what it does.
+     SUBMIT LINK.CTL/TIME/RESTART
+
+The batch control file LINK.CTL contains the procedures  necessary  to
+rebuild  LINK  and  OVRLAY  from  sources.  It may have to be modified
+slightly to run at your installation, so you should  type  it  to  see
+what it does before typing the SUBMIT command above.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 13
+
+
+5.0  INTERNAL CHANGES
+
+5.1  Changes To LINK
+
+All  changes  made  to  LINK  4(765)  to  produce  LINK  4A(1220)  are
+summarized  below.   Refer  to  the  file  LINK.PCO  for more detailed
+information on specific edits.
+
+
+766      MCHC    17-MAR-78
+         Store correct KL code(offset calculated by JFFO) for inconsistancy
+         check of modules to come.
+         LNKLOD
+
+767      MCHC    17-MAR-78
+         Clear AC P2(required size) when coing forced dump of LC area,
+         which returns through LNKCOR and will cause looping if
+         garbage is in it.
+         LNKOLD
+
+770      MCHC    17-MAR-78
+         Add code to allow paging for the first time in routine to
+         output undefined symbols(especially if undefined symbol table
+         does not begin at end of a chunk of code.)
+         LNKXIT
+
+771      MCHC    23-MAR-78
+         Fix bug in doing large( > 400000) pop loop in 2 chunks.
+         LNKCOR
+
+772      MCHC    23-MAR-78
+         Edit 770 did not adjust start of symbol table that came after
+         the undefined symbol table.
+         If /SET:FOO:nnnnnn/SYMSEG:PSECT:FOO is used so that a psect
+         was created just for the symbol table, the following should
+         happen:
+                 PAT..=nnnnnn
+                 .JBUSY (117)/   -U,,PAT..+100 
+                                 where U is the length of undefined symbol table
+                 .JBSYM (116)/   -L,,PAR..+100+U
+                                 where L is the length of the symbol table
+         LNKXIT
+
+773      JNG     30-Apr-78
+         Fix GSDLT in LNKXIT to not leave some area's UB
+         pointing beyond .JBREL if the GS area is already gone.
+         Routines: LNKXIT
+
+774      JNG     30-Apr-78       SPR 10-25711
+         Fix bad calculation of UW in EXE file writer.
+         Routines: LNKXIT
+
+775      DZN     1-May-78        SPR 20-11396
+         Make sure /DEBUG:FORTRAN loads the starting address of
+         FORDDT and not the user's program (unless explicit /START).
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 14
+
+
+         Routines: LNKWLD
+
+776      DZN     4-May-78        SPR 10-23733
+         Fix address check and lost .JBVER when loading small programs
+         with /SAVE and no data in core-image pages 0 or 1.
+         Routines: LNKXIT
+
+777      DZN     18-May-78       SPR 10-24008
+         Fix allocation of COMMON blocks when a COMMON block is first
+         referenced but not defined, then later defined. Also document
+         SY.RF as destroying P1-P4.
+         Routines: LNKOLD, LNKLOD
+
+1000 to 1077     Reserved for Development.
+
+1100     DZN     23-May-78       SPR 10-24042
+         Fix LNKMAP to correctly free the index blocks it uses for sorting,
+         to keep the integrity of the DY area.
+         Routines: LNKMAP
+
+1101     JNG     29-May-78       SPR 10-23623
+         Fix LINK to correctly load indexed libraries that contain modules
+         which have no entry points and thus do not appear in the index
+         when indexed with MAKLIB.
+         Routines: LNKOLD,LNKLOD,LNKWLD,LNKLOW
+
+1102     DZN     18-Jun-78       SPR 20-11085
+         Fix paging routines to detect moving a window past 512P. In this
+         case, make the end of the window set right at 512P.
+         Routines: LNKLOD
+
+1103     DZN     19-Jun-78
+         See that the list of .REQUEST/.REQUIRE blocks is not freed twice,
+         to preserve the integrety of the DY area.
+         Routines: LNKLOD
+
+1104     JNG     20-Jun-78
+         Fix address checks when dumping LC or HC area to disk.  Remove
+         edit 750 in LH.DMP, so we will never try to shrink the current
+         area by more pages than the area has.
+         Routines: LNKCOR
+
+1105     JNG     20-Jun-78
+         Fix edit 740 to not destroy an AC that held the input file's PPN.
+         This caused LINK to not be able to find a file when the user gave
+         an explicit path including SFDs.
+         Routines: LNKFIO
+
+1106     JNG     27-Jun-78       QAR RDH
+         Update HL.S1 from RC.CV of the highest PSECT loaded at the end of
+         loading.  This causes the EXE file generator to allocate all of
+         the pages that it should if the last PSECT ends with a BLOCK statement.
+         Routines: LNKLOD
+
+
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 15
+
+
+1107     MCHC    3-Aug-78
+         Fix bug in .SETEX--routine to expand RC.TB and RC.NTB tables
+         in DY area by obtaining bigger spaces, copying the data from
+         the old tables, and freeing the old table spaces.
+         The bug was in address calculation in freeing one of the tables.
+         The code is re-arranged to do a DY.GET followed by DY.RET
+         then another DY.GET and DY.RET
+         LNKWLD
+
+1110     MCHC    7-Aug-78
+         Type out the PSECT name as part of the error message when a
+         non-existent one is used with /SYMSEG in GETSST routine.
+         Don't clear the name from memory cell, loop back without restoring the
+         stack and treat this case as a default case.
+         LNKXIT
+
+1111     MCHC    7-Aug-78
+         Fix LNKXIT core management bug introduced by edit 772.
+         LNKXIT
+
+1112     JNG     15-Aug-78       SPR 10-25902
+         Fix one off bugs in map printing segment lengths in K/P and
+         words free.
+         Routines: LNKPAR, LNKMAP
+
+1113     DZN     25-Aug-78       SPR 20-12001
+         Fix memory management problems when plotting the overlay
+         tree. See that LINK never shrinks back on TOPS-20 until final
+         placement of the loaded program. Add LNKPOT message to tell user
+         when LINK is plotting the overlay tree.
+         Routines: LNKCOR, LNKXIT, LNKPLT, LNKERR
+
+1114     DZN     1-Sep-78        SPR 20-11999
+         Zero count of COBOL symbol words and ALGOL OWNs loaded when
+         done loading a module, so they don't get counted in subsequent
+         modules in the same file.
+         Routines: LNKOLD, LNKLOD
+
+1115     DZN     2-Sep-78        SPR 20-11997
+         Add LNKHCL message to complain when loading high segment code
+         into a link other than the root in an overlaid program.
+         Routines: LNKERR, LNKOLD
+
+1116     JNG     7-Sep-78
+         Put back part of the code removed by edit 716.  Performance
+         improvements are only kosher as long as the code removed is
+         unneeded.
+         Routines: LNKLOD
+
+1117     DZN     14-Sep-78
+         Make /INCLUDE:args also set include mode, as it did long ago.
+         But also add /NOINCLUDE to turn off include mode but not
+         delete the original args.
+         Routines: LNKPAR, LNKWLD
+
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 16
+
+
+1120     DZN     22-Sep-78       SPR 10-26135
+         Fix CPU mismatch checks so that they work. Remove edit 766,
+         revamp all CPU check code to use a bit mask of valid CPUs,
+         delete the LNKKIA message and add LNKCCD, and change the
+         map to include the correct information. Also, make the map
+         show which CPUs the entire program can be run on.
+         Routines: LNKPAR, LNKERR, LNKOLD, LNKLOD, LNKINI, LNKMAP, LNKLOW
+
+1121     JNG     4-Oct-78        QAR JMF
+         Fix LNKXIT bug so .JBSYM ptr won't include the undefined symbol
+         table.  This was broken by edit 772.
+         Routines: LNKXIT
+
+1122     DZN     5-Oct-78        SPR 10-26222
+         Remove edit 740, which attempted to use SCAN's /VERSION switch,
+         rather than LINK's. SCAN's switch is a file-specific switch, which
+         is not the way LINK wants it to work. However, still fix the original
+         problem (having to type /VERSION to 6 characters to work) by making
+         LINK's /VERSION switch unique to any abbreviation.
+         Routines: LNKPAR, LNKSCN, LNKWLD, LNKFIO
+
+1123     DZN     10-Oct-78       SPR 10-26580
+         Use HRLI instead of HRL to load ENTER error flag.
+         Routines: LNKFIO
+
+1124     DZN     11-Oct-78       SPR 10-26712
+         Edit 636 broke LINK's ability to be run execute-only. Fix
+         this by making the TTY log routine once more return into the
+         potentially execute-only high segment properly.
+         Routine: LNKINI
+
+1125     JNG     1-Nov-78        SPR 10-26379
+         Don't try to run the high segment file on /SAVE/RUN (or /SAVE/DEBUG)
+         when generating an EXE file.  This fixes ?nnnLHC.EXE not found when
+         the user types the above switches and the HC area has overflowed.
+         Routines: LNKXIT
+
+1126     JNG     1-Nov-78        SPR 10-26433
+         If all 7.01 GETTABs to determine where we came from are not available,
+         use the contents of the ACs to do GETSEG UUOs.
+         Routines: LNKINI
+
+1127     JNG     14-Nov-78       QAR DIB
+         Set up the module length for PAT.. in the runtime symbol table.
+         Routine: LNKXIT
+
+1130     DZN     26-Jan-79       SPR 10-27212
+         Make LINK honor /MAXCOR correctly when a request for memory in a
+         pagable area is made. In this case, edit 650 made LINK count the
+         memory request toward the /MAXCOR value, even though the window
+         can simply be moved.
+         Routine: LNKCOR
+
+1131     DZN     26-Jan-79       SPR 10-27123
+         Make LINK decide to load a non-sharable OTS if the low segment
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 17
+
+
+         has grown within 40 pages of the origin of the OTS high segment
+         rather than letting the low segment grow past it first.
+         Otherwise, the low segment may cross the beginning of the OTS
+         during the system library search when it is too late to fix it.
+         Routine: LNKLOD
+
+1132     JNG     30-Jan-79       SPR 10-26576
+         Re-work EXE file writer to fix several problems, including:
+         . PSECTs above the high segment not written properly.
+         . Absolute code not loaded correctly.
+         . Bad EXE directory if loading overlays and small /SPACE switch.
+         . PSECT attributes not written into the EXE file.
+         . Page 1 written into page 0 if page 1 is lowest page containing code.
+         . Address checks when writing the EXE file.
+         . Bad EXE file if EXE directory is longer than two pages.
+         . ?LNKCNW or bad DDT symbol table when loading PSECTs.
+         Routines: LNKPAR, LNKINI, LNKLOD, LNKOLD, LNKWLD, LNKXIT.
+
+1133     JNG     30-Jan-79       SPR 10-26576
+         Add a long message for the LNKSTL message.
+         Routine: LNKERR
+
+1134     JNG     30-Jan-79       SPR 10-27024
+         Avoid address check in LNKXIT while writing EXE file if lowest
+         code loaded is between 2000 and 377777, but the program being
+         loaded is not so large that LINK needs to overflow to disk.
+         This edit is an extract of part of edit 1132.
+         Routines: LNKXIT
+
+1135     DZN     31-Jan-79       SPR 10-26792
+         Force PG.SU to expand anyway if a request crosses a page boundary
+         and the window is not at least two pages long.
+         Routine: LNKLOD
+
+1136     JNG     31-Jan-79       SPR 10-26518
+         Avoid IO to unassigned channel in LNKXIT while writing an EXE file
+         if segment ends on last word of a page and LINK is not paging to disk.
+         This edit is an extract of part of edit 1132.
+         Routine: LNKXIT
+
+1137     JNG     1-Feb-79        SPR 20-12411
+         Don't change RC.CUR in T.24.  Also set default PSECT name to left-
+         justified .LOW. (not right-justified) if name not given in block.
+         Routine: LNKOLD
+
+1140     JNG     6-Feb-79        SPR 10-26410
+         Clear LSTSYM when a non-loaded local is encountered.
+         Routine: LNKOLD
+
+1141     JNG     15-Feb-79       SPR 10-26290
+         Make the EXE file writer stop writing when it passes the size
+         of the user program, instead of writing the entire LC area.
+         This edit supercedes edit 1136 and is an extract of edit 1132.
+         Routine: LNKXIT
+
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 18
+
+
+1142     JNG     16-Feb-79
+         Fix problems with multiple /SET:.HIGH.s introduced by edit 1132.
+         Routine: LNKWLD
+
+1143     JNG     16-Feb-79       QAR CKS
+         Make sure symbols never get into the LS area before a module name.
+         If they try (/NOINITIAL/SET), dummy up a module name from the symbol.
+         Routine: LNKLOD
+
+1144     DZN     16-Feb-79       SPR 20-12473
+         Clean up code to run the .EXE file so that PA1050 is not left in
+         memory on TOPS-20, and so that more of the final messages use .ERR.
+         instead of OUTSTRs.
+         Routines: LNKERR, LNKLOG, LNKLOW, LNKPAR, LNKWLD, LNKXIT
+
+1145     DZN     22-Feb-79
+         Load local symbols and store symbol table pointers on TOPS-20 if
+         /DEBUG:DDT and leaving program in memory. Broken by edit 1144.
+         Routines: LNKXIT, LNKWLD
+
+1146     DZN     8-Mar-79        SPR 10-26290
+         Change the 'Not enough core to load' message to 'Program too complex'.
+         Then cause more cases to force .EXE file generation (e.g., PSECTs above
+         high segment, gaps between PSECTS).
+         Routines: LNKPAR, LNKXIT, LNKERR
+
+1147     JNG     12-Mar-79
+         Avoid bad EXE file if lowest location loaded is above 400000, LINK
+         is overflowing to disk, and lowest location loaded was not the first
+         location loaded (i.e., load was not monotonic).
+         Routine: LNKXIT
+
+1150     DZN     14-Mar-79       SPR 10-27632
+         Make LOGINI in LNKINI.MAC use standard LKNFIO routines to set up the log
+         file, so that the default path of a log file is preserved over the
+         ENTER.
+         Routine: LNKINI
+
+1151     JNG     29-Mar-79
+         Add the new Job Data Area location .JBEDV to the initial symbols.
+         Routine: LNKINI
+
+1152     JNG     3-Apr-79
+         Get EXE file right when loading overlays.  Broken by 1132.
+         Routines: LNKOV1, LNKXIT
+
+1153     JNG     12-Apr-79       QAR JBD
+         Give LNKIPX message if a Define PSECT block (type 24) contains
+         an invalid PSECT index.
+         Routine: LNKOLD
+
+1154     JNG     12-Apr-79       QAR JBD
+         Re-write T.23 to fix the following problems:
+         . Don't re-define the PSECT indices in terms of the order of block 23s.
+         . Don't require a name of zero in the first block 23.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 19
+
+
+         . Don't do a set PSECT (block type 22) action on block type 23.
+         . Expect PSECT index instead of name in first word (name still works).
+         Routine: LNKOLD
+
+1155     JNG     13-Apr-79       QAR JBD
+         Allow PSECT .HIGH. to be synonymous with TWOSEG.
+         Routines: LNKOLD, LNKWLD
+
+1156     JNG     13-Apr-79       QAR JBD
+         Relocate the breaks in block type 5 with respect to .LOW.
+         every time, even if the current PSECT is not .LOW..
+         Routine: LNKOLD
+
+1157     JNG     13-Apr-79       QAR DZN
+         Suppress the PSECT name global symbols to DDT typeout.
+         Routine: LNKWLD
+
+1160     JNG     14-Apr-79       QAR TW/JMF
+         Don't put junk in runtime undefined symbol table for symbols
+         that are used in Polish blocks.
+         Routine: LNKXIT
+
+1161     JNG     4-May-79        SPR 10-27727
+         Clean up Psect printout in map.
+         Routines: LNKSUB, LNKMAP.
+
+1162     JNG     4-May-79        SPR 20-12825
+         Set up DDT's symbol table pointers on /DEBUG/SAVE.  This edit is
+         an extract of edit 1144.
+         Routines: LNKXIT
+
+1163     JNG     8-May-79        QAR DC
+         Never mark .HIGH. as relocatable, since we default its origin.
+         This was broken by edit 1155.
+         Routine: LNKWLD
+
+1164     JNG     8-May-79        SPR 10-27598
+         Don't overwrite the first page of the FX area when writing a map
+         if the LS area is paging and the last piece of the area exactly
+         fits into the window.
+         Routine: LNKMAP
+
+1165     DZN     15-May-79       SPR 10-27925
+         Zero LSTSYM whenever a call to SY.RLS says a symbol requested for symbol
+         table fixup was not the last symbol loaded. This prevents  symbol  fixup
+         requests from finding a long-obsolete symbol in LSTSYM that just happens
+         to match.
+         Routine:LNKLOD
+
+1166     JNG     15-May-79
+         Don't allow PSECT indices in Polish blocks unless the first halfword
+         was the default PSECT index for the block.
+         Routine: LNKOLD.
+
+1167     JNG     17-May-79       QAR 10-3081
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 20
+
+
+         Don't allow symbols typed as switch arguments to begin with digits.
+         Routines: LNKSCN
+
+1170     JNG     23-May-79       SPR 10-27945, QAR 10-3070, 10-3087
+         Fix some memory management problems in LNKXIT when not writing an
+         EXE file.
+         Routine: LNKXIT
+
+1171     JNG     30-May-79       QAR 10-3049
+         Fix edit 1146 to say LNKPCL even on TOPS-10 if it doesn't like
+         the PSECT attributes.
+
+1172     JNG     5-Jun-79
+         Fix many memory management problems when writing a runtime symbol
+         table, especially when psects are involved.
+         Routines: LNKPAR, LNKINI, LNKOV1, LNKOV2, LNKWLD, LNKXIT
+
+1173     JNG     10-Jun-79
+         Update RC.HL on /COMMON.
+         Routine: LNKWLD
+
+1174     DZN     10-Jun-79       SPRs 20-12548, 20-12244, QAR 10-03199
+         Revamp all error messages.
+         . Label  all messages with E$$xxx:: or Ennxxx:: so messages can be found
+           when debugging. E$$xxx should be  the  label  of  the  .ERR.  (or  its
+           preceeding  PUSH  P,[channel])  that  defines  the  .ERxxx text block.
+           Ennxxx should be the label of all other .ERR.s with the same  assigned
+           mnemonic, with nn starting at 01.
+         . Include the module and file name in which an error was detected in all
+           applicable messages.
+         . Make  .OERR.  synonamous  with OUTSTR for use in place of .ERR. when a
+           message must be printed with an OUTSTR, so that all such messages  can
+           be found easily.
+         . Make  the  list  of  messages  and  long text in LNKERR and the actual
+           messages in LINK agree.
+         . Fix log device being a terminal other than the controlling one.
+         . Clean up the wording of all messages to be more consistent.
+         Routines: All
+
+1175     JNG     12-Jun-79
+         Fix /START and /UPTO with symbols as arguments.
+         Routines: LNKLOD, LNKWLD, LNKERR
+
+1176     JNG     12-Jun-79
+         Disallow /SYMSEG:PSECT:name with /OVERLAY.
+         Routine: LNKWLD
+
+1177     JNG     12-Jun-79
+         Make /VERSION in global context not lose local switches.
+         Routines: LNKPAR, LNKWLD
+
+1200     JNG     13-Jun-79
+         If loading reentrant FOROTS, search SYS:FORLIB/SEGMENT:LOW.
+         This is required for FOROTS version 6 and later.
+         Routine: LNKLOD
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 21
+
+
+
+1201     JNG     13-Jun-79
+         Disallow /SEGMENT:PSECT, which worked because it used the same
+         keyword table as /SYMSEG.
+         Routines: LNKPAR, LNKLOD, LNKOV1, LNKOV2, LNKWLD
+
+1202     JNG     14-Jun-79
+         Fix /VERSION after 1172, and make LINK assemble on TOPS-20
+         after edit 1174.
+         Routines: LNKPAR, LNKFIO, LNKLOG, LNKXIT.
+
+1203     JNG     14-Jun-79
+         Add support for Extended FORTRAN.
+         Routines: LNKPAR, LNKMAP, LNKLOD, LNKERR
+
+1204     JNG     14-Jun-79
+         Check for programs that extend beyond location 777777, and
+         issue the LNKPTL message.
+         Routines: LNKLOW, LNKOLD, LNKLOD, LNKERR
+
+1205     JNG/DZN 14-Jun-79       SPR 10-27954
+         Re-claim some wasted blocks in .OVL files.
+         Routine: LNKOV1
+
+1206     JNG     14-Jun-79
+         Fix a NO.COR in LNK999 that edit 1174 missed.
+         Routine: LNK999
+
+1207     JNG     29-Jun-79
+         Make the LNKCMX message continue loading, so the user can run
+         the program if he wants to.
+         Routine: LNKLOD
+
+1210     JNG     29-Jun-79
+         Allow 1-word block type 5's, so SAIL output will load.  Also
+         allow a program break of exactly 1,,0 (bypass the LNKPBI check).
+         Routine: LNKOLD
+
+1211     JNG     29-Jun-79       QAR 10-3303
+         Fix typo in LNKDRC message, avoid Illegal UUO.  Broken by 1174.
+         Routine: LNKWLD
+
+1212     DZN     4-Jun-79
+         Fix various typos and other loose ends in the aftermath of 1174.
+
+1213     JNG     5-Jul-79
+         Eliminate the ISD message; on multiple partial definitions, just
+         ignore them if their values agree, and give the MDS message if
+         they don't.
+         Routines: LNKPAR, LNKOLD, LNKLOD, LNKERR
+
+1214     DZN     9-Jul-79        QAR 10-03315
+         Fix mismatched angle brackets so PIP's /V switch doesn't complain.
+         Comments should not contain angle brackets unless they actually
+         terminate conditionals, repeats, etc.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 22
+
+
+         Routines: LNKHST, LNKCOR, LNKOV1, LNKXIT
+
+1215     JNG     23-Jul-79       QAR R.ACE
+         Use RC.HL for .ABS. and .LOW. for LOWLOC update at CHKLLC, since
+         RC.CV may not be correct.  In particular, RC.CV for .ABS. is always
+         zero.
+         Routine: LNKLOD
+
+1216     JNG     23-Jul-79       QAR CKS
+         Preserve P1/P2 in SYMOUT, avoid illegal memory reference if
+         undefined symbols exist.
+         Routine: LNKXIT
+
+1217     DZN     25-Jul-79
+         Clean up the listings for release. Update all copyright notices.
+         Remove all editing lines. Break pages in good places.
+         Routines: All
+
+1220     DZN     24-Aug-79
+         Release on both TOPS-10 and TOPS-20 as version 4A(1220).
+         Routines: All
+
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 23
+
+
+5.2  Changes To OVRLAY
+
+All changes  made  to  OVRLAY  4(37)  to  produce  OVRLAY  4A(50)  are
+summarized  below.   Refer  to  the  file OVRLAY.PCO for more detailed
+information on specific edits.
+
+
+40       DZN     15-Sep-78
+         On TOPS-20, if DDT exists, set its internal symbol table pointer
+         whenever we change .JBSYM.
+
+41       DZN     5-Oct-78
+         Use new NAME% form of JSYS names to avoid conflicts with user-defined
+         globals.
+
+42       DZN     5-Oct-78
+         Change FTENEX conditional to TOPS20 to be consistent with the rest
+         of LINK. Use proper mnemonics for JSYS arguments. Some code cleanup.
+
+43       DZN     13-Oct-78
+         Fix link deletion problems. Make REMOV. take only a single argument,
+         and delete that link and all of its inferiors (otherwise lost links
+         result). Allow RUNOV. to delete the calling link as documented. Also
+         remove OVLAOC message (use OVLARC instead).
+
+44       DZN     15-Oct-78
+         Fix argument checking for calls to manual subroutines. This involves
+         allowing all double and single precision argument types to work,
+         making the OVLIAT message fatal and not type junk, and getting
+         the correct user PC (see edit 10).
+
+45       DZN     15-Oct-78
+         Fix PDL overflow if many calls to RUNOV. RUNOV. now unbinds back
+         through the return PC on the stack, allowing replacement of links
+         at the same level to succeed without the PDL overflow.
+
+46       JNG     15-Jun-79
+         Try GETTABs to determine the full path that we were run from on
+         TOPS-10.
+
+47       DZN     25-Jul-79
+         Clean up the listing for release.
+
+50       DZN     27-Aug-79
+         Release on both TOPS-10 and TOPS-20 as version 4A(50).
+
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 24
+
+
+6.0  SUGGESTIONS
+
+The following  suggestion  list  has  been  accumulated  from  various
+sources,  including  SPRs  and  DECUS  sessions.   The appearance of a
+suggestion on this list does not necessarily mean  that  DIGITAL  ever
+intends to implement it.
+
+     1.  Search REL: for system libraries if they cannot be  found  on
+         SYS:.
+
+     2.  Print  an  informational  message  when  searching  a  system
+         library,  giving  the  number  of undefined symbols remaining
+         when the search starts.
+
+     3.  Implement relocatable psects.
+
+     4.  Support long symbols.
+
+     5.  Support a better symbol character set than RADIX-50.
+
+     6.  Support extended addressing.
+
+     7.  Load programs into another fork on TOPS-20.
+
+     8.  Modify LINK  to  be  callable  as  a  subroutine  from  other
+         programs.
+
+     9.  Make LINK use  the  same  message  convention  as  SCAN.   In
+         particular, make LINK recognize SCAN's /MESSAGE switch.
+
+    10.  Sort the symbols listed in LINK's map files.
+
+    11.  Use a better free memory algorithm.  Currently, LINK  uses  a
+         best-fit  method.   This is known to be inferior, potentially
+         slowing LINK down.
+
+    12.  Use virtual memory more intelligently.  In particular,  don't
+         zero  memory  just allocated via CORE or PAGE. UUOs, since it
+         is already zero.
+
+    13.  Redesign the structure of the title REL block (block type  6)
+         to allow easier upward compatibility of CPU types.
+
+    14.  Print  appropriate   error   messages   if   conflicting   or
+         inappropriate   psect   properties   are  detected,  such  as
+         concatenate and overlay.
+
+    15.  Implement block  type  11  code  bits  in  the  symbol  store
+         operator.
+
+    16.  Make  overlaid  psects  and  common  blocks  coexist.   Other
+         DIGITAL  loaders  actually  handle  common blocks as overlaid
+         psects.  One advantage would be that the largest common block
+         declaration would not necessarily have to be loaded first.
+LINK.DOC -- Changes from LINK 4(765) to LINK 4A(1220)          Page 25
+
+
+    17.  MACRO and LINK should use some facility (perhaps the proposed
+         REL   block   types   1042  and  1043)  to  allow  full  file
+         specifications in library requests embedded  in  .REL  files.
+         Such  an  implementation  should  preferrably use text rather
+         than SIXBIT fields as are now used.
+
+    18.  Make the overlay plotter code able to  write  an  LPT  format
+         file to the disk.  This would allow printing with non-default
+         parameters, for instance.
+
+    19.  Make the LNKUGS message print something more informative than
+         a 0 as the value of a polish expression.
+
+    20.  Add KS10 to the CPU specifications allowed both in MACRO  and
+         LINK.
+
+
+
+[End of LINK.DOC]

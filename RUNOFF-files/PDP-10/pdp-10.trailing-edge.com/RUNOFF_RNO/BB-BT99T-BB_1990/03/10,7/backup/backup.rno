@@ -1,0 +1,71 @@
+.FILL
+.JUSTIFY
+.LEFT MARGIN 6
+.RIGHT MARGIN 70
+.PAPER SIZE 55
+
+BACKUP %6(701) has support for pathological names.  This change was
+added mainly due to our own in-house requirements, but surprisingly,
+the risks involved were minimal.  It amounted to breaking the logical
+name into its individual components, and creating the equivalent
+CHECK, SAVE, or  RESTORE command.  BACKUP always has generate two
+filespecs for each entity in a CHECK, SAVE, or RESTORE command,
+even when a single filespec was specified by the user.  This behavior
+continues.  The following examples illustrate this and how logical
+names are handled.
+.SKIP 1
+A simple SAVE command.
+.LITERAL
+
+	.PATH FOOP: = DSKC:[10,56,MTCERT],DSKC:[10,56,WHO]
+	.R BACKUP
+	/SAVE FOOP:
+
+	 Logical name translations:
+	 SAVE    DSKC:*.*[10,56,MTCERT] = DSKC:*.*[10,56,MTCERT], -
+		 DSKC:*.*[10,56,WHO] = DSKC:*.*[10,56,WHO]
+
+	! 10,56 DSKC
+	" Done
+
+.END LITERAL
+.SKIP 1
+A SAVE command with aliasing.
+.LITERAL
+
+	.PATH FOOP: = DSKC:[10,56,MTCERT],DSKC:[10,56,WHO]
+	.R BACKUP
+	/SAVE DSKB:[10,7,*] = FOOP:
+
+	 Logical name translations:
+	 SAVE    DSKB:*.*[10,7,*] = DSKC:*.*[10,56,MTCERT], -
+		 DSKB:*.*[10,7,*] = DSKC:*.*[10,56,WHO]
+
+	! 10,56 DSKC
+	" Done
+
+.END LITERAL
+.SKIP 1
+A simple RESTORE command.
+.LITERAL
+
+	.PATH NEWWHO: = DSKT:[10,56,NEWWHO]
+	.R BACKUP
+	/RESTORE NEWWHO: = DSKB:[10,7,WHO]:
+
+	 Logical name translations:
+	 RESTORE DSKT:*.*[10,56,NEWWHO] = DSKB:*.*[10,7,WHO]
+
+	! 10,7 DSKB
+	" Done
+
+.END LITERAL
+The CHECK command has always been sensitive to the order of the files
+on tape vs_. those on disk.  This was "aspect" of BACKUP is caused by
+the fact that files are not necessarily save to tape in the same
+order that they are specified in the SAVE command.  BACKUP copies
+files to tape based on their position in the specified directories.
+This behavior has not changed, but it may be more easily induced
+through the use of logical names, since the order of the directories
+in a logical name does not necessarily have to match their position
+on disk.

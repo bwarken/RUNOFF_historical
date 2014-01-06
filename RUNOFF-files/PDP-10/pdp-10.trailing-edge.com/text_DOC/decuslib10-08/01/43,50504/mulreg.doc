@@ -1,0 +1,1723 @@
+
+
+
+ 
+First page
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+          A USER PROGRAM FOR MULTIPLE LINEAR REGRESSION ANALYSIS
+          ======================================================
+
+
+
+
+
+
+
+                            Marten van Gelderen
+
+
+                              Version 5H(246)
+
+
+                                 16-Feb-80
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                     Copyright (C) 1975, 1979, 1980 by
+                 Foundation Mathematical Centre, Amsterdam
+             Institute for Nuclear Physics Research, Amsterdam
+
+    General permission to make fair use in teaching or research of  all
+    or  part  of  this material is granted to individual readers and to
+    nonprofit organizations, provided  that  the  copyright  notice  of
+    either  the  Foundation  Mathematical  Centre  or the Institute for
+    Nuclear Physics Research is given and that  reference  is  made  to
+    this  publication  and  to the fact that reprinting privileges were
+    granted by permission of one of the above mentioned organizations.
+
+
+
+CONTENTS                                                               Page
+
+
+Abstract                                                                 1
+
+Introduction                                                             2
+
+Chapter 1 - Multiple linear regression analysis                          4
+            1.   The regression model                                    4
+            2.   Least squares                                           5
+            2.1  Weighted least squares                                  8
+            2.2  Residual analysis                                       9
+            3.   Tests of hypotheses                                    10
+            3.1  A particular regression coefficient                    10
+            3.2  Analysis of variance                                   10
+
+Chapter 2 - The input to the program                                    14
+            1.   The model specification                                14
+            1.1  Transformations                                        15
+            2.   The input specification                                17
+            3.   The option specification                               19
+            4.   The data specification                                 21
+            5.   The user program                                       22
+            6.   Examples                                               23
+
+Chapter 3 - The output from the program                                 25
+            1.   Standard and optional printed output                   25
+            2.   Standard and optional data output                      27
+            3.   Error messages                                         28
+            4.   Examples                                               30
+
+Appendices  1.   Technical remarks                                      31
+            2.   Definition of the syntax of a user program             34
+            3.   Technical description of the program                   37
+
+References                                                              41
+                                                                     Page 1
+
+
+ABSTRACT
+
+     Performing  multiple  linear  regression  analysis  on  a   electronic
+computer   can   be  very  laborious  when  preparation  of  the  input  is
+complicated.   The  program  introduced  in  this  document  is  especially
+designed   to   have   flexible   and   comprehensible   model   and  input
+specifications.  It accepts a "Model" formula which resembles the  notation
+of  regression  models  in common statistical literature quite closely.  An
+accompanying "Input" formula provides the program  with  information  about
+the  arrangement of the observations in the input "Data", which consists of
+a series of numbers in freefield format.  A  "Run"  command  activates  the
+program,  while  an  "Exit"  command causes the program to stop.  Extensive
+runtime "Help" information is available.  The following  piece  of  program
+may serve as an example of some of these ideas:
+
+         "Model"  y  =  alfa0  +  alfa1 * x  +  alfa2 * x ^ 2;
+         "Input"  5 * ([x], n, n * [y]);
+         "Options" Transformed data matrix, Process submodels (1);
+         "Data"   1   4    1.1    0.7    1.8    0.4
+                  3   5    3.0    1.4    4.9    4.4    4.5
+                  5   3    7.3    8.2    6.2
+                 10   4   12.0   13.1   12.6   13.2
+                 15   4   18.7   19.7   17.4   17.1
+         "Run"
+         "Exit"
+                                                                     Page 2
+
+
+INTRODUCTION
+
+     Many computer programs or subroutines  exist,  which  in  one  way  or
+another  calculate  estimates  for  the  parameters  of  a  multiple linear
+regression model, but most of them  can  hardly  be  used  by  the  layman.
+Subroutines  have  to  be  embedded  in  a higher level language program to
+perform the necessary input and output;  as a layman however,  one  is  not
+always  acquainted  with these languages.  The programs usually require the
+input data to be presented in a specific standard form, which  in  practice
+means that input data that are already available in a machine readable form
+must be transformed into that standard form or that the input  data  should
+be  punched  exactly in that standard form.  More difficult still and often
+more confusing, is the way in which the program is  told  which  regression
+model  the  user  wants  to  consider.   For  instance, for the program for
+multiple polynomial regression analysis of the Mathematical Centre  a  code
+matrix  of  zeros and ones had to be given in order to indicate the form of
+the regression polynomial.  Transformations of one or  more  variables  are
+hardly ever automatically possible and require a separate program to be run
+in advance to prepare the transformed data matrix.
+
+     In this document a program is described that will make it possible for
+almost  everyone  to  obtain  his  desired  results  with  no  more  than a
+superficial knowledge of the underlying programming system.   It  has  been
+recognized  recently  that standard programs should not bother the user too
+much with awkward input specifications.  A statistician is more  interested
+in  the  results  of  a  program  and  in  how  he  can obtain them without
+interference of software specialists of the computer centre, than in a  few
+seconds gain in actual computing time.  Therefore one of the objectives was
+to develop a program which would enable the user to specify the form of the
+regression model and the arrangement of the numbers in his input data, in a
+straightforward manner, even if he has hardly any knowledge of  programming
+languages at all.  The program thus accepts a model formula which resembles
+the notation of regression models in common  statistical  literature  quite
+closely;   the accompanying input formula indicates which numbers or series
+of numbers in the input data belong to which variable in the model formula.
+                                                                     Page 3
+
+
+     This input scheme gives the user the opportunity to work with existing
+data  and to process possible transformations of the variables in the model
+formula without the need for external data adjustment.  However, the  model
+formula  must  be  given explicitly and completely and the structure of the
+input  data  must  be  known  exactly  before  an  input  formula  can   be
+constructed.  In the output the results are identified with the names given
+by the user in the model formula.  Any technical (machine dependent) action
+required to run the program is described in appendix 1.
+
+
+ACKNOWLEDGEMENTS
+
+     The basic ideas for the input arrangement presented in  this  document
+originated  from  A.P.B.M. VEHMEYER.  The article 'ALGOL 60 translation for
+everybody' by F.E.J. KRUSEMAN ARETZ [6] provided  the  foundation  for  the
+translator  and  the execution section of the program, while the techniques
+used in the storage section were designed by L.J. OOSTRIJK.  The matrix and
+least  squares  routines  used  in  the  program were copied from 'ALGOL 60
+procedures in numerical algebra, part 1', by T.J. DEKKER [2].  The  classic
+book  'Applied Regression Analysis' by N.R. DRAPER & H. SMITH [1] served as
+a frame of reference  throughout  the  design  and  implementation  of  the
+program.   Numerous  recently  incorporated  statistical  improvements were
+suggested by R.D. GILL.
+                                                                     Page 4
+
+
+                                 CHAPTER 1
+
+                    MULTIPLE LINEAR REGRESSION ANALYSIS
+
+
+1.1  THE REGRESSION MODEL
+
+     In a regression problem the researcher postulates a certain  relation-
+ship  between a random variable y (the realizations of which are subject to
+some form of disturbance) on  the  one  side  and  a  number  of  variables
+x1,...,xp  (which  are  without or at least almost without disturbances) on
+the other side.  This relationship is expressed by a mathematical  formula,
+which is called the (linear) regression model, for instance:
+
+                  y = a0 + a1 * x1 + ... + ap * xp + e                  (1)
+
+in which a0,...,ap represent unknown regression  coefficients  (parameters)
+which  are to be estimated and e represents the disturbance.  If a constant
+term is present in the model formula (in (1) the a0), the model is said  to
+be  an  'intercept model',  if  no  constant  term is present, the model is
+called a 'no-intercept model'.
+The variables x1,...,xp and the  variable  y  can  also  represent  (other)
+transformed  variables.  The researcher might have reasons to believe (from
+background information concerning the experiment) that transformations  are
+necessary, for instance:
+1) to obtain normally distributed disturbances,
+2) to obtain a greater homogeneity of the variances of the disturbances,
+3) to linearize non-linear regression models (if possible).
+The transformed regression model can be written as:
+
+     G(y) = a0 + a1 * F1(x1,...,xm) + ... + ap * Fp(x1,...,xm) + e      (2)
+
+in which G, F1,...,Fp represent the transformations,
+            a0,...,ap represent the parameters to be estimated,
+                    y represents the dependent variable,
+            x1,...,xm represent the independent variables,
+                    e represents the disturbance.
+                                                                     Page 5
+
+
+     The choice of a transformation by means of 'trial and error' is rather
+time  consuming and costly.  The importance of the location parameter makes
+for the difficulty.  It is not unusual that Log (x) yields no  improvement,
+but  that  Log (c+x)  gives  better  results  for a particular choice of c.
+Because this holds for almost any transformation  of  some  importance,  we
+must  actually  solve  in  each case a nonlinear adjustment problem.  Often
+though, a simple form of the transformation is suggested by the  researcher
+who is better acquainted with the peculiarities of the experiment.
+
+
+1.2  LEAST SQUARES
+
+     Regression analysis consists in fact of the adjustment of a hyperplane
+of the required dimension to the data.  The fitting is done with the method
+of least  squares,  which  means  that  the  sum  of  the  squares  of  the
+differences  between the observed values for y and the estimated values for
+the expectation of y, are minimized.  This sum of squares  is  also  called
+the  residual  sum of squares.  In matrix notation the regression model can
+be written as (cf. DRAPER & SMITH [3] pp. 58-62):
+
+                              Y = Xa + e                                (3)
+
+in which Y is a (n*1) random vector of observations,
+         X is a (n*p) matrix of known (fixed) values,
+         a is a (p*1) vector of (unknown) parameters,
+     and e is a (n*1) random vector of disturbances.
+
+It is supposed that E(e) = 0 and var(e) = Isigma^2, in which I is the  unit
+matrix, thus:
+
+                               E(Y) = Xa                                (4)
+
+     The sum of squares of the differences between the observed values of Y
+and the estimated values for the expectation of Y thus equals:
+
+                 (Y-Xa)'(Y-Xa) = Y'Y - 2a'X'Y + a'X'Xa                  (5)
+
+(for a'X'Y is a scalar and therefore equal to Y'Xa).
+                                                                     Page 6
+
+
+     Choosing as least squares estimator b that value of a which  minimizes
+(5),  involves  differentiating  with  respect  to  the  elements  of a and
+equating the result to zero:
+
+                   -2X'Y + 2X'Xb = 0,  thus:  X'Y = X'Xb                (6)
+
+This system is called the normal equations.  If the rank of X equals p, X'X
+is nonsingular and the inverse of X'X exists.  In that case the solution of
+the normal equations can be written as:
+
+                             b = inv(X'X)X'Y                            (7)
+
+Observe that p <= n must hold, in order that the rank of X can be p at all.
+Therefore  at  least  as  many  observations  must  be  made,  as there are
+parameters in the model.  Also observe that E(b) = inv(X'X)X'E(Y) = a, thus
+b is an unbiased estimator of a.
+
+The least squares estimator has the following properties:
+1. It is an estimator which minimizes the sum  of  squares  of  deviations,
+   irrespective  of  any  distribution properties of the disturbances.  The
+   assumption that the disturbances are normally distributed is, of course,
+   necessary  for  tests  which depend on this assumption, such as t- or F-
+   tests,  or  for  obtaining  confidence  intervals  based  on  t-  or  F-
+   distributions.
+2. According to the Gauss-Markov theorem, the elements of  b  are  unbiased
+   estimators,  which  have minimum variance (of any linear function of the
+   Y's which provides  unbiased  estimators),  again  irrespective  of  the
+   distribution properties of the disturbances.
+3. If the disturbances are mutually independent  and  normally  distributed
+   (with  E(e) = 0  and  var(e) = Isigma^2),  then  b  is  also the maximum
+   likelihood estimator.
+
+The variance-covariance matrix of b is:
+
+                         var(b) = inv(X'X)sigma^2                       (8)
+
+The variances  are  the  diagonal  and  the  covariances  the  off-diagonal
+elements.
+                                                                     Page 7
+
+
+An unbiased estimator for sigma^2 is given by:
+
+                       s^2 = (Y'Y - b'X'Y) / (n-p)                      (9)
+
+The square root of this estimator is frequently called 'standard  error  of
+estimate'.   In  the  printed  output  of  the program it is indicated more
+properly as 'standard deviation of the error term'.
+
+     Let vij be the element in the i-th row and j-th  column  of  inv(X'X),
+then  sdi = s * Sqrt(vii) estimates the standard deviation of bi, and cij =
+vij / Sqrt(vii * vjj) gives the correlation coefficient between bi  and  bj
+for i = 1,...,p and j = 1,...,p.  Thus:
+
+                           vii = (sdi / s)^2                           (10)
+and
+          vij = cij * Sqrt(vii * vjj) = cij * (sdi * sdj) / s          (11)
+
+
+     A frequently used statistical measure for evaluating regression models
+is the multiple correlation coefficient R which is defined in the intercept
+model as the square root of the proportion of the corrected  total  sum  of
+squares accounted for by the model.  If the correction for means is denoted
+by nu^2, with u = Sum(i,1,n,yi)/n, then R can be defined by:
+
+       R^2 = (b'X'Y-nu^2)/(Y'Y-nu^2) = 1 - (Y'Y-b'X'Y)/(Y'Y-nu^2)      (12)
+
+However, we must divide Y'Y-b'X'Y by n-p, not by n, to obtain  an  unbiased
+estimator  of  sigma^2, moreover it is customary to divide Y'Y-nu^2 by n-1,
+not by n.  If we adopt both modifications we obtain the  adjusted  multiple
+correlation coefficient, which can thus be defined by:
+
+           adj(R)^2 = 1 - (n-1)/(n-p) * (Y'Y-b'X'Y)/(Y'Y-nu^2)         (13)
+
+     In the no-intercept model the correction for means is ignored,  giving
+as definition of R^2:  b'X'Y/Y'Y = 1 - (Y'Y-b'X'Y)/Y'Y,  while the adj(R)^2
+is defined correspondingly as:  1 - n/(n-p) * (Y'Y-b'X'Y)/Y'Y.  R^2  itself
+is  often  called  the  'proportion of variation explained' (cf. THEIL [11]
+pp. 178-179).
+                                                                     Page 8
+
+
+1.2.1  WEIGHTED LEAST SQUARES
+
+     It sometimes happens that some of the observations for  the  dependent
+variable  are  'less  reliable'  than  others.  This usually means that the
+variances of the observations are not all equal;  in other words the matrix
+V = var(e)  is  not  of  the  form  Isigma^2,  but is diagonal with unequal
+diagonal elements.  The basic idea to solve this problem is, to transform Y
+to  other  variables,  which do appear to satisfy the usual tentative model
+assumptions,  and  then  apply  the  usual  (unweighted)  analysis  to  the
+variables  so obtained.  The estimates can then be re-expressed in terms of
+the original variables Y (cf. DRAPER & SMITH [3] pp. 77-81).
+
+     Let the original regression model be:  Y = Xa + e, with  E(e) = 0  and
+var(e) = Vsigma^2,  with V diagonal with unequal diagonal elements, and let
+P = inv(V).  Premultiplying the original regression model with  Q = Sqrt(P)
+gives as transformed regression model:
+
+                             QY = QXa + Qe                             (14)
+
+with E(Qe) = 0 and var(Qe) = Isigma^2.  The normal equations then become:
+
+                           (QX)'QY = (QX)'QXa                          (15)
+
+giving as solution if the indicated inverse matrix exists:
+
+                b = inv((QX)'QX)(QX)'QY = inv(X'PX)X'PY                (16)
+
+with variance-covariance matrix:
+
+                       var(b) = inv(X'PX)sigma^2                       (17)
+
+     In practical situations it  is  often  difficult  to  obtain  specific
+information  on  the  form  of V at first.  For this reason it is sometimes
+necessary to make the (known to be erroneous)  assumption  V = I  and  then
+attempt  to  discover  something  about  the  form  of  V  by examining the
+residuals from the regression analysis.
+                                                                     Page 9
+
+
+1.2.2  RESIDUAL ANALYSIS
+
+     The vector of residuals D is defined as  the  difference  between  the
+vector  of  observations  Y  and the vector of fitted values Z, obtained by
+using the regression equation  Z = Xb.  So D = Y - Z  or  di = yi - zi  for
+i = 1,...,n.   If  the model is correct, the residual mean square MSE = s^2
+estimates sigma^2, and the estimated standard deviation of the fitted value
+zi at xi = (xi1,...,xip)' is:
+
+                     sd(zi) = s * Sqrt(xi'inv(X'X)xi)                  (18)
+
+which can be used to construct a confidence interval for the expected value
+of  yi: E(yi) at xi = (xi1,...,xip)', or to construct a prediction interval
+for the mean of h new observations at this  point  (cf. DRAPER & SMITH  [3]
+pp. 121-122).  In the first case the confidence interval is:
+
+           zi +- t(n-p-1,1-alpha/2) * s * Sqrt(xi'inv(X'X)xi)          (19)
+
+and in the second case the prediction interval is:
+
+        zi +- t(n-p-1,1-alpha/2) * s * Sqrt(1/h + xi'inv(X'X)xi)       (20)
+
+     Researchers often divide the residuals  di  by  s,  resulting  in  the
+standardized residuals, which can be examined to see if they make it appear
+that the assumption ei/sigma ~ N(0,1) is violated  (cf. DRAPER & SMITH  [3]
+pp. 86-97).  It might be expected that roughly 95% of the di/s were between
+the limits (-2,2).
+
+     However, the variances  of  the  residuals  are  not  constant  but  a
+function of the X matrix (see (18)), which suggests as standardization:
+
+                   ti = di / s / Sqrt(1 - xi'inv(X'X)xi)               (21)
+
+giving the studentized residual.  The maximum studentized residual  can  be
+used  in  a  test for detecting outliers, as follows:  let t^2 = max(ti^2),
+then  min(1, n * (1-Fisher(1, n-p-1, t^2*(n-p-1)/(n-p-t^2)))) is an  'upper
+bound  for  the  right tail probability of the largest absolute studentized
+residual' (cf. LUND [9] pp. 473-474).
+                                                                    Page 10
+
+
+1.3  TESTS OF HYPOTHESES
+
+1.3.1  A PARTICULAR REGRESSION COEFFICIENT
+
+     If the disturbances are mutually independent and normally  distributed
+(with E(e) = 0 and var(e) = Isigma^2) and with a (preset) level of signifi-
+cance alpha, a significance test for a  particular  regression  coefficient
+can be performed, or more specifically:  the null hypothesis is:
+
+          H0:  ai = 0 (given that all other aj are in the model),
+
+which is tested against the alternative hypothesis:
+
+          H1:  ai is not equal to zero,
+
+by treating FRi = bi^2/var(bi) as a realization of a Fisher(1,n-p) variate.
+
+     However, this test  must  be  used  with  caution,  because  with  the
+(preset)  level  of  significance alpha, only one coefficient can be tested
+properly, while the computer output lists statistics for all  coefficients.
+It seems very tempting to test the coefficients serially one at a time, but
+one must keep in mind that in doing so the level  of  significance  of  the
+whole test rises above the nominal value (cf. DRAPER & SMITH [3] p. 65).
+
+
+1.3.2  ANALYSIS OF VARIANCE
+
+     In the analysis of variance table the different contributions  to  the
+total uncorrected sum of squares Y'Y (which is the first part in the table)
+are given (cf. DRAPER & SMITH [3] pp. 57 & 62).
+
+     The second part of the table assumes  the  presence  of  an  (unknown)
+constant  term  in  the  model;   if  this  term is absent, the 'mean'-line
+disappears and in the 'regression'-line p-1 changes into p  and  b'X'Y-nu^2
+changes into b'X'Y.
+
+     The third part of the table is only present when repeated observations
+for the dependent variable are available, in which case:
+                                                                    Page 11
+
+
+k  is the number of groups of replications,
+mi is the number of replications in group i, and
+W = (w1,...,wk)', with wi = Sum(j,1,mi,yij) / Sqrt(mi), for i = 1,...,k.
+
+     The fourth part of the  table  is  only  present  if  a  reduction  is
+requested  and  possible.   SSQ then stands for the residual sum of squares
+from a regression analysis with the first p-q  out  of  the  p  independent
+variables (1 <= q <= p-1), while SSE stands for the residual sum of squares
+from a regression analysis with the original p independent variables.
+
+                           Analysis of variance
+source of                                                       right  tail
+variation        df   sum of squares    mean square   F-ratio   probability
+---------------------------------------------------------------------------
+total            n          Y'Y
+---------------------------------------------------------------------------
+mean             1         nu^2          MSM = nu^2     FRM      P(FM>=FRM)
+regression      p-1    b'X'Y - nu^2         MSR         FRR      P(FR>=FRR)
+residual        n-p     Y'Y - b'X'Y      MSE = s^2
+---------------------------------------------------------------------------
+ lack of fit    k-p     W'W - b'X'Y         MSL         FRL      P(FL>=FRL)
+ pure error     n-k      Y'Y - W'W          MSP
+---------------------------------------------------------------------------
+ reduction       q       SSQ - SSE          MSQ         FRQ      P(FQ>=FRQ)
+---------------------------------------------------------------------------
+
+     The column 'mean square' is  obtained  by  division  of  the  sums  of
+squares by their corresponding degrees of freedom.  The column 'F-ratio' is
+obtained by division of the mean  squares  by  the  residual  mean  square,
+except  for  the  lack of fit F-ratio, which is obtained by division of the
+lack of fit mean square by the pure error mean square, thus:
+
+   MSM = nu^2/1, MSR = (b'X'Y-nu^2)/(p-1), MSE = s^2 = (Y'Y-b'X'Y)/(n-p),
+
+     MSL = (W'W-b'X'Y)/(k-p), MSP = (Y'Y-W'W)/(n-k), MSQ = (SSQ-SSE)/q,
+
+       FRM = MSM/MSE, FRR = MSR/MSE, FRL = MSL/MSP and FRQ = MSQ/MSE.
+                                                                    Page 12
+
+
+     If the disturbances are mutually independent and normally  distributed
+(with E(e) = 0 and var(e) = Isigma^2) and with a (preset) level of signifi-
+cance alpha, a significance tests can be performed for:
+
+1.  The mean of the observations for the dependent variable, or more speci-
+    fically:  the null hypothesis is:
+
+          H0:  E(u) = 0,
+
+    which is tested against the alternative hypothesis:
+
+          H1:  E(u) is not equal to zero,
+
+    by treating FRM as a realization of a Fisher(1,n-p) variate.
+
+2.  The regression equation, or more specifically:  the null hypothesis is:
+
+          H0:  a1 = ... = ap = 0, except for the ai that denotes
+                                  the constant term (if present),
+
+    which is tested against the alternative hypothesis:
+
+          H1:  at least one of a1,...,ap is not equal to zero,
+
+    by treating FRR as a realization of a Fisher(p-1,n-p) variate.
+
+3.  The adequacy (linearity) of the model, or more specifically:  the  null
+    hypothesis is:
+
+          H0:  the linear model is adequate (that is, no model signifi-
+               cantly improves the prediction of Y over the linear model),
+
+    which is tested against the alternative hypothesis:
+
+          H1:  the linear model is not adequate,
+
+    by treating FRL as a realization of a Fisher(k-p,n-k) variate.
+                                                                    Page 13
+
+
+4.  A subset of regression coefficients,  or  more  specifically:   suppose
+    without  loss  of  generality  that  the  subset consists of the last q
+    coefficients, then the null hypothesis is:
+
+          H0:  ar = ... = ap = 0, with r = p-q+1,
+
+    which is tested against the alternative hypothesis:
+
+          H1:  at least one of ar,...,ap is not equal to zero,
+
+    by treating FRQ as a realization of a Fisher(q,n-p) variate.
+
+5.  A linear combination of the regression coefficients, or  more  specifi-
+    cally:  the null hypothesis is:
+
+          H0:  c'a = m, in which c is a vector of constants with order q+1,
+
+    which is tested against the alternative hypotheses:
+
+          H1:  c'a is not equal to m,
+
+    by substituting c'a = m in the original model, shifting the known terms
+    to  the  left hand part, combining the corresponding terms in the right
+    hand part, and testing the thus derived so called  'reduced  model'  by
+    treating FRQ as a realization of a Fisher(q,n-p) variate.
+
+In each case the right tail probability P(F >= FR) can be found in the last
+column of the analysis of variance table (cf. DRAPER & SMITH [3] pp. 63-64,
+68 & 72-75).
+                                                                    Page 14
+
+
+                                 CHAPTER 2
+
+                         THE INPUT TO THE PROGRAM
+
+
+2.0  The purpose of the input system is to  give  the  user  a  simple  and
+adequate  formalism to tell the program what he wants.  In order to specify
+the regression model and the correspondence between the  variables  in  the
+model  and the numbers in the input data, the user must provide a so called
+user program, which consists of one or more jobs which in  their  turn  are
+made  up out of one or more specifications.  Each specification starts with
+a keyword and terminates at the next keyword.  The keywords are:   "Model",
+"Input", "Options", "Data", "Run", "Exit" and "Help" (quotes included).
+
+
+2.1  THE MODEL SPECIFICATION
+
+     To let the program  know  between  which  variables  the  statistician
+expects  a  certain  kind of relationship, he must provide a model specifi-
+cation, which consists of the keyword "Model" followed by  a  formula  (the
+model  statement),  which  resembles  the  notation of regression models in
+common statistical literature quite closely.  For instance:
+
+             "Model"  y = alpha0 + alpha1 * x1 + alpha2 * x2;
+
+     A model formula consists of an  identifier  to  denote  the  dependent
+variable  (the left hand part), followed by an '=' (equal), followed by the
+sum of a number of terms (the right hand part), while it is terminated with
+a  ';' (semicolon).   Each  term  must  be  the product of an identifier to
+denote the parameter (which is to be estimated) and an identifier to denote
+the  independent  variable.  An exception is made for the optional constant
+term, which is given as a single identifier denoting  that  constant  term,
+and which may be placed anywhere in the model.
+
+     Each identifier must start with a letter and is allowed to contain any
+number  of  letters,  digits and blanks.  As most peripheral equipment of a
+computer is unable to process sub- or superscriptions or Greek letters,  we
+write alpha0, alpha1 and alpha2.  Identifiers have no inherent meaning, but
+                                                                    Page 15
+
+
+serve for the identification of variables, parameters and functions.   They
+may  be chosen freely (except for the twentyone standard function names and
+the ten option names, cf. section 2.1.1 and section 2.3).   It  is  advised
+not  to  use  the  same  identifier  to  denote  two  (or  more)  different
+quantities;  for regression parameters, however, it will not lead to  fatal
+errors, whereas for the dependent and independent variables distinguishable
+identifiers must be used indeed.  Correct model formulae are for instance:
+
+          "Model" y variable = constant + parameter * x variable;
+and
+          "Model" depvar = const + beta1 * xvar1 + beta2 * xvar2;
+
+
+2.1.1  TRANSFORMATIONS
+
+     Almost all transformations a user would like to perform on  his  input
+data  fit  quite  naturally  in  the model formula:  each transformation is
+expressed as a formula itself.  If, for instance, the user wants to include
+in  the  model  formula as an independent variable the natural logarithm of
+the sum of two other variables, called xvar1 and xvar2, he writes:
+
+                            Ln (xvar1 + xvar2)
+
+In model formulae the operators  '+' (plus),  '-' (minus),  '*' (asterisk),
+and  '/' (slash)  are  allowed,  all  with  their  conventional  meaning of
+addition, subtraction, multiplication and division respectively.  Of course
+the  normal  operator  precedence rules are obeyed.  Special operators are:
+':' (colon), integer division and  '^' (uparrow), exponentiation.
+The operation term : factor is defined  only  for  operands  both  of  type
+integer  and  will  yield  a  result of type integer, with the same sign as
+would be obtained by normal division,  while  the  magnitude  is  found  by
+dividing  the  two quantities and taking the whole part;  mathematically it
+can be defined as:  a : b = Sign (a / b) * Entier (Abs (a / b)),
+for instance:  5 : 2 = 2 and -7 : 2 = -3.
+The operation factor ^ primary denotes exponentiation, where the factor  is
+the base and the primary is the exponent,
+for instance:  5 ^ 2 = 25 and 2 ^ 3 ^ 2 = 64 but 2 ^ (3 ^ 2) = 512.  
+                                                                    Page 16
+
+
+Also the following twentyone standard functions are allowed:
+
+   Abs (E),  Sign (E),  Sqrt (E),  Sin (E),  Cos (E),  Tan (E),  Ln (E),
+   Log (E),  Exp (E), Entier (E), Round (E), Mod (E1, E2), Min (E1, E2),
+   Max (E1, E2), Arcsin (E), Arccos (E), Arctan (E), Sinh (E), Cosh (E),
+   Tanh (E) and Indicator (E1, E2, E3)
+
+in which E, E1, E2 and E3 are expressions in terms of variables,  operators
+and standard functions.  Round (E) is defined as:  Entier (E + 0.5) and
+Indicator (E1, E2, E3) is defined as:  IF E1 <= E2 <= E3 THEN 1 ELSE 0.
+
+     The dependent variable may be transformed in a similar way  and  as  a
+consequence the model formula in its most general form looks like:  
+
+   "Model" G (y) = b0 + b1 * F1 (x1,...,xm) + ... + bp * Fp (x1,...,xm);
+
+Some examples of transformed model formulae are:
+
+          "model" y = a0 + a1 * Sqrt (x1 + x2) + a2 * Sqrt (x3);
+and
+          "MODEL" Arcsin (Sqrt (Y)) = A0 + A1 * X + A2 * X ^ 2;
+
+     A user can specify model formulae in which terms with known regression
+coefficients  appear, by subtracting those terms from the left hand part of
+the model formula, for instance:
+
+           "Model" y - 5.4321 * x3 = a0 + a1 * x + a2 * x ^ 2;
+
+This applies especially to the constant term; if this term is known it must
+be shifted to the left hand part.
+
+     If weights are present in the input data (or can be  computed  out  of
+the input data), to indicate that the variances of the observations are not
+all equal (cf. section 1.2.1), the left hand part of the model formula  can
+be  expanded  with  a  so  called weight part (which can be an expression),
+preceeded by a '&' (ampersand), for instance:
+
+   "Model" Depvar & Max (Abs (Weight), 10) = Const + Param * Indepvar;
+                                                                    Page 17
+
+
+2.2  THE INPUT SPECIFICATION
+
+     To indicate which numbers or series  of  numbers  in  the  input  data
+belong  to  which  variable  in  the model formula and which numbers can be
+skipped, the program expects an input specification.  It  consists  of  the
+keyword  "Input",  followed  by  a  formula  (the  input  statement)  which
+describes the arrangement of the observations in the input data,  while  it
+is  terminated with a ';' (semicolon).  The basic idea is that numbers from
+the input data are identified with the names from the input formula in such
+a  way  that (in order of entry) numbers belonging to the same name are put
+in a queue appended to that name.  For instance:
+
+         "Input" 100 * (codenr, 10 * [yvar], [xvar1, xvar2], -1);
+
+means that one hundred series of numbers (each, as a check,  terminated  in
+this example by -1) are present in the input data.  Each series consists of
+fourteen numbers:  first one value which is read and assigned to  the  name
+codenr,  then  ten  values  for  the name yvar, then one value for the name
+xvar1, followed by one value for the name xvar2 and finally the value -1.
+
+     The basic constituent of an input formula is a  variable  enclosed  in
+square brackets, in the example: [yvar].  The corresponding number from the
+input data will be appended to the queue for that name.  Several  variables
+can  be  put  together  in a variable list by separating them by commas and
+enclosing them in square brackets, in  the  example: [xvar1, xvar2].   This
+only serves to save the writing of several opening and closing brackets.
+
+     Separate numbers, series or  blocks  of  numbers  can  be  treated  by
+putting a repetition factor (control) followed by an asterisk in front of a
+variable list (or in front of an input formula which must then be  enclosed
+in parentheses), in the example:  100 * and 10 * .
+
+     If a repetition factor is 1, it  may  be  omitted  together  with  the
+asterisk  and  a  parentheses  pair,  but square bracket pairs must remain.
+When a name is used as a repetition factor, a value must already have  been
+assigned  to it, which is done by giving that name, without square brackets
+and followed by a comma (or closing  parenthesis),  earlier  in  the  input
+formula  than  the  use  of  that name as a repetition factor.  The corres-
+                                                                    Page 18
+
+
+ponding number from the input data is then assigned  as  a  value  to  that
+name.   If  such  names  are  used  repeatedly  in  the  input formula, the
+corresponding numbers from the input data are compared with the  first  one
+and,  in  the  case  of inequality, an error message is supplied.  This may
+serve as a check against shifted data reading.   A  similar  check  can  be
+obtained  by  giving  an  explicit  number  followed by a comma (or closing
+parenthesis), in the example: the -1.  The corresponding  number  from  the
+input  data  is  then  compared  with that given number and, in the case of
+inequality, an error message is produced.
+
+     Also an expression is allowed as a  repetition  factor,  or  for  that
+matter,  as  a check value, provided that it is enclosed in angle brackets,
+for instance:  <k+n>.  As in the case of single names used as a  repetition
+factor  each  (non-standard function  and  non-option)  name used in such a
+(special) expression must have been given, followed by a comma, earlier  in
+the input formula than the use of that name in the expression.
+
+     The linkage between  the  model  formula  and  the  input  formula  is
+established  by  using  the  same names in the model terms and in the input
+variable lists.  Numbers from the input data  that  belong  to  such  input
+names  will  be  treated  as  observations  for  the model variables, while
+numbers that belong to input names between square  brackets  which  do  not
+appear in the model formula, are skipped.
+
+     Often, repeated observations for the dependent variable are available.
+In  order  to  be  able  to process these observations automatically, it is
+necessary that a variable list consisting entirely of  dependent  variables
+is  preceeded  by  a repetition factor (followed by an asterisk) indicating
+the number of repetitions.  If a variable list contains independent as well
+as  dependent  variables, the number of replications is assumed to be 1.  A
+series  of  (say  100)  observations  for  a  dependent  variable  with  no
+replications is denoted as:
+
+                             100 * ([dep var])
+
+The repetition factor in front of the opening  square  bracket  is  omitted
+(because  it  is  1),  although  the  parentheses  are  not.   Without  the
+parentheses it would mean 100 replications of [dep var].
+                                                                    Page 19
+
+
+EXAMPLE    "Input" k, n, <k+n> * (c, m, m * [y], [x1,x2,x3,x4], c), -99;
+
+means that: the first number is read and its value assigned to k,
+            the next number is read and its value assigned to n,
+            then k+n times the following happens:
+                 a number is read and its value assigned to c,
+                 the next number is read and its value assigned to m,
+                 then the m replications for y are read,
+                 next the observations for x1, x2, x3 and x4 are read,
+                 then a number is read and its value compared with c,
+            finally a number is read and its value compared with -99.
+
+If the comparisons fail, an error message is supplied and execution of  the
+job  is terminated, otherwise (k+n) observations for x1, x2, x3, x4 and for
+each quadruple m replications for y, have been identified.
+
+
+2.3  THE OPTION SPECIFICATION
+
+     It is possible to have the program perform some  tasks  optionally  by
+providing  an  option  specification  in a job.  It consists of the keyword
+"Options" followed by a list of option identifiers or corresponding  option
+numbers  (the  option statement), separated by commas and terminated with a
+';' (semicolon).  The following ten options are available:
+
+               option number              option name
+
+                     1                  Transformed data matrix
+                     2                  Correlation matrix
+                     3                  Residual analysis
+                     4                  No regression analysis
+                     5                  Process submodels
+                     6                  Print input data
+                     7                  No input data rewind
+                     8                  Save original model
+                     9                  Test reduced model
+                    10                  Missing values
+                                                                    Page 20
+
+
+     Options 1, 2, 3 and 6 cause the corresponding piece of information  to
+be  printed.   However,  option  1  lists only those (possibly transformed)
+variables that are present in the model formula in  a  neat  tabular  form,
+while  option  6 lists all the original input data serially (eleven numbers
+per line) without any special layout, because the input data  consists  (by
+definition) of an unstructured series of numbers (cf. section 2.4).
+
+     Option 4 suppresses the regression analysis;  it is meant to  be  used
+in combination with option 1 and/or 2.
+
+     Option 5 causes the program to process submodels, which are formed  by
+a  form  of  backward  elimination:  each time the last term from the right
+hand part from the model formula is omitted, by deleting  the  last  column
+from  the  design  matrix,  and a regression analysis is performed with the
+reduced design matrix.   Messages  are  generated  about  which  terms  are
+omitted,  while  further  processing  of  the job ceases when the resulting
+model formula is of the form:  y = c.  Moreover a test is made  (under  the
+usual  assumptions)  whether the omitted terms did contribute significantly
+to the regression sum of squares (cf. section 1.3.2.4).
+
+     To option 5 a specifier list may be  appended,  to  prevent  the  pro-
+duction of waste output for unwanted submodels.  In this list the number of
+terms to be omitted from the model formula (counting backwards, starting at
+the  end)  must  be given enclosed in parentheses.  For example the option:
+process submodels (6,  10)  instructs  the  program  to  process  only  two
+submodels,  one  with  the last six terms omitted and one with the last ten
+terms omitted (from the original model formula).  If the user asks for more
+terms to be omitted than are present in the model formula, an error message
+is supplied and the execution of that job is terminated.  Moreover,  if  no
+explicit  specifier list is appended to option 5, the options 2 and 3 yield
+no effect (even if specified), which is also to prevent the  production  of
+waste output for the submodels.
+
+     Option 7 gives the user the opportunity to process consecutive  pieces
+of  input  data  in consecutive jobs.  Normally the processing of the input
+data for each job starts with the first number in  the  data  specification
+(or  with  the  first  number  in  the datastream), and the program gives a
+(warning) message if the input  formula  does  not  match  the  input  data
+                                                                    Page 21
+
+
+precisely.   This  option  disengages the message and causes the program to
+continue processing input data where the previous job had finished.  
+
+     Option 8 causes the residual degrees of freedom and  residual  sum  of
+squares  from  the current job to be saved, in order to be able in the next
+job, by means of specifying option 9,  to  test  whether  the  model  under
+consideration  in  that  next job, shows a significant increase in residual
+sum of squares in comparison with the model in the previous job.  In effect
+this  gives  the  possibility  of  testing a hypothesis concerning a linear
+combination of the parameters  from  a  model  (cf. section  1.3.2.5),  for
+instance (cf. SEARLE [11] pp. 121-122):
+
+             "Model 1"  y = b1 * x1 + b2 * x2 + b3 * x3;
+             "Options"  Save original model;
+             "Run"
+             "Model 2"  y - 4 * x1 = b2 * (x1 + x2) + b3 * x3;
+             "Options"  Test reduced model;
+             "Run"
+
+causes the null hypothesis: b1 = b2 + 4 to be tested (in the second job).
+
+     Option 10 may be used to identify  some  observations  or  repetitions
+as 'missing'.   In  a  specifier list, appended to this option, the missing
+values must be given enclosed in parentheses.  When a repetition equal to a
+missing  value  is  encountered in the input data, the corresponding set of
+repetitions for the dependent variable(s) is not  included  in  the  design
+matrix.  When an observation equal to a missing value is encountered in the
+input data, or when none of the repetitions  are  included  in  the  design
+matrix, the corresponding set of observations for the independent variables
+together with the (possibly empty) set of  repetitions  for  the  dependent
+variable(s) (i.e. the 'case') is not included in the design matrix.
+
+
+2.4  THE DATA SPECIFICATION
+
+     The data specification consists of an unstructured series  of  numbers
+(the data statement), preceeded by the keyword "Data" and terminated at the
+next keyword.  The structure is imposed onto it by the input formula.  
+                                                                    Page 22
+
+
+     A sequence of symbols is considered a number  when  it  satisfies  the
+definition  of  number  in  appendix 2, together with the machine dependent
+restrictions imposed by the underlying  SIMULA  programming  system.   Note
+that  the  definition  of number does not allow FORTRAN-like numbers as for
+instance  10. or 1# (at least one digit must follow).   It  is  recommended
+always  to  use  blanks as delimiters between numbers, but the use of other
+non-numerical symbols as delimiters will not lead to fatal errors, only  to
+a slight increase in processing time.
+
+     If a datafile is specified in response to the datastream  request,  or
+is  appended to the "Run" keyword (cf. appendix 1), the program will try to
+read a record of input data, which then do not have to be preceeded by  the
+keyword "Data", from that file.  The record ends at the next "Eor" keyword.
+However, a non empty data  specification  in  the  user  program  will  get
+priority  over  reading  input data from the specified file, while an empty
+data specification causes the program to start reading the next  record  of
+input  data  from the specified file.  If the data specification as well as
+the next nonempty record in the data file does not  contain  any  numerical
+information, an error message is supplied.
+
+EXAMPLES            real number             value
+
+                       1.234                  1.234
+                        .98                   0.98
+                      -0.5673#2             -56.73
+                       +.02#-1                0.002
+                        #+3                1000.0
+
+
+2.5  THE USER PROGRAM
+
+     In a user program several jobs can be submitted to the program.   Each
+job  is  separated  from  its preceding one by the keyword "Run", while the
+entire user program is terminated with the keyword "Exit".   In  the  first
+job,  the  model, input and data specification must be given in some order.
+The option specification is, of course, optional.  In each following job  a
+specification which is not changed may be omitted, the program then retains
+the last given specification.  If options have been specified in a previous
+                                                                    Page 23
+
+
+job  and  one  wants to delete them, this is done by providing a new option
+specification which may be empty if no options are to be executed (that  is
+by only providing:  "Options";).
+
+     In front of each job or in front of the keyword "Exit" a text  may  be
+given for further identification of the output of a job or of the output of
+the entire user program.  The use of quotes in that text should be  avoided
+in  view  of  confusion  with  the  keywords.  The program starts reading a
+(possibly empty) text at the beginning of the next line after  the  keyword
+"Run"  of  the previous job (with the first job the program starts with the
+first line in the inputstream).
+
+
+2.6  EXAMPLES
+
+     The following user program can be submitted without  any  modification
+to  the  Multiple  Linear Regression Analysis program.  It consists of four
+jobs, three of which are preceeded by  an  identifying  header,  while  the
+whole user program ends with an identifying trailer:
+
+
+**********************************
+*  Example  1  originates from:  *
+*  DE JONGE [4], pp. 472 & 479.  *
+**********************************
+
+"Model"   y  =  c * Log (x)  +  a  +  b * x;
+"Input"   5 * ([x], 10 * [y]);
+"Options" Transformed data matrix, Correlation matrix,
+          Residual analysis, Process submodels (1, 2);
+
+"Data"    25  0.67  0.70  0.75  0.76  0.78  0.80  0.83  0.84  0.88  0.89
+          50  0.88  0.92  0.93  0.96  0.98  1.00  1.01  1.03  1.06  1.07
+          80  0.96  0.98  0.99  1.03  1.05  1.06  1.08  1.11  1.15  1.17
+         130  1.07  1.09  1.11  1.13  1.14  1.14  1.19  1.22  1.25  1.29
+         180  1.10  1.13  1.17  1.19  1.20  1.21  1.23  1.25  1.28  1.33
+"Run"
+
+                                                                    Page 24
+
+
+**********************************
+*  Example  2  originates from:  *
+*  SEARLE [11], pp. 121-123      *
+**********************************
+
+"Input"  5 * [y, x1, x2, x3];
+"Data"   8    2    1   4
+        10   -1    2   1
+         9    1   -3   4
+         6    2    1   2
+        12    1    4   6
+
+"Model 1"  y  =  a3 * x3  +  a2 * x2  +  a1 * x1;
+"Options"  Save original model, Process submodels (1);
+"Run"
+"Model 2"  y - 4 * x1  =  b2 * (x1 + x2) + b3 * x3;   (eqn. 118, p. 121)
+"Options"  Test reduced model, Transformed data matrix;
+"Run"
+
+****************************************
+*  Example  3  originates from:        *
+*  AFIFI & AZEN [1], pp. 88 & 93-100.  *
+****************************************
+
+"Model"  y  =  alfa0  +  alfa1 * x;
+"Input"  5 * ([x], n, n * [y]);
+"Option" Transformed data matrix, Print input data;
+
+"Data"   1   4    1.1    0.7    1.8    0.4
+         3   5    3.0    1.4    4.9    4.4    4.5
+         5   3    7.3    8.2    6.2
+        10   4   12.0   13.1   12.6   13.2
+        15   4   18.7   19.7   17.4   17.1
+"Run"
+
+***  Marten van Gelderen; Mathematisch Centrum  ***
+
+"Exit"
+                                                                    Page 25
+
+
+                                 CHAPTER 3
+
+                        THE OUTPUT FROM THE PROGRAM
+
+
+3.1  STANDARD AND OPTIONAL PRINTED OUTPUT
+
+     After having read the keyword "Run", the  processing  of  the  job  is
+initiated.   First  the  model,  input and option texts are printed in this
+order.  Next an attempt is made at translating the specifications.   Errors
+against  syntax  or semantics cause error messages to be printed below each
+specification, while further processing of that job ceases.  Note that  the
+processing  of the next job, if present, will be of little or no use unless
+the specification which  developed  the  error(s)  is  changed.   Next  the
+(transformed)  data matrix is formed and passed to the regression routines,
+which supply the following printed output in the order indicated:
+
+    1) a listing of the original input data (option 6),
+    2) the (transformed) data matrix (option 1),
+    3) per (transformed) variable the:
+       mean, standard deviation, minimum and maximum,
+    4) the correlation matrix of the (transformed) variables (option 2),
+    5) the multiple correlation coefficient (with adjustment),
+    6) the proportion of variation explained (with adjustment),
+    7) the standard deviation of the error term,
+    8) the estimates for the regression parameters with
+       estimated standard deviation, F-ratio and right tail probability,
+    9) the correlation matrix of the estimates (option 2),
+   10) the analysis of variance table,
+   11) the residual analysis (option 3).
+
+ Ad 1) cf. section 2.4.
+ Ad 2) The transformed data matrix gives  the  input  data  after  possible
+       transformations  according  to  the  model  specifications have been
+       applied.  If the model  formula  contains  no  transformations,  the
+       original input data are given.  The dependent variable is given as a
+       separate column.  In the case  of  replications  for  the  dependent
+       variable,  the  mean  value  of  them  is  given,  and the number of
+                                                                    Page 26
+
+
+       replications is given as an  extra  (last)  column.   If  a  weight-
+       variable  (or  -expression)  is  specified in the model formula, the
+       (transformed) data comprising the weights  are  given  as  an  extra
+       (last) column.  Each (transformed) independent variable is indicated
+       by its corresponding parameter.  This originated from the fact  that
+       it is not  obvious  how  to  denote  a variable which is transformed
+       like:  Arcsin (Sqrt (y+25)), with 'Arcsin', with 'Sqrt'  or  perhaps
+       with 'y' itself.  The dependent variable is indicated by 'dep.var.'.
+ Ad 4) and 9) The matrix of the estimated correlation coefficients  of  the
+       variables  and  of  the  estimates  are  both  supplied depending on
+       whether option 2 is specified or not.
+ Ad 5), 6) and 7) cf. section 1.2.
+ Ad 8) The F-ratio and right tail probability give the user the opportunity
+       to  test  the  significance  of  a particular regression coefficient
+       (cf. section 1.3.1).
+Ad 10) The layout of the table closely  resembles  that  of  the  table  in
+       section  1.3.2.   The F-ratios and right tail probabilities give the
+       user the opportunity to test the significance of all the  regression
+       coefficients  or  of  a subset or combination thereof or to test the
+       adequacy of the (linear) model (cf. section 1.3.2).
+Ad 11) A table of observations, fitted values, standard deviations  of  the
+       fitted  values,  residuals,  standardized  residuals and studentized
+       residuals is provided (cf. section 1.2.2).  As a check  on  computa-
+       tions,  the  sum  of  the  residuals  is  also given.  If an unknown
+       constant term is present in the model formula, this  sum  should  be
+       zero.   Furthermore the upperbound for the right tail probability of
+       the largest absolute studentized residual is given.
+
+     Without  options  specified,  the  printed  output  from  the  program
+consists  of  3),  5),  6),  7), 8) and 10).  If option 5 is specified, the
+output for the model itself is given as specified by the other options, but
+for  the  submodels  it  depends  on  the use of a submodel specifier list.
+Without that list the output from the options 1,  2  and  3  is  suppressed
+(even if those options are specified).  With that list only the superfluous
+parts  of  the  output  (that  is  the  transformed  data  matrix  and  the
+correlation matrix of the variables) are suppressed.
+                                                                    Page 27
+
+
+3.2  STANDARD AND OPTIONAL DATA OUTPUT
+
+     If an outputfile is specified in response to the outputstream request,
+or  is  appended  to the "Run" keyword (cf. appendix 1), the program writes
+the following pieces of information in one record to that file:
+1) if option 1 is specified:  the transformed data matrix, preceded by  the
+   number of rows and columns respectively,
+2) if option 2 is specified:  the corrrelation  matrix  of  the  variables,
+   preceded by its order,
+3) the number of submodels specified in the list appended to option  5,  if
+   that  option  is  specified  at  all;   otherwise  the  number 1.  It is
+   followed by (for each (sub) model):  the number of estimated parameters,
+   the estimates for the parameters of the (sub) model, and:
+   a) if option 2 is specified:   the  variance-covariance  matrix  of  the
+      estimates,  preceded  by  its  order,  (BE  CAREFUL:  this is NOT the
+      correlation matrix of the estimates, which is printed;  however,  the
+      correspondence  between  the  two  matrices  is  established  by  the
+      relations (10) and (11) in "Help"/Theory),
+   b) if option 3 is specified:  the number of respondents, followed by for
+      each  respondent the:  observation, fitted value, standard deviation,
+      residual, standardized residual and studentized residual,
+and finishes by writing an "Eor" keyword.
+
+     As in the case of printed output, the output described in 3)  is  only
+effected  for submodels, if an explicit submodel specifier list is appended
+to option 5.
+
+     An input specification to describe one record of data written  to  the
+outputstream  when  options  1, 2, 3  and 5 (with a submodel specifier list
+appended to it) are specified, could read:
+
+"Input"  n, m, n * (m * [transformed data element]),
+         p, <p * (p+1) : 2> * [correlation element],
+         s, s * (t, t * [estimate],
+                 q, <q * (q+1) : 2> * [covariance element],
+                 r, r * (6 * [residual element]) );
+                                                                    Page 28
+
+
+     For the original model the following relations  hold: q = t,  t = m-1,
+r = n  and p = m (or p = m-1 if replications and/or weights are specified);
+s is the number of processed (sub)models; for each submodel  t  and  q  are
+decreased  with  the  number  of  terms  that are omitted from the original
+model.
+
+     Real numbers in the printed output are given  in  fixed  point  format
+with  a  six decimal fractional part, the only exceptions are the estimates
+for the regression parameters with their standard deviations, which have  a
+ten  decimal  fractional  part and the numbers in the listings of the input
+data and the transformed data matrix, which have a three decimal fractional
+part.   Real  numbers in the data output are given in floating point format
+with a sixteen decimal mantissa and a two decimal exponent part.
+
+
+3.3  ERROR MESSAGES
+
+Error messages against syntax or semantics have the following layout:  
+
+                Error : <error text> or <error number>
+
+The error text corresponding to the error numbers is:
+
+ 1   No input data given.
+ 2   All input data has been skipped.
+ 3   Attempt to process more input data than provided.
+ 4   Number in the input data is incorrect or too large.
+ 5   In a number '.' is not followed by a digit.
+ 6   In a number '#' is not followed by '+', '-' or a digit.
+
+10   No model formula given.
+11   Left hand part is not followed by '='.
+12   Expression is not followed by ')'.
+13   Option name used in a primary in an expression.
+14   Incorrect primary in a factor in an expression.
+15   Incorrect (control) identifier in an expression.
+16   Parameter list of a standard function is not followed by ')'.
+17   Standard function call with incorrect number of parameters.
+                                                                    Page 29
+
+
+20   No input formula given.
+21   Expression in a control is not followed by '>'.
+22   Option name used in a control in an input statement.
+23   Input statement in a description is not followed by ')'.
+24   Variable list in a description is not followed by ']'.
+25   Incorrect description in an input statement.
+26   Incorrect identifier in a variable list.
+27   Item in a variable list is not an identifier.
+
+30   Incorrect option number in an option statement.
+31   Incorrect option name in an option statement.
+32   Specifier list is not followed by ')'.
+33   Number in a specifier list is incorrect or too large.
+34   Specifier list is appended to incorrect option.
+35   Specifier is not a number.
+36   Specification is not properly continued.
+37   Specification is not terminated with ';'.
+
+40   No defined (independent) identifier to the right of '='.
+41   Incorrect use of a parameter in a regression term.
+42   Undefined (weight) identifier to the left of '='.
+43   Undefined (dependent) identifier to the left of '='.
+44   Number in a regression term is incorrect or too large.
+45   Term does not have the form: param * factor or factor * param.
+46   Undefined (independent) identifier in a regression term.
+47   No regression parameter in a regression term.
+
+50   Division by zero.
+51   Integer division by zero.
+52   Observation for dependent variable is in absolute value too large.
+53   Observation for independent variable is in absolute value too large.
+54   Exponentiation with zero base and non positive exponent.
+55   Exponentiation with negative base and real exponent.
+56   Weight factor is not positive.
+
+60   Argument of  'Sqrt'  is negative.
+61   Argument of   'Ln'   is not positive.
+62   Argument of   'Log'  is not positive.
+                                                                    Page 30
+
+
+63   Argument of   'Exp'  is too large.
+64   Argument of 'Arcsin' is in absolute value larger than one.
+65   Argument of 'Arccos' is in absolute value larger than one.
+66   Argument of  'Sinh'  is in absolute value too large.
+67   Argument of  'Cosh'  is in absolute value too large.
+
+70   Number of observations for the first dependent variable is zero.
+71   Numbers of observations for the dependent variables are not equal.
+72   Number of observations for the first independent variable is zero.
+73   Numbers of observations for the independent variables are not equal.
+74   Control reads an incorrect number in the input data.
+75   Numbers of replications for the dependent variables are not equal.
+76   Given, read or computed replication factor is not integral.
+
+If the error number lies between:
+ 5 and 37, it is followed by the most recently processed identifier, number
+           and  symbol.   Only  the first eight characters of each name are
+           displayed.
+41 and 47, it is followed by the number of the right hand  part  regression
+           term  which causes the error, or a zero if the left hand part is
+           at fault.
+50 and 67, it is followed by the wrong value and the number of the line  in
+           the  transformed data matrix which causes the error.  Instead of
+           the wrong value, the number of the right  hand  part  regression
+           term  which  causes the error is displayed when the error number
+           lies between 50 and 53.
+70 and 76, it is followed by the check value and the wrong value.   Instead
+           of the wrong value, the value of the controlling variable of the
+           next enclosing repetition  loop  is  displayed  when  the  error
+           number is 76.
+
+
+3.4  EXAMPLES
+
+     An impression of the printed output of the  Multiple Linear Regression
+Analysis program may be obtained by actually submitting the user program in
+section 2.6 (which resides on:  Hlp: Mulexa.hlp) to the MULREG program.
+                                                                    Page 31
+
+
+                                APPENDIX 1
+
+                             TECHNICAL REMARKS
+
+     The following technical remarks reflect the  SIMULA implementation  of
+the Multiple Linear Regression Analysis program as of version 5H(246).
+
+     Any comments or queries concerning the  functioning  of  the  software
+described in this document should be addressed to:  
+      Marten van Gelderen, IKO Computer Systems Group, Postbox 4395,
+    1009 AJ  Amsterdam, The Netherlands.  (telephone: 31-(0)20-930951).
+
+     The program resides on a device called USR:.  It is started by typing:
+.R MULREG,  and  responds to the standard output device (usually TTY:) with
+an identifying header and requests to specify four files, as follows:
+
+Multiple Linear Regression Analysis
+
+Enter file specifications
+Inputstream  :
+Printstream  :
+Datastream   :
+Outputstream :
+
+     The inputstream serves to read the user program from;  the printstream
+receives  the  printed  output  from the program;  the datastream serves to
+read the separate input data records from;  the outputstream  receives  the
+data output records from the program.
+
+     If the default carriage return is responded to the data-  and  output-
+stream  requests,  the  program  assumes  that  no  separate input data are
+present and that no data output is required.
+
+     If the default carriage return is responded to the input-  and  print-
+stream requests, the program connects the standard input and output devices
+(usually TTY:) to the input- and printstream respectively.  To notify  that
+the inputstream is connected to the standard input device, the program dis-
+plays the prompting character '*' (asterisk).
+                                                                    Page 32
+
+
+     If both the input- and printstream are connected to the standard input
+and  output  devices,  the  program  echoes  every text it cannot interpret
+properly, preceeded by the error character '?' (question  mark).   However,
+in response to a single carriage return the text 'For help type: "Help"' is
+displayed.
+
+     To the "Run" keyword a file specification list may be  appended,  pre-
+ceeded by the character '/' (slash), with the following general format:
+
+               /print-spec;output-spec=input-spec;data-spec
+
+Each of the specifications will be connected to the  corresponding  program
+stream  respectively.   Also,  each  of  the specifications may be omitted,
+which means that nothing will be changed to  the  corresponding  stream  at
+all.   However,  if  the  character  ' ' (blank) is substituted for one (or
+more) of the specifications, the defaults - as described previously -  will
+be connected to the corresponding streams respectively.
+
+     If the specified files do not exist (for  input-  or  datastreams)  or
+cannot  be created (for print- or outputstreams), the corresponding streams
+are displayed again, followed by the  character  '?'  (question  mark),  to
+indicate  the  erroneous situation and to enable the specification of other
+files (or defaults).
+
+     If the program encounters a premature  end-of-file  condition  in  the
+inputstream,  it  will connect the inputstream to the standard input device
+and thus respond with the prompting character.  New specifications for  the
+"Model",  "Input",  "Options"  or "Data" (or keywords like "Run" or "Exit")
+may then be entered.  
+
+     In the inputstream, the program does not  discriminate  between  upper
+and  lower  case  letters.   Identifiers  may contain any number of blanks,
+however, a carriage return is not permitted, restricting the maximum length
+of  identifiers  to the maximum number of characters in one input line.  In
+front of and following the opening  quote  of  keywords  only  non-printing
+ASCII  characters  like  tabs  and/or  blanks  are permitted, otherwise the
+keyword (and the whole line following it) is not recognized.
+                                                                    Page 33
+
+
+     Two implementation dependent restrictions are  imposed  on  user  pro-
+grams:   the  maximum number of differently spelled identifiers and numbers
+is 789 and the maximum number of nested parentheses is 62.  In addition two
+machine   dependent  restrictions  are  imposed:   the  maximum  number  of
+characters in one input line is 132 and the number of significant digits in
+computations is 18.
+
+     In response to the keyword "Help", the information  in  this  appendix
+(which  resides  on  HLP:)  is  copied  to  the  printstream.   Each of the
+following switches may be appended to the "Help" keyword, preceeded by  the
+character  '/' (slash), in order to obtain more detailed information (which
+also resides on HLP:).
+
+     /Theory   Regression model & least squares (section 1.1 & 1.2),
+     /Tests    Possible tests of hypotheses (section 1.3),
+     /Model    Specification of the model formula (section 2.1),
+     /Input    Specification of the input formula (section 2.2),
+     /Options  Possible options and their effects (section 2.3),
+     /Data     Acceptable numbers and their delimiters (section 2.4),
+     /User     Setup of a complete user program (section 2.5),
+     /Example  Example of a complete user program (section 2.6),
+     /Print    Standard and optional printed output (section 3.1),
+     /Output   Standard and optional data output (section 3.2),
+     /Errors   Meaning of the error numbers (section 3.3),
+     /Syntax   Definition of the syntax of a user program (appendix 2).
+
+If no help information is available an appropriate message is displayed.
+                                                                    Page 34
+
+
+                                APPENDIX 2
+
+                DEFINITION OF THE SYNTAX OF A USER PROGRAM
+
+
+     The syntax of a user program is defined in an extended  version  of  a
+notation  known  as  the  Backus Naur Form, in short:  BNF (cf. NAUR [10]).
+The extensions comprise an explicit repetition  and  optionality  construct
+together with the possibility of factorization.
+
+     The BNF may be regarded as a metalanguage for  the  description  of  a
+user  program.   In  addition  to the symbols that are admissible in a user
+program, the metalanguage  requires  a  number  of  extra  symbols,  called
+metasymbols.   The ten metasymbols used in extended BNF are:  ::=, |, <, >,
+{, }, [, ], ( and ).  The , and . are part of the metalanguage  English  in
+which we are describing BNF.  We write:
+
+          <expression>::= ['+' | '-'] <term> { ('+' | '-') <term> }
+
+     The metasymbols < and > are used as delimiters to enclose the name  of
+a class.  The metasymbol ::= may be read as 'is defined as' or as 'consists
+of'.  The metasymbol | is read as 'or'.  Repetition  is  denoted  by  curly
+brackets,  i.e. { a } stands for e | a | aa | ...  Optionality is expressed
+by square brackets, i.e.  [ a ] stands for e | a.  Parentheses merely serve
+for  grouping (factorization) i.e.  (a | b) c stands for ab | ac.  Terminal
+symbols appear enclosed in single apostrophes.
+
+     The above phrase defines an expression as a term, optionally preceeded
+by  a  '+'  or a '-' and followed by an arbitrary repetition of terms, each
+preceeded by a '+' or a '-'.
+
+The syntax of a user program can thus be defined as follows:
+                                                                    Page 35
+
+
+<letter>::= 'A'|'B'|'C'|'D'|'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'|'M'|
+            'N'|'O'|'P'|'Q'|'R'|'S'|'T'|'U'|'V'|'W'|'X'|'Y'|'Z'|
+            'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'|'i'|'j'|'k'|'l'|'m'|
+            'n'|'o'|'p'|'q'|'r'|'s'|'t'|'u'|'v'|'w'|'x'|'y'|'z'
+
+<digit>::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+<model keyword>::= '"Model"' | '"MO"'
+<input keyword>::= '"Input"' | '"IN"'
+<option keyword>::= '"Options"' | '"OP"'
+<data keyword>::= '"Data"' | '"DA"'
+<run keyword>::= '"Run"' | '"RU"'
+<exit keyword>::= '"Exit"' | '"EX"'
+
+<function name>::= 'Abs' | 'Sign' | 'Sqrt' | 'Sin' | 'Cos' | 'Tan' |
+                   'Ln' | 'Log' | 'Exp' | 'Entier' | 'Round' | 'Mod' |
+                   'Min' | 'Max' | 'Arcsin' | 'Arccos' | 'Arctan' |
+                   'Sinh' | 'Cosh' | 'Tanh' | 'Indicator'
+
+<option name>::= 'Transformed data matrix' | 'Correlation matrix' |
+                 'Residual analysis' | 'No regression analysis' |
+                 'Process submodels' | 'Print input data' |
+                 'No input data rewind' | 'Save original model' |
+                 'Test reduced model' | 'Missing values'
+
+<option number>::= '1' | '2' | '3' | '4' | '5' |
+                   '6' | '7' | '8' | '9' | '10'
+
+<number>::= ['+' | '-'] <unsigned number>
+<unsigned number>::= <decimal number> | <exponent part> |
+                     <decimal number> <exponent part>
+<decimal number>::= <unsigned integer> | <fractional part> |
+                    <unsigned integer> <fractional part>
+<exponent part>::= '#' <integer>
+<fractional part>::= '.' <unsigned integer>
+<integer>::= ['+' | '-'] <unsigned integer>
+<unsigned integer>::= <digit> { <digit> }
+                                                                    Page 36
+
+
+<identifier>::= <letter> { <letter> | <digit> }
+
+<data specification>::= <data keyword> [ <input data> ]
+<input data>::= <number> { <number> }
+
+<option specification>::= <option keyword> [ <option statement> ] ';'
+<option statement>::= <option> { ',' <option> }
+<option>::= <simple option> [ '(' <specifier list> ')' ]
+<simple option>::= <option name> | <option number>
+<specifier list>::= <specifier> { ',' <specifier> }
+<specifier>::= <number>
+
+<input specification>::= <input keyword> <input statement> ';'
+<input statement>::= <input part> { ',' <input part> }
+<input part>::= <control> | <description> | <control> '*' <description>
+<control>::= <number> | <identifier> | '<' <expression> '>'
+<description>::= '(' <input statement> ')' | '[' <variable list> ']'
+<variable list>::= <variable> { ',' <variable> }
+<variable>::= <identifier>
+
+<model specification>::= <model keyword> <model statement> ';'
+<model statement>::= <left hand part> '=' <right hand part>
+<left hand part>::= <expression> [ '&' <weight part> ]
+<weight part>::= <expression>
+<right hand part>::= ['+'] <term> { '+' <term> }
+<expression>::= ['+' | '-'] <term> { ('+' | '-') <term> }
+<term>::= <factor> { ('*' | '/' | ':') <factor> }
+<factor>::= <primary> { '^' <primary> }
+<primary>::= <unsigned number> | <identifier> |
+             <function designator> | '(' <expression> ')'
+<function designator>::= <function name> [ '(' <parameter list> ')' ]
+<parameter list>::= <parameter> { ',' <parameter> }
+<parameter>::= <expression>
+
+<user program>::= { <job> } <exit keyword>
+<job>::= { <specification> } <run keyword>
+<specification>::= <model specification> | <input specification> |
+                   <option specification> | <data specification>
+                                                                    Page 37
+
+
+                                APPENDIX 3
+
+                   TECHNICAL DESCRIPTION OF THE PROGRAM
+
+
+     In this appendix a more or less technical description of  the  program
+is given in terms of variables, procedures and control flow.
+
+Basically the program logic is as follows:
+
+                 Init program
+                 Enter & open files
+            Job: Read job
+            Run: Init compiler tables
+                 Compile model & input
+                 Init data buffers
+                 Execute (to produce design matrix)
+                 Regression analysis
+                 Print results
+                 GOTO Job
+           Exit: Close files
+
+In case of an errorsituation in one of the sections, no further  action  is
+undertaken and control is transferred to Job.  
+
+1.  The program is initialized  by  setting  various  declared  system  and
+compiler  constants  to  their appropriate values.  Some of them are highly
+machine dependent constants, others are internal codings or  table  limits.
+The  four  basic  informationstreams  in  the program:  the input-, print-,
+data- and outputstream are connected to the external  file  specifications,
+entered by the user, in the procedure enterfiles.
+
+2.  A job is  read  specification  by  specification  (after  printing  and
+skipping  leading text by a call on echotext) by means of calls on readtext
+or readdata, depending on which specification from the job is  read.   Both
+procedures  first  set  up  a buffer administration as will be described in
+section 3, then process an input line or input numbers and finally call  on
+readline  to  obtain  further information.  Their task is finished when the
+                                                                    Page 38
+
+
+variable endtext becomes true, that is when the next input line starts with
+a '"' (quote), which is the beginning of what can be a keyword, or when the
+end-of-file condition is met.  If an input data record is to be read from a
+file, the same administration is setup and the same routine for reading the
+actual numbers is used, only information is obtained  from  the  datastream
+rather  than  the inputstream.  The echoing of input text and input data is
+done via calls on the procedures printtext and printdata respectively.
+
+3.  The text and data storage section provides two kinds of SIMULA classes,
+one  for  text storage and another for data storage.  The class textstorage
+provides a procedure  to  store  lines  of  text  into  a  linked  list  of
+textbuffers  (starting  at  base).   The procedure nextline retrieves those
+lines (after a reset).  The class datastorage provides a procedure to store
+real  numbers  into a databuffer which is linked into a linked list of such
+buffers (starting at base).  In case of buffer overflow  a  new  buffer  is
+created  and linked into the list.  A super class inputstorage provides the
+reset procedure and a procedure nextnumber to retrieve numbers out  of  the
+buffers  in  a  FIFO  (first  in,  first  out) manner.  Another super class
+rightstorage provides a procedure lastnumber, which  is  quite  similar  to
+nextnumber,  except  that it retrieves numbers out of the buffers in a LIFO
+(last in, first out) manner.
+
+4.  The compiler uses two tables: one called  program  and  another  called
+hashtable.   The  first table accepts the (macro) instructions generated by
+the compiler via calls of load.  The second table is used by the  procedure
+nextatom  to  identify  the  various items in the model and input formulae.
+The recognition method used is twin-prime-hashing described  in  KNUTH  [5]
+p. 522.   Alphanumerical  items can belong to one of the following classes:
+identifier, number, functionname or optionname, which are all  superclasses
+of  atomcell.   The  procedure  nextatom  calls  on nextchar and delivers a
+pointer to an atomcell of the appropriate type  containing,  among  others,
+the actual text of the item and its index in the hashtable.
+
+     The compiler assumes that the running system has  at  its  disposal  a
+(programmed  pseudo)  register  F which is capable of handling both integer
+and real numbers.  Furthermore a (programmed  pseudo)  memory  organization
+known  as  a stack must be available to the running system.  A stackpointer
+refers to the first free position in the stack.  All binary operations will
+                                                                    Page 39
+
+
+take  place with the top of the stack as first operand and F as the second.
+The result is delivered in F and as  a  side  effect  the  stackpointer  is
+decreased  by  1.   When  the  contents  of  F  is  saved in the stack, the
+stackpointer is increased by 1.
+
+     The fundamental idea behind most procedures for translating the  model
+and  input  formulae  is, that the first atom of the syntactical unit to be
+processed by that procedure  has  been  read  already  (its  'value'  being
+assigned to lastatom).  The procedure considers itself to have finished its
+task after reading the first atom that no longer can belong  to  that  unit
+syntactically.   Meanwhile  the translation of that unit has been produced.
+A  more  elaborate  description  of  the  procedure   system   (arithmetic)
+expression  can  be  found  in  KRUSEMAN  ARETZ [6] and [7].  Reference [8]
+provides the description of a complete ALGOL 60 compiler.  We only  mention
+here  that  every  expression  is  transformed  into  a  macro program that
+corresponds to the reversed polish form, thus:
+
+               (a+b) * (c-d) ^ e  becomes:  ab+ cd- e ^ *.
+
+The procedure  for  translating  the  input  formula  must,  among  others,
+generate  instructions  to perform the linkage between identifiers from the
+model formula and numbers from the input data.
+
+     While translating a model formula, identifiers to  the  right  of  the
+equal sign are assigned type 1, those to the left of the equal sign type 2.
+If these identifiers appear in a variable list the types are changed into 3
+and  5 respectively.  While translating an input specification, identifiers
+in a variable list not appearing in the model formula are assigned type  4,
+those  in  the  input formula not appearing in a variable list are assigned
+type 6.  Meanwhile instructions are generated to put the next  number  from
+the  input data in the appropriate column of the (yet untransformed) design
+matrix, or to skip that number.  For variable lists that consists  entirely
+of  identifiers not appearing in the model formula, special instructions to
+skip the corresponding numbers all in one, are generated.
+
+5.  In the procedure check model a check is  made  if  the  model  formula,
+after  the linkage to the input data (by means of the input formula), still
+satisfies some elementary statistical conditions, like:
+                                                                    Page 40
+
+
+a) each term must be the product of a parameter and a factor,
+b) in that factor no identifier  may  appear  that  is  not  present  in  a
+   variable  list  in the input formula.  (An attempt to perform regression
+   analysis with variables for which no  input  data  is  present  may  not
+   succeed.)
+
+     In the procedure check input a check is made if for each  variable  in
+the  model  formula an equal amount of numbers is present, moreover a check
+is made if all numbers in the  input  data  have  actually  been  processed
+(option 7 disengages this check).
+
+6.  The execution section of the program is activated  by  a  call  of  the
+procedure execute which, among other things, simulates the basic cycle of a
+computer:
+
+         next: get the instruction indicated by the programcounter
+               increase the programcounter with 1
+               isolate the instruction and address part
+               execute the instruction
+               GOTO next
+
+This cycle ends when the programcounter  tries  to  leave  the  (translated
+macro)  program.   The (macro) instructions itself are coded via the switch
+lists macro and macro2.
+
+7.   After  the  execution  of  the  input-  and   modelinstructions,   the
+(transformed) design matrix is delivered to the regression routine(s).  The
+actual computation of the regression coefficients is done  via  a  call  of
+lsqdec  followed  by  a  call of lsqsol and lsqinv.  The first two of these
+procedures are described extensively in DEKKER [2] pp. 65-69.   The  vector
+and  matrix  multiplication is done via calls of vecvec, matvec, tamvec and
+tammat, described in DEKKER [2] pp. 8-9.  The algorithms for phi and Fisher
+are copied from CACM: algorithms 209 and 322 respectively.
+
+All other computations are straightforward.
+                                                                    Page 41
+
+
+REFERENCES
+
+
+ [1]  AFIFI, A.A. & S.P. AZEN, Statistical Analysis;  A  Computer  Oriented
+            Approach;  Academic Press, (1972).
+
+ [2]  DEKKER, T.J., ALGOL 60 procedures in numerical algebra, part  1;   MC
+            Tract 22, Mathematisch Centrum, Amsterdam.
+
+ [3]  DRAPER, N.R. & H. SMITH, Applied Regression Analysis;  John  Wiley  &
+            Sons, (1966).
+
+ [4]  JONGE, H. DE,  Inleiding  tot  de  Medische  Statistiek,   deel   II;
+            Nederlands Instituut voor Praeventieve Geneeskunde, (1960).
+
+ [5]  KNUTH, D.E., The Art of Computer  Programming,  Vol. 3,  Sorting  and
+            Searching;  Addison Wesley, (1973).
+
+ [6]  KRUSEMAN ARETZ, F.E.J.,   ALGOL   60   translation   for   everybody;
+            Elektronische Datenverarbeitung, Vol. 6 (1964), 6, p. 233-244.
+
+ [7]  KRUSEMAN ARETZ, F.E.J.,  Programmeren  voor  rekenautomaten,  (De  MC
+            ALGOL 60 vertaler voor de EL X8);  MC Syllabus 13, Mathematisch
+            Centrum, (1972).
+
+ [8]  KRUSEMAN ARETZ, F.E.J., P.J.W. TEN HAGEN &  H.L. OUDSHOORN, An  ALGOL
+            60  compiler  in  ALGOL 60;  MC Tract 48, Mathematisch Centrum,
+            (1973).
+
+ [9]  LUND, R.E., Tables for an approximate test  for  outliers  in  linear
+            models;  Technometrics, Vol. 17 (1975), 4, p. 473-476.
+
+[10]  NAUR, P. (ed.), Revised report on the algorithmic language ALGOL  60;
+            Regnecentralen, Copenhagen, (1964).
+
+[11]  SEARLE, S.R., Linear Models;  John Wiley & Sons, (1971).
+
+[12]  THEIL, H., Principles of Econometrics;  John Wiley & Sons, (1971).
+                                                                    Page 42
+
+
+ 

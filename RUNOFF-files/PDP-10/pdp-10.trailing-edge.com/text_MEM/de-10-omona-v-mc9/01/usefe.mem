@@ -1,0 +1,226 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   Guide to Useing the "FE" Device
+
+
+
+
+
+                           File: USEFE.RNO
+                           Date: 15-Mar-77
+
+
+
+
+
+***Copyright (C) 1977 by Digital Equipment Corp., Maynard, MA***
+Guide to Using the "FE" Device                                  Page 2
+
+
+                           *** CAUTION ***
+
+               The "FE" device is intended for use only
+               in  software  updating  and  development
+               procedures by knowledgeable people.  Use
+               without   proper   caution  may  produce
+               unpredictable results.
+
+
+
+OVERVIEW
+
+The "FE" device is used from the -11 to transfer files to and from the
+TOPS-10  file  system.   Usually it is accessed through the use of -11
+PIP, using device "FE:" as if it were a FILES-11 device.
+
+
+FILE FORMAT
+
+Two file formats on the TOPS-10 file  system  are  supported:   16-bit
+binary files (in 18-bit bytes) and 7-bit ASCII files.  The format of a
+particular file is determined by the file mode and/or the  file  type.
+If  the  file  mode  is 10(.IOIMG) the file is assumed to be in 16-bit
+binary format.  If the byte-size is neither 18 nor 7, the file type is
+checked  to  determine the format.  File types .ABS, .BIN, .EXB, .LDA,
+.MCB, .OBJ, .OLB, .SML, .STB, .SYS, and .TSK are assumed to be  16-bit
+binary  format,  all  others are taken to be 7-bit ASCII files and the
+proper swapping of bytes is performed during transfers.
+
+
+RSX FORMAT FILE CONVERSION
+
+Files  used  by  the  standard  RSX   tasks   are   required   to   be
+record-formatted,  while their counterparts on the TOPS-10 file system
+do not.  This applies to all  ASCII  text  files  (which  must  be  in
+formatted  ASCII)  and  to formatted binary files, notably .EXB, .MCB,
+.OBJ, .OLB, .SML, and .STB  types.   A  program  called  "RSXT10"  was
+developed to do the necessary conversions, both to RSX format and back
+to DOS/TOPS-10 format.  RSXT10 prompts by typing  "RSXT10>"  to  which
+the  user  responds  with the desired command.  All commands to REST10
+are described in RSXFMT.HLP, which can be invoked by the HELP  command
+to RSXT10.
+
+The default conversion mode for the file is determined from  the  file
+type  and  the  first  data word in the file.  Note that RSX formatted
+files and binary files are written in file mode 10(.IOIMG)  to  insure
+binary  transfer mode.  Also note that all files read by KLDCP are not
+read in record mode,  and  thereby  do  not  require  conversion.   An
+example of converting a group of files to RSX format:
+
+.R RSXT10
+RSXFMT>CONVERT DEV:[P,PN]INPUT.FIL DEV:[P,PN]OUTPUT.FIL
+DEV:[P,PN]INPUT.FIL[7-BIT-ASCII]==>DEV:[P,PN]OUTPUT.FIL[RSX-ASCII]
+RSXFMT>
+Guide to Using the "FE" Device                                  Page 3
+
+
+GETTING THE SYSTEM STARTED
+
+The program "FE" must be running on the TOPS-10 system.  If it is  not
+already running, it can be started by typing the following under [1,2]
+(probably under OPSER):
+
+     .R FE
+
+The "FE" program should now be running and is waiting  for  a  request
+from the "FE" device from the -11.  The next step is to mount the "FE"
+device from the -11 such that files can be accessed  using  it.   This
+requires that the file "T20ACP.TSK" be present on the -11 file system.
+"FE" can be mounted using the Consol Command  Parser  at  the  console
+terminal by typing:
+
+     ^ (Control-Backslash)
+     PAR>MCR MOU
+     MOU>FE:
+     MOU -- MOUNT COMPLETE
+     MOU>^Z (Control-Z)
+
+
+ADDRESSING TOPS-10 FILES
+
+All files on the TOPS-10 file system may be accessed from the -11.
+
+The FE program reads a file called FEUIC.TXT when it is started  which
+determines  the  mapping from TOPS-10 directories to UIC's on the -11.
+The format of each line of this file is as follows:
+
+     [grp,usr]=str:[p,pn,sfd1,sfd2...]
+
+where:
+
+     [grp,usr] is the UIC on the -11.
+
+str: is a file structure name, or "DSK:" for the search list  for  the
+     job  running  the  FE  program.   If  this  field  is absent, all
+     structures will be searched.
+
+     [p,pn,sfd1,sfd2...] is the TOPS-10 directory name.
+
+FEUIC.TXT may exist on DSK:  or SYS:.
+
+Files are merely  referenced  by  file  name.   Note  that  generation
+numbers on the -11 are in octal, and are punctuated by a ";".
+
+
+USING -11 PIP
+
+-11 PIP is used in almost all transfers through the "FE" device.   PIP
+can  be  requested through the Console Command Language using the "MCR
+PIP" command.  The following basic commands can be used  to  list  and
+transfer files:
+Guide to Using the "FE" Device                                  Page 4
+
+
+To list a TOPS-10 directory on device DEV:
+
+     PIP>dev:FE:[uic]file.typ;nnn/LI (or /BR or /FU)
+
+Example:
+
+     PIP>FE:[5,5]/BR
+
+     DIRECTORY FE0:[5,5]
+     4-JAN-75 00:35
+
+     QFC.LST
+     QFC.MAC
+     QFC.MAC
+     QFC.MAC
+     QFC.OBJ
+     QFC.OBJ
+     QFC.OBJ
+
+     PIP>
+
+To copy a file to the -11 file system:
+
+     PIP>dev:[uic]*FE:[uic]file.typ;nnn/NV
+
+Example:
+
+     PIP>DT1:FE=:[10,20]QFC.*/NV
+     PIP>
+
+To copy a file from the -11 file system:
+
+     PIP>FE:[uic]=dev:[uic]file.typ
+
+Example:
+
+     PIP>FE:[10,20]*.NEW=[120,10]*.BIN
+     PIP>
+
+To delete a file:
+
+     PIP>dev:[uic]file.typ;nnn/DE
+
+Example:
+
+     PIP>DB0:QFC.MAC;*/DE
+     PIP>FE:[10,20]*.*/DE
+     PIP>
+
+dev- is an -11 device which is mounted.  If absent, SY:   the  (system
+device)  is  assumed  for  files,  TT:   (the  control  terminal)  for
+directory listings.  [uic] is optional and  defaults  to  [5,5].   /NV
+(New Version) is recommended in transferring files.  To exit from PIP,
+type ^Z (Control-Z).
+Guide to Using the "FE" Device                                  Page 5
+
+
+TERMINATION OF "FE" DEVICE
+
+When all the desired files have  been  transferred,  the  "FE"  device
+should  be dismounted to free up system resources in use.  Dismounting
+the "FE" device is done by typing at the console terminal:
+
+     ^ (Control-Backslash)
+     PAR>MCR DMO
+     DMO>FE:
+     DMO -- DISMOUNT COMPLETE
+     DMO>^Z (Control-Z)
+
+
+
+[End of USEFE.MEM]

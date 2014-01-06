@@ -1,0 +1,160 @@
+
+
+
+      A8DDT.RNO Version 1
+
+
+      1.0 SUMMARY
+
+
+      A8DDT is a TECO macro which allows use of basic File DDT functions
+      on  A8  format  files,  particularly  the  DX10  microcode.   This
+      provides a means to inspect and patch the A8 file prior to loading
+      it  into  the  PDP-8.  The code operates only in octal type in/out
+      mode and is intended for use by  experienced  systems  programmers
+      and DEC service personnel.
+
+
+
+      2.0 INITIALIZING A8DDT
+
+
+      A8DDT IS A TECO macro which is started in the following manner:
+
+        .R TECO
+        *ERA8DDT.TEC$YAHXAMA$$
+
+      at  this  point   control   will   be   transferred   to   A8DDT's
+      initialization code which will prompt with
+
+        FILE:
+
+      Answer this prompt with the full file spec of the A8 file you wish
+      to  use.  A8DDT will accept any file spec construct which would be
+      accepted  by  TECO  including  SFD's.   The  file  spec  must   be
+      terminated with a carriage return.  While accepting your file spec
+      A8DDT allows use of <DEL>, ^U, and ^R for editing.  When your file
+      spec has been accepted A8DDT will respond with
+
+        A8DDT <cr><lf>
+
+      to let you know it is ready to accept commands.
+
+
+
+      3.0 A8DDT COMMANDS
+
+
+      A8DDT is a subset of DDT which operates exclusively in octal  type
+      in/out mode.  The following commands are accepted:
+
+      n/        open location n (up to 4 digits) and display its
+                contents
+      ./        display the contents of the last opened location
+      <cr>      close the location and store any numeric supplied (up to
+                4 digits) as the new contents
+      <lf>      perform <cr> processing and then open the next
+                consecutive location
+      <del>     delete the last numeric argument typed
+                                                                  Page 2
+
+
+      ?         enter/exit debug (this is used to activate TECO's ? mode
+                mode for tracing the macro's operation)
+      ^Z        exit the program (A8DDT will close the edited file and
+                produce a backup file)
+
+
+
+      4.0 INTERNALS INFORMATION
+
+
+      The following information is not necessary for use  of  A8DDT  but
+      may  be  helpful  to  those  wishing a better understanding of the
+      program and its operational peculiarities.
+
+
+
+      4.1 A8 FILE FORMAT
+
+
+      A8 files are produced by the  CONVRT  program  (diagnostic  DDQDG)
+      from  BIN  files  output by PAL10.  The files are in the following
+      format:
+
+      8 wc,adr,12,12,12, . . . . .12,cks
+      8 wc,adr,12,12,12, . . . . .12,cks
+      8 0,adr,cks
+      where:
+      8         pdp-8 file identifier
+                space,sifnifies asciized file
+      wc        word count
+      adr       load address
+      12        up to 2 characters for each 12-bit data word
+      cks       file line checksum
+      <cr><lf> indicates end of line
+      As many line of this type as required to load the PDP-8  file  are
+      in the file followed by the EOF indicator:
+
+      8         PDP-8 identifier
+                space,signifies asciized file
+      0         word count of 0 signifies transfer block
+      adr       PDP-8 start address
+      cks       file line checksum
+      <cr><lf> indicates end of line
+
+      The file line checksum is the 12-bit negated checksum.   The  word
+      count,  the  load  address,  the data, and the line checksum added
+      together produces a 12-bit zero sum.
+
+
+
+      4.2 SPECIAL CONSIDERATIONS
+
+
+      A8DDT does not support the A8 "octal  file  format"  option.   The
+      decision  to  impose  this  restriction  was based on two factors.
+                                                                  Page 3
+
+
+      First, no currently available or planned  software  produces  this
+      format.   Second, this format was intended to allow patch overlays
+      which  could  not  be  handled  by  A8DDT  without   significantly
+      degrading response.
+
+
+      A8DDT  was  designed  to  be  easily  modified  to  handle   other
+      "asciized"   formats.   To  do  this  the  references  to  the  A8
+      identifier "8" would have to  be  changed.   These  occur  at  tag
+      EXAMINE-T+1  line where <cr><lf>8 is searched, at tag CRLF+2 lines
+      where 8<space>, is searched, and at tag CRLF+3 lines where a blank
+      entry  is created.  All occurances of ^O7777 would also have to be
+      changed to mask the word length for the corresponding processor.
+
+
+
+      4.3 Q-REGISTER USEAGE
+
+
+      The following defines the standard Q-register use within A8DDT:
+
+      A         Code. Holds the A8DDT macro itself.
+      C         Data. Used to pass arguments to subroutines.
+                Usually contains the contents of currently open
+                location.
+      D         Code. Subroutine to convert numeric in Q-register C to
+                A8 format and store at the current pointer position.
+      E         Code. Subroutine to type the contents of Q-register 1.
+      F         Flag. Indicates a location is currently opened.
+      G         Flag. Indicates a numeric argument was the last thing
+                typed.
+      I         Code. Subroutine to convert the asciized data at the
+                current pointer position to binary and return result in
+                Q-register 1.
+      T         Data. Address of the currently open location.
+      X,Y       Data. Hold start address and length of PDP-8 data
+                defined within currently used line in A8 file.
+      1,2       Data. Temporary use for assembling numeric arguments and
+                passing data to/from subroutines.
+      7         Data. Holds last character typed for parser.
+      [end]

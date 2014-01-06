@@ -1,0 +1,876 @@
+
+
+
+                       MAKLIB User's Guide V1.0                       ______ ______ _____
+
+
+
+ 1.  Introduction
+
+     MAKLIB is a program used to manipulate  relocatable  binary  files
+     which  are  either  single  programs  or  collections  of programs
+     (libraries).  The relocatable binary file is the machine  readable
+     output  from  a  source  language  translator, such as the FORTRAN
+     compiler or the MACRO assembler.  MAKLIB is used to manipulate the
+     individual modules within a library, to examine individual modules
+     and libraries and to  make  changes  to  modules  when  they  need
+     correction.   MAKLIB  can  also  be  used  to  create libraries by
+     deleting unnecessary symbols and by adding an index, which  speeds
+     up loading by LINK-10.
+
+ 2.  Command String Format
+
+     The MAKLIB  program  uses  the  traditional  DECSYSTEM-10  command
+     string, supported by use of the common SCAN and WILD routines.  In
+     its most general format, the command string is:
+
+          OUTFILE = INFILE1/Switch/Switch.., INFILE2/Switch/Switch..
+
+     All MAKLIB commands require at least the output file and the first
+     input  file.  This first input file is called the MASTER file.  If
+     a second input file is used by a command, this file is called  the
+     TRANSACTION   file.   Some  command  switches  do  not  require  a
+     TRANSACTION file, particularly those that query the status of  the
+     MASTER file.  The standard SCAN supplied switches and features are
+     supported,  including  indirect  command  files  and  the  use  of
+     SWITCH.INI  to initialize the command string.  All switches can be
+     abbreviated to  uniqueness,  and  comments  are  included  in  the
+     command line be preceding them with ";" or "!".
+
+ 3.  Command Switches That Give Information About the MASTER File.
+
+          The  information  commands  yield  data  on  the  status  and
+     contents of the file specified as the MASTER file.  No TRANSACTION
+     file is specified with these command switches  and  they  take  no
+     arguments.   The  output  file  is  an ASCII file with the default
+     extension .LST.  The MASTER file has the default extension .REL.
+
+     1.  LIST   - This command switch is used to list the names of  the
+         modules that are in the MASTER file.
+
+         EXAMPLE:
+
+              OUT.LST=MASTER.REL/LIST
+
+     2.  POINTS - This command switch lists all the ENTRY points in the
+         specified  MASTER  file.   ENTRY points are used by LINK-10 to
+         determine if a GLOBAL request can be satisfied  by  loading  a
+         module   from   a  library.   The  ENTRY  points  are  usually
+                                                                 Page 2
+
+
+         subroutine starting addresses.
+
+         EXAMPLE:
+
+              OUT.LST=MASTER.REL/POINTS
+
+     3.  TRACE  - This command lists all the information  contained  in
+         the  TRACE  blocks in the specified MASTER file.  These blocks
+         (Link item type 1060) are  created  by  MAKLIB  when  the  FIX
+         command  is  used  to  insert edits into a module in the file.
+         The TRACE blocks contain information  about  which  edits  are
+         installed  and exactly what changes were made to the file.  By
+         use of the TRACE command, the exact binary patching status  of
+         the MASTER file can be ascertained.
+
+         EXAMPLE:
+
+              OUT.LST=MASTER.REL/TRACE
+
+
+ 4.  Commands Used to Create Library Files.
+
+          These two switches are used primarily to create libraries  of
+     subroutines  which  are  loaded when a main routine requests them.
+     An example of such a library  is  FORLIB.REL  which  contains  the
+     various  utility routines used by programs compiled by the FORTRAN
+     compiler.   If  a  program  requires  a  routine  for  a  specific
+     function,  it  makes  a  GLOBAL  request indicating this.  At load
+     time, LINK-10 searches a  set  of  user-specified  and/or  default
+     libraries  looking for routines to satisfy the GLOBAL requests.  A
+     library can be simply a set of routines concatenated into a single
+     physical  file,  however  the  use  of  the following two commands
+     greatly  speeds  up  the  searching  of  libraries.   The  command
+     switches are used on the MASTER file specification and there is no
+     TRANSACTION file.  Neither command takes an argument and both  can
+     be  specified  in  a single command string.  The default extension
+     for both the OUTPUT and the MASTER file specification is .REL.
+
+     1.  INDEX  - This command reads the MASTER file  and  produces  an
+         OUTPUT  file which is identical to the MASTER file except that
+         INDEX blocks are inserted  directly  in  front  of  the  first
+         module  in  the  file.   The  INDEX blocks (Link item type 14)
+         provide a fast way for LINK-10 to find out what  ENTRY  points
+         are  contained  in  the  file, and where they are in the file.
+         LINK can then make searches more quickly,  without  having  to
+         read the entire file, and if a module that is needed is in the
+         file, LINK knows where  it  can  be  found.   This  speeds  up
+         loading by reducing the amount of I/O necessary.
+
+         EXAMPLE:
+
+              OUT.REL=MASTER.REL/INDEX
+                                                                 Page 3
+
+
+     2.  NOLOCALS       - This command switch causes an output file  to
+         be created, identical to the MASTER file except that all LOCAL
+         symbols are deleted from the SYMBOL blocks (Link item type 2).
+         These  LOCAL symbols are used primarily for debugging purposes
+         and by the FIX command in MAKLIB.  Since they serve no purpose
+         in a production-mode library, they are often deleted to reduce
+         the amount of mass storage space the  library  occupies.   The
+         deletion  of LOCAL symbols also speeds up loading because less
+         I/O has to be done.  GLOBAL symbols are  left  in  the  symbol
+         table, since they are needed for inter-linking of modules.
+
+         EXAMPLE:
+
+              OUT.REL=MASTER.REL/NOLOCALS
+
+
+
+                                    NOTE
+
+         The old FUDGE2 program, which MAKLIB  supercedes,  deleted
+         LOCAL  symbols whenever an INDEX was created.  MAKLIB does
+         not do this.  To produce an indexed library without  LOCAL
+         symbols the two command switches are given together:
+
+              OUT.REL=MASTER.REL/INDEX/NOLOCALS
+
+
+
+ 5.  Commands to Manipulate Library Modules
+
+          To facilitate the handling and creation of program libraries,
+     MAKLIB   includes  command  switches  that  manipulate  individual
+     routines in a collection of  routines.   Most  of  these  commands
+     require  the  specification of a TRANSACTION file , along with the
+     OUTPUT and the MASTER files.  The default extension for all  three
+     files  is  .REL.  These command switches take arguments, which are
+     the names of the modules that are to be affected by the switch.  
+
+     1.  MASTER:(Mod1,Mod2..)   - This switch causes no manipulation of
+         the  file.   Its purpose is to set up a correspondence between
+         modules in the MASTER file and those  that  are  specified  in
+         some  command  switch  which  is specified for the TRANSACTION
+         file.  An example is the REPLACE switch.  The  REPLACE  switch
+         is given as part of the TRANSACTION file specification and the
+         arguments to this switch are names of  modules  which  are  to
+         replace  those  specified as arguments to the MASTER switch in
+         the MASTER file specification.  The MASTER  switch  is  always
+         given  as  part  of  the  MASTER file specification , takes at
+         least one argument and requires that another command be  given
+         in the same command string.
+
+         EXAMPLE:
+
+              OUT.REL=MASTER.REL/MASTER:Mod1, TRANS.REL/REPLACE:Mod1
+                                                                 Page 4
+
+
+     2.  APPEND:(Mod1,Mod2..)   - This command switch is  used  to  add
+         new  routines  to  the end of an existing library.  The OUTPUT
+         file is created by copying the entire  MASTER  file  into  it,
+         followed  by the routines specified as arguments to the APPEND
+         switch.  The appended routines are read from  the  TRANSACTION
+         file,  and  must be in the same physical order as specified to
+         the switch.
+
+         EXAMPLE:
+
+              OUT.REL = MASTER.REL, TRANS.REL/APPEND:(Mod1,Mod2)
+
+     3.  DELETE:(Mod1,Mod2...)  - This command switch does not  require
+         a TRANSACTION file specification, and must be given as part of
+         the MASTER file specification.  The action taken is  that  the
+         entire MASTER file is copied to the OUTPUT file except for the
+         routines  named  as  arguments  to  the  DELETE  switch.   The
+         arguments to the DELETE switch must be names of modules in the
+         MASTER file, and they must appear in the  same  order  as  the
+         physical order of the modules in the file.
+
+         EXAMPLE:
+
+              OUT.REL = MASTER.REL/DELETE:(MOD1,MOD2)
+
+     4.  EXTRACT:(Mod1,Mod2...) - This command can be used  to  produce
+         an  OUTPUT  file  containing  a  subset of the routines in the
+         MASTER file.  The switch does not require that  a  TRANSACTION
+         file  specification  be  given  as part of the command string.
+         The modules specified as arguments to the EXTRACT  switch  are
+         copied  out  to  the  OUTPUT file.  They are copied out in the
+         order specified, which must correspond to their physical order
+         in the MASTER file.
+
+         EXAMPLE:
+
+              OUT.REL = MASTER.REL/EXTRACT:(MOD1,MOD2)
+
+     5.  INSERT:(Mod1,Mod2...)  - This command is used  to  insert  new
+         modules  into  the  library.  This command requires the use of
+         the MASTER switch.  The OUTPUT file is formed in the following
+         manner.  The MASTER file is copied to the OUTPUT file up until
+         the , but  not  including,  the  module  named  as  the  first
+         argument  to  the MASTER switch.  Then the module named as the
+         first argument  to  the  INSERT  switch  is  copied  from  the
+         TRANSACTION  file  to  the  OUTPUT  file.  The process is then
+         repeated, until the argument  list  specified  to  the  MASTER
+         switch is exhausted, at which point the remaining parts of the
+         MASTER file are copied to the  OUTPUT  file.   There  must  of
+         course be one argument to the MASTER switch for every argument
+         to the INSERT, and vice versa.  To insert more than one module
+         in  front  of the same module in the MASTER, the MASTER module
+         name must appear repeatedly in the argument list.   The  order
+         of  the  module names in the argument lists of both the MASTER
+         and the INSERT switches must correspond to the physical  order
+                                                                 Page 5
+
+
+         of   the  modules  in  the  MASTER  and  TRANSACTION  files  ,
+         respectively.
+
+         EXAMPLE:
+
+              OUT.REL = MAST.REL/MASTER:MOD1, TRANS.REL/INSERT:MODA
+
+     6.  REPLACE:(Mod1,Mod2...) -  This  command  is  used  to  replace
+         modules in the MASTER file with those specified by the REPLACE
+         switch.  The OUTPUT file  then  is  comprised  of  the  entire
+         MASTER  file with some modules replaced by those read from the
+         TRANASCTION file.  Use of the REPLACE switch requires the  use
+         of the MASTER switch so that MAKLIB knows which master modules
+         are to  be  replaced  with  those  specified  in  the  REPLACE
+         command.   There  must  be  a one to one correspondence in the
+         number of MASTER arguments and REPLACE arguments.   The  order
+         of  both  argument  lists must also correspond to the physical
+         order of the modules in the related files.
+
+         EXAMPLE:
+
+              OUT.REL=MAST.REL/MASTER:Mod1,TRANS.REL/REPLACE:Moda
+
+
+ 6.  Editing the MASTER file 
+
+     1.  FIX    - This command indicates that the MASTER file is to  be
+         changed.
+
+              The FIX command switch is used to  make  changes  to  the
+         actual code and symbol table of a routine or program.  The FIX
+         command  is  given   as   part   of   the   TRANSACTION   file
+         specification,  and  the  only other switch allowed is the WHO
+         switch.  The default extension for both  the  OUTPUT  and  the
+         MASTER file is .REL while the default for the TRANSACTION file
+         extension  is  .FIX.   The  FIX  switch  does  not  take   any
+         arguments,  but instead indicates that the TRANSACTION file is
+         an ASCII file formatted to tell MAKLIB what changes to make to
+         what modules, and how to identify them.
+
+              The FIX file format is the  same  as  that  for  ordinary
+         MACRO  assembly  language  programs, with several restrictions
+         and with the addition of several special  purpose  pseudo-ops.
+         The  special  pseudo-ops  are  used  to pass data to MAKLIB on
+         where and how to insert the code given in the FIX  file.   The
+         restrictions  are that macros and repeats are not implemented,
+         along with some of  the  MACRO-10  pseudo-ops.   In  addition,
+         since  the  MAKLIB  assembler  is  one  pass,  there  are some
+         restrictions on the types of forward  references  allowed.   A
+         description of each new pseudo-op follows.
+
+
+
+                                                                 Page 6
+
+
+         1.  .EDIT nnnnnn
+               Gives the edit name for the fix that follows.
+               All the other MAKLIB pseudo-ops must appear
+               between an .EDIT and an .ENDE pseudo-op.
+               The edit name is stored in the TRACE
+               block for any module affected by the edit.
+
+         2.  .NAME iii
+               Gives initials of person who wrote the fix (optional).
+               These initials, if present are stored in the
+               TRACE block for the edit.
+
+         3.  .DATE dd-mon-yy
+               Gives the date that the fix was created (optional).
+               This date is remembered in the TRACE block for the edit.
+
+         4.  .MODULE mmmmmm
+               Selects the module name that edit should be applied to.
+               The selected module is read in (loaded)
+               and remains the selected module until the end of
+               the edit, unless a new .MODULE pseudo-op is issued.
+               Within a given edit, each module may be selected
+               once at most.
+
+         5.  .ASSOCIATED +edit1, -edit2, edit3, +edit4 .....
+               Conveys information about which other edits must be
+               present or not present in the current module.
+               The "+" indicates that the following edit is required.
+               The "-" indicates that the edit is precluded.
+               Warning messages are given if the module does not have
+               the appropriate combination of associated edits.
+               If no + or - is seen, + is assumed.  (Edit required)
+               All .ASSOCIATED pseudo-ops must precede the first
+               occurence of any .INSERT,.REMOVE or .REINSERT operator.
+
+         6.  .INSERT expression,KEYWORD:n,<Code to Match>
+               This pseudo-op tells where and how to insert code.
+               It also provides a method for verifying that the
+               position of the fix is correct.
+                 The first argument gives the location at which to
+                 install code, in either numeric or symbolic
+                 expression, evaluated in the current radix.
+                 This location is assumed to be relocatable and may
+                 be in either the low or high segment.  Any new code
+                 inserted will be placed at the end of the same
+                 segment.
+                 The second argument is a keyword giving the method of
+                 the installation.  The keyword is one of the
+                 following (abbreviated to uniqueness):
+
+                  BEFORE - Execute patch code before executing
+                       the instruction at the location specified.
+                  AFTER - Execute patch code after executing the 
+                       instruction at the location specified.
+                  REPLACE - For each instruction included in the 
+                                                                 Page 7
+
+
+                       patch, delete one from existing code, starting
+                       with the instruction at the location of the
+                       patch.
+                  REPLACE:m - Delete m instructions from the existing
+                       code starting with instruction at the patch
+                       address, no matter how many instructions 
+                       are inserted.  The argument may
+                       be an expression, and is
+                       evaluated in the current radix.
+                 The third argument, which is optional, gives the line
+                 of code at the location specified by the 
+                 first argument.
+                 The expression within the angle brackets is evaluated,
+                 and if it does not match the code actually at that
+                 location, a fatal error message is given.
+                 If the code being matched involves a multi-word 
+                 literal, only the first word need be given.
+               After the .INSERT pseudo-op, code generated by
+               the assembler is inserted, according to instructions.
+
+         7.  .ENDI - This pseudo-op delimits the code that is
+               part of the preceding insertion.
+               Within the .INSERT-.ENDI pair, it is illegal to use
+               .EDIT, .MODULE, .REINSERT or .REMOVE pseudo-ops.
+
+         8.  .ENDE - This pseudo-op delimits the range of an
+               edit.  When this pseudo-op is seen, checks are made for
+               undefined labels, etc.  and next edit or EOF can
+               be handled.
+
+         9.  .REMOVE edit1,edit2,edit3...
+               This pseudo-operator removes the specified edits 
+               from the selected module.  Actually, the
+               only action taken is to put back the 
+               original instructions displaced by the jumps
+               to the patch area for each .INSERT.  (See appendix)
+               Specifically, no changes are made to the symbol table.
+
+        10.  .REINSERT edit1,edit2,edit3...
+               For each specified edit, the effect of any previous
+               .REMOVE pseudo-op on that edit is reversed and the edit
+               is made active again.
+
+
+              Since  the  MAKLIB  assembler  is   one   pass,   forward
+         references  to labels and expressions are restricted to simple
+         addition   and   subtraction   on   the   halfword   boundary.
+         Essentially,  references to as yet undefined labels or symbols
+         are legal where references to EXTERNAL symbols would be  legal
+         in  MACRO-10 (with no polish fixups).  Literals are treated as
+         forward references, since the actual location of  the  literal
+         is  not  known until the .INSERT is ended.  It is not legal to
+         define a label inside a literal.  An additional restriction is
+         that the quantity used in the right-hand side of an assignment
+         (I.E.  =,==,==:   etc.)  must  not  be  forward  or  EXTERNAL.
+                                                                 Page 8
+
+
+         Assignments do not have to be inside .INSERTS in the fix file,
+         however the .EDIT and  .MODULE  pseudo-ops  must  precede  any
+         assignments  (which  define  new symbols in the symbol table).
+         Since it is impossible to backtrack references to a symbol  in
+         the  relocatable  binary  file,  MAKLIB  will  not  allow  any
+         re-definitions of existing symbols.  Therefore, any  label  or
+         symbol  created  by  use  of the FIX switch must be new to the
+         program.
+
+              For ease of patching, and to keep the appearance  of  the
+         binary  patches  as  close  to  source  level as possible, the
+         following pseudo-ops are implemented in the  MAKLIB  FIX  file
+         assembler, an behave as they do in MACRO-10:
+
+          ASCII     ASCIZ     BYTE
+          COMMENT   DEC       EXP
+          IOWD      OCT       POINT
+          RADIX     RADIX50   REMARK
+          SIXBIT    SQUOZE    XWD
+
+
+                                  NOTE
+
+     The  pseudo-ops  BYTE,  DEC,  OCT  and  EXP  are  limited   to
+     generating one word of data at most.
+
+
+
+      All the MACRO operators and qualifiers are available as  are  the
+ defintions  for  the usual mnemonics such as CALLIs, UUOs, TTCALLs and
+ MTAPEs.
+
+      Symbols may be followed  by  the  "##"  (double  pound  sign)  to
+ indicate that they are EXTERNAL quantities.  However, if the symbol is
+ already in the symbol table, defined as EXTERNAL, the use of  "##"  is
+ not  necessary.   It is not necessary to follow undefined symbol names
+ with "#" (single pound sign), as any undefined symbol is assumed to be
+ a  forward  reference.   If  a symbol name is followed by the "#", the
+ only action taken is to give an error message if the symbol already is
+ defined.   Labels  may  be  defined  as  GLOBAL  (available  to  other
+ programs) if they are  followed  by  "::"  (double  colon),  and  more
+ generally,  the full facilities available in MACRO-10 for combinations
+ of DDT supression and GLOBAL declaration are available for both labels
+ and assignments.
+
+ EXAMPLE:
+
+      OUT.REL=MASTER.REL,MASTER.FIX/FIX
+
+2.  WHO:iii     - This switch is used only in conjunction with the  FIX
+ command  switch.   It  may  appear as part of either the MASTER or the
+ TRANSACTION file specification.  It takes as its argument up to  three
+ alpha-numeric  characters  which  are the initials of the person using
+ MAKLIB.  These initials, if present, are included in the  TRACE  block
+ of  any  edits,  in the field of who last affected any edit and in the
+                                                                 Page 9
+
+
+ field of who installed the edit.  This switch could most  conveniently
+ be  placed  in  the  user's  SWITCH.INI file, so that placement of the
+ users's initials into the TRACE blocks would be an automatic  process.
+ This switch is ignored if the command switch used is not FIX.
+
+ EXAMPLE:
+
+      OUT.REL=MASTER.REL,MASTER.FIX/FIX/WHO:ILG
+
+
+                                                                Page 10
+
+
+                              APPENDIX 1
+
+
+                          Examples of FIX Files                          ________ __ ___ _____
+
+
+.EDIT 345                               ;THIS IS EDIT 345 
+
+.NAME ILG                               ;PATCH BY ILG
+.DATE 3-DEC-75                          ;PATCH WRITTEN DATE
+
+.MODULE MACRO                           ;NAME FROM TITLE 
+
+.ASSOCIATED 200,-333                    ;EDIT 200 REQUIRED,
+                                        ;EDIT 333 PRECLUDED
+
+REMARK THIS EDIT FIXES  Q ERRORS WITH COMPLEMENT OPERATOR
+
+.REMOVE 312                             ;EDIT 312 SUPERSEDED
+
+.INSERT EVUPAR+3,BEFORE,<PUSHJ P,MREAD>    ;INSERT @EVUPAR+3
+                                        ;BEFORE THE "PUSHJ"
+                                        ;INSTRUCTION AT EVUPAR+3
+                                        ;IS ""PUSHJ P,MREAD"
+
+        MOVEI   AC0,CSTATN              ;PICK UP CHAR STATUS
+        TRNE    AC0,CH.FOO              ;IS IT SPECIAL?
+        JRST    [SETOM ERSTAT           ;YES,FLAG IT
+                 MOVEI AC0,CSTATX       ;CHANGE STATUS
+                 JRST .+1 ]             ;RESUME NORMAL FLOW
+.ENDI                                   ;END OF FIRST PART
+
+.INSERT XCTOP-1,REPLACE:3,<JRST XTC1A>          ;REPLACE 3 
+                                                ;INSTRUCTIONS AT
+                                                ;LABEL XCTOP-1
+                                                ;WITH THIS CODE:
+        PUSHJ   PP,MREAD1                       ;USE 1ST  CASE
+        SKIPE   AC1,OPNUM                       ;ANY OP TO DO?
+        JRST    @[ OP1
+                   OP2
+                   OP3]-1(AC1)                  ;YES,GO TO IT
+        JRST    NOP                             ;NO,NO OP 
+
+.ENDI                                           ;END SECOND PART
+
+.ENDE                                   ;END OF EDIT 345
+                                                                Page 11
+
+
+                        Another Sample Fix File                        _______ ______ ___ ____
+
+
+
+COMMENT $ 
+        THIS IS AN EXAMPLE OF A .FIX FILE USED TO APPLY TWO EDITS
+TO A FILE. IT USES SOME FEATURES OF MAKLIB'S BINARY PATCHING 
+FACILITY.
+$
+
+REMARK THE FIRST EDIT DOES TWO INSERTS AND DEFINES A NEW SYMBOL
+
+.EDIT 300                               ;EDIT 300
+.MODULE CBLIO                           ;SELECT 'CBLIO'
+.ASSOCIATED 271                         ;REQUIRES EDIT 271
+.NAME ILG                               ;PATCH BY ILG
+.DATE 30-DEC-75                         ;ON 30TH DECEMBER
+
+        FL.JEM==FL.RAN!FL.OPN           ;DEFINE NEW FLAG
+
+.INSERT OPNUUO+3,BEFORE,<PUSHJ P, KILLIO> ;1.INSERTION @OPNUUO+3
+                                        ;2.BEFORE INSTRUCTION THERE
+                                        ;3.WHICH IS "PUSHJ P,KILLIO"
+        TRNE    F,FL.JEM                ;CHECK FOR THIS CASE
+        JRST    NOFIL                   ;AND HANDLE IT
+.ENDI                                   ;END OF THE INSERT
+
+.INSERT KILLIO+^D30,AFTER,<POPJ P,>     ;INSERT NEW ROUTINE AFTER KILLIO
+                                        ;1.@KILLIO+30.
+                                        ;2.AFTER INSTRUCTION THERE 
+                                        ;3.WHICH IS A "POPJ P,"
+
+NOFIL:                                  ;NEW ROUTINE IS NOFIL.
+        PUSHJ   P,.TCRLF##              ;START NEW LINE
+        MOVEI   T1,[ASCIZ "?NO FILE FOUND"] ;SET FOR MSG.
+        PUSHJ   P,.TSTRG##              ;OUTPUT STRING
+        JUMPN   C,[MOVE T1,0(C)         ;IF HAVE PTR TO FILENAME
+                   PUSHJ P,.TSIXN##     ;TYPE IT OUT
+                   JRST .+1]            ;AND RETURN
+        PUSHJ   P,.TCRLF##              ;NEXT LINE
+        POPJ    P,                      ;END OF ROUTINE
+.ENDI                                   ;END OF INSERT
+.ENDE                                   ;END OF EDIT
+
+
+REMARK THIS NEXT EDIT DELETES CODE AND REPLACES CODE
+
+.EDIT 301                               ;EDIT 301
+.MODULE CBLIO                           ;SELECT MODULE FOR EDIT
+.NAME ILG                               ;PATCH BY ILG
+.DATE 31-DEC-75                         ;DATE OF PATCH
+
+.ASSOCIATED -265,300                    ;EDIT 265 CAN'T BE PRESENT
+                                        ;AND EDIT 300 MUST BE
+
+                                                                Page 12
+
+
+REMARK FIRST REPLACE SOME CODE
+
+.INSERT RANIO+1,REPLACE,<TRNE F,FL.OPN> ;1.REPLACE STARTS W/INST @
+                                        ;RANIO+1
+                                        ;2.NEW INST. REPLACES OLD
+                                        ;3.INSTR. TO MATCH IS
+                                        ;"TRNE F,FL.OPN"
+        TRNE    F,FL.JEM                ;REPLACING INSTRUCTION
+.ENDI                                   ;END OF INSERT
+
+REMARK NOW REPLACE 2 INSTRUCTIONS WITH 4 NEW ONES
+
+.INSERT RAND-3,REPLACE:2,<MOVEI T1,"A"> ;1.INSERT @ RAND-3
+                                        ;2.REPLACE 2 INSTRUCTIONS
+                                        ;3.FIRST IS "MOVEI T1,"A" "
+        MOVEI   T1,0(V)                 ;PICK UP STATUS
+        JUMPE   T1,.POPJ##              ;IF 0 , RETURN
+        CAIN    T1,"A"                  ;IS IT ASCII "A"?
+        MOVEI   T1,-" "(T1)             ;YES,CONVERT TO SIXBIT
+.ENDI
+
+REMARK THIS LAST PART OF EDIT 301 SHOWS HOW TO DELETE CODE
+
+.MODULE  UFLOAT                         ;THIS PART OF EDIT
+                                        ;301 IS IN MODULE UFLOAT
+.ASSOCIATE -265                         ;MAKE SURE 265 NOT PRESENT
+                                        ;HERE EITHER.
+.INSERT FLT.1+3,REPLACE:^D10,<MOVEM C,CURFLT>   ;1.INSERT @FLT.1+3 WORDS
+                                        ;2.REPLACE 10. INSTRUCTIONS
+                                        ;3.THE FIRST OF WHICH IS
+                                        ;"MOVEM C,CURFLT".
+.ENDI                                   ;REPLACE THE 10. INSTRS WITH
+                                        ;NOTHING. I.E. DELETE THEM.
+.ENDE                                   ;END OF EDIT 301
+
+                                                                Page 13
+
+
+                              APPENDIX 2
+
+
+           Format of Trace Data Block  (Link item type 1060)           ______ __ _____ ____ _____
+
+
+
+The link item type, "TRACE BLOCK DATA" is used to include  in  the  rel
+file  information  that can be used to both verify and change the patch
+status of a program.  The format of the trace block follows:
+
+The first part of the TRACE  block  is  the  static  area.   This  area
+appears  in  each  module that is affected by the particular edit.  The
+static areas give information common to all modules affected by an edit
+and the variable area gives the changing data on the particular edit as
+it goes from module to module.
+
+        !=====================================!
+TB$HED  ! LINK ITEM NUMBER ! LENGTH OF BLOCK  !
+        !-------------------------------------!
+TB$EDT  !   SIXBIT EDIT NAME (UP TO 6 CHRS)   !
+        !-------------------------------------!
+TB$STA  !   -1 IF ACTIVE   !WHO LAST AFFECTED !
+        !-------------------------------------!
+TB$MAK  !   WHO CREATED    !  DATE (15 BIT)   !
+        !-------------------------------------!
+TB$INS  !  WHO INSTALLED   !  DATE (15 BIT)   !
+        !-------------------------------------!
+TB$FUT  !       RESERVED FOR FUTURE USE       !
+        !-------------------------------------!
+TB$LEN  ! # OF ASS. EDITS  !  # OF PCO GROUPS !
+        !=====================================!
+
+        The static area, which is repeated in each module, is  followed
+by a variable area.  The variable area consists of two parts, the first
+giving data on the associated edit status for this module and the  next
+giving the actual program change orders (pco's).  The length of each of
+these areas appears in the static area of the trace block.
+
+For each associated edit, the following group appears:
+
+        !=====================================!
+TB$AEN  !      SIXBIT EDIT NAME OF A.E.       !
+        !-------------------------------------!
+TB$AES  !X!        RESERVED FOR FUTURE        ! 0B0 IF CAN'T BE PRESENT
+        !=====================================! 1B0 IF MUST BE PRESENT
+
+        After the associated edit groups appear, if there are any,  the
+pco  groups for that module appear.  There are currently three types of
+program change groups:  INSERT,REMOVE AND REINSERT.  They can appear in
+any order and the total number is of course variable.
+
+
+        INSERT program change order:
+        !=====================================!
+                                                                Page 14
+
+
+TB$PCO  !PCO TYPE CODE (1) ! LENGTH OF GROUP  !
+        !-------------------------------------!
+TB$DAT  !  0  !INSTS INSRTD! ADDR. OF INSERT  ! BITS 10-17
+        !-------------------------------------! ARE # OF INSTS
+TB$PAT  !  NEW ADDR OF ORG !  ADDR OF PAT CODE!
+        !=====================================!
+
+        REMOVE EDIT program change order:
+        !=====================================!
+TB$PCO  !PCO TYPE CODE (2) ! LENGTH OF GROUP  !
+        !-------------------------------------!
+TB$REN  !          SIXBIT EDIT NAME           !
+        !=====================================!
+
+        REINSERT EDIT program change order:
+        !=====================================!
+TB$PCO  !PCO TYPE CODE (3) ! LENGTH OF GROUP  !
+        !-------------------------------------!
+TB$RIN  !          SIXBIT EDIT NAME           !
+        !=====================================!
+                                                                Page 15
+
+
+                              APPENDIX 3
+
+
+                       Format of Code Insertion                       ______ __ ____ _________
+
+
+
+                      Insertion BEFORE a Location
+
+
+        .INSERT LOCATION, BEFORE, <ORIGINAL INSTRUCTION>
+
+                              Generates:
+
+
+
+LOCATION:       JUMPA   %PATCH
+
+
+        !-------------------------------------!
+%PATCH: !       FIRST PATCH INSTRUCTION       !
+        !-------------------------------------!
+        !      SECOND PATCH INSTRUCTION       !
+        !-------------------------------------!
+        /                                     /
+        /                                     /
+        /                                     /
+        !-------------------------------------!
+        !       LAST PATCH INSTRUCTION        !
+        !-------------------------------------!
+        !        ORIGINAL INSTRUCTION         !
+        !-------------------------------------!
+        !         JUMPA 1, LOCATION+1         !
+        !-------------------------------------!
+        !         JUMPA 2, LOCATION+2         !
+        !-------------------------------------!
+        !           ANY "LITERALS"            !
+        !-------------------------------------!
+
+
+
+                                 NOTE
+
+               The actual label created at the  location
+               of  the  patched  in code is of the form:
+               "%"<EDIT-NAME><EDIT-PART>
+
+               where the EDIT-PART is from "A"  to  "Z",
+               incremented for each .INSERT in the edit.
+
+
+                                                                Page 16
+
+
+                      Insertion AFTER a Location
+
+
+        .INSERT LOCATION, AFTER, <ORIGINAL INSTRUCTION>
+
+                              Generates:
+
+
+
+LOCATION:       JUMPA   %PATCH
+
+
+        !-------------------------------------!
+%PATCH: !        ORIGINAL INSTRUCTION         !
+        !-------------------------------------!
+        !       FIRST PATCH INSTRUCTION       !
+        !-------------------------------------!
+        !      SECOND PATCH INSTRUCTION       !
+        !-------------------------------------!
+        /                                     /
+        /                                     /
+        /                                     /
+        !-------------------------------------!
+        !       LAST PATCH INSTRUCTION        !
+        !-------------------------------------!
+        !         JUMPA 1, LOCATION+1         !
+        !-------------------------------------!
+        !         JUMPA 2, LOCATION+2         !
+        !-------------------------------------!
+        !           ANY "LITERALS"            !
+        !-------------------------------------!
+                                                                Page 17
+
+
+               Insertion with REPLACEment at a Location
+
+
+        .INSERT LOCATION, REPLACE, <ORIGINAL INSTRUCTION>
+
+                              Generates:
+
+
+
+LOCATION:       JUMPA   %PATCH
+
+
+        !-------------------------------------!
+        !        ORIGINAL INSTRUCTION         !
+        !-------------------------------------!
+%PATCH: !       FIRST PATCH INSTRUCTION       !
+        !-------------------------------------!
+        !      SECOND PATCH INSTRUCTION       !
+        !-------------------------------------!
+        /                                     /
+        /                                     /
+        /                                     /
+        !-------------------------------------!
+        !    nTH (LAST) PATCH INSTRUCTION     !
+        !-------------------------------------!
+        !         JUMPA 1, LOCATION+n         !
+        !-------------------------------------!
+        !        JUMPA 2, LOCATION+n+1        !
+        !-------------------------------------!
+        !           ANY "LITERALS"            !
+        !-------------------------------------!
+
+
+
+                                 NOTE
+
+               If no instructions  are  inserted  (n=0),
+               then   return   is   to   LOCATION+1  and
+               LOCATION+2.
+
+
+                                                                Page 18
+
+
+        Insertion with REPLACEment  Instructions at a Location
+
+
+        .INSERT LOCATION, REPLACE:m, <ORIGINAL INSTRUCTION>
+
+                              Generates:
+
+
+
+LOCATION:       JUMPA   %PATCH
+
+
+        !-------------------------------------!
+        !        ORIGINAL INSTRUCTION         !
+        !-------------------------------------!
+%PATCH: !       FIRST PATCH INSTRUCTION       !
+        !-------------------------------------!
+        !      SECOND PATCH INSTRUCTION       !
+        !-------------------------------------!
+        /                                     /
+        /                                     /
+        /                                     /
+        !-------------------------------------!
+        !      LAST INSTRUCTION OF PATCH      !
+        !-------------------------------------!
+        !         JUMPA 1, LOCATION+m         !
+        !-------------------------------------!
+        !        JUMPA 2, LOCATION+m+1        !
+        !-------------------------------------!
+        !           ANY "LITERALS"            !
+        !-------------------------------------!
+
+
+
+                                 NOTE
+
+               If m is not specified  or  is  zero,  the
+               effect is the same as the REPLACE keyword
+               without an argument, I.E.   one  word  is
+               skipped  over  on  return  for  every one
+               inserted.
+
+
+ 

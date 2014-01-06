@@ -1,0 +1,1671 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+              DECsystem-10 RPGII Internal Documentation
+
+
+
+                          Date: 8 March 1977
+                             Revision: 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Copyright (C) 1976, 1977
+Cerritos Community College District and Robert Currier
+
+
+This software is furnished under license for  use  only  on  a  single
+computer system and may be copied only with the inclusion of the above
+copyright notice.  This software, or any other copies thereof, may not
+be provided or otherwise made available to any other person except for
+use on such system and to one  who  agrees  to  these  license  terms.
+Title  to and ownership of the software shall at all times remain with
+Cerritos Community College District and Robert Currier.
+
+The information in this software is subject to change  without  notice
+and  should  not  be  construed  as  a  commitment  by either Cerritos
+Community College District or Robert Currier.
+RPGII Internal Documentation                                    Page 2
+
+
+                          Table of Contents
+
+
+INTRODUCTION
+
+CHAPTER         1       COMPILER OVERVIEW
+
+                1.1     COMPONENTS OF RPG II .................... 1-1
+
+CHAPTER         2       COMPILER FILE STRUCTURE
+
+                2.1     CONTENTS OF SRC ......................... 2-2
+                2.2     CONTENTS OF LST ......................... 2-2
+                2.3     CONTENTS OF BIN ......................... 2-2
+                2.4     CONTENTS OF ERA ......................... 2-2
+                2.5     CONTENTS OF GEN ......................... 2-3
+                2.5.1      Operators ............................ 2-3
+                2.5.2      Operands, Other than Literal ......... 2-3
+                2.5.3      Operands, Literal .................... 2-3
+                2.6     CONTENTS OF CPY ......................... 2-3
+                2.7     CONTENTS OF CAL ......................... 2-4
+                2.8     CONTENTS OF AS1, AS2, AS3 ............... 2-4
+                2.8.1      Addresses ............................ 2-4
+                2.8.2      Address Increments ................... 2-4
+                2.8.3      Instructions ......................... 2-5
+                2.8.4      Byte Pointers ........................ 2-5
+                2.8.5      XWD .................................. 2-6
+                2.8.6      Constants ............................ 2-6
+                2.8.7      Miscellaneous ........................ 2-6
+                2.8.8      Instruction Codes .................... 2-7
+
+CHAPTER         3       COMPILER INTERNAL TABLE STRUCTURE
+
+                3.1     FILTAB - THE FILE TABLE ................. 3-1
+                3.2     DATAB - THE DATA ITEM TABLE ............. 3-3
+                3.3     IDTTAB - THE INDICATOR CHAIN TABLE ...... 3-6
+                3.4     PROTAB - THE TAG TABLE .................. 3-7
+                3.5     LITAB - THE LITERAL TABLE ............... 3-7
+                3.6     VALTAB - THE VALUE TABLE ................ 3-8
+                3.7     NAMTAB - THE NAME TABLE ................. 3-8
+                3.8     EXTAB - THE EXTERNAL NAME TABLE ......... 3-8
+
+CHAPTER         4       RUNTIME SYSTEM OVERVIEW
+
+                4.1     COMPONENTS OF RPGLIB .................... 4-1
+                4.2     INPUT/OUTPUT IN RPGLIB .................. 4-2
+                4.2.1      RPGIO ................................ 4-2
+                4.2.2      CBLIO ................................ 4-2
+
+CHAPTER         5       RUNTIME SYSTEM INTERNAL TABLE STRUCTURE
+
+                5.1     CHNTAB - THE CHANNEL TABLE .............. 5-1
+                5.2     OTFTAB - THE OBJECT TIME FILE TABLE ..... 5-2
+                5.3     FTBTAB - THE CBLIO FILE TABLE ........... 5-3
+                5.4     ICHTAB - THE INPUT CHAIN TABLE .......... 5-6
+RPGII Internal Documentation                                    Page 3
+
+
+                5.5     OCHTAB - THE OUTPUT CHAIN TABLE ......... 5-8
+                5.6     ARRTAB - THE ARRAY TABLE ................ 5-9
+
+APPENDIX        A       REFERENCE TABLES
+
+                A.1     INDICATOR VALUES ........................ A-1
+RPGII Internal Documentation                                    Page 4
+
+
+
+
+
+
+
+
+
+
+
+                             Introduction
+
+
+
+This manual is intended to assist the programmer that must maintain or
+modify  the  DECsystem-10  RPGII system.  While all attempts have been
+made to assure the accuracy of this manual,  the  final  authority  is
+always the program listings themselves.  This manual is designed to be
+used in conjunction with a  set  of  listings,  rather  than  just  by
+itself.  In appropriate parts, references have been made to particular
+program modules that contain further  documentation  of  a  particular
+feature.
+
+Programmers that are familiar with the DECsystem-10 COBOL system  will
+notice  many  similarities  in RPGII.  This is both good and bad.  The
+programmer that has been deep into COBOL and found his way out, should
+not  get  lost in the RPGII system.  However, such a programmer, being
+overly smug about having a vague understanding of how COBOL works, may
+get  overconfident and not notice some of the subtle changes that have
+been made.  Contrary to appearences, these changes have not been  made
+just  to trap unwary programmers, but were made for what, at the time,
+seemed to be good reasons.
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 1
+
+                          COMPILER OVERVIEW
+
+
+
+The RPG II compiler consists of seven major phases:
+
+        RPGIIA          Initialization
+        RPGIIB          Header,  File,  Extension  and  Line   counter
+                        specification scanner
+        RPGIIC          Input and Output specification scanner
+        RPGIID          Calculation specification scanner
+        RPGIIE          Table builder and code generator
+        RPGIIF          Listing
+        RPGIIG          Final assembly
+
+In addition there is a phase which dumps core and the contents of  the
+scratch  files  whenever  a catastrophic error occurs in the compiler.
+This phase in RPGIIK.
+
+If a multi-segment compiler (ONESEG=0) is generated, the  seven  major
+phases and RPGIIK are grouped into six high segments:
+
+        RPGII.SHR       RPGIIA, RPGIIB
+        RPGIIC.SHR      RPGIIC
+        RPGIID.SHR      RPGIID
+        RPGIIE.SHR      RPGIIE
+        RPGIIF.SHR      RPGIIF, RPGIIG
+        RPGIIK.SHR      RPGIIK
+
+If a single segment compiler (ONESEG=1) is generated, all eight phases
+are stored in RPGII.SHR.
+
+
+
+1.1  COMPONENTS OF RPG II
+
+Each  phase  of  the  compiler  also  contains   an   impure   segment
+(IMPURE.MAC)  and one or more of the following routines.  All of these
+routines are collected into the library LIBA.REX.  The  extenstion  of
+"REX" is for historical reasons.
+
+        CLEANT          Clean up tables to gain more free core
+        DIAGS           Define diagnostics tables
+        GENCOM          Common routines used by Phase E
+COMPILER OVERVIEW                                             Page 1-2
+
+
+        GETASY          Read from AS1FIL, AS2FIL, AS3FIL
+        GETCPY          Read from CPYFIL
+        GETERA          Read from ERAFIL
+        GETGEN          Read from GENFIL
+        GETSRC          Read from the source  file  and  perform  some
+                        editing
+        IMPURE          Define the impure storage area
+        INTERM          Universal file to define default switches
+        LOOKUP          Generate code for the LOOKUP operation
+        PREDIT          Pre-edit the edit words
+        PURAB           Pure constants for Phases A & B
+        PUREC           Pure  constants  for  Phase  C  (multi-segment
+                        compilers only)
+        PURED           Pure  constants  for  Phase  D  (multi-segment
+                        compilers only)
+        PUREE           Pure  constants  for  Phase  E  (multi-segment
+                        compilers only)
+        PURFG           Pure constants for phases F & G
+        PUTAS1          Write AS1FIL
+        PUTAS2          Write AS2FIL
+        PUTAS3          Write AS3FIL
+        PUTBIN          Write BINFIL
+        PUTERA          Write ERAFIL
+        PUTGEN          Write GENFIL
+        PUTLST          Write LSTFIL
+        RPGASM          Universal file to define option switches
+        RPGCOM          Common routines used by all phases
+        RPGERR          Define error messages
+        RPGIIA          Initialization and command scanner
+        RPGIIB          H, F, E, and L specification scanner
+        RPGIIC          I and O specification scanner
+        RPGIID          C specification scanner
+        RPGIIE          Code and table generation phase
+        RPGIIF          Listing generator
+        RPGIIG          Assembly phase
+        RPGIIK          Error dump phase
+        RPGIIP          Parameter definition fil
+        RPGUNV          Universal file used by many routines
+        SRTTAB          Sort tables (primarily ERAFIL)
+        STINFL          Set up input file
+        TRYNAM          Interface to NAMTAB
+        XPAND           Expand a table
+        XPNPPL          Handle error traps
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 2
+
+                       COMPILER FILE STRUCTURE
+
+
+
+The RPG II compiler uses three files specified  by  the  user.   These
+files  can  be on any device which supports the type of data contained
+in the file.  The three files are:
+
+     1.  SRC - The RPG II source program.
+
+     2.  LST - The listing.
+
+     3.  BIN - The relocatable binary produced by the compiler.
+
+
+The compiler also uses several data files for temporary storage.   All
+of  these files are stored on disk, and are deleted at the end of each
+compilation.  All files have the user's job number as the first  three
+characters  of  the  filename,  and  the  extension ".TMP".  The three
+characters that are appended  to  the  job  number  to  form  the  six
+character  filename  are  given below with a brief description of each
+file:
+
+     1.  ERA - Diagnostics to be output with the listing file.
+
+     2.  GEN - Output of the syntax parsing phase.
+
+     3.  CPY - A copy of the source with line numbers assigned.
+
+     4.  CAL - A copy of the calculation specifications used to  delay
+         calculation spec processing until after output processing.
+
+     5.  AS1 - Intermediate language containing  assembly  information
+         for the data storage and table definition areas of the object
+         program.
+
+     6.  AS2 - Intermediate language containing  assembly  information
+         for the detail calculation area of the object program.
+
+     7.  AS3 - Intermediate language containing  assembly  information
+         for  the  total  calculation  and literal areas of the object
+         program.
+
+
+COMPILER FILE STRUCTURE                                       Page 2-2
+
+
+2.1  CONTENTS OF SRC
+
+SRC is the ASCII file containing the program to be  compiled.   It  is
+primarily  manipulated  by  the  routines  contained  in  the "GETSRC"
+module.
+
+
+
+2.2  CONTENTS OF LST
+
+The listing file is broken down into two subsections:  A copy  of  the
+source  with line numbers assigned and error messages imbedded;  and a
+listing of the generated object output if the user  has  requested  it
+via the /A switch.
+
+
+
+2.3  CONTENTS OF BIN
+
+This file contains  the  relocatable  binary  data  generated  by  the
+compiler.   This relocatable binary code is designed to be loaded with
+LINK-10.  A description of it's contents can be found in  the  LINK-10
+Programmer's Reference Manual (DEC-10-ULKMA-B-D).
+
+
+
+2.4  CONTENTS OF ERA
+
+The diagnostic file contains  a  one-word  entry  for  each  error  or
+warning detected by the compiler.  The file is written by Phases B, C,
+D, and E, and read by Phase F.  The entries are defined as follows:
+
+        Bit 0           Always zero to aid sorting of the file.
+        Bit 1           A zero if this diagnostic is to be imbedded in
+                        the source listing, a one if the diagnostic is
+                        to be listed seperately.
+        Bits 2-14       The line number of the line in error.  This is
+                        used  to  determine  where  in the listing the
+                        error message should go.
+        Bit 21          A zero if this is a warning, a one if this  is
+                        a fatal error.
+        Bits 22-25      The  compiler  phase   which   generated   the
+                        diagnostic.  (1=Phase A,...,5=Phase E).
+        Bits 26-35      A number identifying the error  message.   The
+                        messages    are    defined   in   the   module
+                        "RPGERR.MAC".
+
+COMPILER FILE STRUCTURE                                       Page 2-3
+
+
+2.5  CONTENTS OF GEN
+
+The generator input file consists of operators and operands put out by
+the  parsing phases B, C and D.  Each operator entry is two words, all
+others are one word.
+
+
+
+2.5.1  Operators
+
+      Word 1:
+
+OP.OPR  Bit 0           A zero to identify this as an operator
+OP.OP   Bits 1-8        A code for identifying the operator
+        Bits 9-15       Misc flags required for code generation
+OP.LN   Bits 16-28      Source line number to use if error found
+
+      Word 2:
+
+OP.IND  Bits 0-17       Link to conditioning indicator chain
+OP.RES  Bits 18-35      Resulting indicator chain link
+
+
+
+2.5.2  Operands, Other Than Literals
+
+      Word 1:
+
+OP.OPR  Bit 0           A one to identify this as an operand
+OP.LIT  Bit 1           A zero  to  identify  this  as  other  than  a
+                        literal
+OP.AC   Bit 2           Operand is TEMP of AC's
+OP.LNK  Bits 18-35      Table link to operand
+
+
+
+2.5.3  Operands, Literal
+
+      Word 1:
+
+OP.OPR  Bit 0           A one to identify this as an operand
+OP.LIT  Bit 1           A one to identify this as a literal
+OP.NUM  Bit 2           A one to identify this as a numeric literal, a
+                        zero to identify this as non-numeric
+OP.FIG  Bit 3           A one if a figurative constant
+OP.LNK  Bits 18-35      Table link to literal (if OP.FIG = 0)
+
+
+
+2.6  CONTENTS OF CPY
+
+This file contains a  copy  of  the  source  file  with  line  numbers
+assigned  and  some  editing done.  There is a one word entry for each
+line which contains:
+COMPILER FILE STRUCTURE                                       Page 2-4
+
+
+        Bits 0-6        The  printer   control   character   for   the
+                        preceding line (form-feed or line-feed)
+        Bit 7           Always zero
+        Bits 8-20       The assigned line number for this line
+        Bits 21-24      The first two characters of the source line
+        Bit 35          Always one to identify this as a header word
+
+The remaining words for each line contain the ASCII characters  copied
+from the source file.
+
+
+
+2.7  CONTENTS OF CAL
+
+This file contains a copy of  the  calculation  specifications  copied
+from  the  source  file.  This copy is used to delay processing of the
+calculation statements until after the  output  statements  have  been
+processed.   The  file  is just an ASCII copy from the source, with no
+editing done.
+
+
+
+2.8  CONTENTS OF AS1, AS2, AS3
+
+The output of Phase E is a set of files containing directions for  the
+assembly  phase.   Each  entry  in  the file consists of a header word
+followed by one or more words of more definitive data.
+
+
+
+2.8.1  Addresses
+
+The header data words may contain an address.  That address has a type
+code  in its first three bits, followed by an address relative to some
+table.  The type codes are:
+
+AS.CNS          0       The remainder of the address is a constant
+AS.ICH          1       The address is relative to the start of ICHTAB
+AS.PRO          2       The address is relative to PROTAB
+AS.EXT          3       The address is relative to EXTAB
+AS.FTB          4       The address is relative to FTBTAB
+AS.OCH          5       The address is relative to OCHTAB
+AS.CNB          6       The increment (see 2.8.2) is a constant
+AS.MSC          7       Miscellaneous (see 2.8.2)
+
+
+
+2.8.2  Address Increment
+
+Occasionally the address must be  modified  by  some  increment.   The
+increment  has  a  type  code  in  its first three bits, followed by a
+constant amount to increment by.
+COMPILER FILE STRUCTURE                                       Page 2-5
+
+
+The values for the type codes are:
+
+AS.ABS          0       Add constant to the address
+AS.OTB          1       Add constant to OTFBAS
+AS.OCB          2       Add constant to OCHBAS
+AS.LIT          3       Add constant to base of the literal pool
+AS.ICB          4       Add constant to ICHBAS
+AS.DOT          5       Add constant to current location
+AS.TMP          6       Add constant to base of runtime impure area
+AS.DAT          7       Add constant to base of data storage area
+
+
+
+2.8.3  Instruction
+
+      Word 1:
+
+        Bit 0           Always zero to identify this as an instruction
+        Bit 1           If there is an increment word following  this,
+                        this bit is a one
+        Bits 2-8        Operation code (see 2.8.8)
+        Bits 9-12       Accumulator field for the instruction
+        Bit 13          Indirect bit for instruction
+        Bits 14-17      Index field for the instruction
+        Bits 18-35      The address (see 2.8.1)
+
+      Word 2:
+
+        This word exists only if bit 1 of word 1 was a  one.   It  has
+        zero  in  the  left  half, and an increment (see 2.8.2) in the
+        right half.
+
+
+
+2.8.4  Byte Pointer
+
+      Word 1:
+
+        Bits 0-2        Always 4
+        Bits 3-17       Not used
+        Bits 18-35      Address (see 2.8.1)
+
+      Word 2:
+
+        Bits 0-17       The  left  half  of  the  byte   pointer,   as
+                        generated by the MACRO-10 psuedo-op.
+        Bits 18-35      Increment (see 2.8.2)
+COMPILER FILE STRUCTURE                                       Page 2-6
+
+
+2.8.5  XWD
+
+      Word 1:
+
+        Bits 0-2        Always 5
+        Bits 3-17       Not used
+        Bits 18-35      Number of following two word entries
+
+The header word is followed  by  one  or  more  two  word  entries  as
+follows:
+
+      First Word:
+
+        Bits 0-17       Address increment for left half of the XWD
+        Bits 18-35      Address for the left half of the XWD
+
+      Second Word:
+
+        Bits 0-17       Address increment for right half of the XWD
+        Bits 18-35      Address for the right half of the XWD
+
+
+
+2.8.6  Constant
+
+      Word 1:
+
+        Bits 0-2        Always 6
+        Bit 3           ASCII constant
+        Bit 4           SIXBIT constant
+        Bit 5           One-word decimal constant
+        Bit 6           Two-word decimal constant
+        Bit 7           Floating point constant
+        Bit 8           Octal constant
+        Bits 9-12       Not used
+        Bits 13-17      Number of characters  in  the  floating  point
+                        mantissa
+        Bits 18-35      Number of words containing the constant
+
+Following the header word is the value constant, in as many  words  as
+is  necessary.   Floating  point  constants are two words apiece:  the
+first word is the tens exponent in binary;  the  second  word  is  the
+mantissa, four bits per digit.
+
+
+
+2.8.7  Micellaneous
+
+      Word 1:
+
+        Bits 0-2        Always 7
+        Bit 3           Paragraph  or  section   name   (for   listing
+                        pruposes)
+        Bit 4           Special tag (for listing purposes)
+        Bit 5           RELOC psuedo-op
+COMPILER FILE STRUCTURE                                       Page 2-7
+
+
+        Bits 6-16       Not used
+        Bit 17          Increment word follows
+
+      Word 2:   Present only if bit 17 of word 1 is a 1
+
+        Bits 0-17       Not used
+        Bits 18-35      Address increment (see 2.8.2)
+
+
+
+2.8.8  Instruction Codes
+
+A complete list of the instruction codes and  their  compiler  symbols
+can be found in the module "GENCOM.MAC".
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 3
+
+                  COMPILER INTERNAL TABLE STRUCTURE
+
+
+
+The RPGII compiler makes use of a great many  internal  tables  during
+the compilation process.  This chapter is intended to be a description
+of those tables.  A complete, and up to date, listing  of  the  tables
+and their entries may be found in the module PURE.MAC.
+
+
+
+3.1  FILTAB - THE FILE TABLE
+
+FILTAB consist of one 8 word entry for each file used  by  the  object
+program.  These entries are arranged as follows:
+
+      Word 1:
+
+        Bits 0-2        Always 0 to identify table.
+FI.NAM  Bits 3-17       Relative pointer  to  NAMTAB  entry  for  this
+                        file.
+FI.TYP  Bits 18-20      File Type as follows:
+                000 = Input
+                001 = Output
+                010 = Update
+                011 = Combined
+                100 = Display
+FI.DES  Bits 21-23      File Designation:
+                000 = Primary
+                001 = Secondary
+                010 = Chained
+                011 = Record Address
+                100 = Table or Array
+                101 = Demand
+                110 = Blank (Output or Display)
+FI.PRO  Bits 24-26      Processing Mode:
+                000 = Consecutive
+                001 = By ADDRout
+                010 = Sequential by key
+                011 = Sequential within limits (not supported)
+                100 = Random by relative record
+                101 = Random by Record Key
+FI.ORG  Bits 27-28      File Organization:
+                00 = One I/O area (sequential or direct)
+COMPILER INTERNAL TABLE STRUCTURE                             Page 3-2
+
+
+                10 = Indexed file
+                11 = ADDRout file (if not and FI.DES = 011, is  limits
+                        file)
+FI.RAF  Bits 29-30      Record Address Format
+                00 = Unpacked
+                01 = Binary (not supported)
+                10 = Packed (not supported)
+                11 = None
+FI.DEV  Bits 31-34      Device Name:
+   .FIMF1       0 = MFCU input hopper 1
+   .FIMF2       1 = MFCU input hopper 2
+   .FICDR       2 = READ01 (CDR:)
+   .FILPT       3 = PRINTER (LPT:)
+   .FILP2       4 = PRINTR2 (obsolete)
+   .FITTY       5 = CONSOLE (TTY:)
+   .FIDSK       6 = DISK (DSK:)
+   .FIMTA       7 = TAPEn (MTAn:)
+FI.EOF  Bit 35          Program may end only after  all  records  from
+                        this file have been processed when this bit is
+                        set.
+
+      Word 2:
+
+FI.KYP  Bits 0-11       Relative key position within record
+FI.BKL  Bits 12-23      Block length
+FI.RCL  Bits 24-35      Record length
+
+      Word 3:
+
+FI.SEQ  Bits 0-1        Sequence checking option:
+                00 = No checking
+                01 = Ascending order
+                10 = Descending oreder
+FI.BUF  Bits 2-8        Tape buffer offset
+FI.AST  Bit 9           ASCII File flag
+FI.REW  Bits 10-11      Tape rewind option:
+                00 = Rewind at EOF
+                01 = Unload at EOF
+                10 = Leave tape at EOF
+FI.EXT  Bits 12-17      Number of extents
+FI.ADD  Bits 18-19      File addition option:
+                00 = No additions
+                01 = Ordered additions
+                10 = Unordered additions
+FI.OVI  Bits 20-27      Overflow indicator
+FI.ADF  Bit 28          Record Address link flag
+FI.LPP  Bits 29-35      Lines per Page
+
+      Word 4:
+
+FI.OVL  Bits 0-5        Overflow line
+FI.UNT  Bits 6-9        Unit number for TAPE
+FI.KYL  Bits 12-16      Length of key field
+FI.EXI  Bits 17-24      External Indicator
+COMPILER INTERNAL TABLE STRUCTURE                             Page 3-3
+
+
+      Word 5:
+
+FI.COR  Bits 0-17       Core index size (not implemented)
+FI.ADL  Bits 18-35      Link to ADDRout or Limits file
+
+      Word 6:
+
+FI.DAT  Bits 0-17       Link to primary DATAB item
+FI.LIN  Bits 18-29      Line number of defining file specification
+
+      Word 7:
+
+FI.PHY  Bits 0-35       Physical (SIXBIT) name of file
+
+      Word 8:
+
+FI.OTF  Bits 0-17       Link to corresponding OTFTAB item
+
+
+
+3.2  DATAB - THE DATA ITEM TABLE
+
+DATAB, the data item table, consists of a series of  13  word  entries
+linked  together in such a manner as to represent the input and output
+data structures defined in  the  user's  program.   It  also  contains
+descriptions  of  data items defined in the calculation specifications
+and not used in either the input or output sections.
+
+For each input or output file there is a corresponding FILTAB entry as
+defined  above.   This  entry contains a pointer (FI.DAT) to the first
+DATAB item in the input or output chain.  This first item contains the
+data  defining  the  first  record.   If there are additional input or
+output records they are linked together via the DA.MAJ pointer.   Each
+record  also  contains  a pointer to those data items contained within
+the record.  These data items are  chained  together  via  the  DA.BRO
+link.
+
+Another linkage of importance is the same name (DA.SNM) linkage.   Via
+this  pointer  all  items that have a common name are linked together.
+This link is useful for compiling composite information on a field.
+
+The remainder of the DATAB items are defined as follows:
+
+      Word 1:
+
+        Bits 0-2        Always 01 to identify the table
+DA.NAM  Bits 3-17       NAMTAB link
+DA.MAJ  Bits 18-35      Link to next major (record) item
+
+      Word 2:
+
+DA.BRO  Bits 0-17       Link to next minor (field) item
+DA.IND  Bits 18-35      Link to conditioning indicators
+
+COMPILER INTERNAL TABLE STRUCTURE                             Page 3-4
+
+
+      Word 3:
+
+DA.VAL  Bits 0-17       Link to literal value of field
+DA.COR  Bits 18-35      Pointer to assigned core location
+
+      Word 4:
+
+DA.NPS  Bits 0-1        Number of entries per sequence type:
+                00 = Sequence not checked
+                01 = 1 record/type
+                10 = n records/type
+DA.RTR  Bit 2           Record type is required
+DA.TRA  Bit 3           Trailer item (not supported)
+DA.LHI  Bit 4           Look-ahead item
+DA.STS  Bits 5-7        MFCU stacker select
+DA.FLD  Bits 8-9        Field type:
+                00 = Alphanumeric
+                01 = Packed decimal (not supported)
+                10 = Packed binary (not supported)
+                11 = Unpacked numeric
+DA.SIZ  Bits 10-21      Size of field
+DA.DEC  Bits 22-25      Number of decimal positions
+DA.PRI  Bit 26          Print and punch MFCU (not supported)
+DA.PRO  Bit 27          Punch only MFCU (not supported)
+DA.STR  Bit 28          Sterling sign (not supported)
+                0 = not used
+                1 = postion stored in DA.STP
+DA.RES  Bits 29-34      Byte residue for core pointer (DA.COR)
+DA.IMD  Bit 35          Array index is immediate
+
+      Word 5:
+
+DA.RII  Bits 0-7        Record identifying indicator
+DA.CLI  Bits 8-15       Control level indicator
+DA.FPL  Bits 16-23      Positive field indicator
+DA.STP  Bits 24-35      Sterling position (not supported)
+
+      Word 6:
+
+DA.ORT  Bits 0-1        Output record type:
+                00 = Heading
+                01 = Detail
+                10 = Total
+                11 = Exception
+DA.ARC  Bit 2           Add record
+DA.FOV  Bit 3           Fetch overflow
+DA.SPA  Bits 4-5        Space after count
+DA.SKA  Bits 6-12       Skip after line number
+DA.EDT  Bits 13-16      Edit Code:
+                1 = "1"         11 = "J"
+                2 = "2"         12 = "K"
+                3 = "3"         13 = "L"
+                4 = "4"         14 = "M"
+                5 = "A"         15 = "X"
+                6 = "B"         16 = "Y"
+COMPILER INTERNAL TABLE STRUCTURE                             Page 3-5
+
+
+                7 = "C"         17 = "Z"
+               10 = "D"
+DA.BLA  Bit 17          Blank field after printing
+DA.SPB  Bits 18-19      Space before count
+DA.END  Bits 20-31      Field end position in output record
+DA.LDC  Bit 32          Table/array loads at compile time
+DA.LDR  Bit 33          Table/array loads at pre-execution time
+DA.LDE  Bit 34          Table/array loads at execution time
+DA.DMP  Bit 35          Table/array dumps at end of job
+
+      Word 7:
+
+DA.OCC  Bits 0-14       Number of occurs (Max index) of table/array
+DA.ALT  Bit 15          Alternate table
+DA.INF  Bit 16          Input section flag (this item  seen  in  input
+                        section)
+DA.RND  Bit 17          Round (Half-adjust) the result
+DA.ALL  Bits 18-35      Table link to alternate table
+
+      Word 8:
+
+DA.EPR  Bits 0-9        Number of entries per record
+DA.SEQ  Bits 10-11      Sequence checking:
+                00 = No check
+                01 = Ascending sequence
+                10 = Descending sequence
+DA.ARE  Bit 12          This item an array entry
+DA.ADD  Bit 13          Add record
+DA.FMT  Bits 14-17      Field data format:
+                0 = SIXBIT
+                1 = ASCII
+                2 = EBCDIC
+DA.LDP  Bits 18-35      Table link to file this table/array loads from
+
+      Word 9:
+DA.DPP  Bits 0-17       Table link to file this table/array dumps to
+DA.SNM  Bits 18-35      Table to link to item with same name
+
+      Word 10:
+DA.FRP  Bits 0-11       From relative field location
+DA.TOP  Bits 12-23      To relative field location
+DA.MAT  Bits 24-31      Matching indicator
+DA.TAB  Bit 32          Table flag  (valid  for  OCHTAB  linked  items
+                        only)
+
+      Word 11:
+
+DA.FMN  Bits 0-7        Negative field indicator
+DA.FBZ  Bits 8-15       Blank or zero field indicator
+DA.SKB  Bits 16-22      Skip before line number
+DA.FRR  Bits 23-30      Field record relation indicator
+DA.DUN  Bit 31          This item processed by Phase E
+DA.NDF  Bit 32          This item not fully defined (used?)
+DA.FLS  Bit 33          This item defined in file section
+COMPILER INTERNAL TABLE STRUCTURE                             Page 3-6
+
+
+      Word 12:
+
+DA.ICH  Bits 0-17       Pointer to related ICHTAB item
+DA.ARP  Bits 18-35      Pointer to array this item references
+
+      Word 13:
+
+DA.INP  Bits 0-17       Pointer to index (or index itself if DA.IMD  =
+                        1)
+DA.LIN  Bits 18-30      Line number of defining line (for errors)
+DA.LTF  Bit 31          Literal flag
+DA.RSV  Bits 32-35      Reserved word flag/code (set up by Phase E):
+                1 = UDATE               5 = PAGE
+                2 = UDAY                6 = PAGE1
+                3 = UMON                7 = PAGE2
+                4 = UYEAR
+
+
+
+3.3  IDTTAB - THE INDICATOR TABLE
+
+The indicator table consists of a series  of  1  word  entries  linked
+together form an equivalent of the indicator checks used in the user's
+program.  Rather than actually being linked, consecutive  entries  are
+used until the ID.END flag is seen, indicating the end of the chain.
+
+In addition to using IDTTAB to  link  together  indicator  checks  for
+output  records  and  calculations,  it  is also used to link together
+checks for record identifying indicators in  the  input  specs.   When
+used  for this, only OR lines contain an indicator, which is placed in
+ID.RII rather than in the usual ID.IND.  Placed in ID.IND instead,  is
+the  character  that is to be looked for in column ID.POS of the input
+record.
+
+The assigned sequence number, ID.SEQ,  is  also  only  used  in  input
+chains.   This  number corresponds to the record sequence number given
+on the input specs.
+
+The IDTTAB items are defined as follows:
+
+      Word 1:
+
+ID.OR   Bit 0           0 = Boolean AND relation with previous  entry,
+                        1 = Boolean OR relation.
+ID.NOT  Bit 1           Boolean NOT condition applied to ID.OR
+ID.IND  Bits 2-9        Indicator/character
+ID.POS  Bits 10-21      Character position
+ID.END  Bit 22          This is last entry in this chain
+ID.RII  Bits 23-30      Record identifying indicator (OR line only)
+ID.SEQ  Bits 31-35      Assigned sequence number (first entry only)
+COMPILER INTERNAL TABLE STRUCTURE                             Page 3-7
+
+
+3.4  PROTAB - THE TAG NAME TABLE
+
+The  tag  name  table  consists  of  2  word  entries  used  to  store
+information  about  symbols  used  in  TAG  and BEGSR statements.  The
+entries are defined as follows:
+
+      Word 1:
+
+PR.ID   Bits 0-2        Always 4 to identify the table
+PR.NAM  Bits 3-17       NAMTAB pointer to value of symbol
+PR.LNK  Bits 18-35      Pointer to assigned location of tag
+
+      Word 2:
+
+PR.SEG  Bit 0           Segment containing the tag, as follows:
+                0 = AS2FIL
+                1 = AS3FIL
+PR.BSR  Bit 1           Tag used in a BEGSR flag
+
+
+
+3.5  LITAB - THE LITERAL TABLE
+
+LITAB contains  information  about  literals  generated  by  the  code
+generation phase of RPG II.  This information is dumped into AS3FIL at
+the end of that phase.  Each LITAB entry consists  of  a  header  word
+followed  by  words  containing the literal value.  The header word is
+defined as follows:
+
+In the left half:
+
+1       XWDLIT  An XWD
+2       BYTLIT  A byte pointer
+3       ASCLIT  ASCII text
+4       SIXLIT  SIXBIT text
+5       D1LIT   1-word decimal
+6       D2LIT   2-word decimal
+7       FLTLIT  Floating point
+10      OCTLIT  Octal
+
+In the right half:
+
+        Number or following words containing data.
+
+
+The data words are described in Section 2.8 of this manual.
+COMPILER INTERNAL TABLE STRUCTURE                             Page 3-8
+
+
+3.6  VALTAB - THE VALUE TABLE
+
+VALTAB holds the literals found in the output specifications  as  edit
+words  or output literals.  Each value is placed in one or more words.
+The first word  has  the  number  of  characters  in  bits  0-6;   the
+remainder  of  that  word, and the following words, if any, contain an
+ASCII string.
+
+
+
+3.7  NAMTAB - THE NAME TABLE
+
+NAMTAB contains the names of all files and data  items  found  in  the
+source  program.   This is a table driven by several hash tables.  The
+search technique is described in the module "TRYNAM.MAC".  Each NAMTAB
+entry consists of at least two words, defined as below:
+
+      Word 1:
+
+        Bits 0-35       Undefined (available for flags)
+
+      Word 2:   The  name,  in  SIXBIT,  over  as  many  words  as  is
+                        necessary.   The  name is terminated by a zero
+                        byte.
+
+
+
+3.8  EXTAB - THE EXTERNAL NAME TABLE
+
+EXTAB contains information about external  routines.   This  table  is
+used  only  by the EXIT operation at the present time, but is included
+in  this  form  to  allow  for  the  possibility  of  reentrant   code
+generation.  Each two word entry in defined as follows:
+
+      Word 1:
+
+        Bits 0-2        Always 5 to identify the table
+EX.NAM  Bits 3-17       Pointer to NAMTAB entry for this name
+
+      Word 2:
+
+EX.NRS  Bit 0           Name is used by non-resident segment
+EX.USN  Bit 1           Use flag:
+                0 = OPsys name
+                1 = User name
+EX.PID  Bit 2           This is the program ID
+EX.ENT  Bit 3           This is an entry point
+EX.CAL  Bit 4           Referenced by a CALL
+EX.CNT  Bits 15-17      Count of extra words allocated
+EX.HLD  Bits 18-35      Misc.  uses
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 4
+
+                       RUNTIME SYSTEM OVERVIEW
+
+
+
+4.1  COMPONENTS OF RPGLIB
+
+The RPG II runtime system, RPGLIB, is a collection of library routines
+to  perform  various  functions  needed  by  the  object  program.  In
+addition it contains a interpretive module,  RPGMAN,  which  simulates
+the  RPG II  cycle,  taking  the  burden of the code generators in the
+compiler.  The routines contained in RPGLIB are listed below:
+
+        CBLIO           Low level I/O routines (taken from LIBOL)
+        CHREQV          Generates  a  universal  file  containing  the
+                        character  equivalences  across  the supported
+                        character sets
+        CDD             Convert from one display format to another
+        COMP            Comparison routines
+        COMUNI          Define the impure area
+        DEBUG           Debugging routines
+        DIV11           Divide single precision by single precision
+        DPADD           Do double precision add
+        DPDIV           Do double precision divide
+        DPMUL           Do double precision multiplication
+        DPSUB           Do double precision subtraction
+        DSPLY           Handle the DSPLY operation
+        EASTBL          Define EBCDIC, ASCII, SIXBIT conversion tables
+        EDIT            Handle editing
+        FLGDF           Define flags for LIBOL compatibility
+        FTDEFS          Define file table constants for CBLIO
+        GC              Convert COMP-3 to binary
+        GD              Convert display to binary
+        INTERM          Define default switches
+        MAGNEG          Take magnitude and negative of numbers
+        MOVE            Perform moves
+        MOVSGN          Move sign field
+        NUMEQV          Define character/number equivalences
+        PC              Convert binary to COMP-3
+        PD              Convert binary ti display
+        RPGASM          Define user selected switches
+        RPGIO           Perform high level I/O
+        RPGIMP          Define impure area
+        RPGMAN          Simulate RPG II cycle
+        RPGPUR          Define pure area
+RUNTIME SYSTEM OVERVIEW                                       Page 4-2
+
+
+        RPGPRM          Define miscellaneous parameters
+        RPGSWI          Define switch macros and constants
+        SETRET          Do return and exit setup
+        SPAC            Check for spaces
+        SQRT            Find a square root
+        SUBSCR          Do array/table subscripting
+        UUOHAN          Handle UUO traps
+
+
+
+4.2  INPUT/OUPUT IN RPGLIB
+
+I/O in the runtime system is performed  by  two  modules:   RPGIO  and
+CBLIO.  Each performs a different level of I/O.
+
+
+
+4.2.1  RPGIO
+
+This module contains the high level I/O  routines.   It  contains  the
+routines  that the generated code talks to, and also the routines that
+the RPG II cycle simulator RPGMAN talks to.  It is within this  module
+that all indicator checking and buffer setup is done.
+
+
+
+4.2.2  CBLIO
+
+All actual I/O is done within this module.  This is  the  same  module
+contained  in  COBOL's  runtime system LIBOL.  This module was used to
+maintain complete compatibility with COBOL's  I/O  system,  especially
+the ISAM handlers, without introducing still another piece of software
+that must be supported.
+
+
+
+
+
+
+
+
+
+
+
+
+                              CHAPTER 5
+
+               RUNTIME SYSTEM INTERNAL TABLE STRUCTURE
+
+
+
+The primary tables that the  runtime  system  utilizes  are:   OTFTAB,
+FTBTAB, DEVTAB, ICHTAB, OCHTAB, ARRTAB, and CHNTAB.  All except CHNTAB
+are set up by the compiler and output as part of the  object  program.
+CHNTAB  is allocated and set up by RPGLIB.  IDTTAB is also used by the
+runtime system, but each entry is assigned a unique  location  in  the
+literal pool.  Thus, although the entries are formated that same as in
+the compiler, the  table  itself  is  distributed  throughout  memory,
+rather than grouped in one place as with the other tables.
+
+
+
+5.1  CHNTAB - THE CHANNEL TABLE
+
+CHNTAB consists of one 23 word table for each file.  Its  primary  use
+is  to  allow  quick  access  to  some of the information contained in
+OTFTAB  and  FTBTAB.   When  a  file  is  opened,  it  is  assigned  a
+pseudo-channel number.  This psuedo-channel number is the entry number
+within CHNTAB.  The offsets into CHNTAB are defined as follows:
+
+ 0      CHN     I/O channel assignment
+ 1      BLK     Blocking Factor (obsolete)
+ 2      CUR     Current block in buffer (not always correct)
+ 3      PNT     SIXBIT byte pointer
+ 4      KEY     Relative key for next file access
+ 5      RWF     REWRITE flag
+ 6      BSZ     Buffer size in words
+ 7      BUF     Base of I/O buffer
+10      BCN     Byte count in current buffer (obsolete)
+11      EOF     This file has reached end-of-file
+12-16   UPD     Update key
+17      LIN     Line counter
+20      IPC     Input chain pointer
+21      SEQ     Sequence number
+22      RII     Record identifying indicator
+
+
+Those entries marked as obsolete are defined  for  historical  reasons
+only.
+RUNTIME SYSTEM INTERNAL TABLE STRUCTURE                       Page 5-2
+
+
+5.2  OTFTAB - THE OBJECT TIME FILE TABLE
+
+OTFTAB contains much the same  information  as  FILTAB  but  has  been
+rearranged  and  condensed  to  be  of more use to the runtime system.
+While this table is built at compile time, it is used only at  runtime
+by the runtime system.  Each file used by the object program generates
+one 9 word OTFTAB entry.  
+
+Within this entry are pointers to the input and output chains  related
+to   the   file.    These  pointers  point  into  ICHTAB  and  OCHTAB,
+respectivly.  Also contained  in  this  entry  is  a  pointer  to  the
+corresponding  FTBTAB entry so that the runtime system can gain access
+to CBLIO generated information.
+
+The entries are defined as follows:
+
+      Word 1:
+
+OT.COR  Bits 0-17       Pointer to core index (not supported)
+OT.ADP  Bits 18-35      Pointer to ADDRout file
+
+      Word 2:
+
+OT.BFP  Bits 0-17       Pointer to record buffer
+OT.OPC  Bits 18-35      Pointer to OCHTAB output chain
+
+      Word 3:
+
+OT.IPC  Bits 0-17       Pointer to ICHTAB input chain
+
+      Word 4:
+
+OT.NAM  Bits 0-35       Physical SIXBIT name of file
+
+      Word 5:
+
+OT.TYP  Bits 0-2        File type (as defined in FI.TYP)
+OT.DES  Bits 3-5        File description (as defined in FI.DES)
+OT.PRO  Bits 6-8        Processing mode (as defined in FI.PRO)
+OT.ORG  Bits 9-10       File organization (as defined in FI.ORG)
+OT.RAF  Bits 11-12      Record address format (as defined in FI.RAF)
+OT.DEV  Bits 13-16      File device (as defined in FI.DEV)
+OT.EOF  Bit 17          EOF option (as defined in FI.EOF)
+OT.BLK  Bits 18-35      Blocking factor
+
+      Word 6:
+
+OT.KYP  Bits 0-11       Key position within record
+OT.SEQ  Bits 12-13      Sequence checking (as defined in FI.SEQ)
+OT.BUF  Bits 14-19      Tape buffer offset
+OT.AST  Bits 20         ASCII file option
+OT.REW  Bits 21-22      Tape rewind option (as defined in FI.REW)
+OT.EXT  Bits 23-28      Number of extents
+OT.ADD  Bits 29-30      File addition option (as defined in FI.ADD)
+OT.KYL  Bits 31-35      Length of key field
+RUNTIME SYSTEM INTERNAL TABLE STRUCTURE                       Page 5-3
+
+
+      Word 7:
+
+OT.OVI  Bits 0-7        Overflow indicator
+OT.EXI  Bits 8-15       External conditioning indicator
+OT.OVL  Bits 16-21      Overflow line
+OT.CHN  Bits 32-35      Psuedo-channel number assigned to file
+
+      Word 8:
+
+OT.CRS  Bits 0-17       Core index size (not supported)
+OT.BSZ  Bits 18-35      Buffer size in words
+
+      Word 9:
+
+OT.BSC  Bits 0-17       Buffer size in characters
+OT.LAS  Bit 18          "I am the last OTFTAB entry" flag
+OT.LPP  Bits 19-25      Lines per page
+
+
+
+5.3  FTBTAB - THE CBLIO FILE TABLE
+
+FTBTAB is generated to be compatible with the CBLIO module, which does
+all  of  the  actual  I/O  for  the runtime system.  A bare minimum of
+explanation  is  given  here,  as  little  trouble  should   ever   be
+experienced with this table.  It should be kept in mind that all items
+defined below are used by  RPG II  but  are  defined  only  for  CBLIO
+compatibility.  More complete documentation may be found in CBLIO.MAC.
+
+In addition to the 32 word entry defined below, there  is  also  a  32
+word  DEVTAB  preceding  each  FTBTAB entry.  This DEVTAB area is used
+only by CBLIO, thus the compiler merely outputs zeroes for this  area.
+Documentation  on  the  contents  of  DEVTAB  can  also  be  found  in
+CBLIO.MAC.
+
+      Words 1-5:
+
+FT.FNM                  The filename used within the users program  in
+                        SIXBIT.   This  is  not  the physical filename
+                        that a LOOKUP  is  done  on,  but  rather  the
+                        descriptive  filename given by the user.  Used
+                        for error messages.
+
+      Word 6:
+
+FT.CVR  Bits 0-5        Compiler version number
+FT.BLC  Bit 6           Buffer location is assigned
+FT.SDF  Bit 7           SORT descriptor flag
+FT.NOD  Bits 8-17       Number of devices
+FT.DNM  Bits 18-35      Pointer to first device name
+
+      Word 7:
+
+FT.NFL  Bits 0-4        Number of file limits
+FT.PMT  Bits 5-17       File position on Mag-tape
+RUNTIME SYSTEM INTERNAL TABLE STRUCTURE                       Page 5-4
+
+
+FT.NFT  Bits 18-35      Pointer to next file table
+
+      Word 8:
+
+FT.NAB  Bits 0-4        Number of alternate buffers
+FT.MRS  Bits 5-17       Maximum record size
+FT.RRC  Bits 18-35      Records between RERUN dump
+
+      Word 9:
+
+FT.VLR  Bit 0           Variable length EBCDIC records
+FT.NSL  Bit 2           Non-standard labels
+FT.STL  Bit 3           Standard labels
+FT.IOF  Bit 6           Input/output file
+FT.DDM  Bits 7-9        Device data mode:
+                0 = SIXBIT              3 = EBCDIC
+                1 = Binary              4 = ASCII-8
+                2 = ASCII             5-7 = Unused
+FT.RRE  Bit 10          RERUN dump at end-of-reel
+FT.RCR  Bit 11          RERUN on record count
+FT.OPT  Bit 13          File is optional
+FT.CDM  Bits 14-15      Core data mode:
+                0 = SIXBIT
+                1 = Binary
+                2 = ASCII
+                3 = EBCDIC
+FT.MOD  Bits 16-17      File I/O mode:
+                0 = Sequential
+                1 = Random
+                2 = ISAM
+                3 = Unused
+FT.REC  Bits 18-35      Address of record area
+
+      Word 10:
+
+FT.NLS  Bits 0-17       Non-standard label size
+FT.FSD  Bits 18-35      Link to file that shares same device
+
+      Word 11:
+
+FT.BKF  Bits 6-17       Blocking factor
+FT.ACK  Bits 18-35      Address of actual key table
+
+      Word 12:
+
+FT.VID  Bits 0-35       Byte pointer to value-of-id
+
+      Word 13:
+
+FT.VDW  Bits 0-35       Byte pointer to value-of-date-written
+
+      Word 14:
+
+FT.SBA  Bits 0-17       Link to file that shares the same buffer area
+FT.EUP  Bits 18-35      Address of error-use procedure
+RUNTIME SYSTEM INTERNAL TABLE STRUCTURE                       Page 5-5
+
+
+      Word 15:
+
+FT.BBR  Bits 0-17       Address of before-beginning-reel procedure
+FT.BBF  Bits 18-35      Address of before-beginning-file procedure
+
+      Word 16:
+
+FT.ABR  Bits 0-17       Address of after-beginning-reel procedure
+FT.ABF  Bits 18-35      Address of after-beginning-file procedure
+
+      Word 17:
+
+FT.BER  Bits 0-17       Address of before-ending-reel procedure
+FT.BEF  Bits 18-35      Address of before-ending-file procedure
+
+      Word 18:
+
+FT.AER  Bits 0-17       Address of after-ending-reel procedure
+FT.AEF  Bits 18-35      Address of after-ending-file procedure
+
+      Word 19:
+
+FT.DNS  Bits 0-2        Mag-tape density:
+                0 = System standard
+                1 = 200 BPI
+                2 = 556 BPI
+                3 = 800 BPI
+                4 = 1600 BPI
+FT.PAR  Bit 4           Mag-tape parity:
+                0 = Odd
+                1 = Even
+FT.OUP  Bit 5           Open use-procedure when enter fails
+FT.PPN  Bits 18-35      Pointer to PPN
+
+      Word 20:
+
+FT.BSK  Bits 0-35       Byte pointer to symbolic key
+
+      Word 21:
+
+FT.BRK  Bits 0-35       Byte pointer to record key
+
+      Word 22:
+
+FT.KTY  Bits 15-17      ISAM key type:
+                0 = Non-numeric
+                1 = Numeric display < 11 digits
+                2 = Numeric display > 10 digits
+                3 = COMP < 11 digits
+                4 = COMP > 10 digits
+                5 = COMP-1
+FT.KSG  Bit 20          ISAM key is signed
+FT.KLB  Bits 24-35      ISAM key length in bytes
+
+      Word 23:
+RUNTIME SYSTEM INTERNAL TABLE STRUCTURE                       Page 5-6
+
+
+FT.OWA  Bits 0-8        ISAM owner write  access.   Rightmost  4  bits
+                        correspond  to Read, Rewrite, Write and Delete
+                        privledges.
+FT.OTA  Bits 9-17       ISAM other write access.  Same bit assignments
+                        as FT.OWA.
+FT.RTC  Bits 18-35      ISAM retained record count
+
+      Word 24:
+
+FT.PFS  Bits 0-35       Byte pointer to file-status
+
+      Word 25:
+
+FT.PEN  Bits 0-35       Byte pointer to error-number
+
+      Word 26:
+
+FT.PAC  Bits 0-35       Byte pointer to action-code
+
+       Word 28:
+
+FT.PID  Bits 0-35       Byte pointer to value-of-id
+
+      Word 28:
+
+FT.PBN  Bits 0-35       Byte pointer to block-number
+
+      Word 29:
+
+FT.PRN  Bits 0-35       Byte pointer to record-number
+
+      Word 30:
+
+FT.PFN  Bits 0-35       Byte pointer to file-name
+
+      Word 31:
+
+FT.PFT  Bits 0-35       Byte pointer to file-table
+
+      Word 32:
+
+FT.LHL  Bits 0-35       Pointer to low,,high file limit
+
+
+
+5.4  ICHTAB - THE INPUT CHAIN TABLE
+
+ICHTAB contains entries chained together much as the DATAB items were;
+the  chaining  path  defines  a  data structure representing the users
+input specifications.  Each of the 7 word entries contains 2  pointers
+of  interest;   the  first  is  IC.NXR which points to the next record
+level item in the chain;  the second is IC.NXF  which  points  to  the
+next  field level item in the chain.  In both cases, a pointer of zero
+terminates the chain.
+RUNTIME SYSTEM INTERNAL TABLE STRUCTURE                       Page 5-7
+
+
+The remainder of the entries are defined below:
+
+      Word 1:
+
+IC.DES  Bits 0-35       Byte pointer to assigned core location
+
+      Word 2:
+
+IC.RII  Bits 0-17       Pointer to IDTTAB record identifying indicator
+                        chain
+IC.NXF  Bits 18-35      Pointer to next field level item
+
+      Word 3:
+
+IC.NXR  Bits 0-17       Pointer to next record level item
+IC.ARP  Bits 18-35      Pointer to array this item references
+
+      Word 4:
+
+IC.INP  Bits 0-17       Pointer to array index (or array index  itself
+                        if IC.IMD = 1
+
+      Word 5:
+
+IC.FMN  Bits 0-7        Minus field indicator
+IC.FBZ  Bits 8-15       Blank/zero field indicator
+IC.FPL  Bits 16-23      Plus field indicator
+IC.CLI  Bits 24-31      Control level indicator
+IC.NPS  Bits 32-33      Number per sequence (same as DA.NPS)
+IC.FLD  Bits 34-35      Field type (same as DA.FLD)
+
+      Word 6:
+
+IC.FRR  Bits 0-7        Field record relation indicator
+IC.MAT  Bits 8-15       Matching indicator
+IC.RTR  Bit 16          Record type required
+IC.LHI  Bit 17          Look ahead item
+IC.STS  Bits 18-20      MFCU stacker select
+IC.SIZ  Bits 21-32      Size of field
+IC.SEQ  Bits 33-34      Sequence check option (same as DA.SEQ)
+IC.IMD  Bit 35          Immediate array reference
+
+      Word 7:
+
+IC.SRC  Bits 0-11       Character position in source
+IC.OCC  Bits 12-26      Number of occurs for array item
+IC.FMT  Bits 27-31      Data format (same as DA.FMT)
+RUNTIME SYSTEM INTERNAL TABLE STRUCTURE                       Page 5-8
+
+
+5.5  OCHTAB - THE OUTPUT CHAIN TABLE
+
+OCHTAB is the  direct  counterpart  of  ICHTAB,  but  for  the  output
+specifications.   OCHTAB  is  linked in the same manner as ICHTAB, but
+each 7 word entry contains information pertaining  to  output  records
+and fields.  Each entry is defined as follows:
+
+      Word 1:
+
+OC.IDX  Bits 0-17       Pointer to array index
+OC.NXR  Bits 18-35      Pointer to next record level item in chain
+
+      Word 2:
+
+OC.NXF  Bits 0-17       Pointer to next field level item in chain
+OC.IND  Bits 18-35      Pointer to conditioning IDTTAB chain
+
+      Word 3:
+
+OC.SRC  Bits 0-35       Pointer to data source
+
+      Word 4:
+
+OC.FLD  Bits 0-1        Field type (same as DA.FLD)
+OC.SIZ  Bits 2-13       Size of field
+OC.DEC  Bits 14-17      Number of decimal positions in field
+OC.STP  Bits 18-29      Sterling position (not supported)
+OC.PRI  Bit 30          MFCU print & punch (not supported)
+OC.PRO  Bit 31          MFCU print only (not supported)
+OC.STR  Bit 32          Sterling sign (not supported)
+OC.ORT  Bits 33-34      Output record type (same as DA.ORT)
+OC.ADD  Bit 35          Add a record
+
+      Word 5:
+
+OC.FOV  Bit 0           Forced overflow
+OC.SKB  Bits 1-7        Skip before line number
+OC.SKA  Bits 8-14       Skip after line number
+OC.SPB  Bits 15-16      Space before count
+OC.SPA  Bits 17-18      Space after count
+OC.END  Bits 19-30      Field end position in output record
+OC.STS  Bits 31-34      MFCU stacker select
+OC.IMD  Bit 35          Array index is immediate
+
+      Word 6:
+
+OC.OCC  Bits 0-14       Number of occurs of array/table
+OC.EDT  Bits 15-18      Edit code (same as DA.EDT)
+OC.LTF  Bit 19          Literal only output flag
+OC.LSZ  Bits 20-28      Size of literal
+OC.RSV  Bits 29-32      Reserved word code (same as DA.RSV)
+OC.BLA  Bit 33          Blank this field after printing
+OC.TAB  Bit 34          "This is a table" flag
+
+      Word 7:
+RUNTIME SYSTEM INTERNAL TABLE STRUCTURE                       Page 5-9
+
+
+OC.ARP  Bits 0-17       Pointer to array this item references
+OC.EDP  Bits 18-35      Pointer to edit word/literal
+
+
+
+5.6  ARRTAB - THE ARRAY LOAD/DUMP TABLE
+
+ARRTAB is generated for use by the runtime system whenever a table  or
+array  must  be  loaded  or  dumped by the runtime system.  This table
+consists of a series of 4 word entries each defining a table  that  is
+to loaded or dumped.  The entries are set up as follows:
+
+      Word 1:
+
+AR.PNT  Bits 0-35       Byte pointer to array/table
+
+      Word 2:
+
+AR.SIZ  Bits 0-9        Size of array entry
+AR.OCC  Bits 10-19      Number of occurs of the array/table
+AR.EPR  Bits 20-29      Number of entries per record
+AR.LDM  Bit 30          Dump/Load flag:
+                0 = Load
+                1 = Dump
+ AR.LAs Bit 31          "This is the last entry" flag
+
+      Word 3:
+
+AR.FIL  Bits 0-17       Link to OTFTAB entry for file this loads/dumps
+                        from/to
+AR.ASZ  Bits 18-27      Size of alternating table/array (if any)
+
+      Word 4:
+
+AR.ALT  Bits 0-35       Byte pointer to Alternate table/array (if any)
+
+
+
+
+
+
+
+
+
+
+
+
+                             APPENDIX A
+
+                           REFERENCE TABLES
+
+
+
+A.1  INDICATOR VALUES
+
+In both the compiler  and  the  runtime  system,  all  indicators  are
+referenced by the numbers described below:
+
+Indicator       Octal Value_________       _____ _____
+
+01-99           1-143
+H1-H9           144-154
+L1-L9           155-165
+LR              166
+OA-OG           167-175
+OV              176
+M1-M9           177-207
+MR              210
+L0              211
+1P              212
+U1-U8           213-222

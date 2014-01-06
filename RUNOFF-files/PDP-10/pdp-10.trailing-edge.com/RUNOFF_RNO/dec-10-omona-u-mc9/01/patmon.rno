@@ -1,0 +1,612 @@
+SYSTEM PROGRAMMING PROCEDURES
+.b15
+.title SYSTEM PROGRAMMING PROCEDURES
+.subtitle PATMON
+.ps 67,70
+.center
+^&PATMON\&
+.b2
+.center
+^&PATCHING AND DEBUGGING THE MONITOR WITH DDT\&
+.b10
+The information in this document is subject to change 
+without notice and should not be construed as a 
+commitment by Digital Equipment Corporation. 
+Digital Equipment Corporation assumes no responsibility 
+for any errors that may appear in this manual.
+.b1
+The software described in this document is furnished 
+under a license and may be used or copied 
+in accordance with the terms of such license.
+.b1
+Digital Equipment Corporation assumes no responsibility for 
+the use or reliability of its software 
+on equipment that is not supplied by DIGITAL.
+.b2
+Copyright (C), 1972,1977 by Digital Equipment 
+Corporation, Maynard, Massachusetts.
+.page
+.center
+^&CONTENTS\&
+.literal
+							       Page
+
+
+1.0	INTRODUCTION .........................................  3
+
+2.0	PATCHING COMPONENTS ..................................  3
+	2.1	Patching With FILDDT Under Timesharing .......  3
+	2.2	Patching with EDDT Under Timesharing .........  3
+
+3.0	PATCHING WITH FILDDT UNDER TIMESHARINGA...............  3
+
+4.0	PATCHING WITH EXEC DDT UNDER TIMESHARING .............  4
+
+5.0	PATCHING CONVENTIONS .................................  5
+
+APPENDIX - SOME USEFUL MONITOR PATCHES .......................  10
+.end literal
+.page
+.hl 1 ^&INTRODUCTION\&
+The following instructions describe how to patch a monitor with FILDDT 
+under timesharing or EDDT under timesharing. Refer 
+also to the System Programming Procedure FILDDT and to Appendix B of the DDT-10 Programmer's Reference Manual.
+.hl 1 ^&PATCHING COMPONENTS\&
+.hl 2 Patching with FILDDT under TImesharing
+.list
+.le
+Monitor on disk.
+.le
+A running monitor.
+.end list
+.hl 2 Patching with EDDT under Timesharing
+.list
+.le
+Monitor on disk that was loaded with EDDT 
+(Answer Y to MONGEN dialogue question).
+.le
+A running monitor.
+.end list
+.hl 1 ^&PATCHING WITH FILDDT UNDER TIMESHARING\&
+FILDDT is a modified form of DDT that examines or modifies 
+a file on disk instead of in  memory.
+.list
+.le
+For example, to patch the current monitor to make a modified one, type the following:
+.b1
+.literal
+	.COPY SYSTEM.EXE=SYS:S603A.EXE  ;Give a new
+					;name to the 
+					;patched file.
+
+.end literal
+.literal
+	.R FILDDT
+
+	FILE:	SYSTEM/P
+
+.end literal
+.le
+Make patches as usual, then exit.
+.literal
+
+	^Z	;AT THE END OF PATCHING, TERMINATE
+		; THE OPERATION WITH A ^Z (THIS CAUSES 
+		; FILDDT TO WRITE OUT THE LAST SET OF 
+		; CHANGES AND THEN OUTPUT THE 
+		; UPDATED SYMBOL TABLE).
+
+	EXIT
+
+	.COPY S603A.EXE=SYSTEM.EXE
+
+	.DELETE SYSTEM.EXE
+
+.end literal
+.le
+The file S603AA.EXE is now in your disk area and 
+is ready to be loaded by BOOTS.  If you wish to check 
+the patches, you can type:
+.literal
+
+	.R FILCOM
+
+	*TTY:=S603A.EXE,DSK:S603AA.EXE
+
+.end literal
+.le
+To patch the running monitor, a monitor-specific 
+FILDDT is needed.  Type:
+.literal
+
+	.R FD603A
+
+	FILE:  /M/PA
+
+.END LITERAL
+and make patches as usual.
+.end list
+The /M and /P switches indicate that a monitor is 
+to be patched.  You must have the "POKE" privilege to 
+patch a running monitor.  One 
+restriction is that the current value of the 
+location to change must be the last 
+value typed.
+ This minimizes the chance of error.  When making 
+patches this way, be sure that two related changes are 
+made in the proper order.
+.hl 1 PATCHING WITH EXEC DDT UNDER TIMESHARING
+Patching under timesharing is recommended instead of 
+under 
+stand-alone time,  because the machine can be 
+used by other users when you patch it under normal 
+timesharing.
+(Note that a copy 
+of the monitor is patched, not the one controlling the machine.) Patching under timesharing requires more memory than patching in the 
+stand-alone enviroment.  To load EDDT with the monitor, you must 
+have answered Y to the MONGEN question.  If not, you must 
+reload the monitor.  However, be sure to specify 
+the /LOCALS switch so that local symbols are loaded also. 
+Patching without local symbols is not recommended.
+.list
+.le
+Get a copy of the monitor by typing:
+.b1
+GET SYS:5603A
+.b1
+to the running timesharing system.  When the 
+monitor responds with:
+.b1
+JOB SETUP
+.b1
+Type the following:
+.b1
+ .DDT
+.b1
+which starts EDDT in user mode.
+.le
+After all patches have been made, press CTRL/Z, and type:
+.b1
+SAVE SYS:5603AA
+.b1
+Do not press CTRL/C twice, or your console 
+may return to monitor mode before DDT makes its last 
+modification.
+.end list
+.hl 1 ^&PATCHING CONVENTIONS\&
+The following techniques for monitor patching are part 
+convention and part necessity.  Follow them 
+carefully.  Note that $ in this section indicates where 
+you should press the ALTMODE key (ESCAPE key).
+.list
+.le
+EDDT and FILDDT behave similarly to USER DDT as described in the DDT 
+Programmer Reference Manual.  You should be thoroughly familiar 
+with this document before you attempt to 
+use EDDT.  EDDT is entered by starting the machine 
+at, or transferring to, absolute location 401 in all monitors. 
+This may be accomplished through commands to BOOTS or by means of the 
+console switches.
+.le
+Always patch a freshly loaded copy of the monitor; one that 
+has not yet run through the initialization 
+dialogue beyond the enter TIME: request in the 
+ONCE-Only dialogue.
+.le
+Loaded into each monitor is a block of patching space beginning at 
+global location PATCH.  By convention, the value of this symbol is not 
+changed when patches are made; instead, you are 
+to change another global symbol, PAT, after each patch. 
+Change the value of PAT to point at 
+all times to the next 
+free location in the patching area. 
+.b1
+Initially, PAT is defined to be 
+equal to PATCH + 10 (saving 10 locations for POKE patching) 
+(FILDDT/M/P). Therefore, all patches will be 
+made starting at symbolic location PAT.
+ You should change PAT to point to the next 
+ free location as the last step 
+in making any given patch.  By this means, the next 
+person to patch the monitor will be able to 
+find the patching space.
+.le
+Suggested patches are distributed in a notation 
+consistent with the above mechanism. Everything that you must type to 
+EDDT is included in the suggested 
+patch, including the DDT command that unlocks 
+the proper set of local symbols and the Monitor Change 
+Order (MCO) number associated with the patch.
+.le
+The monitor begins to allocate free core for 
+various internal functions just above the last patch 
+location in use.  For this reason, 
+it is very important, as the last step in any patching session, that you inform the monitor of 
+how much additional patch space was used. 
+Otherwise, this space is allowed and the patched 
+area destroyed.  You should have redefined the symbol PAT 
+as the first free location.  Whenever 
+the monitor starts, it looks up the value of the 
+symbol PAT in the Symbol Table 
+and starts allocation at max (PAT, RH (PATSIZ)).
+.le
+It is considered good practice to change the name 
+of the monitor every time it is patched.  For 
+example, 5603A might become 5603AA when patched for the 
+first time.  The new name should be entered as  7-bit ASCII text 
+in location CONFIG (and the several locations that follow,
+ up to 24 characters).
+.b1
+Note that this is marginally simpler if the header 
+line is arranged for the patch level character to be at the end 
+of a word ($Q+2). This increases the last character by one. 
+If the name is a multiple of 5 characters in length, make sure that 
+the next word contains a zero to delimit 
+the text string.  Similarly, the system date 
+in location SYSDAT and SYSDAT+1 should be 
+updated in 7-bit ASCII text.
+.le
+Never save a monitor that has already been run; since, it is useless for 
+reloading.  If the system is accidentally run before 
+being saved, start again with a fresh copy and remake the patches.
+.le
+The time to make patches is after the monitor has been loaded but before it has 
+been run.  In order 
+to patch a monitor, it is necessary to have a copy of EXEC 
+mode DDT loaded with the monitor.  If your 
+saved version of the monitor does not 
+contain DDT, repeat the MONGEN dialogue answering YES to the 
+following questions.
+.b1
+LOAD EDDT?
+.b1
+LOCAL SYMBOLS?
+.b1
+Both are necessary for patching the monitor, it is 
+possible to patch 
+ without local symbols, but it is not 
+recommended.  Distributed patches 
+will assume local symbols.
+.b1
+The patches themselves are given in the format of 
+DDT terminal dialog.  The locations are renamed by 
+their names.  If you do not have local symbols
+loaded, you should refer to your monitor storage map and listing to 
+translate local symbols to global symbols and literals. 
+The first command in each group is the command to 
+unlock the local symbol table in the named routine.
+.b1
+At the end of the monitor is a space of about 300 (octal) locations that is reserved for monitor patches.  This patch buffer begins at global 
+location PAT.  To insert a patch within a monitor 
+routine, write the patch beginning at location PAT.  The last 
+instruction in the patch should be a jump 
+back to the monitor.
+.end list
+The following is an example of making a patch.
+In the routine BAH, change the code as shown below.
+.b1
+.literal
+BAH2:	JFCL	TO:	BAH2:	JFCL
+	HRRS 0,0		ADDI 0,0
+	FMPR 1,1		HRRS 0,0
+				FMPR 1,1
+
+.end literal
+In DDT, you would give the command
+listed below:
+.b1
+.literal
+	BAH$:	which unlocks the local symbols in BAH
+
+.end literal
+Then, you would type:
+.literal
+
+	BAH2+1/		which opens and types out the contents 
+			of BAH2+1
+
+.end literal
+The system then types:
+.literal
+
+	(TAB) HRRS 0,0 (TAB)
+.end literal
+You would then type:
+.literal
+
+	JRST  PAT(TAB)		The tab closes the 
+				location BAH2+1 that is now
+				modified and opens location 
+				PAT.
+
+.end literal
+The system then types:
+.literal
+
+	PAT/(TAB)0(TAB)
+
+.end literal
+You then insert the following:
+.literal
+
+	ADDI 0,0(LINE FEED)	The line feed closes the 
+				location and opens the next 
+				location.
+
+The system then outputs:
+
+	PAT+1/(TAB)0(TAB)
+
+You then insert the following:
+
+	HRRS 0,0 (LINE FEED)
+
+The system then outputs:
+
+	PAT+2/(TAB)0(TAB)
+
+You then type:
+
+	JRST BAH2+2\
+
+The system then types:
+
+	(TAB) FMPR 1,1	You can verify this is the 
+			correct return point.
+
+Then, you insert:
+
+	(LINE FEED)
+
+The system outputs:
+
+	PAT +3/(TAB)9(TAB)
+
+You insert:
+
+	PAT:	(CR)	This redefines the current location 
+			with the global symbol PAT.
+.end literal
+.literal
+The entire dialog would look like the following.
+
+	BAH$:	BAH@+1/	HRRS	0,0		JRST PAT
+	PAT/	0	ADDI	0,0
+	PAT+1/	0	HRRS 	0,0
+	PAT+2/	0	JRST	BAH2+2\		FMPR 1,1
+	PAT+3	0	PAT:
+
+.end literal
+This last step is important.  The global patch always points to the 
+beginning of the patch area.  After each patch is made, 
+the first unused location should be 
+renamed to PAT.  This is necessary to determine 
+where successive patches should 
+begin.
+
+.b1
+PAT should be redefined to the next free location as the last step in making 
+any patch.  By this 
+procedure, the next person to patch the monitor 
+will be able to find the patching space.
+.b1
+This informs the monitor where the current end of 
+the patch is.  A common error is to forget this 
+step, which will cause the monitor to loop when 
+started up instead of running the null job.  This is 
+because the monitor will have created copies of 
+multiple device data blocks on top of your patch. 
+In addition, the global locations CONFIG and SYSDAT 
+should be updated to identify the new monitor 
+version and the date of the update.
+.b1
+.literal
+EX:	CONFIG$7T/	603A	"/603AA/
+.end literal
+.b1
+$7T is a command to print the contents of the 
+preceding address as a 7-bit ASCII character.
+
+" means insert the ASCII text following the / 
+in the current open location terminating 
+the text with the second /.
+.b1
+.literal
+Also,	SYSDAT$7T/	12-27	"/12-31/
+
+	PATSIZ/MOVEI	T1,PATCH+1-	MOVEI	T1,PAT
+	SYSSIZ/PATCH+10	PAT
+
+.end literal
+This also completes the patching process.  At 
+this point, the monitor is ready to run.  It should not be 
+started, however, until a copy with the patches is saved on the 
+disk for future reloading.
+.page
+.center
+^&APPENDIX\&
+.b1
+.center
+^&SOME USEFUL MONITOR PATCHES\&
+.subtitle USEFUL MONITOR PATCHES
+.b3
+Note that these examples are not specifications 
+and are subject to change without notice. 
+They are included here for 
+informational purposes only.
+.b1
+^&PART 1 - CHANGING YOUR CONFIGURATION\&
+.b1
+.list
+.le
+If you have created your monitor for more disk units 
+than you have at present, you can 
+eliminate the questions about them (RPAx OFFLINE), by 
+patching the core data blocks.  Suppose you built your monitor for 5
+disk packs, (RPA0,...,RPA4), but RPA3 and RPA4 are down or are not present. 
+Open the previous core block (e.g., RPA2CB) and terminate the 
+chain there.
+.b1
+.literal
+RBA2CB+UNISYS$H/	RPA3CB,,0	0<CR>
+
+.end literal
+If you have five disk packs (e.g., RPA0,...,RPA4) and RPA2 and RPA3 
+are down, you can make RPA1CB point to RPA4 by typing:
+.literal
+
+RPA1CB+UNISYS$H/	RPA2CB,,0	RPA4CB,,0 <CR>
+
+.end literal
+.le
+If you want to change the number (increase or 
+decrease)  of multiple devices (TTY, PTY, DTA, 
+MTA) you can patch the table INTTAB in COMMON. 
+Consult the listing of COMMON to find the word 
+pair that corresponds to one of the multiple 
+devices.  Change bits 1 through 8 to the 
+appropriate number.
+.b1
+To change the number of DTAs from 10 to 5 (octal), type the 
+following:
+.literal
+
+INTTAB+14$H/	410004,,DTAINT	405004,,DTAINT
+
+.end literal
+.end list
+^&PART 2 - MONITOR DEBUGGING PATCHES\&
+.b2
+.list
+.le
+To change the amount of core checked for 
+being on-line, type the following:
+.literal
+
+PATNWC/CAIL U,XYZ  CAIL U,NEW
+
+.end literal
+where XYZ is the old amount of words, and NEW is 
+the new amount.
+.le
+For rapid exec mode debugging, you can automatically 
+LOGIN under m,n without having to go through LOGIN.  To do this, 
+patch the global location REFLAG to be the project-programmer number.
+.literal
+
+S603A/L
+/401
+/G
+REFLAG[0  10,,1]
+400$G
+
+.end literal
+
+This procedure will log you in under [10,1] after typing date and 
+time.  When REFLAG is nonzero, 
+INITIA is not run so this also reduces the 
+time to get a job initialized, 
+especially on the CTY.
+.le
+To change the amount of core reserved for programs 
+under DEBUG mode, type the following:
+
+.literal
+
+DBGMNU/MOVEI  T1,MINMAX  MOVEI  T1,NEW
+
+.end literal
+where NEW is the minimum amount of core  to save.  Symbols are discarded 
+to guarantee this amount, if necessary.
+.le
+To change the number of monitor buffers, patch location 
+MBFNUM to the 
+correct value, which must be at least 2.
+.literal
+
+MBFNUM/2  6<CR> 
+
+.end literal
+The above changes the number of monitor buffers to six.
+.le
+Note that KI10 and KL10 monitors have two segments.  After 
+starting at EDDT, the high segment, which contains most of the 
+monitor's code, is not addressable (the mapping has not been 
+setup yet.) To examine the monitor with 
+ EDDT,  insert a breakpoint at the label HIGHIN.  When 
+EDDT hits this breakpoint, the monitor can be examined.  For example, load 
+the monitor with BOOTS by typing:
+.literal
+
+	S603A/L
+
+.end literal
+Then, specify EDDT's starting address and start EDDT by typing:
+.literal
+
+	/401
+
+.end literal
+EDDT will type:
+.literal
+
+	EDDT
+
+.end literal
+Then, you type the following:
+.literal
+
+	HIGHIN$B
+
+.end literal
+Then, start the monitor for debugging or at its normal 
+start address by typing:
+.literal
+
+	DEBUG$G
+
+.end literal
+or
+.literal
+	400$G
+
+.end literal
+EDDT will type the following:
+.literal
+
+	$1B>>HIGHIN
+
+.end literal
+At this point, all of the monitor has been 
+made addressable and can be examined 
+symbolically.
+.le
+To debug and avoid INITIA completely, perform the 
+following.  After reaching the breakpoint at HIGHIN, type the 
+following:
+.literal
+
+Set TTFCXI+TTFCOM (in SCNSER) to 0:
+TTFCXI+TTFCOM! 0
+
+.end literal
+This is automatically done by DEBUG.
+.le
+On KL10-based systems, it may, under certain circumstances, be desirable 
+to run the monitor with KLDCP rather than RSX20F as the front-end. 
+It starts up the so-called "primary communications protocol" 
+that KLDCP does not understand.  To disable this, the 
+following patch should be made to the monitor:
+.literal
+
+PPCPAT/ PUSHJ P,STMPPC   JFCL
+
+.end literal
+Note that if the monitor is patched, in this 
+fashion, it will 
+still work with RSX20F; but, RSX will not automatically 
+try to cause the monitor 
+to reload itself when it detects that the 
+KL10 has stopped.  Also, the front-end 
+device will not be available.
+.end list

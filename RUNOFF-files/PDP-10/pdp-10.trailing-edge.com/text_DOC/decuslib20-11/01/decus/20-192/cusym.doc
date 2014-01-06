@@ -1,0 +1,648 @@
+
+
+
+7.3 CUsym MACSYM Augmentation Macros
+
+    The CUsym macros and documentation were written by George L. Lotridge
+    of Digital Equipment Corporation (while he was assigned to Columbia
+    University as a resident software specialist) and Chris Ryland of
+    Columbia.
+
+CUsym contains a whole set of symbol and macro definitions to augment MONSYM
+and MACSYM.  Included are the standard register definitions, macros for
+interfacing to the UUO package (which supports standard I/O, simple uses of
+the COMND Jsys, etc.), and generally any macro which has been found to be
+useful and which is missing from MONSYM and MACSYM (a working knowledge of
+which is assumed).
+
+    NOTE:  you should have a good feel for the contents of MACSYM (6)
+    document and the Macro coding standards document (8) before using this
+    package.
+
+A word about naming conventions:  all names in this module are of the form
+%symbol; this will hopefully sidestep any name conflicts with a SEARCHing
+program.  DEC has reserved names with % and .  in them, but their use of % is
+restricted to other than the first char- acter, so we're safe.  (Actually, a
+few of our Useful Symbols, below, use a "." as their first character, which is
+also DEC-reserved, but they're simple and few enough to cause no problems.)
+Also, a few of the 'hidden' symbols used herein (e.g., the stack, or global
+symbols in the support package) begin with "%%".
+
+
+
+7.3.1 Accumulator Support
+
+Accumulator (register) definitions (conform to the DEC coding standard) These
+must be used exclusively, unless specifically redefined at the start of a
+module with the %DefAC macro (see below).
+
+p=:17                           ; Stack pointer
+cx=:16                          ; Call/Return temporary
+.sac=:16                        ; CU/MacSym utility reg
+f=:0                            ; Flag register (preserved)
+t1=:1                           ; General temp and Jsys registers:
+t2=:2                           ;  never preserved
+t3=:3                           ;  ...
+t4=:4                           ;
+q1=:5                           ; First set of preserved regs
+q2=:6                           ;  (must be preserved by callee
+q3=:7                           ;   across a call)
+p1=:10                          ; Second set of preserved regs
+p2=:11                          ;  (ditto)
+p3=:12                          ;
+p4=:13                          ;
+p5=:14                          ;
+p6=:15                          ; NB: not useable with TrVar MacSym facility
+.fp=:15                         ; Frame pointer for TrVar facility
+                                     150
+
+
+7.3.2 %DefAC
+
+Define an alternate name for one of the registers; this macro should egisters
+are re-defined, and the new definition should be made in terms of one of the
+definitions above.  This macro purges the old name, thus preventing multiple
+names for one register.
+
+    define %defac(new, old)
+
+
+
+7.3.3 Useful Symbols
+
+.prjfn=<.priin,, .priou>        ; Symbol for usual primary JFN pair
+.null==0                        ; General nothing value
+.nil==0                         ; General nothing pointer
+.True==1                        ; General boolean truth value
+.False==0                       ;  and its complement
+
+
+; Lengths of various Jsys control blocks; ommitted from MONSYM, sadly.
+
+.acln                           ; Length of ACCES arg block
+.ckln                           ; Length of CHKAC arg block
+.cmln                           ; Length of Command State Block
+.cmfln                          ; Length of Function Descriptor Block
+.cdln                           ; Length of CRDIR arg block
+.cjln                           ; Length of CRJOB arg block
+.jiln                           ; Length of GETJI arg block
+.gjln                           ; Length of (long form) GTJFN arg block
+.ipln                           ; Length of ipcf packet descriptor block
+.rsln                           ; Length of SFTAD arg block
+.rdln                           ; Length of TEXTI arg block
+
+
+
+7.3.4 UUO Package OPDEFs and Interface Symbols
+
+%uprin                          ; Print UUO
+%comnd                          ; COMND interface UUO
+%ucmin                          ; COMND initializer UUO
+%cmgfg                          ; Get COMND flags UUO
+%cmgab                          ; Get COMND atom buffer UUO
+%nuuo                           ; Add-new-UUO UUO
+%cmres                          ; COMND reset UUO
+%prPush                         ; JFN-stack push (%print package) UUO
+%prPop                          ; JFN-stack pop (ditto) UUO
+
+; length of COMND interface UUO atom buffer:
+
+%atmbl==^d250/5+1               ; in words
+
+        extern %csb             ; command state block, for you hackers
+                                     151
+
+
+7.3.5 Setup Environment Macros
+
+
+
+7.3.5.1 %setEnv
+
+%SetEnv is a macro that must be used as the first thing after your Title and
+Search CUsym statements; it sets up the CUsym, MonSym, and MacSym environments
+properly.  Its use is envisioned as:
+
+        title Baz - tweak the frob's runtime
+        search CUsym                    ; (No MAC: needed!)
+        %setenv                         ; Set up our environment
+         ...
+
+
+
+7.3.5.2 %setUp
+
+%SetUp is a macro that you should use as the first executable action in your
+program; it Resets the execution environment, sets up a stack, clears the flag
+register F, sets up for UUO calls, sets up for COMND parsing (resetting) (and
+starts off your code in %Pure mode).
+
+
+
+7.3.6 Storage Declaration Macros
+
+%Pure, %Impure, %Routine
+
+Use these macros to declare what sort of storage follows them:  either %pure
+code (or read-only data) or %impure data (read-write).  Thus, before beginning
+a new logical section of code or data, always use one of them to declare what
+follows (if you don't use them, you may be surprised!).  It goes without
+saying that %Pure should precede all code (which is NEVER impure).  Using this
+pair of macros is a good way of keeping impure data, which belongs to a
+routine, physically (on the written page, that is) together with the routine.
+
+The alias %routine for %pure exists for purely mnemonic purposes; its use is
+suggested, as in:
+
+                %routine
+        openit: stkvar  <fee,<foo,,5>>
+
+
+
+7.3.7 General-Purpose Macros
+
+
+
+7.3.7.1 %Stack
+
+This macro creates the stack area, and loads P with the stack pointer.  Its
+argument, the stack height, is optional, and defaults reasonably.
+                                     152
+
+
+7.3.7.2 %Version
+
+This macro builds a standard DEC version word from its arguments.  In order,
+its arguments are the major version, the edit number, the minor version, and
+the customer version.  Omitted fields default to zero.
+
+
+
+7.3.7.3 %Clear
+
+This macro takes three args, two of which are optional.  The first,
+non-optional, argument is the starting address of the area to be cleared.  The
+next is the number of locations to clear, which defaults to one.  The last
+argument is the desired filler, which defaults to zero.
+
+
+
+7.3.8 Macros Used for Common Primary I/O
+
+Note that since these macros use %print, that any string argument shouldn't
+include `%'s, or things may get very confusing.  Also note that %typnum's
+first argument, the address of the number, must conform to the %print argument
+standard (q.v.).
+
+
+
+7.3.8.1 %typeCR(string)
+
+Types the given literal string at your terminal, followed by a carriage return
+(CR).
+
+Example:
+
+    %typeCR <And your little dog, too!>
+
+
+
+7.3.8.2 %crType(string)
+
+Like %typeCR, but types the CR before, instead of after, the string.
+
+    To type a literal string with no CR, either before or after, use the
+    MACSYM macro TMSG.
+
+
+
+7.3.8.3 %typNum(num,cols,rdx)
+
+Types the number in location 'num' at your terminal.  The two trailing
+arguments are optional.
+
+cols            Field width in which to print the number.  Default is 0,
+                i.e. use only as many character positions as are necessary to
+                type the number.
+
+rdx             Radix in which to type the number.  Default is 10 (decimal).
+                                     153
+
+
+7.3.8.4 %crlf
+
+Types a carriage-return/linefeed sequence at your terminal.
+
+
+
+7.3.8.5 %tab
+
+Types a horizontal tab at your terminal.
+
+
+
+7.3.9 JSYS Support Macros
+
+
+
+7.3.9.1 %jsErr
+
+Macro to be used after a Jsys that either returns +1 on error or always
+returns +1 (i.e., all but two of the Jsysi); %JSerr types the user's error
+message (if given) or the Jsys error that caused it to be invoked (if no
+message is given); it then either halts (if no address is supplied) or goes to
+the address (if given).
+
+    Note:  this is similar to the MacSym macro JSERR, but it only works
+    after a Jsys, since it is invoked by an erjmp; %JSerr has the
+    advantage, though, that it ALWAYS works after a Jsys, which JSERR
+    doesn't.
+
+Note also that both %Jserr and %ErMsg, if they halt and are continued, will
+simply return to the point after the invocation of the %Jserr or %ErMsg.
+
+Both of these macros, since they use %print, can produce customized error
+messages (eg, %jsErr <CUsym:  Bad command %s [%e]>,,<ptrToS> will print an
+error-synchronized message, with a string argument and the monitor error
+message in brackets, and then halt).
+
+
+
+7.3.9.2 %erMsg
+
+This macro, which, in contrast to %JSerr, is designed to be used in a non-Jsys
+skip context, will print a message (if given) or the last fork error (if not
+given); finally, it either jumps to an address (if given), or halts (if not
+given).  See %Jserr comments for more info.
+
+
+
+7.3.10 Local Label Support Macros
+
+The intent of this set of macros is to provide a facility usually available in
+good assemblers (hint, hint):  local labels.  The idea, due to Knuth, is that
+instead of agonizing over choosing a label for each little local motion within
+some code, you simply plant one of nine local labels, of the form %N, and
+refer to the next local label %N by %NF, and the previous local label %N by
+%NB - a simple example of all this is:
+                                     154
+
+
+        some:   stkvar <from,to>
+                txne t1,gj%old          ; Does he want an old file?
+                jrst %1f                ; Yes, go handle it
+                txz t1,gj%fou           ; No, reset this
+                setom from              ;  and set 'from' flag
+        %1      call foo                ; Continue with processing
+                 jrst %1b               ; Failed: try it again
+                ...                     ;  etc etc
+
+These macros (internally) use symbols of the form %n% and %n%m, where n ranges
+from 1 to 9, and m from 0 to 777, so be wary.
+
+
+
+7.3.10.1 %Cat(a,b)
+
+Useful macro that just returns its two arguments (as text strings),
+concatenated.
+
+
+
+7.3.11 COMND JSYS Support Macros
+
+
+
+7.3.11.1 %Ptr(string)
+
+Build a standard 7-bit ASCIZ pointer to a literal string.
+
+
+
+7.3.11.2 %table and %tbEnd
+
+%table is used to start a keyword table definition; %tbEnd ends a keyword
+table definition.  Suggested use is as in the following example, which also
+illustrates %key.
+
+cmtb:   %table                          ; Keywords for frotz program
+        %key Mumble,domum,cm%inv        ;  mumble command (invisible)
+        %key Noodle,donood              ;  noodle command
+        %key Zork,dungeo                ;  invoke dungeon command
+        %tbend                          ; End of this keyword table
+
+
+
+7.3.11.3 %key(name, data, flags)
+
+This macro takes three arguments:  an (alphanumerics only!) name, the data to
+be associated with the name, and an (optional) flag value.  It creates either
+a flag-less keyword (the normal case), or, if flags are given, a keyword with
+flags in the first word (and cm%fw set).  Thus, the result is a TBLUK table
+entry, suitable for use by the .CMkey COMND Jsys function.  Note that all %Key
+words in a table must be bracketted by %table and %TbEnd macros (see above).
+                                     155
+
+
+7.3.11.4 %Flddb (typ, flgs, data, hlpm, defm, lst)
+
+This macro is useful for building function descriptor blocks that don't
+contain just literal strings for the help and default components; otherwise,
+it's the same as the MONSYM flddb.  macro.
+
+
+
+7.3.11.5 %Handlr(p,e), %PrsAdr, %EvlAdr
+
+Macros to support structured parse/evaluation; %Handlr builds a structure
+comprised of the parse routine address (p) and evaluation routine address (e),
+for a given keyword (it should be in a literal in the %Key macro); %prsAdr and
+%evlAdr are the DEFSTR structures for accessing these two elements of a
+structure, respectively.
+
+An example of all this:
+
+          :
+        %cmkey comtab, <command,> ; Get a top-level keyword
+         %merrep restart, repars; Usual error handling
+        hrrz t2, (t2)           ; Pick up data value from keyword
+        load t2, %evladr, (t2)  ; Get evaluation routine
+        movem t2, evaler        ; Save its address
+        load t2, %prsadr, (t2)  ; Now, get parse routine
+        call (t2)               ; And call it
+         %jmerrep restart, repars, restart ; Handle errors
+          :                     ; Continue
+
+; Pure data for main parse
+
+        %table                  ; Main command table
+        %key bletch, [%handlr(bletcm, doblet)] ; Bletch mode
+        %key mumble, [%handlr(mumbcm, domumbl)] ; Mumble mode
+        %tbend
+          :
+
+
+
+7.3.11.6 %CMxxx Macros to Invoke .CMxxx COMND Functions
+
+See the CUUOS document (7.1) for information about using these.  They are
+listed here for convenience:
+
+   - %cmIni (prompt, flags, ioJfn, gjfBlk):  Initialize parse.
+
+   - %cmKey (keyTab, help, defalt, flags):  Parse a keyword.
+
+   - %cmNum (radx, help, defalt, flags):  Parse a number.
+
+   - %cmNoi (guide-word):  Parse guide words.
+
+   - %cmSwi (swTab, help, defalt, flags):  Parse a switch.
+
+   - %cmIfi (help, defalt, flags):  Parse an input filespec.
+
+   - %cmOfi (help, defalt, flags):  Parse an output filespec.
+                                     156
+
+   - %cmFil (help, defalt, flags):  Parse a general filespec.
+
+   - cmFld (help, defalt, flags):  Parse a "field".
+
+   - %cmCfm (help, flags):  Get confirmation (CR).
+
+   - %cmDir (data, help, defalt, flags):  Parse a directory name.
+
+   - %cmUsr (help, defalt, flags):  Parse a user name.
+
+   - %cmCma (help, flags):  Parse a comma.
+
+   - %cmFlt (help, defalt, flags):  Parse a floating-point number.
+
+   - %cmDev (help, defalt, flags):  Parse a device name.
+
+   - %cmTxt (help, defalt, flags):  Parse a text string.
+
+   - %cmTad (tadBlk, help, defalt, flags):  Parse time and date.  Note
+     that the Time-and-Date flags belong to the first argument, since
+     they're part of the data to the function.
+
+   - %cmQst (help, defalt, flags):  Parse a quoted string.
+
+   - %cmUqs (brkTab, help, defalt, flags):  Parse an unquoted string.
+
+   - %cmTok (token, help, defalt, flags):  Parse a token.  The token as
+     given should be a string in double quotes, as in %cmtok "*"; if you
+     need some other form, use the %comnd UUO bare.
+
+   - %cmNux (radix, help, defalt, flags):  Parse a number.
+
+   - %cmAct (help, defalt, flags):  Parse an account string.
+
+   - %cmNod (help, defalt, flags):  Parse a network node name.
+
+
+
+7.3.12 Macros to Handle COMND Errors
+
+
+
+7.3.12.1 %pret
+
+For use in secondary parsing subroutines.  Handle a parse error or reparse by
+just returning non-skip.
+
+
+
+7.3.12.2 %errep errlab, replab
+
+For use in top-level command parser.  Handle an error by going to errlab, and
+a reparse by going to replab.
+                                     157
+
+
+7.3.12.3 %merrep errlab, replab
+
+For use in top-level command parser.  Handle an error by giving an error
+message and going to errlab, and a reparse by going to replab.
+
+
+
+7.3.12.4 Macros for Fail-Return from Parsing Routines
+
+These macros help with error- and reparse-handling after a parse subroutine
+call (which is expected to return skip on success, and non-skip on failure);
+three sorts of errors can be expected from such subroutines:  parse error,
+reparse needed, other type of failure (usually a semantic problem).  Thus,
+these macros have three dispatch addresses, corresponding to these three
+errors.  Note that the method used here assumes that if neither the parse
+error or reparse flags are set in the command state block, then the error is
+of type `other'.
+
+
+
+7.3.12.5 %jerrep errlab, replab, othrlb
+
+Handle a skip-return error condition as described above.
+
+
+
+7.3.12.6 %jmerrep errlab, replab, othrlb
+
+Handle a skip-return error condition as described above, printing an error
+message on a parse error.
+
+    Note!  t1 is clobbered by %errep, %merrep, %jerrep, %jmerrep.
+
+
+
+7.3.13 Flag-Handling Macros
+
+All of the following flag-handling macros use register F, the preserved flag
+register.  F is assumed to be the flag register for any program that uses
+these macros.  Note that %SetUp clears F, thus initializing flag management.
+
+
+
+7.3.13.1 %Flags(aFlg,bFlg,cFlg,...)
+
+This macro takes a list of flag names, and assigns a flag value to each name
+(within a 36-bit word).  It can be used more than once, but no more than 36
+flags can be defined.
+
+
+
+7.3.13.2 %trnOn & %trnOff
+
+These macros take a flag quantity (one or more flags ORed together), and turn
+them on or off, respectively (with no skipping).
+                                     158
+
+
+7.3.13.3 %TrOnS & %TrOfS
+
+Like %TrnOn and %TrnOff, but skip always afterwards.
+
+
+
+7.3.13.4 %SkpOn & %SkpOff
+
+These macros take a flag quantity, and will skip if ALL the flags are on or
+off, respectively.
+
+
+
+7.3.13.5 %AnyOn & %AnyOff
+
+These macros take a flag quantity, and will skip if ANY of the flags are on or
+off, respectively.
+
+
+
+7.3.14 CUuos (CUCCA Utility UUOs) Interface
+
+
+
+7.3.14.1 %print, %prSkp
+
+Formatted-print macros:  output the arguments according to the format string.
+%PrSkp returns skipping (+2 instead of +1, but handling a following
+erjmp/ercal properly).  See 7.1 for details.
+
+A note about arguments:  the argument list is really nothing more than a
+sequence of addresses, so if you choose to use addressing forms such as
+address(index), be sure and use the <z address(index)> form so that macro will
+be happy with the address.  The same applies to address forms such as
+<z @(t1)>, etc.
+                                     159
+
+                                    Index
+
+
+
+
+          %clear   152
+          %erMsg   153
+          %jsErr   153
+          %setEnv   151
+          %setUp   151
+
+          Accumulator   149
+
+          COMND   149, 154
+
+          Error Message   153
+
+          Failure Return   157
+          Flag   157
+
+          JSERR   153
+
+          Keyword   154
+
+          Local Label   153
+
+          MACSYM   149
+          MONSYM   149
+
+          Number   152
+
+          Program Version Number   152
+
+          SEARCH   149
+          Stack   151
+          Symbol   150
+
+          TMSG   152
+
+          UUO   150
+                                      i
+
+                              Table of Contents
+
+7.3 CUsym MACSYM Augmentation Macros                                       149
+     7.3.1 Accumulator Support                                             149
+     7.3.2 %DefAC                                                          150
+     7.3.3 Useful Symbols                                                  150
+     7.3.4 UUO Package OPDEFs and Interface Symbols                        150
+     7.3.5 Setup Environment Macros                                        151
+          7.3.5.1 %setEnv                                                  151
+          7.3.5.2 %setUp                                                   151
+     7.3.6 Storage Declaration Macros                                      151
+     7.3.7 General-Purpose Macros                                          151
+          7.3.7.1 %Stack                                                   151
+          7.3.7.2 %Version                                                 152
+          7.3.7.3 %Clear                                                   152
+     7.3.8 Macros Used for Common Primary I/O                              152
+          7.3.8.1 %typeCR(string)                                          152
+          7.3.8.2 %crType(string)                                          152
+          7.3.8.3 %typNum(num,cols,rdx)                                    152
+          7.3.8.4 %crlf                                                    153
+          7.3.8.5 %tab                                                     153
+     7.3.9 JSYS Support Macros                                             153
+          7.3.9.1 %jsErr                                                   153
+          7.3.9.2 %erMsg                                                   153
+     7.3.10 Local Label Support Macros                                     153
+          7.3.10.1 %Cat(a,b)                                               154
+     7.3.11 COMND JSYS Support Macros                                      154
+          7.3.11.1 %Ptr(string)                                            154
+          7.3.11.2 %table and %tbEnd                                       154
+          7.3.11.3 %key(name, data, flags)                                 154
+          7.3.11.4 %Flddb (typ, flgs, data, hlpm, defm, lst)               155
+          7.3.11.5 %Handlr(p,e), %PrsAdr, %EvlAdr                          155
+          7.3.11.6 %CMxxx Macros to Invoke .CMxxx COMND Functions          155
+     7.3.12 Macros to Handle COMND Errors                                  156
+          7.3.12.1 %pret                                                   156
+          7.3.12.2 %errep errlab, replab                                   156
+          7.3.12.3 %merrep errlab, replab                                  157
+          7.3.12.4 Macros for Fail-Return from Parsing Routines            157
+          7.3.12.5 %jerrep errlab, replab, othrlb                          157
+          7.3.12.6 %jmerrep errlab, replab, othrlb                         157
+     7.3.13 Flag-Handling Macros                                           157
+          7.3.13.1 %Flags(aFlg,bFlg,cFlg,...)                              157
+          7.3.13.2 %trnOn & %trnOff                                        157
+          7.3.13.3 %TrOnS & %TrOfS                                         158
+          7.3.13.4 %SkpOn & %SkpOff                                        158
+          7.3.13.5 %AnyOn & %AnyOff                                        158
+     7.3.14 CUuos (CUCCA Utility UUOs) Interface                           158
+          7.3.14.1 %print, %prSkp                                          158
+
+Index                                                                      159
